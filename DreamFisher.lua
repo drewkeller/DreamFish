@@ -17,6 +17,7 @@ local defaults = {
 
 local savedAutoLoot = nil
 local isFishing = false
+local isBobberActive = false
 local fishingStartTime = 0
 local lastBagWarning = 0
 local lastAlertTime = 0
@@ -26,6 +27,7 @@ local doubleClickWindow = 0.25
 local fishingSecureFrame = nil
 local fishingTrackerFrame = nil
 local originalAutoLootState = nil
+local fishingStateFrame = nil
 
 local function CopyDefaults(source, target)
     for k, v in pairs(source) do
@@ -93,6 +95,49 @@ local function CreateTrackerFrame()
     return fishingTrackerFrame
 end
 
+local function CreateFishingStateFrame()
+    if fishingStateFrame then
+        return fishingStateFrame
+    end
+
+    fishingStateFrame = CreateFrame("Frame")
+    fishingStateFrame:RegisterEvent("UNIT_SPELLCAST_START")
+    fishingStateFrame:RegisterEvent("UNIT_SPELLCAST_STOP")
+    fishingStateFrame:RegisterEvent("UNIT_SPELLCAST_CHANNEL_STOP")
+    fishingStateFrame:RegisterEvent("PLAYER_REGEN_DISABLED")
+
+    fishingStateFrame:SetScript("OnEvent", function(self, event, unit, ...)
+        if unit ~= "player" then
+            return
+        end
+
+        if event == "UNIT_SPELLCAST_START" then
+            local spellName = select(1, UnitCastingInfo("player"))
+            if spellName == "Fishing" then
+                isFishing = true
+                isBobberActive = false
+                fishingStartTime = GetTime()
+                EnableTemporaryAutoLoot()
+            end
+        elseif event == "UNIT_SPELLCAST_STOP" or event == "UNIT_SPELLCAST_CHANNEL_STOP" then
+            local spellName = select(1, UnitChannelInfo("player"))
+            if spellName == "Fishing" then
+                isFishing = false
+                isBobberActive = true
+            end
+        elseif event == "PLAYER_REGEN_DISABLED" then
+            -- Cancel fishing if combat starts
+            if isFishing then
+                isFishing = false
+                isBobberActive = false
+                RestoreOriginalAutoLoot()
+            end
+        end
+    end)
+
+    return fishingStateFrame
+end
+
 local function EnableTemporaryAutoLoot()
     if addon.db and addon.db.autoLoot then
         local current = GetCVar("autoLootDefault")
@@ -111,13 +156,17 @@ local function RestoreOriginalAutoLoot()
 end
 
 local function HandleWorldRightClick()
+    -- Only allow double-click fishing if not already fishing
+    if isFishing or InCombatLockdown() then
+        return
+    end
+
     local now = GetTime()
 
     if now - lastRightClickTime < doubleClickWindow then
         lastRightClickTime = 0
-
+        -- Double-click detected, initiate fishing
         EnableTemporaryAutoLoot()
-
         if not InCombatLockdown() then
             SetOverrideBindingClick(fishingSecureFrame, true, "BUTTON2", fishingSecureFrame:GetName())
         end
@@ -126,6 +175,21 @@ local function HandleWorldRightClick()
         if not InCombatLockdown() then
             ClearOverrideBindings(fishingSecureFrame)
         end
+    end
+end
+
+local function AttemptBobberInteraction()
+    -- Click the bobber when it becomes active
+    if not isBobberActive or isFishing then
+        return
+    end
+
+    -- Look for the fishing bobber frame
+    -- In WoW, the bobber is created as a frame when a cast is successful
+    local bobber = _G["FishingLineIkonTooltip"]
+    if bobber then
+        bobber:Click()
+        isBobberActive = false
     end
 end
 
@@ -265,266 +329,146 @@ end
 
 function addon:CreateConfigPanel()
     if addon.configFrame then
-        return
+        return addon.configFrame
     end
 
-    local panel = CreateFrame("Frame", addonName .. "ConfigFrame", UIParent)
-    panel.name = addonName
-    panel:SetSize(420, 380)
+    -- 1. Main Container Frame
+    local panel = CreateFrame("Frame", addonName .. "ConfigFrame", UIParent, "BackdropTemplate")
+    panel:SetSize(420, 400)
     panel:SetPoint("CENTER")
+    panel:SetMovable(true)
+    panel:EnableMouse(true)
+    panel:RegisterForDrag("LeftButton")
+    panel:SetScript("OnDragStart", panel.StartMoving)
+    panel:SetScript("OnDragStop", panel.StopMovingOrSizing)
     panel:Hide()
 
-    panel.title = panel:CreateFontString(nil, "OVERLAY", "GameFontNormalLarge")
-    panel.title:SetPoint("TOPLEFT", 16, -16)
-    panel.title:SetText(addonName)
+    -- Aesthetic Frame Styling (Makes it visible)
+    panel:SetBackdrop({
+        bgFile = "Interface\\ChatFrame\\ChatFrameBackground",
+        edgeFile = "Interface\\DialogFrame\\UI-DialogBox-Border",
+        tile = true, tileSize = 32, edgeSize = 32,
+        insets = { left = 8, right = 8, top = 8, bottom = 8 }
+    })
+    panel:SetBackdropColor(0, 0, 0, 0.85)
 
-    local function CreateCheckbox(x, y, label, key)
+    addon.configFrame = panel
+
+    -- 2. Title Text
+    panel.title = panel:CreateFontString(nil, "OVERLAY", "GameFontNormalLarge")
+    panel.title:SetPoint("TOPLEFT", 20, -20)
+    panel.title:SetText(addonName .. " Settings")
+
+    -- 3. Close Button
+    local closeBtn = CreateFrame("Button", nil, panel, "UIPanelCloseButton")
+    closeBtn:SetPoint("TOPRIGHT", -8, -8)
+
+    -- 4. Checkbox Helper
+    local function CreateCheckbox(x, y, label)
         local cb = CreateFrame("CheckButton", nil, panel, "UICheckButtonTemplate")
         cb:SetPoint("TOPLEFT", x, y)
         cb.Text:SetText(label)
-        cb:SetScript("OnClick", function()
-            addon.db[key] = cb:GetChecked()
-        end)
+        cb.Text:SetTextColor(1, 1, 1, 1)
         return cb
     end
 
-    addon.autoLootCheckbox = CreateCheckbox(20, -50, "Enable temporary auto-loot", "autoLoot")
-    addon.enhancedSoundsCheckbox = CreateCheckbox(20, -85, "Enable enhanced fishing sounds", "enhancedSounds")
-    addon.treasureAlertsCheckbox = CreateCheckbox(20, -120, "Enable treasure alerts", "treasureAlerts")
+    -- 5. Input Box Helper
+    local function CreateEditBox(x, y, width, label)
+        local lbl = panel:CreateFontString(nil, "OVERLAY", "GameFontNormal")
+        lbl:SetPoint("TOPLEFT", x, y)
+        lbl:SetText(label)
 
-    local refreshLabel = panel:CreateFontString(nil, "OVERLAY", "GameFontNormal")
-    refreshLabel:SetPoint("TOPLEFT", 20, -165)
-    refreshLabel:SetText("Buff refresh time (seconds):")
-
-    addon.refreshBox = CreateFrame("EditBox", nil, panel, "InputBoxTemplate")
-    addon.refreshBox:SetSize(90, 24)
-    addon.refreshBox:SetPoint("TOPLEFT", 220, -160)
-    addon.refreshBox:SetAutoFocus(false)
-    addon.refreshBox:SetScript("OnEnterPressed", function()
-        addon:SaveConfig()
-    end)
-
-    local bagLabel = panel:CreateFontString(nil, "OVERLAY", "GameFontNormal")
-    bagLabel:SetPoint("TOPLEFT", 20, -210)
-    bagLabel:SetText("Low bag warning threshold:")
-
-    addon.lowBagBox = CreateFrame("EditBox", nil, panel, "InputBoxTemplate")
-    addon.lowBagBox:SetSize(90, 24)
-    addon.lowBagBox:SetPoint("TOPLEFT", 220, -205)
-    addon.lowBagBox:SetAutoFocus(false)
-    addon.lowBagBox:SetScript("OnEnterPressed", function()
-        addon:SaveConfig()
-    end)
-
-    local item1Label = panel:CreateFontString(nil, "OVERLAY", "GameFontNormal")
-    item1Label:SetPoint("TOPLEFT", 20, -255)
-    item1Label:SetText("Buff item 1:")
-
-    local item2Label = panel:CreateFontString(nil, "OVERLAY", "GameFontNormal")
-    item2Label:SetPoint("TOPLEFT", 20, -315)
-    item2Label:SetText("Buff item 2:")
-
-    local function CreateItemBox(x, y)
-        local box = CreateFrame("EditBox", nil, panel, "InputBoxTemplate")
-        box:SetSize(140, 24)
-        box:SetPoint("TOPLEFT", x, y)
-        box:SetAutoFocus(false)
-        box:SetScript("OnEnterPressed", function()
-            addon:SaveConfig()
-        end)
-        return box
+        local eb = CreateFrame("EditBox", nil, panel, "InputBoxTemplate")
+        eb:SetSize(width, 20)
+        eb:SetPoint("TOPLEFT", x, y - 15)
+        eb:SetAutoFocus(false)
+        return eb
     end
 
-    addon.buffItem1Box = CreateItemBox(220, -250)
-    addon.buffItem2Box = CreateItemBox(220, -310)
+    -- Instantiate UI elements
+    addon.autoLootCheckbox = CreateCheckbox(20, -50, "Enable Temporary Auto-Loot")
+    addon.enhancedSoundsCheckbox = CreateCheckbox(20, -85, "Enhanced Audio Alerts")
+    addon.treasureAlertsCheckbox = CreateCheckbox(20, -120, "Treasure / Node Notifications")
 
-    local closeButton = CreateFrame("Button", nil, panel, "UIPanelButtonTemplate")
-    closeButton:SetSize(120, 24)
-    closeButton:SetPoint("BOTTOMRIGHT", -16, 16)
-    closeButton:SetText("Close")
-    closeButton:SetScript("OnClick", function()
-        panel:Hide()
-    end)
+    addon.buffItem1Box = CreateEditBox(20, -170, 100, "Buff Item ID 1:")
+    addon.buffItem2Box = CreateEditBox(140, -170, 100, "Buff Item ID 2:")
 
-    local saveButton = CreateFrame("Button", nil, panel, "UIPanelButtonTemplate")
-    saveButton:SetSize(120, 24)
-    saveButton:SetPoint("BOTTOMLEFT", 16, 16)
-    saveButton:SetText("Save")
-    saveButton:SetScript("OnClick", function()
+    addon.refreshBox = CreateEditBox(20, -220, 100, "Refresh Frequency (s):")
+    addon.lowBagBox = CreateEditBox(20, -270, 100, "Low Bag Threshold:")
+
+    -- 6. Save Button
+    local saveBtn = CreateFrame("Button", nil, panel, "UIPanelButtonTemplate")
+    saveBtn:SetSize(120, 25)
+    saveBtn:SetPoint("BOTTOMRIGHT", -20, 20)
+    saveBtn:SetText("Save & Close")
+    saveBtn:SetScript("OnClick", function()
         addon:SaveConfig()
+        panel:Hide()
+        PrintMessage("Configuration Saved.")
     end)
 
     panel:SetScript("OnShow", function()
         UpdateConfigUI()
     end)
 
-    if Settings and Settings.RegisterCanvasLayoutCategory then
-        local category = Settings.RegisterCanvasLayoutCategory(panel, addonName)
-        Settings.RegisterAddOnCategory(category)
-        addon.configFrame = category
-    elseif InterfaceOptions_AddCategory then
-        InterfaceOptions_AddCategory(panel)
-        addon.configFrame = panel
+    return panel
+end
+
+function addon:ToggleUI()
+    local panel = addon.configFrame or addon:CreateConfigPanel()
+    if panel:IsShown() then
+        panel:Hide()
     else
-        addon.configFrame = panel
+        UpdateConfigUI()
+        panel:Show()
     end
 end
-
-function addon:TryRefreshBuffItems()
-    if not addon.db or not isFishing then
-        return
-    end
-
-    local now = GetTime()
-    if now - fishingStartTime < (addon.db.refreshSeconds or defaults.refreshSeconds) then
-        return
-    end
-
-    for _, itemID in ipairs({addon.db.buffItem1, addon.db.buffItem2}) do
-        if itemID then
-            local bag, slot = FindItemInBags(itemID)
-            if bag and slot then
-                UseContainerItem(bag, slot)
-                fishingStartTime = now
-                return
-            end
-        end
-    end
-end
-
-function addon:OpenConfigPanel()
-    if not addon.configFrame then
-        addon:CreateConfigPanel()
-    end
-
-    if addon.configFrame and addon.configFrame.Show then
-        addon.configFrame:Show()
-    end
-end
-
-function addon:OnEvent(event, ...)
-    if event == "ADDON_LOADED" then
-        local name = ...
-        if name ~= addonName then
-            return
-        end
-
-        if not DreamFisherDB then
-            DreamFisherDB = {}
-        end
-        addon.db = DreamFisherDB
-        CopyDefaults(defaults, addon.db)
-        addon:CreateConfigPanel()
-        CreateSecureFishingFrame()
-        CreateTrackerFrame()
-        if WorldFrame then
-            WorldFrame:HookScript("OnMouseDown", function(_, button)
-                if button == "RightButton" then
-                    HandleWorldRightClick()
-                end
-            end)
-        end
-        PrintMessage("Ready")
-
-    elseif event == "PLAYER_LOGIN" then
-        CreateSecureFishingFrame()
-        CreateTrackerFrame()
-
-    elseif event == "PLAYER_REGEN_DISABLED" then
-        if fishingSecureFrame and not InCombatLockdown() then
-            ClearOverrideBindings(fishingSecureFrame)
-        end
-
-    elseif event == "PLAYER_REGEN_ENABLED" then
-        if fishingSecureFrame and not InCombatLockdown() then
-            ClearOverrideBindings(fishingSecureFrame)
-        end
-
-    elseif event == "UNIT_SPELLCAST_START" or event == "UNIT_SPELLCAST_CHANNEL_START" then
-        local unit, spell = ...
-        if unit == "player" and spell == "Fishing" then
-            isFishing = true
-            fishingStartTime = GetTime()
-        end
-
-    elseif event == "UNIT_SPELLCAST_STOP" or event == "UNIT_SPELLCAST_FAILED" or event == "UNIT_SPELLCAST_INTERRUPTED" or event == "UNIT_SPELLCAST_CHANNEL_STOP" then
-        local unit, spell = ...
-        if unit == "player" and spell == "Fishing" then
-            -- Keep isFishing true until the loot window has fully closed.
-            -- This avoids losing the auto-loot state before LOOT_OPENED runs.
-        end
-
-    elseif event == "LOOT_READY" then
-        print("LOOT_READY event detected")
-        RestoreOriginalAutoLoot()
-
-        if addon.db and addon.db.enhancedSounds and isFishing then
-            PlayFishingSound()
-        end
-
-        if addon.db and addon.db.treasureAlerts and isFishing then
-            local count = GetNumLootItems()
-            for i = 1, count do
-                local _, itemName = GetLootSlotInfo(i)
-                if itemName and IsTreasureItem(itemName) then
-                    if GetTime() - lastAlertTime > 3 then
-                        lastAlertTime = GetTime()
-                        PrintMessage("Treasure caught: " .. itemName)
-                        if type(PlaySound) == "function" and SOUNDKIT and SOUNDKIT.QUEST_COMPLETED then
-                            PlaySound(SOUNDKIT.QUEST_COMPLETED)
-                        end
-                    end
-                    break
-                end
-            end
-        end
-
-    elseif event == "LOOT_CLOSED" then
-        RestoreOriginalAutoLoot()
-        isFishing = false
-
-    elseif event == "BAG_UPDATE" then
-        local freeSlots = GetFreeBagSlots()
-        if addon.db and addon.db.lowBagThreshold and freeSlots <= addon.db.lowBagThreshold and GetTime() - lastBagWarning > 30 then
-            lastBagWarning = GetTime()
-            PrintMessage("Low bag space: " .. freeSlots .. " free slot(s)")
-        end
-
-    elseif event == "UPDATE_MOUSEOVER_UNIT" then
-        addon:TryRefreshBuffItems()
-    end
-end
-
-function addon:OnUpdate(elapsed)
-    if isFishing then
-        addon:TryRefreshBuffItems()
-    end
-end
-
-frame:SetScript("OnEvent", function(self, event, ...)
-    addon:OnEvent(event, ...)
-end)
-frame:SetScript("OnUpdate", function(self, elapsed)
-    addon:OnUpdate(elapsed)
-end)
 
 frame:RegisterEvent("ADDON_LOADED")
-frame:RegisterEvent("PLAYER_LOGIN")
-frame:RegisterEvent("PLAYER_REGEN_DISABLED")
-frame:RegisterEvent("PLAYER_REGEN_ENABLED")
-frame:RegisterEvent("UNIT_SPELLCAST_START")
-frame:RegisterEvent("UNIT_SPELLCAST_CHANNEL_START")
-frame:RegisterEvent("UNIT_SPELLCAST_STOP")
-frame:RegisterEvent("UNIT_SPELLCAST_FAILED")
-frame:RegisterEvent("UNIT_SPELLCAST_INTERRUPTED")
-frame:RegisterEvent("UNIT_SPELLCAST_CHANNEL_STOP")
-frame:RegisterEvent("LOOT_OPENED")
-frame:RegisterEvent("LOOT_CLOSED")
-frame:RegisterEvent("BAG_UPDATE")
-frame:RegisterEvent("UPDATE_MOUSEOVER_UNIT")
+frame:SetScript("OnEvent", function(self, event, name)
+    if event ~= "ADDON_LOADED" or name ~= addonName then
+        return
+    end
 
-SLASH_DREAMFISHER1 = "/dreamfisher"
-SLASH_DREAMFISHER2 = "/df"
-SlashCmdList["DREAMFISHER"] = function()
-    addon:OpenConfigPanel()
+    _G[addonName .. "DB"] = _G[addonName .. "DB"] or {}
+    addon.db = _G[addonName .. "DB"]
+    CopyDefaults(defaults, addon.db)
+
+    CreateSecureFishingFrame()
+    CreateTrackerFrame()
+    CreateFishingStateFrame()
+
+    SLASH_DREAMFISHER1 = "/df"
+    SLASH_DREAMFISHER2 = "/dreamfisher"
+    SlashCmdList["DREAMFISHER"] = function()
+        addon:ToggleUI()
+    end
+
+    PrintMessage("Loaded! Type /df to configure.")
+    self:UnregisterEvent("ADDON_LOADED")
+end)
+
+if WorldFrame then
+    WorldFrame:HookScript("OnMouseDown", function(_, button)
+        if button == "RightButton" and not InCombatLockdown() then
+            HandleWorldRightClick()
+        end
+    end)
 end
+
+local lootTracker = CreateFrame("Frame")
+lootTracker:RegisterEvent("LOOT_READY")
+lootTracker:RegisterEvent("LOOT_CLOSED")
+lootTracker:SetScript("OnEvent", function(_, event)
+    if event == "LOOT_READY" then
+        -- Loot opened while fishing
+        if isBobberActive then
+            isBobberActive = false
+            isFishing = false
+        end
+    elseif event == "LOOT_CLOSED" then
+        RestoreOriginalAutoLoot()
+        isBobberActive = false
+    end
+end)
+
