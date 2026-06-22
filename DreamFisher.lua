@@ -118,12 +118,18 @@ local function CreateFishingStateFrame()
                 isBobberActive = false
                 fishingStartTime = GetTime()
                 EnableTemporaryAutoLoot()
+                -- Start periodic bag space monitoring
+                fishingStateFrame:SetScript("OnUpdate", function()
+                    CheckBagSpace()
+                end)
             end
         elseif event == "UNIT_SPELLCAST_STOP" or event == "UNIT_SPELLCAST_CHANNEL_STOP" then
             local spellName = select(1, UnitChannelInfo("player"))
             if spellName == "Fishing" then
                 isFishing = false
                 isBobberActive = true
+                -- Stop bag monitoring when fishing ends
+                fishingStateFrame:SetScript("OnUpdate", nil)
             end
         elseif event == "PLAYER_REGEN_DISABLED" then
             -- Cancel fishing if combat starts
@@ -131,6 +137,8 @@ local function CreateFishingStateFrame()
                 isFishing = false
                 isBobberActive = false
                 RestoreOriginalAutoLoot()
+                -- Stop bag monitoring
+                fishingStateFrame:SetScript("OnUpdate", nil)
             end
         end
     end)
@@ -216,10 +224,22 @@ end
 local function GetFreeBagSlots()
     local free = 0
     local bagCount = NUM_BAG_SLOTS or 4
+    -- Check main bags (0 is backpack, 1-4 are other bags)
     for bag = 0, bagCount do
         local slots = ContainerNumSlots(bag)
-        for slot = 1, slots do
-            if not ContainerItemID(bag, slot) then
+        if slots and slots > 0 then
+            for slot = 1, slots do
+                if not ContainerItemID(bag, slot) then
+                    free = free + 1
+                end
+            end
+        end
+    end
+    -- Check reagent bag (bag index 5 in retail WoW)
+    local reagentSlots = ContainerNumSlots(5)
+    if reagentSlots and reagentSlots > 0 then
+        for slot = 1, reagentSlots do
+            if not ContainerItemID(5, slot) then
                 free = free + 1
             end
         end
@@ -261,6 +281,25 @@ local function IsTreasureItem(name)
     end
     local lower = string.lower(name)
     return lower:find("treasure") or lower:find("chest") or lower:find("cache") or lower:find("satchel") or lower:find("strongbox")
+end
+
+local function CheckBagSpace()
+    -- Alert if bag space falls below the configured threshold
+    if not addon.db then
+        return
+    end
+
+    local threshold = addon.db.lowBagThreshold or defaults.lowBagThreshold
+    local free = GetFreeBagSlots()
+
+    if free <= threshold then
+        local now = GetTime()
+        -- Only alert once per 10 seconds to avoid spam
+        if now - lastBagWarning >= 10 then
+            lastBagWarning = now
+            PrintMessage("Low bag space! " .. free .. " slot(s) remaining (threshold: " .. threshold .. ").")
+        end
+    end
 end
 
 local function PlayFishingSound()
@@ -459,6 +498,7 @@ end
 local lootTracker = CreateFrame("Frame")
 lootTracker:RegisterEvent("LOOT_READY")
 lootTracker:RegisterEvent("LOOT_CLOSED")
+lootTracker:RegisterEvent("BAG_UPDATE")
 lootTracker:SetScript("OnEvent", function(_, event)
     if event == "LOOT_READY" then
         -- Loot opened while fishing
@@ -469,6 +509,20 @@ lootTracker:SetScript("OnEvent", function(_, event)
     elseif event == "LOOT_CLOSED" then
         RestoreOriginalAutoLoot()
         isBobberActive = false
+        -- Reset bag warning cooldown when loot is closed (bag space may have changed)
+        lastBagWarning = 0
+    elseif event == "BAG_UPDATE" then
+        -- Check bag space immediately when inventory changes
+        if isFishing then
+            CheckBagSpace()
+        end
     end
+end)
+
+local bagMonitor = CreateFrame("Frame")
+bagMonitor:RegisterEvent("PLAYER_ENTERING_WORLD")
+bagMonitor:RegisterEvent("BAG_UPDATE_DELAYED")
+bagMonitor:SetScript("OnEvent", function()
+    CheckBagSpace()
 end)
 
