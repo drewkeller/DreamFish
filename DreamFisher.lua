@@ -163,6 +163,17 @@ local function RestoreOriginalAutoLoot()
     end
 end
 
+-- Minimal test hooks for local unit tests with mocked WoW APIs.
+addon._test = addon._test or {}
+addon._test.EnableTemporaryAutoLoot = EnableTemporaryAutoLoot
+addon._test.RestoreOriginalAutoLoot = RestoreOriginalAutoLoot
+addon._test.SetDB = function(db)
+    addon.db = db
+end
+addon._test.ResetAutoLootState = function()
+    savedAutoLoot = nil
+end
+
 local function HandleWorldRightClick()
     -- Only allow double-click fishing if not already fishing
     if isFishing or InCombatLockdown() then
@@ -300,6 +311,12 @@ local function CheckBagSpace()
             PrintMessage("Low bag space! " .. free .. " slot(s) remaining (threshold: " .. threshold .. ").")
         end
     end
+end
+
+addon._test.GetFreeBagSlots = GetFreeBagSlots
+addon._test.CheckBagSpace = CheckBagSpace
+addon._test.ResetBagWarningState = function()
+    lastBagWarning = 0
 end
 
 local function PlayFishingSound()
