@@ -29,6 +29,7 @@ local doubleClickWindow = 0.25
 local fishingStartGraceUntil = 0
 local fishingExpireSeconds = 35
 local patientlyRewardedSpellID = 1235378
+local fishingSpellName = (GetSpellInfo and GetSpellInfo(131474)) or "Fishing"
 local fishingSecureFrame = nil
 local fishingTrackerFrame = nil
 local originalAutoLootState = nil
@@ -239,6 +240,20 @@ local function HasPatientlyRewardedAura()
     return false
 end
 
+local function IsFishingSpellByName()
+    local castName = UnitCastingInfo and UnitCastingInfo("player")
+    if castName and (castName == fishingSpellName or castName == "Fishing") then
+        return true
+    end
+
+    local channelName = UnitChannelInfo and UnitChannelInfo("player")
+    if channelName and (channelName == fishingSpellName or channelName == "Fishing") then
+        return true
+    end
+
+    return false
+end
+
 local function CreateSecureFishingFrame()
     if fishingSecureFrame then
         return fishingSecureFrame
@@ -311,7 +326,7 @@ local function CreateFishingStateFrame()
         -- Use spellID from event args for reliable detection (3rd arg after event, unit).
         -- UnitCastingInfo can return nil at the exact moment the event fires.
         local _, spellID = ...
-        local isFishingSpell = (spellID == fishingSpellID)
+        local isFishingSpell = (spellID == fishingSpellID) or IsFishingSpellByName()
 
         if event == "UNIT_SPELLCAST_START" or event == "UNIT_SPELLCAST_CHANNEL_START" then
             if isFishingSpell then
