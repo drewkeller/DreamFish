@@ -162,7 +162,7 @@ function config.CreateConfigPanel()
     closeBtn:SetPoint("TOPRIGHT", -8, -8)
 
     -- 4. Checkbox Helper
-    local function CreateCheckbox(x, y, label)
+    local function CreateCheckbox(x, y, label, onLiveChange)
         local cb = CreateFrame("CheckButton", nil, panel, "UICheckButtonTemplate")
         cb:SetPoint("TOPLEFT", x, y)
         cb.Text:SetText(label)
@@ -173,7 +173,7 @@ function config.CreateConfigPanel()
         return cb
     end
 
-    -- 5. Input Box Helper
+    -- 4. Input Box Helper
     local function CreateEditBox(x, y, width, label, onLiveChange)
         local lbl = panel:CreateFontString(nil, "OVERLAY", "GameFontNormal")
         lbl:SetPoint("TOPLEFT", x, y)
@@ -522,15 +522,6 @@ function config.CreateConfigPanel()
     addon.refreshBox = CreateEditBox(20, -540, 100, "Default Refresh (s):", SaveLive)
     addon.lowBagBox = CreateEditBox(20, -590, 100, "Low Bag Threshold:", SaveLive)
     addon.audioLingerBox = CreateEditBox(20, -640, 100, "Audio Linger After Catch (s):", SaveLive)
-
-    -- 5. Close Button
-    local saveBtn = CreateFrame("Button", nil, panel, "UIPanelButtonTemplate")
-    saveBtn:SetSize(120, 25)
-    saveBtn:SetPoint("BOTTOMRIGHT", -20, 20)
-    saveBtn:SetText("Close")
-    saveBtn:SetScript("OnClick", function()
-        panel:Hide()
-    end)
 
     panel:SetScript("OnShow", function()
         UpdateConfigUI()
