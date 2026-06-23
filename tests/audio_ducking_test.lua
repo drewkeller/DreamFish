@@ -221,10 +221,10 @@ end
 addon.lowBagBox.GetText = function()
     return "2"
 end
-addon.buffItem1Box.GetText = function()
+addon.buffItemControls[1].itemBox.GetText = function()
     return ""
 end
-addon.buffItem2Box.GetText = function()
+addon.buffItemControls[2].itemBox.GetText = function()
     return ""
 end
 addon:SaveConfig()

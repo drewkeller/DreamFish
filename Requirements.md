@@ -8,9 +8,16 @@ Name the addon "DreamFisher".
 * Right double click to cast
 * Click bobber to loot
 * Auto-loot while fishing. Restore previous auto-loot setting when done fishing.
-* Enhance fishing sounds
+* Enhance the sound of catching a fish
 * Suppress sounds of catches from other players
-* Automatically throw in items that provide fishing buffs, such as Hollow Grouper fish for a skill buff or Root Crabs which for a perception buff, in order to keep the buff active.
+* Automatically use items that provide fishing buffs, such as Hollow Grouper fish for a skill buff or Root Crabs which for a perception buff, in order to keep the buff active.
+    - Per-item buff duration tracking from real aura data:
+        When a buff item is used, the addon snapshots helpful auras and watches UNIT_AURA.
+        If a new/refreshed aura is detected, it stores item -> aura spell mapping and observed duration.
+        Future refresh checks use actual remaining aura time when available; otherwise they fall back to that item’s configured refresh seconds.
+    - Runtime refresh behavior while fishing:
+        Fishing OnUpdate runs buff refresh checks on a throttle.
+        Uses one item at a time, tracks last use per item, and avoids casting conflicts.
 
 ## Future Core Features
 * Provide an alert when a treasure chest is caught
@@ -22,7 +29,7 @@ Name the addon "DreamFisher".
 # UI Features
 The addon provies an interface window with the following features.
 * Checkbox to enable the temporary autoloot feature (enabled by default)
-* Checkbox to enable enhanced fishing sounds (enabled by default)
+* Checkbox to enable enhanced "fish hooked" sound (enabled by default)
 * Checkbox to enable treasure chest alert (enabled by default)
 * Two boxes (24x24 pixels) for setting buff items. They are set by dragging and dropping an item from the bag.
 * An entry box for each buff item to set a time (seconds) to throw the item in the water and refresh the buff (don't need this if the buff time can be determined from the item)
