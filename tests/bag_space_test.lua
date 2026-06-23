@@ -124,7 +124,7 @@ setBagState(
 assertEquals(addon._test.GetFreeBagSlots(), 2, "Should count free slots across normal and reagent bags")
 
 -- Case 2: Warning fires at threshold and is throttled for 10 seconds.
-addon._test.SetDB({ lowBagThreshold = 2 })
+addon._test.SetDB({ lowBagThreshold = 2, bagAlerts = true })
 addon._test.ResetBagWarningState()
 clearMessages()
 now = 100
@@ -151,7 +151,7 @@ setBagState(
         [5] = { [1] = nil, [2] = nil },
     }
 )
-addon._test.SetDB({ lowBagThreshold = 1 })
+addon._test.SetDB({ lowBagThreshold = 1, bagAlerts = true })
 addon._test.ResetBagWarningState()
 clearMessages()
 now = 200

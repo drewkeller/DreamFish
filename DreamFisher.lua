@@ -9,6 +9,7 @@ local defaults = {
     autoLoot = true,
     enhancedSounds = true,
     treasureAlerts = true,
+    bagAlerts = true,
     buffItem1 = nil,
     buffItem2 = nil,
     refreshSeconds = 180,
@@ -37,6 +38,7 @@ local audioLingerGeneration = 0
 local audioRestoreFrame = nil
 local audioRestoreAt = nil
 local treasureAlertFrame = nil
+local bagFullAlertFrame = nil
 local patientAuraActive = false
 local fishingSpellID = 131474
 local fishingLootInProgress = false
@@ -163,6 +165,66 @@ local function ShowPatientTreasureAlert(subtext, force)
             end)
         elseif accent then
             PlaySound(accent, "Master")
+        end
+    end
+end
+
+local function CreateBagFullAlertFrame()
+    if bagFullAlertFrame then
+        return bagFullAlertFrame
+    end
+
+    local alert = CreateFrame("Frame", addonName .. "BagFullAlertFrame", UIParent, "BackdropTemplate")
+    alert:SetAllPoints(UIParent)
+    alert:SetFrameStrata("FULLSCREEN_DIALOG")
+    alert:EnableMouse(false)
+    alert:Hide()
+
+    alert:SetBackdrop({
+        bgFile = "Interface\\Buttons\\WHITE8X8",
+        edgeFile = "Interface\\Tooltips\\UI-Tooltip-Border",
+        tile = false,
+        edgeSize = 28,
+        insets = { left = 8, right = 8, top = 8, bottom = 8 },
+    })
+    alert:SetBackdropColor(0.08, 0.08, 0.08, 0.88)
+    alert:SetBackdropBorderColor(0.72, 0.72, 0.72, 1)
+
+    alert.title = alert:CreateFontString(nil, "OVERLAY", "GameFontHighlightHuge")
+    alert.title:SetPoint("CENTER", 0, 6)
+    alert.title:SetTextColor(0.95, 0.95, 0.95, 1)
+
+    alert.subtext = alert:CreateFontString(nil, "OVERLAY", "GameFontNormalLarge")
+    alert.subtext:SetPoint("TOP", alert.title, "BOTTOM", 0, -10)
+    alert.subtext:SetTextColor(0.86, 0.86, 0.86, 1)
+
+    bagFullAlertFrame = alert
+    return bagFullAlertFrame
+end
+
+local function ShowBagFullAlert(force)
+    if not force and (not addon.db or not addon.db.bagAlerts) then
+        return
+    end
+
+    local alert = CreateBagFullAlertFrame()
+    alert.title:SetText("Bags Full")
+    alert.subtext:SetText("No free bag slots remaining")
+    alert:Show()
+
+    alert.timeLeft = 2.2
+    alert:SetScript("OnUpdate", function(self, elapsed)
+        self.timeLeft = self.timeLeft - elapsed
+        if self.timeLeft <= 0 then
+            self:SetScript("OnUpdate", nil)
+            self:Hide()
+        end
+    end)
+
+    if type(PlaySound) == "function" and SOUNDKIT then
+        local cue = SOUNDKIT.UI_EPICLOOT_TOAST or SOUNDKIT.UI_RaidBossEmoteWarning
+        if cue then
+            PlaySound(cue, "Master")
         end
     end
 end
@@ -612,7 +674,7 @@ end
 
 CheckBagSpace = function()
     -- Alert if bag space falls below the configured threshold
-    if not addon.db then
+    if not addon.db or not addon.db.bagAlerts then
         return
     end
 
@@ -662,6 +724,9 @@ local function UpdateConfigUI()
     if addon.treasureAlertsCheckbox then
         addon.treasureAlertsCheckbox:SetChecked(addon.db.treasureAlerts)
     end
+    if addon.bagAlertsCheckbox then
+        addon.bagAlertsCheckbox:SetChecked(addon.db.bagAlerts)
+    end
     if addon.refreshBox then
         addon.refreshBox:SetText(tostring(addon.db.refreshSeconds or defaults.refreshSeconds))
     end
@@ -690,6 +755,7 @@ function addon:SaveConfig()
     addon.db.autoLoot = addon.autoLootCheckbox:GetChecked()
     addon.db.enhancedSounds = addon.enhancedSoundsCheckbox:GetChecked()
     addon.db.treasureAlerts = addon.treasureAlertsCheckbox:GetChecked()
+    addon.db.bagAlerts = addon.bagAlertsCheckbox:GetChecked()
 
     if addon.buffItem1Box then
         local item1 = tonumber(addon.buffItem1Box:GetText())
@@ -710,7 +776,7 @@ function addon:CreateConfigPanel()
 
     -- 1. Main Container Frame
     local panel = CreateFrame("Frame", addonName .. "ConfigFrame", UIParent, "BackdropTemplate")
-    panel:SetSize(420, 440)
+    panel:SetSize(420, 480)
     panel:SetPoint("CENTER")
     panel:SetMovable(true)
     panel:EnableMouse(true)
@@ -764,14 +830,15 @@ function addon:CreateConfigPanel()
     -- Instantiate UI elements
     addon.autoLootCheckbox = CreateCheckbox(20, -50, "Enable Temporary Auto-Loot")
     addon.enhancedSoundsCheckbox = CreateCheckbox(20, -85, "Enhanced Audio Alerts")
-    addon.treasureAlertsCheckbox = CreateCheckbox(20, -120, "Treasure / Node Notifications")
+    addon.treasureAlertsCheckbox = CreateCheckbox(20, -120, "Patient Treasure Notification")
+    addon.bagAlertsCheckbox = CreateCheckbox(20, -155, "Bag Monitor / Alert")
 
-    addon.buffItem1Box = CreateEditBox(20, -170, 100, "Buff Item ID 1:")
-    addon.buffItem2Box = CreateEditBox(140, -170, 100, "Buff Item ID 2:")
+    addon.buffItem1Box = CreateEditBox(20, -205, 100, "Buff Item ID 1:")
+    addon.buffItem2Box = CreateEditBox(140, -205, 100, "Buff Item ID 2:")
 
-    addon.refreshBox = CreateEditBox(20, -220, 100, "Refresh Frequency (s):")
-    addon.lowBagBox = CreateEditBox(20, -270, 100, "Low Bag Threshold:")
-    addon.audioLingerBox = CreateEditBox(20, -315, 100, "Audio Linger After Catch (s):")
+    addon.refreshBox = CreateEditBox(20, -255, 100, "Refresh Frequency (s):")
+    addon.lowBagBox = CreateEditBox(20, -305, 100, "Low Bag Threshold:")
+    addon.audioLingerBox = CreateEditBox(20, -350, 100, "Audio Linger After Catch (s):")
 
     -- 6. Save Button
     local saveBtn = CreateFrame("Button", nil, panel, "UIPanelButtonTemplate")
@@ -824,6 +891,11 @@ frame:SetScript("OnEvent", function(self, event, name)
             PrintMessage("Triggered Patient Treasure alert test.")
             return
         end
+        if command == "testbagsfull" or command == "tbf" then
+            ShowBagFullAlert(true)
+            PrintMessage("Triggered bags full alert test.")
+            return
+        end
         if command == "testsound" or command == "ts" then
             ShowPatientTreasureAlert("Audio Test", true)
             PrintMessage("Triggered treasure alert audio test.")
@@ -868,7 +940,7 @@ frame:SetScript("OnEvent", function(self, event, name)
         addon:ToggleUI()
     end
 
-    PrintMessage("Loaded! Type /df to configure. Commands: testtreasure (tt), testsound (ts), testaudio (ta), audiostate (as), restoreaudio (ra).")
+    PrintMessage("Loaded! Type /df to configure. Commands: testtreasure (tt), testbagsfull (tbf), testsound (ts), testaudio (ta), audiostate (as), restoreaudio (ra).")
     self:UnregisterEvent("ADDON_LOADED")
 end)
 
@@ -898,6 +970,9 @@ lootTracker:SetScript("OnEvent", function(_, event)
         if fishingLootInProgress then
             fishingLootInProgress = false
             RestoreFishingAudioFocusAfterLinger()
+            if GetFreeBagSlots() == 0 then
+                ShowBagFullAlert()
+            end
         end
         isBobberActive = false
         lastBagWarning = 0
