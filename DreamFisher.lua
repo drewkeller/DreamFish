@@ -372,25 +372,39 @@ local function CreateFishingStateFrame()
             end
         elseif event == "UNIT_SPELLCAST_STOP" or event == "UNIT_SPELLCAST_CHANNEL_STOP" then
             if (isFishingSpell and isFishing) or (savedFishingAudioCVars ~= nil and isFishing) then
-                -- Cast bar ended; bobber is now in water. Keep fishing active.
-                isFishing = true
-                isBobberActive = true
-                -- Audio stays low until loot closes + linger expires
-                fishingStateFrame:SetScript("OnUpdate", function()
-                    CheckBagSpace()
-                    if isBobberActive and savedFishingAudioCVars ~= nil and fishingStartTime > 0 and (GetTime() - fishingStartTime) > fishingExpireSeconds then
-                        -- Cast expired with no loot/cancel event; restore immediately.
-                        isFishing = false
-                        isBobberActive = false
-                        fishingLootInProgress = false
-                        audioRestoreAt = nil
-                        if audioRestoreFrame then
-                            audioRestoreFrame:Hide()
+                local linger = (addon.db and addon.db.audioFocusLinger) or defaults.audioFocusLinger
+                local elapsed = (fishingStartTime > 0) and (GetTime() - fishingStartTime) or 0
+                if linger <= 0 then
+                    -- When linger is disabled, the spell bar ending is the restore point.
+                    isFishing = false
+                    isBobberActive = false
+                    fishingLootInProgress = false
+                    RestoreFishingAudioFocus()
+                    fishingStateFrame:SetScript("OnUpdate", nil)
+                elseif elapsed >= fishingExpireSeconds and not fishingLootInProgress then
+                    -- The fishing channel timed out; use the configured linger, or restore immediately when linger is zero.
+                    isFishing = false
+                    isBobberActive = false
+                    fishingLootInProgress = false
+                    RestoreFishingAudioFocusAfterLinger()
+                    fishingStateFrame:SetScript("OnUpdate", nil)
+                else
+                    -- Cast bar ended; bobber is now in water. Keep fishing active.
+                    isFishing = true
+                    isBobberActive = true
+                    -- Audio stays low until loot closes + linger expires
+                    fishingStateFrame:SetScript("OnUpdate", function()
+                        CheckBagSpace()
+                        if isBobberActive and savedFishingAudioCVars ~= nil and fishingStartTime > 0 and (GetTime() - fishingStartTime) > fishingExpireSeconds then
+                            -- Cast expired with no loot/cancel event; use the configured linger before restoring.
+                            isFishing = false
+                            isBobberActive = false
+                            fishingLootInProgress = false
+                            RestoreFishingAudioFocusAfterLinger()
+                            fishingStateFrame:SetScript("OnUpdate", nil)
                         end
-                        RestoreFishingAudioFocus()
-                        fishingStateFrame:SetScript("OnUpdate", nil)
-                    end
-                end)
+                    end)
+                end
             end
         elseif event == "UNIT_SPELLCAST_INTERRUPTED" or event == "UNIT_SPELLCAST_FAILED" or event == "UNIT_SPELLCAST_FAILED_QUIET" then
             if (isFishingSpell and savedFishingAudioCVars ~= nil) or (savedFishingAudioCVars ~= nil and isFishing) then
@@ -553,6 +567,32 @@ end
 addon._test.ResetAutoLootState = function()
     savedAutoLoot = nil
 end
+addon._test.EnableFishingAudioFocus = function(force)
+    EnableFishingAudioFocus(force)
+end
+addon._test.RestoreFishingAudioFocus = function()
+    RestoreFishingAudioFocus()
+end
+addon._test.RestoreFishingAudioFocusAfterLinger = function()
+    RestoreFishingAudioFocusAfterLinger()
+end
+addon._test.GetAudioDucked = function()
+    return savedFishingAudioCVars ~= nil
+end
+addon._test.GetAudioRestoreAt = function()
+    return audioRestoreAt
+end
+addon._test.SetFishingFlags = function(fishing, bobber, loot)
+    isFishing = fishing and true or false
+    isBobberActive = bobber and true or false
+    fishingLootInProgress = loot and true or false
+end
+addon._test.GetFishingFlags = function()
+    return isFishing, isBobberActive, fishingLootInProgress
+end
+addon._test.GetFishingStateFrame = function()
+    return fishingStateFrame
+end
 
 local function HandleWorldRightClick()
     -- Allow recast unless blocked by combat; internal fishing state can lag
@@ -588,6 +628,10 @@ local function HandleWorldRightClick()
             ClearOverrideBindings(fishingSecureFrame)
         end
     end
+end
+
+addon._test.HandleWorldRightClick = function()
+    HandleWorldRightClick()
 end
 
 local function AttemptBobberInteraction()
@@ -779,6 +823,10 @@ function addon:SaveConfig()
     if addon.buffItem2Box then
         local item2 = tonumber(addon.buffItem2Box:GetText())
         addon.db.buffItem2 = item2 or nil
+    end
+
+    if savedFishingAudioCVars ~= nil and audioRestoreAt ~= nil then
+        RestoreFishingAudioFocusAfterLinger()
     end
 
     UpdateConfigUI()
