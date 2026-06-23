@@ -13,6 +13,7 @@ local defaults = {
     buffItem2 = nil,
     refreshSeconds = 180,
     lowBagThreshold = 2,
+    audioFocusLinger = 10,
 }
 
 local savedAutoLoot = nil
@@ -24,13 +25,21 @@ local lastAlertTime = 0
 local lastRightClickTime = 0
 local lastSoundTime = 0
 local doubleClickWindow = 0.25
+local fishingStartGraceUntil = 0
+local fishingExpireSeconds = 35
 local patientlyRewardedSpellID = 1235378
 local fishingSecureFrame = nil
 local fishingTrackerFrame = nil
 local originalAutoLootState = nil
 local fishingStateFrame = nil
+local savedFishingAudioCVars = nil
+local audioLingerGeneration = 0
+local audioRestoreFrame = nil
+local audioRestoreAt = nil
 local treasureAlertFrame = nil
 local patientAuraActive = false
+local fishingSpellID = 131474
+local fishingLootInProgress = false
 
 local function CopyDefaults(source, target)
     for k, v in pairs(source) do
@@ -207,6 +216,15 @@ local function CreateTrackerFrame()
     return fishingTrackerFrame
 end
 
+-- Forward declarations so closures inside CreateFishingStateFrame can
+-- reference functions that are defined later in the file.
+local EnableTemporaryAutoLoot
+local RestoreOriginalAutoLoot
+local EnableFishingAudioFocus
+local RestoreFishingAudioFocus
+local RestoreFishingAudioFocusAfterLinger
+local CheckBagSpace
+
 local function CreateFishingStateFrame()
     if fishingStateFrame then
         return fishingStateFrame
@@ -214,42 +232,126 @@ local function CreateFishingStateFrame()
 
     fishingStateFrame = CreateFrame("Frame")
     fishingStateFrame:RegisterEvent("UNIT_SPELLCAST_START")
+    fishingStateFrame:RegisterEvent("UNIT_SPELLCAST_CHANNEL_START")
     fishingStateFrame:RegisterEvent("UNIT_SPELLCAST_STOP")
     fishingStateFrame:RegisterEvent("UNIT_SPELLCAST_CHANNEL_STOP")
+    fishingStateFrame:RegisterEvent("UNIT_SPELLCAST_INTERRUPTED")
+    fishingStateFrame:RegisterEvent("UNIT_SPELLCAST_FAILED")
+    fishingStateFrame:RegisterEvent("UNIT_SPELLCAST_FAILED_QUIET")
+    fishingStateFrame:RegisterEvent("PLAYER_STARTED_MOVING")
     fishingStateFrame:RegisterEvent("PLAYER_REGEN_DISABLED")
 
     fishingStateFrame:SetScript("OnEvent", function(self, event, unit, ...)
-        if unit ~= "player" then
+        if event ~= "PLAYER_REGEN_DISABLED" and event ~= "PLAYER_STARTED_MOVING" and unit ~= "player" then
             return
         end
 
-        if event == "UNIT_SPELLCAST_START" then
-            local spellName = select(1, UnitCastingInfo("player"))
-            if spellName == "Fishing" then
+        -- Use spellID from event args for reliable detection (3rd arg after event, unit).
+        -- UnitCastingInfo can return nil at the exact moment the event fires.
+        local _, spellID = ...
+        local isFishingSpell = (spellID == fishingSpellID)
+
+        if event == "UNIT_SPELLCAST_START" or event == "UNIT_SPELLCAST_CHANNEL_START" then
+            if isFishingSpell then
+                -- Cancel any pending linger restore from a previous catch
+                audioLingerGeneration = audioLingerGeneration + 1
+                audioRestoreAt = nil
+                if audioRestoreFrame then
+                    audioRestoreFrame:Hide()
+                end
                 isFishing = true
                 isBobberActive = false
                 fishingStartTime = GetTime()
+                fishingStartGraceUntil = fishingStartTime + 1.5
                 EnableTemporaryAutoLoot()
+                EnableFishingAudioFocus()
                 -- Start periodic bag space monitoring
                 fishingStateFrame:SetScript("OnUpdate", function()
                     CheckBagSpace()
+                    if isBobberActive and savedFishingAudioCVars ~= nil and fishingStartTime > 0 and (GetTime() - fishingStartTime) > fishingExpireSeconds then
+                        -- Cast expired with no loot/cancel event; restore immediately.
+                        isFishing = false
+                        isBobberActive = false
+                        fishingLootInProgress = false
+                        audioRestoreAt = nil
+                        if audioRestoreFrame then
+                            audioRestoreFrame:Hide()
+                        end
+                        RestoreFishingAudioFocus()
+                        fishingStateFrame:SetScript("OnUpdate", nil)
+                    end
                 end)
+            elseif (isFishing or isBobberActive) and savedFishingAudioCVars ~= nil and GetTime() > fishingStartGraceUntil then
+                -- Any other player cast effectively cancels fishing.
+                isFishing = false
+                isBobberActive = false
+                fishingLootInProgress = false
+                audioRestoreAt = nil
+                if audioRestoreFrame then
+                    audioRestoreFrame:Hide()
+                end
+                RestoreFishingAudioFocus()
+                fishingStateFrame:SetScript("OnUpdate", nil)
             end
         elseif event == "UNIT_SPELLCAST_STOP" or event == "UNIT_SPELLCAST_CHANNEL_STOP" then
-            local spellName = select(1, UnitChannelInfo("player"))
-            if spellName == "Fishing" then
-                isFishing = false
+            if (isFishingSpell and isFishing) or (savedFishingAudioCVars ~= nil and isFishing) then
+                -- Cast bar ended; bobber is now in water. Keep fishing active.
+                isFishing = true
                 isBobberActive = true
-                -- Stop bag monitoring when fishing ends
+                -- Audio stays low until loot closes + linger expires
+                fishingStateFrame:SetScript("OnUpdate", function()
+                    CheckBagSpace()
+                    if isBobberActive and savedFishingAudioCVars ~= nil and fishingStartTime > 0 and (GetTime() - fishingStartTime) > fishingExpireSeconds then
+                        -- Cast expired with no loot/cancel event; restore immediately.
+                        isFishing = false
+                        isBobberActive = false
+                        fishingLootInProgress = false
+                        audioRestoreAt = nil
+                        if audioRestoreFrame then
+                            audioRestoreFrame:Hide()
+                        end
+                        RestoreFishingAudioFocus()
+                        fishingStateFrame:SetScript("OnUpdate", nil)
+                    end
+                end)
+            end
+        elseif event == "UNIT_SPELLCAST_INTERRUPTED" or event == "UNIT_SPELLCAST_FAILED" or event == "UNIT_SPELLCAST_FAILED_QUIET" then
+            if (isFishingSpell and savedFishingAudioCVars ~= nil) or (savedFishingAudioCVars ~= nil and isFishing) then
+                isFishing = false
+                isBobberActive = false
+                fishingLootInProgress = false
+                audioRestoreAt = nil
+                if audioRestoreFrame then
+                    audioRestoreFrame:Hide()
+                end
+                RestoreFishingAudioFocus()
+                fishingStateFrame:SetScript("OnUpdate", nil)
+            end
+        elseif event == "PLAYER_STARTED_MOVING" then
+            -- Moving should always break the fishing audio focus immediately.
+            if savedFishingAudioCVars ~= nil then
+                isFishing = false
+                isBobberActive = false
+                fishingLootInProgress = false
+                audioRestoreAt = nil
+                if audioRestoreFrame then
+                    audioRestoreFrame:Hide()
+                end
+                RestoreFishingAudioFocus()
                 fishingStateFrame:SetScript("OnUpdate", nil)
             end
         elseif event == "PLAYER_REGEN_DISABLED" then
             -- Cancel fishing if combat starts
-            if isFishing then
+            if isFishing or savedFishingAudioCVars ~= nil then
                 isFishing = false
                 isBobberActive = false
+                fishingLootInProgress = false
                 RestoreOriginalAutoLoot()
-                -- Stop bag monitoring
+                audioRestoreAt = nil
+                if audioRestoreFrame then
+                    audioRestoreFrame:Hide()
+                end
+                RestoreFishingAudioFocus()
                 fishingStateFrame:SetScript("OnUpdate", nil)
             end
         end
@@ -258,7 +360,7 @@ local function CreateFishingStateFrame()
     return fishingStateFrame
 end
 
-local function EnableTemporaryAutoLoot()
+EnableTemporaryAutoLoot = function()
     if addon.db and addon.db.autoLoot then
         local current = GetCVar("autoLootDefault")
         if savedAutoLoot == nil then
@@ -268,11 +370,100 @@ local function EnableTemporaryAutoLoot()
     end
 end
 
-local function RestoreOriginalAutoLoot()
+RestoreOriginalAutoLoot = function()
     if addon.db and addon.db.autoLoot and savedAutoLoot ~= nil then
         SetCVar("autoLootDefault", savedAutoLoot)
         savedAutoLoot = nil
     end
+end
+
+EnableFishingAudioFocus = function(force)
+    if not force and (not addon.db or not addon.db.enhancedSounds) then
+        return
+    end
+    if savedFishingAudioCVars ~= nil then
+        return
+    end
+    if type(GetCVar) ~= "function" or type(SetCVar) ~= "function" then
+        return
+    end
+
+    savedFishingAudioCVars = {
+        ambience = GetCVar("Sound_AmbienceVolume"),
+        music = GetCVar("Sound_MusicVolume"),
+        dialog = GetCVar("Sound_DialogVolume"),
+    }
+
+    local ambienceVolume = tonumber(savedFishingAudioCVars.ambience)
+    if ambienceVolume then
+        SetCVar("Sound_AmbienceVolume", tostring(Clamp(ambienceVolume * 0.35, 0, 1)))
+    end
+
+    local musicVolume = tonumber(savedFishingAudioCVars.music)
+    if musicVolume then
+        SetCVar("Sound_MusicVolume", tostring(Clamp(musicVolume * 0.2, 0, 1)))
+    end
+
+    local dialogVolume = tonumber(savedFishingAudioCVars.dialog)
+    if dialogVolume then
+        SetCVar("Sound_DialogVolume", tostring(Clamp(dialogVolume * 0.5, 0, 1)))
+    end
+end
+
+RestoreFishingAudioFocus = function()
+    if savedFishingAudioCVars == nil then
+        return
+    end
+    if type(SetCVar) ~= "function" then
+        savedFishingAudioCVars = nil
+        audioRestoreAt = nil
+        if audioRestoreFrame then
+            audioRestoreFrame:Hide()
+        end
+        return
+    end
+
+    if savedFishingAudioCVars.ambience ~= nil then
+        SetCVar("Sound_AmbienceVolume", savedFishingAudioCVars.ambience)
+    end
+    if savedFishingAudioCVars.music ~= nil then
+        SetCVar("Sound_MusicVolume", savedFishingAudioCVars.music)
+    end
+    if savedFishingAudioCVars.dialog ~= nil then
+        SetCVar("Sound_DialogVolume", savedFishingAudioCVars.dialog)
+    end
+
+    savedFishingAudioCVars = nil
+    audioRestoreAt = nil
+    if audioRestoreFrame then
+        audioRestoreFrame:Hide()
+    end
+end
+
+RestoreFishingAudioFocusAfterLinger = function()
+    local linger = (addon.db and addon.db.audioFocusLinger) or defaults.audioFocusLinger
+    if linger <= 0 then
+        RestoreFishingAudioFocus()
+        return
+    end
+    audioLingerGeneration = audioLingerGeneration + 1
+    audioRestoreAt = GetTime() + linger
+    if not audioRestoreFrame then
+        audioRestoreFrame = CreateFrame("Frame")
+        audioRestoreFrame:Hide()
+        audioRestoreFrame:SetScript("OnUpdate", function(self)
+            if not audioRestoreAt then
+                self:Hide()
+                return
+            end
+            if GetTime() >= audioRestoreAt then
+                audioRestoreAt = nil
+                self:Hide()
+                RestoreFishingAudioFocus()
+            end
+        end)
+    end
+    audioRestoreFrame:Show()
 end
 
 -- Minimal test hooks for local unit tests with mocked WoW APIs.
@@ -297,6 +488,18 @@ local function HandleWorldRightClick()
     if now - lastRightClickTime < doubleClickWindow then
         lastRightClickTime = 0
         -- Double-click detected, initiate fishing
+        audioLingerGeneration = audioLingerGeneration + 1
+        fishingStartTime = now
+        fishingStartGraceUntil = now + 1.5
+        audioRestoreAt = nil
+        if audioRestoreFrame then
+            audioRestoreFrame:Hide()
+        end
+        EnableFishingAudioFocus()
+        -- Fallback fishing session state in case spell events use a different fishing spellID.
+        isFishing = true
+        isBobberActive = true
+        fishingLootInProgress = false
         EnableTemporaryAutoLoot()
         if not InCombatLockdown() then
             SetOverrideBindingClick(fishingSecureFrame, true, "BUTTON2", fishingSecureFrame:GetName())
@@ -406,7 +609,7 @@ local function IsTreasureItem(name)
     return lower:find("treasure") or lower:find("chest") or lower:find("cache") or lower:find("satchel") or lower:find("strongbox")
 end
 
-local function CheckBagSpace()
+CheckBagSpace = function()
     -- Alert if bag space falls below the configured threshold
     if not addon.db then
         return
@@ -470,6 +673,9 @@ local function UpdateConfigUI()
     if addon.buffItem2Box then
         addon.buffItem2Box:SetText(tostring(addon.db.buffItem2 or ""))
     end
+    if addon.audioLingerBox then
+        addon.audioLingerBox:SetText(tostring(addon.db.audioFocusLinger or defaults.audioFocusLinger))
+    end
 end
 
 function addon:SaveConfig()
@@ -479,6 +685,7 @@ function addon:SaveConfig()
 
     addon.db.refreshSeconds = Clamp(tonumber(addon.refreshBox:GetText()) or defaults.refreshSeconds, 30, 600)
     addon.db.lowBagThreshold = Clamp(tonumber(addon.lowBagBox:GetText()) or defaults.lowBagThreshold, 0, 20)
+    addon.db.audioFocusLinger = Clamp(tonumber(addon.audioLingerBox:GetText()) or defaults.audioFocusLinger, 0, 60)
     addon.db.autoLoot = addon.autoLootCheckbox:GetChecked()
     addon.db.enhancedSounds = addon.enhancedSoundsCheckbox:GetChecked()
     addon.db.treasureAlerts = addon.treasureAlertsCheckbox:GetChecked()
@@ -502,7 +709,7 @@ function addon:CreateConfigPanel()
 
     -- 1. Main Container Frame
     local panel = CreateFrame("Frame", addonName .. "ConfigFrame", UIParent, "BackdropTemplate")
-    panel:SetSize(420, 400)
+    panel:SetSize(420, 440)
     panel:SetPoint("CENTER")
     panel:SetMovable(true)
     panel:EnableMouse(true)
@@ -563,6 +770,7 @@ function addon:CreateConfigPanel()
 
     addon.refreshBox = CreateEditBox(20, -220, 100, "Refresh Frequency (s):")
     addon.lowBagBox = CreateEditBox(20, -270, 100, "Low Bag Threshold:")
+    addon.audioLingerBox = CreateEditBox(20, -315, 100, "Audio Linger After Catch (s):")
 
     -- 6. Save Button
     local saveBtn = CreateFrame("Button", nil, panel, "UIPanelButtonTemplate")
@@ -608,11 +816,58 @@ frame:SetScript("OnEvent", function(self, event, name)
 
     SLASH_DREAMFISHER1 = "/df"
     SLASH_DREAMFISHER2 = "/dreamfisher"
-    SlashCmdList["DREAMFISHER"] = function()
+    SlashCmdList["DREAMFISHER"] = function(msg)
+        local command = string.lower(strtrim(msg or ""))
+        if command == "testtreasure" or command == "tt" then
+            ShowPatientTreasureAlert("Test Trigger", true)
+            PrintMessage("Triggered Patient Treasure alert test.")
+            return
+        end
+        if command == "testsound" or command == "ts" then
+            ShowPatientTreasureAlert("Audio Test", true)
+            PrintMessage("Triggered treasure alert audio test.")
+            return
+        end
+        if command == "testaudio" or command == "ta" then
+            local amb = GetCVar("Sound_AmbienceVolume")
+            local mus = GetCVar("Sound_MusicVolume")
+            local dia = GetCVar("Sound_DialogVolume")
+            PrintMessage("Audio before duck: Ambience=" .. tostring(amb) .. " Music=" .. tostring(mus) .. " Dialog=" .. tostring(dia))
+            EnableFishingAudioFocus(true)
+            local amb2 = GetCVar("Sound_AmbienceVolume")
+            local mus2 = GetCVar("Sound_MusicVolume")
+            local dia2 = GetCVar("Sound_DialogVolume")
+            PrintMessage("Audio after duck:  Ambience=" .. tostring(amb2) .. " Music=" .. tostring(mus2) .. " Dialog=" .. tostring(dia2))
+            return
+        end
+        if command == "audiostate" or command == "as" then
+            local amb = GetCVar("Sound_AmbienceVolume")
+            local mus = GetCVar("Sound_MusicVolume")
+            local dia = GetCVar("Sound_DialogVolume")
+            local remaining = 0
+            if audioRestoreAt then
+                remaining = math.max(0, audioRestoreAt - GetTime())
+            end
+            PrintMessage("Audio state: ducked=" .. tostring(savedFishingAudioCVars ~= nil)
+                .. " isFishing=" .. tostring(isFishing)
+                .. " bobberActive=" .. tostring(isBobberActive)
+                .. " lootInProgress=" .. tostring(fishingLootInProgress)
+                .. " restoreIn=" .. string.format("%.1f", remaining) .. "s")
+            PrintMessage("CVars: Ambience=" .. tostring(amb) .. " Music=" .. tostring(mus) .. " Dialog=" .. tostring(dia))
+            return
+        end
+        if command == "restoreaudio" or command == "ra" then
+            RestoreFishingAudioFocus()
+            local amb = GetCVar("Sound_AmbienceVolume")
+            local mus = GetCVar("Sound_MusicVolume")
+            local dia = GetCVar("Sound_DialogVolume")
+            PrintMessage("Audio restored: Ambience=" .. tostring(amb) .. " Music=" .. tostring(mus) .. " Dialog=" .. tostring(dia))
+            return
+        end
         addon:ToggleUI()
     end
 
-    PrintMessage("Loaded! Type /df to configure.")
+    PrintMessage("Loaded! Type /df to configure. Commands: testtreasure (tt), testsound (ts), testaudio (ta), audiostate (as), restoreaudio (ra).")
     self:UnregisterEvent("ADDON_LOADED")
 end)
 
@@ -630,15 +885,20 @@ lootTracker:RegisterEvent("LOOT_CLOSED")
 lootTracker:RegisterEvent("BAG_UPDATE")
 lootTracker:SetScript("OnEvent", function(_, event)
     if event == "LOOT_READY" then
-        -- Loot opened while fishing
-        if isBobberActive then
+        -- Loot opened after a fishing catch
+        if isBobberActive or savedFishingAudioCVars ~= nil then
+            fishingLootInProgress = true
             isBobberActive = false
             isFishing = false
         end
     elseif event == "LOOT_CLOSED" then
         RestoreOriginalAutoLoot()
+        -- Only start audio linger restore if this loot was from fishing
+        if fishingLootInProgress then
+            fishingLootInProgress = false
+            RestoreFishingAudioFocusAfterLinger()
+        end
         isBobberActive = false
-        -- Reset bag warning cooldown when loot is closed (bag space may have changed)
         lastBagWarning = 0
     elseif event == "BAG_UPDATE" then
         -- Check bag space immediately when inventory changes
