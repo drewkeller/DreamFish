@@ -14,12 +14,15 @@ local defaults = addon.defaults
 local uiBuffCursorDragState = nil
 local buffItemLastUseAt = {}
 local buffItemLastKnownCount = {}
+local suppressLiveSave = false
 
 -- Helper: Update all config UI elements from saved data
 local function UpdateConfigUI()
     if not addon.frames.config or not addon.db then
         return
     end
+
+    suppressLiveSave = true
 
     if addon.autoLootCheckbox then
         addon.autoLootCheckbox:SetChecked(addon.db.autoLoot)
@@ -32,6 +35,9 @@ local function UpdateConfigUI()
     end
     if addon.bagAlertsCheckbox then
         addon.bagAlertsCheckbox:SetChecked(addon.db.bagAlerts)
+    end
+    if addon.escapeCloseCheckbox then
+        addon.escapeCloseCheckbox:SetChecked(addon.db.configCloseOnEscape)
     end
     if addon.refreshBox then
         addon.refreshBox:SetText(tostring(addon.db.refreshSeconds or defaults.refreshSeconds))
@@ -51,10 +57,12 @@ local function UpdateConfigUI()
     if addon.audioLingerBox then
         addon.audioLingerBox:SetText(tostring(addon.db.audioFocusLinger or defaults.audioFocusLinger))
     end
+
+    suppressLiveSave = false
 end
 
 -- Save config from UI back to database
-function config.SaveConfig()
+function config.SaveConfig(skipRefresh)
     if not addon.db then
         return
     end
@@ -66,6 +74,9 @@ function config.SaveConfig()
     addon.db.enhancedSounds = addon.enhancedSoundsCheckbox:GetChecked()
     addon.db.treasureAlerts = addon.treasureAlertsCheckbox:GetChecked()
     addon.db.bagAlerts = addon.bagAlertsCheckbox:GetChecked()
+    if addon.escapeCloseCheckbox then
+        addon.db.configCloseOnEscape = addon.escapeCloseCheckbox:GetChecked()
+    end
 
     if addon.buffItemControls then
         addon.db.buffItems = {}
@@ -89,7 +100,9 @@ function config.SaveConfig()
         end
     end
 
-    UpdateConfigUI()
+    if not skipRefresh then
+        UpdateConfigUI()
+    end
 end
 
 -- Create and return the config panel frame
@@ -101,12 +114,31 @@ function config.CreateConfigPanel()
     -- 1. Main Container Frame
     local panel = CreateFrame("Frame", addonName .. "ConfigFrame", UIParent, "BackdropTemplate")
     panel:SetSize(480, 700)
-    panel:SetPoint("CENTER")
     panel:SetMovable(true)
+    panel:SetClampedToScreen(true)
     panel:EnableMouse(true)
+    panel:EnableKeyboard(true)
     panel:RegisterForDrag("LeftButton")
     panel:SetScript("OnDragStart", panel.StartMoving)
-    panel:SetScript("OnDragStop", panel.StopMovingOrSizing)
+    panel:SetScript("OnDragStop", function(self)
+        self:StopMovingOrSizing()
+        if addon.db then
+            local point, _, relativePoint, x, y = self:GetPoint(1)
+            addon.db.configWindowPosition = {
+                point = point or "CENTER",
+                relativePoint = relativePoint or "CENTER",
+                x = math.floor((x or 0) + 0.5),
+                y = math.floor((y or 0) + 0.5),
+            }
+        end
+    end)
+
+    if addon.db and type(addon.db.configWindowPosition) == "table" then
+        local pos = addon.db.configWindowPosition
+        panel:SetPoint(pos.point or "CENTER", UIParent, pos.relativePoint or "CENTER", tonumber(pos.x) or 0, tonumber(pos.y) or 0)
+    else
+        panel:SetPoint("CENTER")
+    end
     panel:Hide()
 
     -- Aesthetic Frame Styling
@@ -135,11 +167,14 @@ function config.CreateConfigPanel()
         cb:SetPoint("TOPLEFT", x, y)
         cb.Text:SetText(label)
         cb.Text:SetTextColor(1, 1, 1, 1)
+        if onLiveChange then
+            cb:SetScript("OnClick", onLiveChange)
+        end
         return cb
     end
 
     -- 5. Input Box Helper
-    local function CreateEditBox(x, y, width, label)
+    local function CreateEditBox(x, y, width, label, onLiveChange)
         local lbl = panel:CreateFontString(nil, "OVERLAY", "GameFontNormal")
         lbl:SetPoint("TOPLEFT", x, y)
         lbl:SetText(label)
@@ -148,10 +183,23 @@ function config.CreateConfigPanel()
         eb:SetSize(width, 20)
         eb:SetPoint("TOPLEFT", x, y - 15)
         eb:SetAutoFocus(false)
+        eb:SetScript("OnEscapePressed", function(self)
+            self:ClearFocus()
+            if addon.db and addon.db.configCloseOnEscape then
+                panel:Hide()
+            end
+        end)
+        if onLiveChange then
+            eb:SetScript("OnTextChanged", function(_, userInput)
+                if userInput then
+                    onLiveChange()
+                end
+            end)
+        end
         return eb
     end
 
-    local function CreateBuffItemDropBox(x, y, label)
+    local function CreateBuffItemDropBox(x, y, label, onLiveChange)
         local lbl = panel:CreateFontString(nil, "OVERLAY", "GameFontNormal")
         lbl:SetPoint("TOPLEFT", x, y)
         lbl:SetText(label)
@@ -317,18 +365,30 @@ function config.CreateConfigPanel()
         end)
         box:SetScript("OnReceiveDrag", function(self)
             if TryDropCursorItemToSlot(self) then
+                if onLiveChange then
+                    onLiveChange()
+                end
                 return
             end
             TryAssignFromCursor(self)
+            if onLiveChange then
+                onLiveChange()
+            end
         end)
         box:SetScript("OnMouseUp", function(self, button)
             if button == "LeftButton" then
                 if not TryDropCursorItemToSlot(self) then
                     TryAssignFromCursor(self)
                 end
+                if onLiveChange then
+                    onLiveChange()
+                end
             elseif button == "RightButton" then
                 if IsShiftKeyDown() then
                     self:SetItemID(nil)
+                    if onLiveChange then
+                        onLiveChange()
+                    end
                 end
             end
         end)
@@ -395,7 +455,7 @@ function config.CreateConfigPanel()
             local now = GetTime()
             buffItemLastUseAt[self.itemID] = now
             if addon.buff and addon.buff.BuildHelpfulAuraSnapshot then
-                addon.buff.pendingBuffObservation = {
+                addon.state.pendingBuffObservation = {
                     itemID = self.itemID,
                     before = addon.buff.BuildHelpfulAuraSnapshot(),
                     expiresAt = now + 20,
@@ -410,7 +470,7 @@ function config.CreateConfigPanel()
         return box
     end
 
-    local function CreateBuffRefreshBox(x, y)
+    local function CreateBuffRefreshBox(x, y, onLiveChange)
         local lbl = panel:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
         lbl:SetPoint("TOPLEFT", x, y)
         lbl:SetText("Refresh (s)")
@@ -419,23 +479,38 @@ function config.CreateConfigPanel()
         eb:SetSize(70, 20)
         eb:SetPoint("TOPLEFT", x, y - 12)
         eb:SetAutoFocus(false)
+        if onLiveChange then
+            eb:SetScript("OnTextChanged", function(_, userInput)
+                if userInput then
+                    onLiveChange()
+                end
+            end)
+        end
         return eb
     end
 
+    local function SaveLive()
+        if suppressLiveSave then
+            return
+        end
+        config.SaveConfig(true)
+    end
+
     -- Instantiate UI elements
-    addon.autoLootCheckbox = CreateCheckbox(20, -50, "Temporary Auto-Loot")
-    addon.enhancedSoundsCheckbox = CreateCheckbox(20, -85, "Fishing Focused Audio")
-    addon.treasureAlertsCheckbox = CreateCheckbox(20, -120, "Patient Treasure Notification")
-    addon.bagAlertsCheckbox = CreateCheckbox(20, -155, "Bag Monitor / Alert")
+    addon.autoLootCheckbox = CreateCheckbox(20, -50, "Temporary Auto-Loot", SaveLive)
+    addon.enhancedSoundsCheckbox = CreateCheckbox(20, -85, "Fishing Focused Audio", SaveLive)
+    addon.treasureAlertsCheckbox = CreateCheckbox(20, -120, "Patient Treasure Notification", SaveLive)
+    addon.bagAlertsCheckbox = CreateCheckbox(20, -155, "Bag Monitor / Alert", SaveLive)
+    addon.escapeCloseCheckbox = CreateCheckbox(20, -190, "Escape closes this window", SaveLive)
 
     addon.buffItemControls = {}
     for i = 1, maxBuffSlots do
         local row = math.floor((i - 1) / 2)
         local col = (i - 1) % 2
         local baseX = 20 + (col * 220)
-        local baseY = -205 - (row * 95)
-        local itemBox = CreateBuffItemDropBox(baseX, baseY, "Buff " .. i)
-        local refreshBox = CreateBuffRefreshBox(baseX + 65, baseY - 4)
+        local baseY = -240 - (row * 95)
+        local itemBox = CreateBuffItemDropBox(baseX, baseY, "Buff " .. i, SaveLive)
+        local refreshBox = CreateBuffRefreshBox(baseX + 65, baseY - 4, SaveLive)
         itemBox.refreshBox = refreshBox
         itemBox.slotIndex = i
         addon.buffItemControls[i] = {
@@ -444,23 +519,26 @@ function config.CreateConfigPanel()
         }
     end
 
-    addon.refreshBox = CreateEditBox(20, -505, 100, "Default Refresh (s):")
-    addon.lowBagBox = CreateEditBox(20, -555, 100, "Low Bag Threshold:")
-    addon.audioLingerBox = CreateEditBox(20, -605, 100, "Audio Linger After Catch (s):")
+    addon.refreshBox = CreateEditBox(20, -540, 100, "Default Refresh (s):", SaveLive)
+    addon.lowBagBox = CreateEditBox(20, -590, 100, "Low Bag Threshold:", SaveLive)
+    addon.audioLingerBox = CreateEditBox(20, -640, 100, "Audio Linger After Catch (s):", SaveLive)
 
-    -- 6. Save Button
+    -- 5. Close Button
     local saveBtn = CreateFrame("Button", nil, panel, "UIPanelButtonTemplate")
     saveBtn:SetSize(120, 25)
     saveBtn:SetPoint("BOTTOMRIGHT", -20, 20)
-    saveBtn:SetText("Save & Close")
+    saveBtn:SetText("Close")
     saveBtn:SetScript("OnClick", function()
-        config.SaveConfig()
         panel:Hide()
-        addon.PrintMessage("Configuration Saved.")
     end)
 
     panel:SetScript("OnShow", function()
         UpdateConfigUI()
+    end)
+    panel:SetScript("OnKeyDown", function(self, key)
+        if key == "ESCAPE" and addon.db and addon.db.configCloseOnEscape then
+            self:Hide()
+        end
     end)
 
     return panel
