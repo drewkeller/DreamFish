@@ -6,4 +6,27 @@
 ## Version: 1.0
 ## SavedVariables: DreamFisherDB
 
+# Core modules (load first)
+core/init.lua
+core/utils.lua
+
+# Buff system (tracking, timing, management)
+buff/tracking.lua
+buff/timing.lua
+buff/management.lua
+
+# Fishing system (helpers, casting, state machine)
+fishing/helpers.lua
+fishing/casting.lua
+fishing/state.lua
+
+# Audio system (ducking, alerts)
+audio/ducking.lua
+audio/alerts.lua
+
+# UI system (commands, config)
+ui/commands.lua
+ui/config.lua
+
+# Main coordinator (runs after all modules load)
 DreamFisher.lua
