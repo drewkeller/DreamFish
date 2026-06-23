@@ -8,6 +8,20 @@ local function RegisterSlashCommands()
     SLASH_DREAMFISHER2 = "/dreamfisher"
     SlashCmdList["DREAMFISHER"] = function(msg)
         local command = string.lower(strtrim(msg or ""))
+        if command == "help" or command == "h" or command == "?" then
+            PrintMessage("|cFFFFD700Available Commands:|r")
+            PrintMessage("  |cFF7FFFDAhelp, h, ?|r - Show this help message")
+            PrintMessage("  |cFF7FFFDAtesttreasure, tt|r - Test Patient Treasure alert")
+            PrintMessage("  |cFF7FFFDAtestbagsfull, tbf|r - Test bags full alert")
+            PrintMessage("  |cFF7FFFDAtestaudio, ta|r - Test audio ducking (show before/after CVars)")
+            PrintMessage("  |cFF7FFFDAaudiostate, as|r - Display current audio ducking state")
+            PrintMessage("  |cFF7FFFDAduckaudio, da|r - Manually start audio ducking")
+            PrintMessage("  |cFF7FFFDArestoreaudio, ra|r - Manually restore audio from ducking")
+            PrintMessage("  |cFF7FFFDAdebug, dbg|r - Toggle debug mode on/off")
+            PrintMessage("  |cFF7FFFDAmodifier <ALT|CTRL|SHIFT|NONE>|r - Set world right-click modifier")
+            PrintMessage("  |cFF7FFFDA(no args)|r - Toggle config UI")
+            return
+        end
         if command == "testtreasure" or command == "tt" then
             addon.alerts.ShowPatientTreasureAlert("Test Trigger", true)
             PrintMessage("Triggered Patient Treasure alert test.")
@@ -16,11 +30,6 @@ local function RegisterSlashCommands()
         if command == "testbagsfull" or command == "tbf" then
             addon.alerts.ShowBagFullAlert(true)
             PrintMessage("Triggered bags full alert test.")
-            return
-        end
-        if command == "testsound" or command == "ts" then
-            addon.alerts.ShowPatientTreasureAlert("Audio Test", true)
-            PrintMessage("Triggered treasure alert audio test.")
             return
         end
         if command == "testaudio" or command == "ta" then
@@ -49,6 +58,15 @@ local function RegisterSlashCommands()
                 .. " lootInProgress=" .. tostring(addon.state.fishingLootInProgress)
                 .. " restoreIn=" .. string.format("%.1f", remaining) .. "s")
             PrintMessage("CVars: Ambience=" .. tostring(amb) .. " Music=" .. tostring(mus) .. " Dialog=" .. tostring(dia))
+            return
+        end
+        if command == "duckaudio" or command == "da" then
+            addon.audio.EnableFishingAudioFocus(true)
+            addon.state.audioRestoreAt = GetTime() + (addon.db.audioFocusLinger or addon.defaults.audioFocusLinger or 10)
+            local amb = GetCVar("Sound_AmbienceVolume")
+            local mus = GetCVar("Sound_MusicVolume")
+            local dia = GetCVar("Sound_DialogVolume")
+            PrintMessage("Audio ducking enabled. CVars: Ambience=" .. tostring(amb) .. " Music=" .. tostring(mus) .. " Dialog=" .. tostring(dia))
             return
         end
         if command == "restoreaudio" or command == "ra" then
