@@ -478,8 +478,9 @@ addon._test.ResetAutoLootState = function()
 end
 
 local function HandleWorldRightClick()
-    -- Only allow double-click fishing if not already fishing
-    if isFishing or InCombatLockdown() then
+    -- Allow recast unless blocked by combat; internal fishing state can lag
+    -- behind in timeout/early-bobber-click cases.
+    if InCombatLockdown() then
         return
     end
 
