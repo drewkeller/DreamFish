@@ -24,10 +24,13 @@ local lastAlertTime = 0
 local lastRightClickTime = 0
 local lastSoundTime = 0
 local doubleClickWindow = 0.25
+local patientlyRewardedSpellID = 1235378
 local fishingSecureFrame = nil
 local fishingTrackerFrame = nil
 local originalAutoLootState = nil
 local fishingStateFrame = nil
+local treasureAlertFrame = nil
+local patientAuraActive = false
 
 local function CopyDefaults(source, target)
     for k, v in pairs(source) do
@@ -54,6 +57,115 @@ local function PrintMessage(msg)
     if DEFAULT_CHAT_FRAME and DEFAULT_CHAT_FRAME.AddMessage then
         DEFAULT_CHAT_FRAME:AddMessage("|cFF7FFFDADreamFisher|r " .. msg)
     end
+end
+
+local function CreateTreasureAlertFrame()
+    if treasureAlertFrame then
+        return treasureAlertFrame
+    end
+
+    local alert = CreateFrame("Frame", addonName .. "TreasureAlertFrame", UIParent, "BackdropTemplate")
+    alert:SetAllPoints(UIParent)
+    alert:SetFrameStrata("FULLSCREEN_DIALOG")
+    alert:EnableMouse(false)
+    alert:Hide()
+
+    alert:SetBackdrop({
+        bgFile = "Interface\\DialogFrame\\UI-DialogBox-Background",
+        edgeFile = "Interface\\Tooltips\\UI-Tooltip-Border",
+        tile = false,
+        edgeSize = 36,
+        insets = { left = 10, right = 10, top = 10, bottom = 10 },
+    })
+    alert:SetBackdropColor(0.12, 0.08, 0, 0.92)
+    alert:SetBackdropBorderColor(1, 0.9, 0.15, 1)
+
+    alert.flash = alert:CreateTexture(nil, "BACKGROUND")
+    alert.flash:SetAllPoints(UIParent)
+    alert.flash:SetColorTexture(1, 0.82, 0.2, 0.24)
+
+    alert.icon = alert:CreateTexture(nil, "OVERLAY")
+    alert.icon:SetSize(96, 96)
+    alert.icon:SetPoint("CENTER", 0, 78)
+
+    alert.title = alert:CreateFontString(nil, "OVERLAY", "GameFontHighlightHuge")
+    alert.title:SetPoint("CENTER", 0, -22)
+    alert.title:SetTextColor(1, 0.94, 0.25, 1)
+
+    alert.subtext = alert:CreateFontString(nil, "OVERLAY", "GameFontNormalLarge")
+    alert.subtext:SetPoint("TOP", alert.title, "BOTTOM", 0, -10)
+    alert.subtext:SetTextColor(1, 1, 1, 1)
+
+    treasureAlertFrame = alert
+    return treasureAlertFrame
+end
+
+local function ShowPatientTreasureAlert(subtext, force)
+    if not force and (not addon.db or not addon.db.treasureAlerts) then
+        return
+    end
+
+    local now = GetTime()
+    if not force and now - lastAlertTime < 2 then
+        return
+    end
+    lastAlertTime = now
+
+    local alert = CreateTreasureAlertFrame()
+    local icon = GetSpellTexture and GetSpellTexture(patientlyRewardedSpellID)
+    if icon then
+        alert.icon:SetTexture(icon)
+    else
+        alert.icon:SetTexture("Interface\\Icons\\INV_Misc_TreasureChest03a")
+    end
+
+    alert.title:SetText("Patient Treasure Caught!")
+    alert.subtext:SetText(subtext or "Patiently Rewarded")
+    alert:Show()
+
+    alert.timeLeft = 2.5
+    alert:SetScript("OnUpdate", function(self, elapsed)
+        self.timeLeft = self.timeLeft - elapsed
+        if self.timeLeft <= 0 then
+            self:SetScript("OnUpdate", nil)
+            self:Hide()
+        end
+    end)
+
+    if type(PlaySound) == "function" and SOUNDKIT then
+        local primary = SOUNDKIT.READY_CHECK
+            or SOUNDKIT.UI_EPICLOOT_TOAST
+            or SOUNDKIT.IG_MAINMENU_OPEN
+        local accent = SOUNDKIT.RAID_WARNING
+            or SOUNDKIT.UI_RaidBossEmoteWarning
+            or SOUNDKIT.IG_MAINMENU_OPTION_CHECKBOX_ON
+
+        if primary then
+            PlaySound(primary, "Master")
+            if C_Timer and C_Timer.After then
+                C_Timer.After(0.55, function()
+                    PlaySound(primary, "Master")
+                end)
+            end
+        end
+        if accent and C_Timer and C_Timer.After then
+            C_Timer.After(1.10, function()
+                PlaySound(accent, "Master")
+            end)
+        elseif accent then
+            PlaySound(accent, "Master")
+        end
+    end
+end
+
+local function HasPatientlyRewardedAura()
+    if C_UnitAuras and C_UnitAuras.GetPlayerAuraBySpellID then
+        return C_UnitAuras.GetPlayerAuraBySpellID(patientlyRewardedSpellID) ~= nil
+    end
+    if AuraUtil and AuraUtil.FindAuraBySpellID then
+        return AuraUtil.FindAuraBySpellID(patientlyRewardedSpellID, "player", "HELPFUL") ~= nil
+    end
+    return false
 end
 
 local function CreateSecureFishingFrame()
@@ -541,5 +653,21 @@ bagMonitor:RegisterEvent("PLAYER_ENTERING_WORLD")
 bagMonitor:RegisterEvent("BAG_UPDATE_DELAYED")
 bagMonitor:SetScript("OnEvent", function()
     CheckBagSpace()
+end)
+
+local auraTracker = CreateFrame("Frame")
+auraTracker:RegisterEvent("UNIT_AURA")
+auraTracker:SetScript("OnEvent", function(_, _, unit)
+    if unit ~= "player" then
+        return
+    end
+
+    local hasAura = HasPatientlyRewardedAura()
+    if hasAura and not patientAuraActive then
+        patientAuraActive = true
+        ShowPatientTreasureAlert("Patiently Rewarded")
+    elseif not hasAura then
+        patientAuraActive = false
+    end
 end)
 
