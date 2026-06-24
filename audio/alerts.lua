@@ -1,5 +1,6 @@
 -- DreamFisher: Audio and Visual Alerts
 
+local addonName = "DreamFisher"
 local addon = _G["DreamFisher"]
 local PrintMessage = addon.PrintMessage
 
@@ -8,7 +9,7 @@ local function CreateTreasureAlertFrame()
         return addon.frames.treasureAlert
     end
 
-    local alert = CreateFrame("Frame", addon.addonName .. "TreasureAlertFrame", UIParent, "BackdropTemplate")
+    local alert = CreateFrame("Frame", addonName .. "TreasureAlertFrame", UIParent, "BackdropTemplate")
     alert:SetAllPoints(UIParent)
     alert:SetFrameStrata("FULLSCREEN_DIALOG")
     alert:EnableMouse(false)
@@ -107,7 +108,7 @@ local function CreateBagFullAlertFrame()
         return addon.frames.bagFullAlert
     end
 
-    local alert = CreateFrame("Frame", addon.addonName .. "BagFullAlertFrame", UIParent, "BackdropTemplate")
+    local alert = CreateFrame("Frame", addonName .. "BagFullAlertFrame", UIParent, "BackdropTemplate")
     alert:SetAllPoints(UIParent)
     alert:SetFrameStrata("FULLSCREEN_DIALOG")
     alert:EnableMouse(false)
