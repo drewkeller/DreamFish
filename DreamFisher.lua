@@ -108,6 +108,16 @@ frame:SetScript("OnEvent", function(self, event, name)
     self:UnregisterEvent("ADDON_LOADED")
 end)
 
+    addon._test.SetDB = function(db)
+        addon.db = db or {}
+        if addon.CopyDefaults then
+            addon.CopyDefaults(addon.defaults, addon.db)
+        end
+        if addon.buff and addon.buff.NormalizeBuffConfig then
+            addon.buff.NormalizeBuffConfig()
+        end
+    end
+
 -- World right-click handler
 if WorldFrame then
     WorldFrame:HookScript("OnMouseDown", function(_, button)

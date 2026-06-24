@@ -18,6 +18,7 @@ local function RegisterSlashCommands()
             PrintMessage("  |cFF7FFFDAduckaudio, da|r - Manually start audio ducking")
             PrintMessage("  |cFF7FFFDArestoreaudio, ra|r - Manually restore audio from ducking")
             PrintMessage("  |cFF7FFFDAdebug, dbg|r - Toggle debug mode on/off")
+            PrintMessage("  |cFF7FFFDAraft|r - Apply the selected raft")
             PrintMessage("  |cFF7FFFDAmodifier <ALT|CTRL|SHIFT|NONE>|r - Set world right-click modifier")
             PrintMessage("  |cFF7FFFDA(no args)|r - Toggle config UI")
             return
@@ -80,6 +81,10 @@ local function RegisterSlashCommands()
         if command == "debug" or command == "dbg" then
             addon.db.debugMode = not addon.db.debugMode
             PrintMessage("Debug mode: " .. (addon.db.debugMode and "ON" or "OFF"))
+            return
+        end
+        if command == "raft" then
+            PrintMessage("Raft toy usage requires a secure click. Use the Tackle tab's Apply Raft button.")
             return
         end
         local modifierArg = command:match("^modifier%s+(%S+)$")

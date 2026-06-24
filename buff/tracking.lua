@@ -50,6 +50,24 @@ local function UpdatePendingBuffObservation()
         return
     end
 
+    if type(addon.db.buffItems) ~= "table" then
+        addon.state.pendingBuffObservation = nil
+        return
+    end
+
+    local hasConfiguredBuffItems = false
+    for _, entry in ipairs(addon.db.buffItems) do
+        local itemID = type(entry) == "table" and tonumber(entry.itemID) or nil
+        if itemID and itemID > 0 then
+            hasConfiguredBuffItems = true
+            break
+        end
+    end
+    if not hasConfiguredBuffItems then
+        addon.state.pendingBuffObservation = nil
+        return
+    end
+
     if GetTime() > addon.state.pendingBuffObservation.expiresAt then
         addon.state.pendingBuffObservation = nil
         return
@@ -71,12 +89,15 @@ local function UpdatePendingBuffObservation()
     end
 
     if bestSpellID then
+        local auraName = (type(GetSpellInfo) == "function" and GetSpellInfo(bestSpellID)) or nil
         addon.db.buffAuraByItem[tostring(addon.state.pendingBuffObservation.itemID)] = {
             spellID = bestSpellID,
             duration = bestDuration,
         }
         PrintMessage("Buff tracked for item:" .. tostring(addon.state.pendingBuffObservation.itemID)
-            .. " [item=" .. addon.buff.FormatDuration(bestDuration)
+            .. " [spellID=" .. tostring(bestSpellID)
+            .. (auraName and (", aura=" .. tostring(auraName)) or "")
+            .. ", item=" .. addon.buff.FormatDuration(bestDuration)
             .. ", active=" .. addon.buff.FormatDuration(bestDuration) .. " total]")
         addon.state.pendingBuffObservation = nil
     end

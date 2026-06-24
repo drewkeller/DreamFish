@@ -17,6 +17,11 @@ addon.defaults = {
     configCloseOnEscape = true,
     buffItems = {},
     buffAuraByItem = {},
+    selectedBobberToy = nil,
+    selectedRaftToy = nil,
+    useOversizedBobber = false,
+    useUnderlightAngler = false,
+    castingMode = "doubleRightClick",
     configWindowPosition = nil,
     refreshSeconds = 180,
     lowBagThreshold = 2,
@@ -44,7 +49,7 @@ addon.state = {
 
     -- Right-click
     lastRightClickTime = 0,
-    doubleClickWindow = 0.25,
+    doubleClickWindow = 0.33,
 
     -- Alerts
     lastBagWarning = 0,
@@ -76,6 +81,25 @@ addon.const = {
     buffPreRefreshSafetySeconds = 2,
     patientlyRewardedSpellID = 1235378,
     fishingSpellID = 131474,
+    bobberToyItemIDs = {
+        180993, -- Bat Visage
+        142528, -- Can of Worms
+        147307, -- Carved Wooden Helm
+        142529, -- Cat Head
+        147312, -- Demon Noggin
+        147308, -- Enchanted Bobber
+        147309, -- Face of the Forest
+        147310, -- Floating Totem
+        142532, -- Murloc Head
+        147311, -- Replica Gondola
+        142531, -- Squeaky Duck
+        142530, -- Tugboat
+        143662, -- Wooden Pepe
+    },
+    raftToyItemIDs = {
+        85500, -- Angler's Fishing Raft
+        198428, -- Tuskarr Dinghy
+    },
 }
 
 -- Spell names

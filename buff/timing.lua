@@ -28,11 +28,13 @@ local function IsBuffItemDue(itemID, refreshSeconds, requireAuraForCast)
         end
     end
 
+    local lastUsed = addon.state.buffItemLastUseAt[itemID] or 0
     if requireAuraForCast and not hasTrackedAura then
-        return true, nil, "untracked_assume_due_for_cast"
+        if lastUsed <= 0 then
+            return false, nil, "untracked_no_history_skip_cast"
+        end
     end
 
-    local lastUsed = addon.state.buffItemLastUseAt[itemID] or 0
     local elapsed = GetTime() - lastUsed
     return elapsed >= refreshSeconds, nil, "timer_elapsed=" .. string.format("%.1f", elapsed)
 end

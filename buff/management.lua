@@ -61,6 +61,13 @@ local function FindItemInBags(itemID)
     return nil, nil
 end
 
+local function LookupItemInBags(itemID)
+    if addon.buff and addon.buff.FindItemInBags then
+        return addon.buff.FindItemInBags(itemID)
+    end
+    return FindItemInBags(itemID)
+end
+
 local function WarnMissingBuffItem(itemID, reason)
     local now = GetTime()
     local last = addon.state.buffItemLastMissingWarningAt[itemID] or 0
@@ -74,39 +81,66 @@ local function WarnMissingBuffItem(itemID, reason)
     addon.audio.PlayBagFullCue()
 end
 
-local function GetNextDueBuffItem(requireAuraForCast)
+local function GetNextDueBuffItem(requireAuraForCast, excludedItemIDs)
     if not addon.db or type(addon.db.buffItems) ~= "table" then
         return nil
     end
 
+    local hasConfiguredBuffItems = false
+    for _, entry in ipairs(addon.db.buffItems) do
+        if type(entry) == "table" and tonumber(entry.itemID) and tonumber(entry.itemID) > 0 then
+            hasConfiguredBuffItems = true
+            break
+        end
+    end
+    if not hasConfiguredBuffItems then
+        if addon.db and addon.db.debugMode then
+            DebugMessage("No configured buff items; skipping due buff selection")
+        end
+        return nil
+    end
+
+    local hadUnavailableDueBuff = false
+
     for _, entry in ipairs(addon.db.buffItems) do
         local itemID = tonumber(entry.itemID)
         if itemID and itemID > 0 then
-            local refreshSeconds = Clamp(tonumber(entry.refreshSeconds) or addon.db.refreshSeconds or addon.defaults.refreshSeconds, 30, 3600)
-            local isDue, remaining, reason = addon.buff.IsBuffItemDue(itemID, refreshSeconds, requireAuraForCast)
+            if type(excludedItemIDs) == "table" and excludedItemIDs[itemID] then
+                if addon.db and addon.db.debugMode then
+                    DebugMessage("Skipping excluded due buff item: " .. tostring(itemID))
+                end
+            else
+                local refreshSeconds = Clamp(tonumber(entry.refreshSeconds) or addon.db.refreshSeconds or addon.defaults.refreshSeconds, 30, 3600)
+                local isDue, remaining, reason = addon.buff.IsBuffItemDue(itemID, refreshSeconds, requireAuraForCast)
 
-            if isDue then
-                local bag, slot = FindItemInBags(itemID)
-                if bag and slot then
-                    DebugMessage("Due buff item found: " .. tostring(itemID)
-                        .. " bag=" .. tostring(bag)
-                        .. " slot=" .. tostring(slot)
+                if isDue then
+                    local bag, slot = LookupItemInBags(itemID)
+                    if bag and slot then
+                        DebugMessage("Due buff item found: " .. tostring(itemID)
+                            .. " bag=" .. tostring(bag)
+                            .. " slot=" .. tostring(slot)
+                            .. " remaining=" .. tostring(remaining)
+                            .. " reason=" .. tostring(reason))
+                        return itemID, "usable"
+                    elseif addon.db and addon.db.debugMode then
+                        DebugMessage("Due buff item not in bags: " .. tostring(itemID)
+                            .. " reason=" .. tostring(reason))
+                    end
+                    hadUnavailableDueBuff = true
+                    if requireAuraForCast then
+                        WarnMissingBuffItem(itemID, reason)
+                    end
+                elseif addon.db and addon.db.debugMode then
+                    DebugMessage("Buff item not due: " .. tostring(itemID)
                         .. " remaining=" .. tostring(remaining)
                         .. " reason=" .. tostring(reason))
-                    return itemID
-                elseif addon.db and addon.db.debugMode then
-                    DebugMessage("Due buff item not in bags: " .. tostring(itemID)
-                        .. " reason=" .. tostring(reason))
                 end
-                if requireAuraForCast then
-                    WarnMissingBuffItem(itemID, reason)
-                end
-            elseif addon.db and addon.db.debugMode then
-                DebugMessage("Buff item not due: " .. tostring(itemID)
-                    .. " remaining=" .. tostring(remaining)
-                    .. " reason=" .. tostring(reason))
             end
         end
+    end
+
+    if hadUnavailableDueBuff then
+        return nil, "due_unavailable"
     end
 
     return nil
@@ -133,7 +167,7 @@ local function MaybeUseBuffItems()
             local shouldUse = addon.buff.IsBuffItemDue(itemID, refreshSeconds, false)
 
             if shouldUse then
-                local bag, slot = FindItemInBags(itemID)
+                local bag, slot = LookupItemInBags(itemID)
                 if bag and slot then
                     local now = GetTime()
                     local lastReminder = addon.state.buffItemLastReminderAt[itemID] or 0

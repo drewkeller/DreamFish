@@ -2,6 +2,67 @@
 
 local addon = _G["DreamFisher"]
 
+local function GetOwnedToyItemIDs(candidateIDs)
+    local owned = {}
+    local seen = {}
+
+    local function AddToy(itemID)
+        local numeric = tonumber(itemID)
+        if not numeric or numeric <= 0 or seen[numeric] then
+            return
+        end
+        if type(PlayerHasToy) == "function" and not PlayerHasToy(numeric) then
+            return
+        end
+        seen[numeric] = true
+        table.insert(owned, numeric)
+    end
+
+    if type(candidateIDs) == "table" then
+        for _, itemID in ipairs(candidateIDs) do
+            AddToy(itemID)
+        end
+    end
+
+    return owned
+end
+
+local function GetOwnedBobberToyItemIDs()
+    if not addon.const or type(addon.const.bobberToyItemIDs) ~= "table" then
+        return {}
+    end
+    return GetOwnedToyItemIDs(addon.const.bobberToyItemIDs)
+end
+
+local function GetOwnedRaftToyItemIDs()
+    if not addon.const or type(addon.const.raftToyItemIDs) ~= "table" then
+        return {}
+    end
+    return GetOwnedToyItemIDs(addon.const.raftToyItemIDs)
+end
+
+local function GetToyLabel(itemID)
+    local numeric = tonumber(itemID)
+    if not numeric or numeric <= 0 then
+        return nil
+    end
+    local itemName = (type(GetItemInfo) == "function" and GetItemInfo(numeric)) or nil
+    return itemName or ("item:" .. tostring(numeric))
+end
+
+local function TryUseToy(itemID)
+    local numeric = tonumber(itemID)
+    if not numeric or numeric <= 0 then
+        return false
+    end
+    if type(PlayerHasToy) == "function" and not PlayerHasToy(numeric) then
+        return false
+    end
+    -- UseToy is a protected call and cannot be executed from insecure addon code.
+    -- Toy usage must happen through secure action buttons bound to a hardware click.
+    return false
+end
+
 local function ContainerNumSlots(bag)
     if C_Container and C_Container.GetContainerNumSlots then
         return C_Container.GetContainerNumSlots(bag)
@@ -142,6 +203,10 @@ addon.utils.CountItemInBags = CountItemInBags
 addon.utils.GetFreeBagSlots = GetFreeBagSlots
 addon.utils.CheckBuffItemStockWarnings = CheckBuffItemStockWarnings
 addon.utils.CheckBagSpace = CheckBagSpace
+addon.utils.GetOwnedBobberToyItemIDs = GetOwnedBobberToyItemIDs
+addon.utils.GetOwnedRaftToyItemIDs = GetOwnedRaftToyItemIDs
+addon.utils.GetToyLabel = GetToyLabel
+addon.utils.TryUseToy = TryUseToy
 
 -- Test hooks
 addon._test.GetFreeBagSlots = GetFreeBagSlots

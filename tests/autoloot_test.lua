@@ -76,6 +76,20 @@ end
 _G.SetCVar = function(name, value)
     cvars[name] = tostring(value)
 end
+_G.PlayerHasToy = function() return true end
+
+dofile("core/init.lua")
+dofile("core/utils.lua")
+dofile("buff/tracking.lua")
+dofile("buff/timing.lua")
+dofile("buff/management.lua")
+dofile("fishing/helpers.lua")
+dofile("fishing/casting.lua")
+dofile("fishing/state.lua")
+dofile("audio/ducking.lua")
+dofile("audio/alerts.lua")
+dofile("ui/commands.lua")
+dofile("ui/config.lua")
 
 -- Load addon file in this mocked environment.
 dofile("DreamFisher.lua")

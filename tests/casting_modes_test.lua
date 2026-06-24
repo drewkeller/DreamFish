@@ -41,14 +41,25 @@ end
 _G.UnitCastingInfo = function() return nil end
 _G.UnitChannelInfo = function() return nil end
 _G.GetCVar = function() return "1.0" end
+_G.SetCVar = function() end
+_G.PlayerHasToy = function() return true end
 
 local function makeFrame()
     return {
+        RegisterEvent = function() end,
+        UnregisterEvent = function() end,
+        SetScript = function() end,
+        GetScript = function() return nil end,
+        HookScript = function() end,
+        SetAllPoints = function() end,
+        SetFrameStrata = function() end,
+        SetAttribute = function() end,
+        GetAttribute = function() return nil end,
+        SetSize = function() end,
+        SetPoint = function() end,
         IsShown = function() return false end,
         Show = function() end,
         Hide = function() end,
-        SetAttribute = function() end,
-        GetAttribute = function() return nil end,
         GetName = function() return "Frame" end,
     }
 end
@@ -62,11 +73,26 @@ _G.ClearOverrideBindings = function() end
 _G.ContainerNumSlots = function() return 16 end
 _G.ContainerItemID = function() return nil end
 _G.GetItemInfo = function(id) return "Item " .. id end
+_G.GetItemCooldown = function() return 0, 0, 1 end
+_G.CastSpellByName = function() end
 _G.NUM_BAG_SLOTS = 4
 _G.SlashCmdList = {}
 _G.DEFAULT_CHAT_FRAME = { AddMessage = function() end }
 _G.UIParent = {}
 _G.WorldFrame = nil
+
+dofile("core/init.lua")
+dofile("core/utils.lua")
+dofile("buff/tracking.lua")
+dofile("buff/timing.lua")
+dofile("buff/management.lua")
+dofile("fishing/helpers.lua")
+dofile("fishing/casting.lua")
+dofile("fishing/state.lua")
+dofile("audio/ducking.lua")
+dofile("audio/alerts.lua")
+dofile("ui/commands.lua")
+dofile("ui/config.lua")
 
 -- Load the addon
 dofile("DreamFisher.lua")
@@ -125,8 +151,8 @@ function tests.SingleClickClearsBindings()
     DreamFisher._test.SetBuffLastUseTime(111, mockTime - 100)
 
     -- Mock FindItemInBags
-    local originalFind = _G.FindItemInBags
-    _G.FindItemInBags = function() return 0, 1 end
+    local originalFind = DreamFisher.buff.FindItemInBags
+    DreamFisher.buff.FindItemInBags = function() return 0, 1 end
 
     -- First click
     mockTime = 1000
@@ -142,7 +168,7 @@ function tests.SingleClickClearsBindings()
     local secondTime = DreamFisher._test.GetLastRightClickTime()
     assertEquals(secondTime, 0, "Double-click should reset time after processing")
 
-    _G.FindItemInBags = originalFind
+    DreamFisher.buff.FindItemInBags = originalFind
 end
 
 -- ============================================================================
@@ -160,8 +186,8 @@ function tests.DoubleClickDueBuff()
     DreamFisher._test.SetBuffLastUseTime(111, mockTime - 100)
 
     -- Mock FindItemInBags
-    local originalFind = _G.FindItemInBags
-    _G.FindItemInBags = function(itemID)
+    local originalFind = DreamFisher.buff.FindItemInBags
+    DreamFisher.buff.FindItemInBags = function(itemID)
         if itemID == 111 then return 0, 1 end
         return nil, nil
     end
@@ -178,7 +204,7 @@ function tests.DoubleClickDueBuff()
     local finalTime = DreamFisher._test.GetLastRightClickTime()
     assertEquals(finalTime, 0, "Double-click with due buff should reset time (buff processed)")
 
-    _G.FindItemInBags = originalFind
+    DreamFisher.buff.FindItemInBags = originalFind
 end
 
 function tests.DoubleClickSelectsFirstDueBuff()
@@ -196,9 +222,9 @@ function tests.DoubleClickSelectsFirstDueBuff()
     DreamFisher._test.SetBuffLastUseTime(222, mockTime - 100)
 
     -- Mock FindItemInBags
-    local originalFind = _G.FindItemInBags
+    local originalFind = DreamFisher.buff.FindItemInBags
     local findCalls = {}
-    _G.FindItemInBags = function(itemID)
+    DreamFisher.buff.FindItemInBags = function(itemID)
         table.insert(findCalls, itemID)
         if itemID == 111 then return 0, 1 end
         if itemID == 222 then return 0, 2 end
@@ -216,7 +242,7 @@ function tests.DoubleClickSelectsFirstDueBuff()
     -- Should have searched for item 111 first
     assertTrue(findCalls[1] == 111, "Should search for first buff item first")
 
-    _G.FindItemInBags = originalFind
+    DreamFisher.buff.FindItemInBags = originalFind
 end
 
 -- ============================================================================
@@ -234,8 +260,8 @@ function tests.DoubleClickNoDueBuff()
     DreamFisher._test.SetBuffLastUseTime(111, mockTime - 10)
 
     -- Mock FindItemInBags
-    local originalFind = _G.FindItemInBags
-    _G.FindItemInBags = function() return 0, 1 end
+    local originalFind = DreamFisher.buff.FindItemInBags
+    DreamFisher.buff.FindItemInBags = function() return 0, 1 end
 
     -- First click
     mockTime = 1000
@@ -249,7 +275,7 @@ function tests.DoubleClickNoDueBuff()
     local finalTime = DreamFisher._test.GetLastRightClickTime()
     assertEquals(finalTime, 0, "Double-click without due buff should reset time (fishing started)")
 
-    _G.FindItemInBags = originalFind
+    DreamFisher.buff.FindItemInBags = originalFind
 end
 
 -- ============================================================================
@@ -259,7 +285,7 @@ end
 function tests.DoubleClickWindowWithinTimeframe()
     -- Clicks within double-click window (0.25s) should form double-click
     local window = DreamFisher._test.GetDoubleClickWindow()
-    assertEquals(window, 0.25, "Double-click window should be 0.25s")
+    assertEquals(window, 0.33, "Double-click window should be 0.33s")
 
     DreamFisher._test.SetDB({
         buffItems = { { itemID = 111, refreshSeconds = 60 } },
@@ -268,8 +294,8 @@ function tests.DoubleClickWindowWithinTimeframe()
 
     DreamFisher._test.SetBuffLastUseTime(111, mockTime - 100)
 
-    local originalFind = _G.FindItemInBags
-    _G.FindItemInBags = function() return 0, 1 end
+    local originalFind = DreamFisher.buff.FindItemInBags
+    DreamFisher.buff.FindItemInBags = function() return 0, 1 end
 
     -- First click
     mockTime = 1000
@@ -283,7 +309,7 @@ function tests.DoubleClickWindowWithinTimeframe()
     local finalTime = DreamFisher._test.GetLastRightClickTime()
     assertEquals(finalTime, 0, "Clicks at window edge should be double-click")
 
-    _G.FindItemInBags = originalFind
+    DreamFisher.buff.FindItemInBags = originalFind
 end
 
 function tests.DoubleClickWindowExpired()
@@ -349,6 +375,17 @@ function tests.CombatLockdownDoesNotResetWindow()
     assertEquals(lastTime, 0, "Multiple combat clicks should not register")
 end
 
+function tests.HotkeyModeDoesNotActivateWorldClick()
+    DreamFisher._test.SetDB({
+        castingMode = "hotkeyNotImplemented",
+        buffItems = {},
+        buffAuraByItem = {},
+    })
+
+    local active = DreamFisher.fishing.IsWorldRightClickActivationPressed()
+    assertFalse(active, "Hotkey mode should not activate world right-click handling")
+end
+
 -- ============================================================================
 -- Tests: Interaction with Buff State Changes
 -- ============================================================================
@@ -360,8 +397,8 @@ function tests.DoubleClickAdaptsToDueBuff()
         buffAuraByItem = {},
     })
 
-    local originalFind = _G.FindItemInBags
-    _G.FindItemInBags = function() return 0, 1 end
+    local originalFind = DreamFisher.buff.FindItemInBags
+    DreamFisher.buff.FindItemInBags = function() return 0, 1 end
 
     -- First click: buff not due
     mockTime = 1000
@@ -379,7 +416,7 @@ function tests.DoubleClickAdaptsToDueBuff()
     local finalTime = DreamFisher._test.GetLastRightClickTime()
     assertEquals(finalTime, 0, "Double-click should process buff if due at second click")
 
-    _G.FindItemInBags = originalFind
+    DreamFisher.buff.FindItemInBags = originalFind
 end
 
 -- ============================================================================
