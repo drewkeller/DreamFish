@@ -43,22 +43,45 @@ local function ArmNativeInteractOverride(durationSeconds)
         return false
     end
 
+    addon.state.interactOverrideActive = true
     local now = (type(GetTime) == "function") and GetTime() or 0
-    local expiresAt = now + (tonumber(durationSeconds) or 2.5)
-    addon.state.interactOverrideExpiresAt = expiresAt
+    if durationSeconds and tonumber(durationSeconds) and tonumber(durationSeconds) > 0 then
+        addon.state.interactOverrideExpiresAt = now + tonumber(durationSeconds)
+    else
+        addon.state.interactOverrideExpiresAt = 0
+    end
     owner:SetScript("OnUpdate", function(self)
         if InCombatLockdown() then
             return
         end
         local t = (type(GetTime) == "function") and GetTime() or 0
         local stillHooked = addon.fishing and addon.fishing.IsHookedLootMode and addon.fishing.IsHookedLootMode()
-        if t >= (tonumber(addon.state.interactOverrideExpiresAt) or 0) or not stillHooked then
+        local expiresAt = tonumber(addon.state.interactOverrideExpiresAt) or 0
+        local expired = expiresAt > 0 and t >= expiresAt
+        if expired or not stillHooked then
             ClearOverrideBindings(self)
             self:SetScript("OnUpdate", nil)
             addon.state.interactOverrideExpiresAt = 0
+            addon.state.interactOverrideActive = false
         end
     end)
     return true
+end
+
+local function ClearNativeInteractOverride()
+    if type(ClearOverrideBindings) ~= "function" then
+        return
+    end
+    local owner = GetInteractOverrideFrame()
+    if not owner then
+        return
+    end
+    if not InCombatLockdown() then
+        ClearOverrideBindings(owner)
+        owner:SetScript("OnUpdate", nil)
+    end
+    addon.state.interactOverrideExpiresAt = 0
+    addon.state.interactOverrideActive = false
 end
 
 local function GetUnitNameSafe(unit)
@@ -175,3 +198,5 @@ addon.fishing.IsHookedLootMode = IsHookedLootMode
 addon.fishing.ConfigureInteractLootAction = ConfigureInteractLootAction
 addon.fishing.GetInteractDiagnostics = GetInteractDiagnostics
 addon.fishing.FormatInteractDiagnostics = FormatInteractDiagnostics
+addon.fishing.ArmNativeInteractOverride = ArmNativeInteractOverride
+addon.fishing.ClearNativeInteractOverride = ClearNativeInteractOverride

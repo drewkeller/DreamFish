@@ -2,6 +2,7 @@
 
 local addon = _G["DreamFisher"]
 local PrintMessage = addon.PrintMessage
+local DebugMessage = addon.DebugMessage
 
 local function HasPatientlyRewardedAura()
     if C_UnitAuras and C_UnitAuras.GetPlayerAuraBySpellID then
@@ -44,6 +45,32 @@ local function RestoreOriginalAutoLoot()
     end
 end
 
+local function TryArmNativeInteractOverrideFromFishingState()
+    if not addon.db or not addon.db.enableHookedLoot then
+        return
+    end
+    if not addon.state or not addon.state.isFishing or addon.state.fishingLootInProgress then
+        return
+    end
+    if addon.state.interactOverrideActive then
+        return
+    end
+    if not addon.fishing or not addon.fishing.ArmNativeInteractOverride then
+        return
+    end
+
+    local now = (type(GetTime) == "function") and GetTime() or 0
+    local graceUntil = tonumber(addon.state.fishingStartGraceUntil) or 0
+    if now < graceUntil then
+        return
+    end
+
+    local armed = addon.fishing.ArmNativeInteractOverride()
+    if armed then
+        DebugMessage("Armed native interact override from fishing-state fallback")
+    end
+end
+
 local function CreateFishingStateFrame()
     if addon.frames.state then
         return addon.frames.state
@@ -82,6 +109,7 @@ local function CreateFishingStateFrame()
                 EnableTemporaryAutoLoot()
                 addon.audio.EnableFishingAudioFocus()
                 frame:SetScript("OnUpdate", function()
+                    TryArmNativeInteractOverrideFromFishingState()
                     addon.utils.CheckBagSpace()
                     addon.buff.MaybeUseBuffItems()
                     if addon.state.isBobberActive and addon.state.savedFishingAudioCVars ~= nil and addon.state.fishingStartTime > 0 and (GetTime() - addon.state.fishingStartTime) > addon.state.fishingExpireSeconds then
@@ -126,7 +154,11 @@ local function CreateFishingStateFrame()
                 else
                     addon.state.isFishing = true
                     addon.state.isBobberActive = true
+                    if addon.fishing and addon.fishing.ArmNativeInteractOverride then
+                        addon.fishing.ArmNativeInteractOverride()
+                    end
                     frame:SetScript("OnUpdate", function()
+                        TryArmNativeInteractOverrideFromFishingState()
                         addon.utils.CheckBagSpace()
                         addon.buff.MaybeUseBuffItems()
                         if addon.state.isBobberActive and addon.state.savedFishingAudioCVars ~= nil and addon.state.fishingStartTime > 0 and (GetTime() - addon.state.fishingStartTime) > addon.state.fishingExpireSeconds then
@@ -145,6 +177,9 @@ local function CreateFishingStateFrame()
                 addon.state.isBobberActive = false
                 addon.state.fishingLootInProgress = false
                 addon.state.audioRestoreAt = nil
+                if addon.fishing and addon.fishing.ClearNativeInteractOverride then
+                    addon.fishing.ClearNativeInteractOverride()
+                end
                 if addon.frames.audioRestore then
                     addon.frames.audioRestore:Hide()
                 end
@@ -157,6 +192,9 @@ local function CreateFishingStateFrame()
                 addon.state.isBobberActive = false
                 addon.state.fishingLootInProgress = false
                 addon.state.audioRestoreAt = nil
+                if addon.fishing and addon.fishing.ClearNativeInteractOverride then
+                    addon.fishing.ClearNativeInteractOverride()
+                end
                 if addon.frames.audioRestore then
                     addon.frames.audioRestore:Hide()
                 end
@@ -170,6 +208,9 @@ local function CreateFishingStateFrame()
                 addon.state.fishingLootInProgress = false
                 RestoreOriginalAutoLoot()
                 addon.state.audioRestoreAt = nil
+                if addon.fishing and addon.fishing.ClearNativeInteractOverride then
+                    addon.fishing.ClearNativeInteractOverride()
+                end
                 if addon.frames.audioRestore then
                     addon.frames.audioRestore:Hide()
                 end
