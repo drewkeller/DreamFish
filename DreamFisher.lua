@@ -52,15 +52,11 @@ addon.DebugMessage = function(msg)
 end
 
 _G.BINDING_HEADER_DREAMFISHER = "DreamFisher"
-_G.BINDING_NAME_DREAMFISHER_TRIGGER = "Trigger Fishing Cast"
-
-function _G.DreamFisher_TriggerBinding()
-    addon.DebugMessage("Trigger binding activated")
-    local activeAddon = _G["DreamFisher"]
-    if activeAddon and activeAddon.fishing and activeAddon.fishing.HandleHotkeyPress then
-        activeAddon.fishing.HandleHotkeyPress()
-    end
-end
+-- Label for CLICK DreamFisherSecureFishingButton:RightButton binding.
+-- WoW normalizes click-binding token characters to underscores.
+if not _G.BINDING_NAME_CLICK_DreamFisherSecureFishingButton_RightButton then
+    _G.BINDING_NAME_CLICK_DreamFisherSecureFishingButton_RightButton = "Trigger Fishing Cast"
+ end
 
 -- NOTE: Due to WoW addon architecture, individual module files should be
 -- listed in DreamFisher.toc in load order, rather than using dofile().

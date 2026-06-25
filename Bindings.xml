@@ -1,5 +1,4 @@
 <Bindings>
-    <Binding name="DREAMFISHER_TRIGGER" category="DreamFisher">
-        DreamFisher_TriggerBinding()
+    <Binding name="CLICK DreamFisherSecureFishingButton:RightButton" category="DreamFisher">
     </Binding>
 </Bindings>

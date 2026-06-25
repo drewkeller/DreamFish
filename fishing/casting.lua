@@ -1,8 +1,12 @@
 -- DreamFisher: Fishing Casting and World Right-Click Handler
 
 local addon = _G["DreamFisher"]
+local PrintMessage = addon.PrintMessage
 local DebugMessage = addon.DebugMessage
 local OVERSIZED_BOBBER_ITEM_ID = 202207
+
+local ConfigureFishingClickAction
+local GetNextReadyDueBuffItem
 
 local function GetDebugItemLabel(itemID)
     local numeric = tonumber(itemID)
@@ -167,10 +171,20 @@ local function CreateSecureFishingFrame()
     if frame.RegisterForClicks then
         frame:RegisterForClicks("AnyDown", "AnyUp")
     end
-    frame:Hide()
+    -- Keybinding click targets should remain visible to be reliably clickable.
+    frame:Show()
+    frame:HookScript("PreClick", function()
+        if InCombatLockdown() then
+            return
+        end
+        if ConfigureFishingClickAction then
+            ConfigureFishingClickAction()
+        end
+    end)
     frame:HookScript("OnClick", function()
         local actionType = tostring(frame:GetAttribute("type") or "nil")
         local spell = tostring(frame:GetAttribute("spell") or "nil")
+        local dueBuff = tostring(frame:GetAttribute("dreamfisher_duebuff") or "")
         local macrotext = tostring(frame:GetAttribute("macrotext") or "")
         if macrotext ~= "" then
             local firstLine = macrotext:match("([^\n]+)") or macrotext
@@ -179,10 +193,11 @@ local function CreateSecureFishingFrame()
             DebugMessage("Fishing secure click fired: type=" .. actionType .. " spell=" .. spell)
         end
         if not InCombatLockdown() then
+            -- Right-click override path still uses this frame.
             ClearOverrideBindings(frame)
         end
         ResetFishingFrameState(frame)
-        frame:Hide()
+        frame:SetAttribute("dreamfisher_duebuff", nil)
     end)
 
     addon.frames.fishing = frame
@@ -241,7 +256,7 @@ local function ApplySelectedRaftToy()
     return false
 end
 
-local function ConfigureFishingClickAction()
+ConfigureFishingClickAction = function()
     local fishingFrame = addon.frames.fishing
     if not fishingFrame then
         return
@@ -251,6 +266,24 @@ local function ConfigureFishingClickAction()
     local bobberDecision = GetBobberUseDecision()
     local oversizedDecision = GetOversizedBobberDecision()
     local macroLines = {}
+    local dueBuffItemID = nil
+
+    if addon.buff and addon.buff.GetNextDueBuffItem then
+            if type(GetNextReadyDueBuffItem) == "function" then
+                dueBuffItemID = GetNextReadyDueBuffItem()
+            else
+                DebugMessage("Due buff helper unavailable; skipping due buff on this click")
+            end
+    end
+
+    if dueBuffItemID then
+        table.insert(macroLines, "/use item:" .. tostring(dueBuffItemID))
+        fishingFrame:SetAttribute("dreamfisher_duebuff", dueBuffItemID)
+        DebugMessage("Fishing click will apply due buff: "
+            .. GetDebugItemLabel(dueBuffItemID) .. " " .. GetDebugCooldownText(dueBuffItemID))
+    else
+        fishingFrame:SetAttribute("dreamfisher_duebuff", nil)
+    end
 
     if oversizedDecision.enabled then
         if oversizedDecision.ready then
@@ -300,6 +333,28 @@ local function ConfigureFishingClickAction()
     end
 end
 
+GetNextReadyDueBuffItem = function()
+    if not HasConfiguredBuffItems() then
+        return nil, false
+    end
+
+    local excludedBuffItemIDs = {}
+    local hadUnavailableDueBuff = false
+    while true do
+        local candidateItemID, dueStatus = addon.buff.GetNextDueBuffItem(true, excludedBuffItemIDs)
+        if not candidateItemID then
+            hadUnavailableDueBuff = (dueStatus == "due_unavailable") or hadUnavailableDueBuff
+            return nil, hadUnavailableDueBuff
+        end
+        if IsItemReadyForUse(candidateItemID) then
+            return candidateItemID, hadUnavailableDueBuff
+        end
+        DebugMessage("Skipping due buff on cooldown this click: "
+            .. GetDebugItemLabel(candidateItemID) .. " " .. GetDebugCooldownText(candidateItemID))
+        excludedBuffItemIDs[candidateItemID] = true
+    end
+end
+
 local function ResolveBool(value, defaultValue)
     if value == nil then
         return not not defaultValue
@@ -339,6 +394,155 @@ end
 local function IsHotkeyActivationPressed()
     local modes = GetCastingModes()
     return modes.hotkey
+end
+
+local function TryUseItemDirect(itemID)
+    local numeric = tonumber(itemID)
+    if not numeric or numeric <= 0 then
+        return false
+    end
+
+    if C_Item and type(C_Item.UseItemByID) == "function" then
+        local ok = pcall(C_Item.UseItemByID, numeric)
+        if ok then
+            return true
+        end
+    end
+
+    if type(UseItemByName) == "function" then
+        local ok = pcall(UseItemByName, "item:" .. tostring(numeric))
+        if ok then
+            return true
+        end
+    end
+
+    return false
+end
+
+local function TryUseBuffItemDirect(itemID)
+    local numeric = tonumber(itemID)
+    if not numeric or numeric <= 0 then
+        return false
+    end
+
+    local bag, slot = addon.buff.FindItemInBags(numeric)
+    local used = false
+    if bag and slot then
+        if C_Container and type(C_Container.UseContainerItem) == "function" then
+            local ok = pcall(C_Container.UseContainerItem, bag, slot)
+            used = ok and true or false
+        elseif type(UseContainerItem) == "function" then
+            local ok = pcall(UseContainerItem, bag, slot)
+            used = ok and true or false
+        end
+    end
+
+    if not used then
+        used = TryUseItemDirect(numeric)
+    end
+
+    if used then
+        local now = GetTime()
+        addon.state.buffItemLastUseAt[numeric] = now
+        addon.state.pendingBuffObservation = {
+            itemID = numeric,
+            before = addon.buff.BuildHelpfulAuraSnapshot(),
+            expiresAt = now + 20,
+        }
+        addon.buff.AnnounceBuffUse(numeric)
+        DebugMessage("Direct cast step used due buff: " .. GetDebugItemLabel(numeric))
+        return true
+    end
+
+    DebugMessage("Direct cast step failed to use due buff: " .. GetDebugItemLabel(numeric))
+    return false
+end
+
+local function StartFishingCastState()
+    addon.audio.StartFishingAudioFocus()
+    addon.state.isFishing = true
+    addon.state.isBobberActive = true
+    addon.state.fishingLootInProgress = false
+    addon.fishing.EnableTemporaryAutoLoot()
+end
+
+local function TryCastFishingDirect()
+    local casted = false
+    local fishingSpellID = (addon.const and addon.const.fishingSpellID) or 131474
+    local fishingSpellName = (addon.const and addon.const.fishingSpellName) or "Fishing"
+
+    if type(CastSpellByID) == "function" then
+        local ok = pcall(CastSpellByID, fishingSpellID)
+        casted = ok and true or false
+    end
+
+    if not casted and type(CastSpellByName) == "function" then
+        local ok = pcall(CastSpellByName, fishingSpellName)
+        casted = ok and true or false
+    end
+
+    if casted then
+        StartFishingCastState()
+        DebugMessage("Direct cast step started fishing cast")
+        return true
+    end
+
+    DebugMessage("Direct cast step could not cast Fishing")
+    return false
+end
+
+local function HandleDirectCastStep()
+    if InCombatLockdown() then
+        DebugMessage("Direct cast ignored: in combat lockdown")
+        return false
+    end
+
+    local hasConfiguredBuffItems = HasConfiguredBuffItems()
+    if hasConfiguredBuffItems then
+        local excludedBuffItemIDs = {}
+        while true do
+            local candidateItemID, dueStatus = addon.buff.GetNextDueBuffItem(true, excludedBuffItemIDs)
+            if not candidateItemID then
+                if dueStatus == "due_unavailable" then
+                    DebugMessage("Direct cast: due buff exists but unavailable")
+                end
+                break
+            end
+
+            if IsItemReadyForUse(candidateItemID) then
+                if TryUseBuffItemDirect(candidateItemID) then
+                    return true
+                end
+                excludedBuffItemIDs[candidateItemID] = true
+            else
+                DebugMessage("Direct cast skipping due buff on cooldown: "
+                    .. GetDebugItemLabel(candidateItemID) .. " " .. GetDebugCooldownText(candidateItemID))
+                excludedBuffItemIDs[candidateItemID] = true
+            end
+        end
+    end
+
+    local oversizedDecision = GetOversizedBobberDecision()
+    if oversizedDecision.enabled and oversizedDecision.ready then
+        if TryUseItemDirect(OVERSIZED_BOBBER_ITEM_ID) then
+            DebugMessage("Direct cast step used oversized bobber: "
+                .. GetDebugItemLabel(OVERSIZED_BOBBER_ITEM_ID))
+            return true
+        end
+        DebugMessage("Direct cast step failed oversized bobber use: "
+            .. GetDebugItemLabel(OVERSIZED_BOBBER_ITEM_ID))
+    end
+
+    local bobberDecision = GetBobberUseDecision()
+    if bobberDecision.shouldApply and bobberDecision.toyID then
+        if TryUseItemDirect(bobberDecision.toyID) then
+            DebugMessage("Direct cast step used bobber toy: " .. GetDebugItemLabel(bobberDecision.toyID))
+            return true
+        end
+        DebugMessage("Direct cast step failed bobber toy use: " .. GetDebugItemLabel(bobberDecision.toyID))
+    end
+
+    return TryCastFishingDirect()
 end
 
 local function HandleWorldRightClick(forceImmediate)
@@ -518,12 +722,17 @@ local function HandleHotkeyPress()
         return true
     end
 
-    HandleWorldRightClick(true)
+    -- Legacy callback path. Real hotkey casting is now done through
+    -- CLICK DreamFisherSecureFishingButton:RightButton in Bindings.xml.
+    DebugMessage("Hotkey callback path is deprecated; use CLICK binding")
     return true
 end
 
 local function HandleCastCommand()
-    HandleWorldRightClick(true)
+    if PrintMessage then
+        PrintMessage("Protected cast requires a secure click.")
+        PrintMessage("Use macro: /click DreamFisherSecureFishingButton RightButton")
+    end
 end
 
 local function IsFishingCast()
@@ -548,6 +757,7 @@ addon.fishing.HandleHotkeyPress = HandleHotkeyPress
 addon.fishing.HandleCastCommand = HandleCastCommand
 addon.fishing.HandleWorldRightClick = HandleWorldRightClick
 addon.fishing.IsFishingCast = IsFishingCast
+addon.fishing.ConfigureFishingClickAction = ConfigureFishingClickAction
 
 -- Test hooks
 addon._test.HandleWorldRightClick = function()

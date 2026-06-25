@@ -18,7 +18,7 @@ local function RegisterSlashCommands()
             PrintMessage("  |cFF7FFFDAduckaudio, da|r - Manually start audio ducking")
             PrintMessage("  |cFF7FFFDArestoreaudio, ra|r - Manually restore audio from ducking")
             PrintMessage("  |cFF7FFFDAdebug, dbg|r - Toggle debug mode on/off")
-            PrintMessage("  |cFF7FFFDAcast|r - Initiate casting logic immediately")
+            PrintMessage("  |cFF7FFFDAcast|r - Show secure cast macro helper")
             PrintMessage("  |cFF7FFFDAraft|r - Apply the selected raft")
             PrintMessage("  |cFF7FFFDA(no args)|r - Toggle config UI")
             return
@@ -86,7 +86,7 @@ local function RegisterSlashCommands()
         if command == "cast" then
             if addon.fishing and addon.fishing.HandleCastCommand then
                 addon.fishing.HandleCastCommand()
-                PrintMessage("Triggered casting flow.")
+                PrintMessage("Use keybind or macro /click DreamFisherSecureFishingButton RightButton")
             end
             return
         end

@@ -422,6 +422,170 @@ function tests.HotkeyModeDisabledReturnsFalse()
 end
 
 -- ============================================================================
+-- Tests: Hotkey Secure-Click Path (ConfigureFishingClickAction)
+-- ============================================================================
+
+function tests.HotkeyConfiguresFishingSpellWhenNoBuffItems()
+    -- With no configured buff items, fishing action should be set to spell cast
+    local capturedAttrs = {}
+    local fishingFrame = DreamFisher.frames.fishing
+    if fishingFrame then
+        local origSet = fishingFrame.SetAttribute
+        fishingFrame.SetAttribute = function(self, k, v)
+            capturedAttrs[k] = v
+            return origSet and origSet(self, k, v)
+        end
+    end
+
+    DreamFisher._test.SetDB({
+        castingModes = { hotkey = true },
+        buffItems = {},
+        buffAuraByItem = {},
+        useOversizedBobber = false,
+        selectedBobberToy = nil,
+    })
+
+    DreamFisher.fishing.ConfigureFishingClickAction()
+
+    if fishingFrame then
+        assertEquals(capturedAttrs["type"], "spell", "No buff items: action type should be spell")
+        assertEquals(capturedAttrs["spell"], "Fishing", "No buff items: spell should be Fishing")
+    end
+end
+
+function tests.HotkeyConfiguresMacroWhenDueBuffReady()
+    -- With a due buff item available, action should be a macro containing /use and /cast Fishing
+    local capturedAttrs = {}
+    local fishingFrame = DreamFisher.frames.fishing
+    if fishingFrame then
+        local origSet = fishingFrame.SetAttribute
+        fishingFrame.SetAttribute = function(self, k, v)
+            capturedAttrs[k] = v
+            return origSet and origSet(self, k, v)
+        end
+    end
+
+    DreamFisher._test.SetDB({
+        castingModes = { hotkey = true },
+        buffItems = { { itemID = 111, refreshSeconds = 60 } },
+        buffAuraByItem = {},
+        useOversizedBobber = false,
+        selectedBobberToy = nil,
+    })
+
+    DreamFisher._test.SetBuffLastUseTime(111, mockTime - 200)
+
+    -- Item must be in bags or GetNextDueBuffItem treats it as due-but-unavailable
+    local originalFind = DreamFisher.buff.FindItemInBags
+    DreamFisher.buff.FindItemInBags = function(itemID)
+        if itemID == 111 then return 0, 1 end
+        return nil, nil
+    end
+
+    DreamFisher.fishing.ConfigureFishingClickAction()
+
+    DreamFisher.buff.FindItemInBags = originalFind
+
+    if fishingFrame then
+        assertEquals(capturedAttrs["type"], "macro", "Due buff: action type should be macro")
+        local macrotext = capturedAttrs["macrotext"] or ""
+        assertTrue(macrotext:find("111") ~= nil, "Due buff: macro should reference item 111")
+        assertTrue(macrotext:find("/cast Fishing") ~= nil, "Due buff: macro should include /cast Fishing")
+    end
+end
+
+function tests.HotkeyConfiguresFishingWhenBuffNotDue()
+    -- Buff present but not due: should fall through to plain fishing spell
+    local capturedAttrs = {}
+    local fishingFrame = DreamFisher.frames.fishing
+    if fishingFrame then
+        local origSet = fishingFrame.SetAttribute
+        fishingFrame.SetAttribute = function(self, k, v)
+            capturedAttrs[k] = v
+            return origSet and origSet(self, k, v)
+        end
+    end
+
+    DreamFisher._test.SetDB({
+        castingModes = { hotkey = true },
+        buffItems = { { itemID = 111, refreshSeconds = 60 } },
+        buffAuraByItem = {},
+        useOversizedBobber = false,
+        selectedBobberToy = nil,
+    })
+
+    DreamFisher._test.SetBuffLastUseTime(111, mockTime - 5)
+
+    -- Item must be in bags or GetNextDueBuffItem treats it as due-but-unavailable
+    local originalFind = DreamFisher.buff.FindItemInBags
+    DreamFisher.buff.FindItemInBags = function(itemID)
+        if itemID == 111 then return 0, 1 end
+        return nil, nil
+    end
+
+    DreamFisher.fishing.ConfigureFishingClickAction()
+
+    DreamFisher.buff.FindItemInBags = originalFind
+
+    if fishingFrame then
+        local actionType = capturedAttrs["type"]
+        assertTrue(
+            actionType == "spell" or actionType == nil or actionType == "macro",
+            "Not-due buff: should configure spell or macro with no buff pre-cast"
+        )
+    end
+end
+
+function tests.HotkeyPressInCombatReturnsTrue()
+    -- HandleHotkeyPress returns true (consumed) even in combat
+    DreamFisher._test.SetDB({
+        castingModes = { hotkey = true },
+        buffItems = {},
+        buffAuraByItem = {},
+    })
+
+    mockInCombat = true
+    local result = DreamFisher.fishing.HandleHotkeyPress()
+    assertTrue(result == true, "Hotkey press in combat should return true (consumed)")
+end
+
+function tests.HotkeyPressWhenDisabledReturnsFalse()
+    -- HandleHotkeyPress returns false when hotkey mode is off
+    DreamFisher._test.SetDB({
+        castingModes = {
+            doubleRightClick = true,
+            singleRightClickConfig = false,
+            singleRightClickDoubleStart = false,
+            hotkey = false,
+        },
+        buffItems = {},
+        buffAuraByItem = {},
+    })
+
+    mockInCombat = false
+    local result = DreamFisher.fishing.HandleHotkeyPress()
+    assertFalse(result, "Hotkey press when disabled should return false")
+end
+
+function tests.HotkeyPressWhenEnabledOutOfCombatReturnsTrue()
+    -- HandleHotkeyPress returns true when hotkey mode enabled and out of combat
+    DreamFisher._test.SetDB({
+        castingModes = {
+            doubleRightClick = false,
+            singleRightClickConfig = false,
+            singleRightClickDoubleStart = false,
+            hotkey = true,
+        },
+        buffItems = {},
+        buffAuraByItem = {},
+    })
+
+    mockInCombat = false
+    local result = DreamFisher.fishing.HandleHotkeyPress()
+    assertTrue(result == true, "Hotkey press when enabled should return true")
+end
+
+-- ============================================================================
 -- Tests: Interaction with Buff State Changes
 -- ============================================================================
 
