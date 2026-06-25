@@ -554,6 +554,7 @@ function tests.HookedLootModeConfiguresInteractAction()
     })
 
     DreamFisher.state.isBobberActive = true
+    DreamFisher.state.fishingStartGraceUntil = mockTime - 1
     DreamFisher.fishing.ConfigureFishingClickAction()
 
     assertEquals(capturedAttrs["type"], "macro", "Hooked mode should configure macro action")
@@ -610,6 +611,42 @@ function tests.HookedLootFallbackWindowConfiguresInteractAction()
     assertEquals(capturedAttrs["type"], "macro", "Fallback hook window should configure interact macro")
     assertTrue((capturedAttrs["macrotext"] or ""):find("/interact", 1, true) ~= nil,
         "Fallback hook window should use interact")
+end
+
+function tests.HookedRightClickRoutesToInteractWhenHooked()
+    local originalBindingClick = _G.SetOverrideBindingClick
+    local bindingCalls = 0
+    _G.SetOverrideBindingClick = function(...)
+        bindingCalls = bindingCalls + 1
+        if originalBindingClick then
+            return originalBindingClick(...)
+        end
+    end
+
+    DreamFisher._test.SetDB({
+        castingModes = {
+            doubleRightClick = true,
+            singleRightClickConfig = false,
+            singleRightClickDoubleStart = false,
+            hotkey = false,
+        },
+        buffItems = {},
+        buffAuraByItem = {},
+        enableHookedLoot = true,
+    })
+
+    DreamFisher.state.isFishing = true
+    DreamFisher.state.isBobberActive = true
+    DreamFisher.state.fishingLootInProgress = false
+    DreamFisher.state.fishingStartGraceUntil = mockTime - 1
+    DreamFisher._test.SetLastRightClickTime(12345)
+
+    DreamFisher._test.HandleWorldRightClick()
+
+    assertTrue(bindingCalls > 0, "Hooked world right-click should route to secure interact binding")
+    assertEquals(DreamFisher._test.GetLastRightClickTime(), 0, "Hooked world right-click should clear double-click timing")
+
+    _G.SetOverrideBindingClick = originalBindingClick
 end
 
 function tests.HotkeyPressInCombatReturnsTrue()

@@ -583,6 +583,14 @@ local function HandleWorldRightClick(forceImmediate)
         return
     end
 
+    if addon.db and addon.db.enableHookedLoot
+        and addon.state and addon.state.interactOverrideActive
+        and addon.fishing and addon.fishing.IsHookedLootMode
+        and addon.fishing.IsHookedLootMode() then
+        DebugMessage("Hooked phase world right-click delegated to native interact override")
+        return
+    end
+
     local now = GetTime()
     DebugMessage("World right click: dt=" .. string.format("%.3f", now - addon.state.lastRightClickTime))
     local modes = GetCastingModes()
@@ -591,6 +599,29 @@ local function HandleWorldRightClick(forceImmediate)
 
     local buffFrame = addon.frames.buff
     local fishingFrame = addon.frames.fishing
+
+    if addon.db and addon.db.enableHookedLoot
+        and addon.fishing and addon.fishing.IsHookedLootMode
+        and addon.fishing.IsHookedLootMode() then
+        addon.state.lastRightClickTime = 0
+
+        if not fishingFrame and addon.fishing and addon.fishing.CreateSecureFishingFrame then
+            fishingFrame = addon.fishing.CreateSecureFishingFrame()
+        end
+
+        if fishingFrame and not InCombatLockdown() then
+            if buffFrame then
+                ClearOverrideBindings(buffFrame)
+                buffFrame:Hide()
+                ResetBuffFrameState(buffFrame)
+            end
+            ConfigureFishingClickAction()
+            SetOverrideBindingClick(fishingFrame, true, "BUTTON2", fishingFrame:GetName(), "RightButton")
+            fishingFrame:Show()
+            DebugMessage("Hooked phase world right-click routed to interact action")
+            return
+        end
+    end
 
     if not hasConfiguredBuffItems and buffFrame then
         buffFrame:Hide()
@@ -699,10 +730,14 @@ local function HandleWorldRightClick(forceImmediate)
             ResetBuffFrameState(buffFrame)
         end
         addon.audio.StartFishingAudioFocus()
+        local now = (type(GetTime) == "function") and GetTime() or 0
+        -- Mark a pre-cast fishing session for audio/tests. Hooked mode is
+        -- still blocked by grace-window gating until cast has transitioned.
         addon.state.isFishing = true
         addon.state.isBobberActive = true
+        addon.state.fishingStartTime = now
+        addon.state.fishingStartGraceUntil = now + 1.5
         addon.state.fishingLootInProgress = false
-        addon.fishing.EnableTemporaryAutoLoot()
 
         if hadUnavailableDueBuff then
             DebugMessage("No usable due buffs; starting fishing cast")

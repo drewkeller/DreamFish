@@ -39,6 +39,10 @@ local function ArmNativeInteractOverride(durationSeconds)
         end
     end
 
+    -- Support right-click catch flow: route BUTTON2 through native interact while hooked.
+    SetOverrideBinding(owner, true, "BUTTON2", "INTERACTTARGET")
+    applied = true
+
     if not applied then
         return false
     end
@@ -126,17 +130,18 @@ local function IsHookedLootMode()
         return false
     end
 
+    local now = (type(GetTime) == "function") and GetTime() or 0
+    local graceUntil = tonumber(addon.state.fishingStartGraceUntil) or 0
     local bobberActive = addon.state.isBobberActive and true or false
+    local bobberActiveReady = bobberActive and (now >= graceUntil)
     local fallbackHookWindow = false
     if addon.state.isFishing and not addon.state.fishingLootInProgress then
-        local now = (type(GetTime) == "function") and GetTime() or 0
-        local graceUntil = tonumber(addon.state.fishingStartGraceUntil) or 0
         -- Some clients do not reliably flip isBobberActive for secure-click hotkey paths.
         -- Treat post-cast fishing state (after start grace) as a hooked-interact window.
         fallbackHookWindow = now >= graceUntil
     end
 
-    return bobberActive or fallbackHookWindow
+    return bobberActiveReady or fallbackHookWindow
 end
 
 local function ConfigureInteractLootAction(frame)
