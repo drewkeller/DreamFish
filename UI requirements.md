@@ -1,8 +1,7 @@
 # UI changes
 
-Save changes as they are made "live" instead of saving when closing the window.
-Change the "Save & Close" to "Close"
-Remove the "X" button to close the window
+Save changes as they are made "live".
+Use an "X" button at top right to close the window
 Escape key should close the window
 
 The window should remember its position between sessions
@@ -13,6 +12,8 @@ Focus
 	Patient Treasure alert (checkbox)
 	Full bag monitor / alert (checkbox)
 	Missing item alert (checkbox)
+	Audio sliders for adjusting audio when fishing:
+
 Tackle
 	Rafts - when swimming or standing on water? or /df raft (Disabled, Anglers Fishing Raft, Tuskarr Dinghy)
 	Bobbers - select which toy to use (Disabled, Bat Visage, Can of Worms, Carved Wooden Helm, Cat Head, Demon Noggin, Enchanted Bobber, Face of the Forest, Floating Totem, Replica Gondola, Tugboat, Wooden Pepe)
@@ -21,31 +22,26 @@ Buffs
 	Buff items
 Modes
 	CASTING MODES (select):
-		Right double click
-		Right click with modifier
-		Keyboard hotkey
-		Single right click (double right click to start. ESC to stop)
-			Should also exit for any of the reasons that cause audio ducking to exit
+	 	Mutually exclusive:
+			Right double click
+			Single right click (double right click to start. ESC to stop)
+				Should also exit for any of the reasons that cause audio ducking to exit
+		To be removed:
+			Right click with modifier (SHIFT, CTRL, ALT)
+		Keyboard hotkey (not currently implemented)
 		Single right click (when DF window is open)
 	Underlight Angler
 		Equip when swimming, unequip when casting (checkbox)
 
 
 # SLASH COMMANDS
-
-Base commands:
-	/df or /dreamfisher — Opens the configuration UI
-
-Test/Debug commands:
-(add) help - Show the list of commands
-	testtreasure or tt — Test Patient Treasure alert
-	testbagsfull or tbf — Test bags full alert
-(remove)	testsound or ts — Test treasure alert audio
-	testaudio or ta — Test audio focus (shows volume levels before and after audio ducking)
-	audiostate or as — Show current audio state (ducking status, fishing flags, volume levels)
-(add) duckaudio or da - Manually start audio ducking levels
-	restoreaudio or ra — Manually restore audio to original levels
-	debug or dbg — Toggle debug mode ON/OFF
-
-Configuration commands:
-	modifier <ALT|CTRL|SHIFT|NONE> — Set which modifier key is required for world right-click actions (default: NONE)
+/df help          - Show all commands (or /df h or /df ?)
+/df testtreasure  - Test Patient Treasure alert (/df tt)
+/df testbagsfull  - Test bags full alert (/df tbf)
+/df testaudio     - Test audio ducking with before/after CVars (/df ta)
+/df audiostate    - Display current audio ducking state (/df as)
+/df duckaudio     - Manually start audio ducking (/df da) 🆕
+/df restoreaudio  - Manually restore audio (/df ra)
+/df debug         - Toggle debug mode (/df dbg)
+/df raft          - Apply the selected raft
+/df               - Toggle config UI

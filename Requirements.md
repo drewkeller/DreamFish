@@ -35,12 +35,48 @@ The addon provies an interface window with the following features.
 * An entry box for each buff item to set a time (seconds) to throw the item in the water and refresh the buff (don't need this if the buff time can be determined from the item)
 * An entry box to set the number of slots for the low bag space warning
 
-# Other Features
-Suggest other features that might make sense for this addon.
 
+# Feature Details
 
+## Fishing mode
+Fishing mode can be started by the following methods:
+    (checkbox) Double right click
+    (checkbox) "Fishing Mode" Hotkey (special "hotkey entry" box and label)
+    (checkbox) DreamFishing window open
+    (button)   "Start fishing mode" (when fishing mode is active, says "Stop fishing mode")
+    (command)  /df start
+When entering fishing mode
+    Duck audio
+    (optionally) Open fishing mode "window" (a non-intrusive window)
 
+While fishing mode is active:
+    Casting is initiated by single right click or a hotkey (not mutually exclusive)
+    Looting is accoomplished by single right click or the same hotkey
+    The normal casting logic still applies (check for raft, bobber, buffs)
+    The normal alerts logic still applies (full bags, treasure, etc)
+    (?) Show light blue, higly transparent screen background
 
+Fishing mode is cancelled by:
+    Combat
+    Movement (to be tested, maybe we can continue fishing mode through movement)
+    "Fishing Mode" hotkey (if hotkey is enabled)
+    Closing DreamFishing window (if enabled)
+    Clicking the "Stop fishing mode" button
+    Pressing Escape key
+    /df stop
 
+When exiting fishing mode
+    Restore audio levels
 
+## Casting modes (outside of Fishing mode)
+Initiating a cast can be done by any of the following
+    (checkbox) Double right click
+    (checkbox) Single right click (when DreamFishing window is open)
+    (checkbox) "Cast" hotkey special "hotkey entry" box and label)
+
+## Buffs
+* Choose an appropriate buff
+    - some buffs can stack with each other and some should be mutually exclusive
+    - don't apply buffs if they don't stack
+    - prioritize?
 
