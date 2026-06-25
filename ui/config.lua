@@ -838,14 +838,18 @@ function config.CreateConfigPanel()
     addon.modeDoubleRightClickCheckbox = CreateCheckbox(modesPage, 20, -45, "Right double click", SaveLive)
     addon.modeSingleRightClickConfigCheckbox = CreateCheckbox(modesPage, 20, -75, "Single right click (when DF window is open)", SaveLive)
     addon.modeSingleRightClickDoubleStartCheckbox = CreateCheckbox(modesPage, 20, -105, "Single right click (double right click to start. ESC to stop)", SaveLive)
-    addon.modeHotkeyCheckbox = CreateCheckbox(modesPage, 20, -135, "Keyboard hotkey", SaveLive)
-    addon.enableHookedLootCheckbox = CreateCheckbox(modesPage, 20, -165, "Use same trigger to interact when fish is hooked", SaveLive)
+    addon.modeHotkeyCheckbox = CreateCheckbox(modesPage, 20, -135, "Keybinding (set the key in Keybindings > DreamFisher)", SaveLive)
+    addon.enableHookedLootCheckbox = CreateCheckbox(modesPage, 20, -165, "Use right click and/or hotkey to reel in the fish", SaveLive)
 
     local hotkeyNote = modesPage:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
-    hotkeyNote:SetPoint("TOPLEFT", 20, -200)
-    hotkeyNote:SetText("Set key in Game Menu > Options > Keybindings > DreamFisher. Requires in-game interact/soft-target setup.")
+    hotkeyNote:SetPoint("TOPLEFT", 40, -200)
+    hotkeyNote:SetText("Requires some setup in Game Menu > Options: \n"
+        .. "1. Turn on \"Enable Interact Key\" (Options > Controls).\n"
+        .. "2. Set a keybinding (Keybindings > DreamFisher).")
+    hotkeyNote:SetJustifyH("LEFT")
+    hotkeyNote:SetWidth(480)
 
-    addon.underlightAnglerCheckbox = CreateCheckbox(modesPage, 20, -235, "Equip Underlight Angler while swimming", SaveLive)
+    addon.underlightAnglerCheckbox = CreateCheckbox(modesPage, 20, -255, "Equip Underlight Angler while swimming", SaveLive)
 
     addon.buffItemControls = {}
     for i = 1, maxBuffSlots do

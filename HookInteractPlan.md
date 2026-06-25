@@ -2,6 +2,8 @@
 
 Plan generation: approx 60 credits
 Plan implementation: approx 30 credits
+Overcoming technical issues in game to get it to work: 349 credits over 20 debugging iterations (17.5 credits per attempt)
+This was done in a feature branch in order to limit the area being worked on.
 
 Implement an opt-in hooked-fish interact mode with minimal touch points: add a small isolated interact module, branch once in cast action configuration, and add a user Setup section that documents required in-game soft-target/interact settings.
 
