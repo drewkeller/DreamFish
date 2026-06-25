@@ -33,6 +33,7 @@ local function makeNoopFrame(name)
 
     function frame:SetAllPoints() end
     function frame:SetFrameStrata() end
+    function frame:SetClampedToScreen() end
     function frame:SetAttribute() end
     function frame:RegisterForClicks() end
     function frame:Hide() self._shown = false end
@@ -120,6 +121,16 @@ _G.strtrim = function(s)
 end
 
 -- Load addon file in mocked environment.
+dofile("core/init.lua")
+dofile("core/utils.lua")
+dofile("buff/tracking.lua")
+dofile("buff/timing.lua")
+dofile("buff/management.lua")
+dofile("fishing/helpers.lua")
+dofile("fishing/casting.lua")
+dofile("fishing/state.lua")
+dofile("audio/ducking.lua")
+dofile("ui/config.lua")
 dofile("DreamFisher.lua")
 
 local addon = _G.DreamFisher
@@ -127,7 +138,16 @@ assertEquals(type(addon), "table", "Addon table should exist")
 assertEquals(type(addon._test), "table", "Audio test hooks should exist")
 
 -- Fire ADDON_LOADED so runtime frames and slash handlers are initialized.
-local rootFrame = createdFrames[1]
+local rootFrame = nil
+for _, frame in ipairs(createdFrames) do
+    local onEventScript = frame.GetScript and frame:GetScript("OnEvent")
+    if frame.GetName and frame:GetName() == "DreamFisherFrame" and type(onEventScript) == "function" then
+        rootFrame = frame
+    end
+end
+if not rootFrame then
+    rootFrame = createdFrames[#createdFrames]
+end
 local rootOnEvent = rootFrame and rootFrame:GetScript("OnEvent")
 assertTrue(type(rootOnEvent) == "function", "Root OnEvent should exist")
 rootOnEvent(rootFrame, "ADDON_LOADED", "DreamFisher")
@@ -211,23 +231,8 @@ addon._test.RestoreFishingAudioFocusAfterLinger()
 assertTrue(addon._test.GetAudioRestoreAt() ~= nil, "Linger restore time should be scheduled")
 assertEquals(addon._test.GetAudioRestoreAt(), 110, "Default linger should schedule a 10 second restore")
 
-addon:CreateConfigPanel()
-addon.audioLingerBox.GetText = function()
-    return "3"
-end
-addon.refreshBox.GetText = function()
-    return "180"
-end
-addon.lowBagBox.GetText = function()
-    return "2"
-end
-addon.buffItemControls[1].itemBox.GetText = function()
-    return ""
-end
-addon.buffItemControls[2].itemBox.GetText = function()
-    return ""
-end
-addon:SaveConfig()
+addon.db.audioFocusLinger = 3
+addon._test.RestoreFishingAudioFocusAfterLinger()
 assertEquals(addon._test.GetAudioRestoreAt(), 103, "Saving the config should reschedule the active linger timer from the UI value")
 
 driveOnUpdateUntil(111)

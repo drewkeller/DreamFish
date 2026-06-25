@@ -102,6 +102,9 @@ local function clearMessages()
 end
 
 -- Load addon file in mocked environment.
+dofile("core/init.lua")
+dofile("core/utils.lua")
+dofile("fishing/helpers.lua")
 dofile("DreamFisher.lua")
 
 local addon = _G.DreamFisher

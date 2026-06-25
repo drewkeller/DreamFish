@@ -136,13 +136,29 @@ _G.C_Timer = {
 _G.DreamFisherDB = {}
 
 -- Load addon.
+dofile("core/init.lua")
+dofile("core/utils.lua")
+dofile("buff/tracking.lua")
+dofile("fishing/casting.lua")
+dofile("fishing/state.lua")
+dofile("audio/ducking.lua")
+dofile("audio/alerts.lua")
 dofile("DreamFisher.lua")
 
 local addon = _G.DreamFisher
 assertEquals(type(addon), "table", "Addon should load")
 
 -- Fire ADDON_LOADED for this addon so slash commands are registered.
-local rootFrame = createdFrames[1]
+local rootFrame = nil
+for _, frame in ipairs(createdFrames) do
+    local onEventScript = frame.GetScript and frame:GetScript("OnEvent")
+    if frame.GetName and frame:GetName() == "DreamFisherFrame" and type(onEventScript) == "function" then
+        rootFrame = frame
+    end
+end
+if not rootFrame then
+    rootFrame = createdFrames[#createdFrames]
+end
 local onEvent = rootFrame and rootFrame:GetScript("OnEvent")
 assertTrue(type(onEvent) == "function", "Root OnEvent should exist")
 onEvent(rootFrame, "ADDON_LOADED", "DreamFisher")
