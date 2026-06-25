@@ -51,6 +51,17 @@ addon.DebugMessage = function(msg)
     end
 end
 
+_G.BINDING_HEADER_DREAMFISHER = "DreamFisher"
+_G.BINDING_NAME_DREAMFISHER_TRIGGER = "Trigger Fishing Cast"
+
+function _G.DreamFisher_TriggerBinding()
+    addon.DebugMessage("Trigger binding activated")
+    local activeAddon = _G["DreamFisher"]
+    if activeAddon and activeAddon.fishing and activeAddon.fishing.HandleHotkeyPress then
+        activeAddon.fishing.HandleHotkeyPress()
+    end
+end
+
 -- NOTE: Due to WoW addon architecture, individual module files should be
 -- listed in DreamFisher.toc in load order, rather than using dofile().
 -- This file serves as a hub for cross-module communication.
@@ -80,11 +91,6 @@ frame:SetScript("OnEvent", function(self, event, name)
     _G[addonName .. "DB"] = _G[addonName .. "DB"] or {}
     addon.db = _G[addonName .. "DB"]
     addon.CopyDefaults(addon.defaults, addon.db)
-
-    -- Migration: Reset modifier to NONE if user never explicitly chose one
-    if not addon.db.worldRightClickModifierUserSet then
-        addon.db.worldRightClickModifier = "NONE"
-    end
 
     -- Initialize buff config
     if addon.buff and addon.buff.NormalizeBuffConfig then
@@ -129,6 +135,7 @@ if WorldFrame then
             end
         end
     end)
+
 end
 
 -- Loot tracking

@@ -377,13 +377,48 @@ end
 
 function tests.HotkeyModeDoesNotActivateWorldClick()
     DreamFisher._test.SetDB({
-        castingMode = "hotkeyNotImplemented",
+        castingModes = {
+            doubleRightClick = false,
+            singleRightClickConfig = false,
+            singleRightClickDoubleStart = false,
+            hotkey = true,
+        },
         buffItems = {},
         buffAuraByItem = {},
     })
 
     local active = DreamFisher.fishing.IsWorldRightClickActivationPressed()
     assertFalse(active, "Hotkey mode should not activate world right-click handling")
+end
+
+function tests.HotkeyModeCanBeActivated()
+    DreamFisher._test.SetDB({
+        castingModes = {
+            doubleRightClick = false,
+            singleRightClickConfig = false,
+            singleRightClickDoubleStart = false,
+            hotkey = true,
+        },
+        buffItems = {},
+        buffAuraByItem = {},
+    })
+
+    assertTrue(DreamFisher.fishing.IsHotkeyActivationPressed(), "Hotkey mode should be active when enabled")
+end
+
+function tests.HotkeyModeDisabledReturnsFalse()
+    DreamFisher._test.SetDB({
+        castingModes = {
+            doubleRightClick = true,
+            singleRightClickConfig = false,
+            singleRightClickDoubleStart = false,
+            hotkey = false,
+        },
+        buffItems = {},
+        buffAuraByItem = {},
+    })
+
+    assertFalse(DreamFisher.fishing.IsHotkeyActivationPressed(), "Hotkey mode should be inactive when disabled")
 end
 
 -- ============================================================================

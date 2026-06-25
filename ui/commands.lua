@@ -18,8 +18,8 @@ local function RegisterSlashCommands()
             PrintMessage("  |cFF7FFFDAduckaudio, da|r - Manually start audio ducking")
             PrintMessage("  |cFF7FFFDArestoreaudio, ra|r - Manually restore audio from ducking")
             PrintMessage("  |cFF7FFFDAdebug, dbg|r - Toggle debug mode on/off")
+            PrintMessage("  |cFF7FFFDAcast|r - Initiate casting logic immediately")
             PrintMessage("  |cFF7FFFDAraft|r - Apply the selected raft")
-            PrintMessage("  |cFF7FFFDAmodifier <ALT|CTRL|SHIFT|NONE>|r - Set world right-click modifier")
             PrintMessage("  |cFF7FFFDA(no args)|r - Toggle config UI")
             return
         end
@@ -83,20 +83,15 @@ local function RegisterSlashCommands()
             PrintMessage("Debug mode: " .. (addon.db.debugMode and "ON" or "OFF"))
             return
         end
-        if command == "raft" then
-            PrintMessage("Raft toy usage requires a secure click. Use the Tackle tab's Apply Raft button.")
+        if command == "cast" then
+            if addon.fishing and addon.fishing.HandleCastCommand then
+                addon.fishing.HandleCastCommand()
+                PrintMessage("Triggered casting flow.")
+            end
             return
         end
-        local modifierArg = command:match("^modifier%s+(%S+)$")
-        if modifierArg then
-            local value = string.upper(modifierArg)
-            if value == "ALT" or value == "CTRL" or value == "SHIFT" or value == "NONE" then
-                addon.db.worldRightClickModifier = value
-                addon.db.worldRightClickModifierUserSet = true
-                PrintMessage("World right-click modifier set to: " .. value)
-            else
-                PrintMessage("Invalid modifier. Use: ALT, CTRL, SHIFT, or NONE")
-            end
+        if command == "raft" then
+            PrintMessage("Raft toy usage requires a secure click. Use the Tackle tab's Apply Raft button.")
             return
         end
         addon:ToggleUI()

@@ -300,57 +300,48 @@ local function ConfigureFishingClickAction()
     end
 end
 
-local function GetCastingMode()
-    if not addon.db then
-        return addon.defaults.castingMode or "doubleRightClick"
+local function ResolveBool(value, defaultValue)
+    if value == nil then
+        return not not defaultValue
     end
-    return tostring(addon.db.castingMode or addon.defaults.castingMode or "doubleRightClick")
+    return not not value
+end
+
+local function GetCastingModes()
+    local defaultsModes = (addon.defaults and addon.defaults.castingModes) or {}
+    local dbModes = (addon.db and addon.db.castingModes) or {}
+
+    local modes = {
+        doubleRightClick = ResolveBool(dbModes.doubleRightClick, defaultsModes.doubleRightClick),
+        singleRightClickConfig = ResolveBool(dbModes.singleRightClickConfig, defaultsModes.singleRightClickConfig),
+        singleRightClickDoubleStart = ResolveBool(dbModes.singleRightClickDoubleStart, defaultsModes.singleRightClickDoubleStart),
+        hotkey = ResolveBool(dbModes.hotkey, defaultsModes.hotkey),
+    }
+
+    if addon.db then
+        addon.db.castingModes = modes
+    end
+
+    return modes
 end
 
 local function IsWorldRightClickActivationPressed()
-    local mode = GetCastingMode()
-    if mode == "modifierRightClick" then
-        local modifier = string.upper(tostring((addon.db and addon.db.worldRightClickModifier) or addon.defaults.worldRightClickModifier or "ALT"))
-        if modifier == "NONE" then
-            return true
-        end
-        if modifier == "ALT" then
-            return IsAltKeyDown and IsAltKeyDown()
-        end
-        if modifier == "CTRL" or modifier == "CONTROL" then
-            return IsControlKeyDown and IsControlKeyDown()
-        end
-        if modifier == "SHIFT" then
-            return IsShiftKeyDown and IsShiftKeyDown()
-        end
-        return IsAltKeyDown and IsAltKeyDown()
-    end
-    if mode == "singleRightClickConfig" then
-        return addon.frames.config and addon.frames.config:IsShown() or false
-    end
-    if mode == "hotkeyNotImplemented" then
-        return false
-    end
-    if mode == "doubleRightClick" or mode == "singleRightClickDoubleStart" then
+    local modes = GetCastingModes()
+    if modes.singleRightClickConfig and addon.frames.config and addon.frames.config:IsShown() then
         return true
     end
-    local modifier = string.upper(tostring((addon.db and addon.db.worldRightClickModifier) or addon.defaults.worldRightClickModifier or "ALT"))
-    if modifier == "NONE" then
+    if modes.doubleRightClick or modes.singleRightClickDoubleStart then
         return true
     end
-    if modifier == "ALT" then
-        return IsAltKeyDown and IsAltKeyDown()
-    end
-    if modifier == "CTRL" or modifier == "CONTROL" then
-        return IsControlKeyDown and IsControlKeyDown()
-    end
-    if modifier == "SHIFT" then
-        return IsShiftKeyDown and IsShiftKeyDown()
-    end
-    return IsAltKeyDown and IsAltKeyDown()
+    return false
 end
 
-local function HandleWorldRightClick()
+local function IsHotkeyActivationPressed()
+    local modes = GetCastingModes()
+    return modes.hotkey
+end
+
+local function HandleWorldRightClick(forceImmediate)
     if InCombatLockdown() then
         DebugMessage("Right click ignored: in combat lockdown")
         return
@@ -358,7 +349,8 @@ local function HandleWorldRightClick()
 
     local now = GetTime()
     DebugMessage("World right click: dt=" .. string.format("%.3f", now - addon.state.lastRightClickTime))
-    local allowSingleClick = addon.frames.config and addon.frames.config:IsShown()
+    local modes = GetCastingModes()
+    local allowSingleClick = modes.singleRightClickConfig and addon.frames.config and addon.frames.config:IsShown() or false
     local hasConfiguredBuffItems = HasConfiguredBuffItems()
 
     local buffFrame = addon.frames.buff
@@ -405,7 +397,7 @@ local function HandleWorldRightClick()
         end
     end
 
-    if allowSingleClick or (now - addon.state.lastRightClickTime) <= (addon.state.doubleClickWindow + 0.001) then
+    if forceImmediate or allowSingleClick or (now - addon.state.lastRightClickTime) <= (addon.state.doubleClickWindow + 0.001) then
         addon.state.lastRightClickTime = 0
         local pendingBuffItemID = nil
         local hadUnavailableDueBuff = false
@@ -516,6 +508,24 @@ local function HandleWorldRightClick()
     end
 end
 
+local function HandleHotkeyPress()
+    if not IsHotkeyActivationPressed() then
+        return false
+    end
+
+    if InCombatLockdown() then
+        DebugMessage("Hotkey ignored: in combat lockdown")
+        return true
+    end
+
+    HandleWorldRightClick(true)
+    return true
+end
+
+local function HandleCastCommand()
+    HandleWorldRightClick(true)
+end
+
 local function IsFishingCast()
     if UnitCastingInfo("player") == "Fishing" then
         return true
@@ -533,6 +543,9 @@ addon.fishing.CreateSecureBuffFrame = CreateSecureBuffFrame
 addon.fishing.ApplySelectedBobberToy = ApplySelectedBobberToy
 addon.fishing.ApplySelectedRaftToy = ApplySelectedRaftToy
 addon.fishing.IsWorldRightClickActivationPressed = IsWorldRightClickActivationPressed
+addon.fishing.IsHotkeyActivationPressed = IsHotkeyActivationPressed
+addon.fishing.HandleHotkeyPress = HandleHotkeyPress
+addon.fishing.HandleCastCommand = HandleCastCommand
 addon.fishing.HandleWorldRightClick = HandleWorldRightClick
 addon.fishing.IsFishingCast = IsFishingCast
 

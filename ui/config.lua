@@ -156,64 +156,23 @@ local function CreateToySelector(parent, x, y, width, label, optionsGetter, onLi
     return row
 end
 
-local function CreateModeSelector(parent, x, y, width, label, onLiveChange)
-    local row = CreateFrame("Frame", nil, parent)
-    row:SetSize(width, 52)
-    row:SetPoint("TOPLEFT", x, y)
+local function ResolveBool(value, defaultValue)
+    if value == nil then
+        return not not defaultValue
+    end
+    return not not value
+end
 
-    row.label = row:CreateFontString(nil, "OVERLAY", "GameFontNormal")
-    row.label:SetPoint("TOPLEFT", 0, 0)
-    row.label:SetText(label)
-
-    row.dropdown = CreateFrame("Frame", nil, row, "UIDropDownMenuTemplate")
-    row.dropdown:SetPoint("TOPLEFT", row.label, "BOTTOMLEFT", -16, -2)
-    UIDropDownMenu_SetWidth(row.dropdown, math.max(220, width - 8))
-    UIDropDownMenu_JustifyText(row.dropdown, "LEFT")
-
-    row.options = {
-        { value = "doubleRightClick", label = "Right double click" },
-        { value = "modifierRightClick", label = "Right click with modifier" },
-        { value = "singleRightClickConfig", label = "Single right click (when DF window is open)" },
-        { value = "singleRightClickDoubleStart", label = "Single right click (double right click to start. ESC to stop)" },
-        { value = "hotkeyNotImplemented", label = "Keyboard hotkey (not implemented)" },
+local function GetCastingModesForConfig()
+    local defaultsModes = defaults.castingModes or {}
+    local dbModes = (addon.db and addon.db.castingModes) or {}
+    local modes = {
+        doubleRightClick = ResolveBool(dbModes.doubleRightClick, defaultsModes.doubleRightClick),
+        singleRightClickConfig = ResolveBool(dbModes.singleRightClickConfig, defaultsModes.singleRightClickConfig),
+        singleRightClickDoubleStart = ResolveBool(dbModes.singleRightClickDoubleStart, defaultsModes.singleRightClickDoubleStart),
+        hotkey = ResolveBool(dbModes.hotkey, defaultsModes.hotkey),
     }
-    row.selectedValue = nil
-    row.selectedIndex = 1
-    row.onValueChanged = onLiveChange
-
-    function row:RefreshOptions()
-        local currentValue = addon.db and addon.db.castingMode or defaults.castingMode or "doubleRightClick"
-        for index, option in ipairs(self.options) do
-            if option.value == currentValue then
-                self.selectedIndex = index
-                self.selectedValue = option.value
-                break
-            end
-        end
-        SetDropdownText(self, self.options[self.selectedIndex].label)
-        UIDropDownMenu_Initialize(self.dropdown, CreateDropdownMenu(self))
-    end
-
-    function row:SetText(value)
-        local current = tostring(value or "")
-        for index, option in ipairs(self.options) do
-            if option.value == current then
-                self.selectedIndex = index
-                self.selectedValue = option.value
-                SetDropdownText(self, option.label)
-                UIDropDownMenu_Initialize(self.dropdown, CreateDropdownMenu(self))
-                return
-            end
-        end
-    end
-
-    function row:GetText()
-        return tostring(self.selectedValue or self.options[self.selectedIndex].value)
-    end
-
-    UIDropDownMenu_Initialize(row.dropdown, CreateDropdownMenu(row))
-    row:RefreshOptions()
-    return row
+    return modes
 end
 
 local function UpdateToyApplyButtons()
@@ -306,8 +265,12 @@ local function UpdateConfigUI()
     if addon.audioLingerBox then
         addon.audioLingerBox:SetText(tostring(addon.db.audioFocusLinger or defaults.audioFocusLinger))
     end
-    if addon.castingModeSelector then
-        addon.castingModeSelector:SetText(addon.db.castingMode or defaults.castingMode or "doubleRightClick")
+    if addon.modeDoubleRightClickCheckbox then
+        local modes = GetCastingModesForConfig()
+        addon.modeDoubleRightClickCheckbox:SetChecked(modes.doubleRightClick)
+        addon.modeSingleRightClickConfigCheckbox:SetChecked(modes.singleRightClickConfig)
+        addon.modeSingleRightClickDoubleStartCheckbox:SetChecked(modes.singleRightClickDoubleStart)
+        addon.modeHotkeyCheckbox:SetChecked(modes.hotkey)
     end
     if addon.underlightAnglerCheckbox then
         addon.underlightAnglerCheckbox:SetChecked(addon.db.useUnderlightAngler)
@@ -344,7 +307,13 @@ function config.SaveConfig(skipRefresh)
     addon.db.enhancedSounds = addon.enhancedSoundsCheckbox:GetChecked()
     addon.db.treasureAlerts = addon.treasureAlertsCheckbox:GetChecked()
     addon.db.bagAlerts = addon.bagAlertsCheckbox:GetChecked()
-    addon.db.castingMode = addon.castingModeSelector and addon.castingModeSelector:GetText() or (addon.db.castingMode or defaults.castingMode or "doubleRightClick")
+    local modeFlags = {
+        doubleRightClick = addon.modeDoubleRightClickCheckbox and addon.modeDoubleRightClickCheckbox:GetChecked() or false,
+        singleRightClickConfig = addon.modeSingleRightClickConfigCheckbox and addon.modeSingleRightClickConfigCheckbox:GetChecked() or false,
+        singleRightClickDoubleStart = addon.modeSingleRightClickDoubleStartCheckbox and addon.modeSingleRightClickDoubleStartCheckbox:GetChecked() or false,
+        hotkey = addon.modeHotkeyCheckbox and addon.modeHotkeyCheckbox:GetChecked() or false,
+    }
+    addon.db.castingModes = modeFlags
     addon.db.useUnderlightAngler = addon.underlightAnglerCheckbox and addon.underlightAnglerCheckbox:GetChecked()
     addon.db.useOversizedBobber = addon.oversizedBobberCheckbox and addon.oversizedBobberCheckbox:GetChecked()
     if addon.escapeCloseCheckbox then
@@ -858,11 +827,20 @@ function config.CreateConfigPanel()
     end, SaveLive)
     addon.raftApplyButton = CreateSecureToyActionButton(tacklePage, 20, -255, 160, "Apply Raft")
 
-    addon.castingModeSelector = CreateModeSelector(modesPage, 20, -20, 380, "Casting Mode:", SaveLive)
-    addon.underlightAnglerCheckbox = CreateCheckbox(modesPage, 20, -85, "Equip Underlight Angler while swimming", SaveLive)
+    local modeLabel = modesPage:CreateFontString(nil, "OVERLAY", "GameFontNormal")
+    modeLabel:SetPoint("TOPLEFT", 20, -20)
+    modeLabel:SetText("Casting Triggers:")
+
+    addon.modeDoubleRightClickCheckbox = CreateCheckbox(modesPage, 20, -45, "Right double click", SaveLive)
+    addon.modeSingleRightClickConfigCheckbox = CreateCheckbox(modesPage, 20, -75, "Single right click (when DF window is open)", SaveLive)
+    addon.modeSingleRightClickDoubleStartCheckbox = CreateCheckbox(modesPage, 20, -105, "Single right click (double right click to start. ESC to stop)", SaveLive)
+    addon.modeHotkeyCheckbox = CreateCheckbox(modesPage, 20, -135, "Keyboard hotkey", SaveLive)
+
     local hotkeyNote = modesPage:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
-    hotkeyNote:SetPoint("TOPLEFT", 20, -130)
-    hotkeyNote:SetText("Keyboard hotkey: not implemented")
+    hotkeyNote:SetPoint("TOPLEFT", 20, -170)
+    hotkeyNote:SetText("Set key in Game Menu > Options > Keybindings > DreamFisher")
+
+    addon.underlightAnglerCheckbox = CreateCheckbox(modesPage, 20, -205, "Equip Underlight Angler while swimming", SaveLive)
 
     addon.buffItemControls = {}
     for i = 1, maxBuffSlots do

@@ -21,14 +21,17 @@ addon.defaults = {
     selectedRaftToy = nil,
     useOversizedBobber = false,
     useUnderlightAngler = false,
-    castingMode = "doubleRightClick",
+    castingModes = {
+        doubleRightClick = true,
+        singleRightClickConfig = false,
+        singleRightClickDoubleStart = false,
+        hotkey = false,
+    },
     configWindowPosition = nil,
     refreshSeconds = 180,
     lowBagThreshold = 2,
     audioFocusLinger = 10,
     debugMode = true,
-    worldRightClickModifier = "NONE",
-    worldRightClickModifierUserSet = false,
 }
 
 -- Global state variables
