@@ -275,6 +275,9 @@ local function UpdateConfigUI()
     if addon.underlightAnglerCheckbox then
         addon.underlightAnglerCheckbox:SetChecked(addon.db.useUnderlightAngler)
     end
+    if addon.enableHookedLootCheckbox then
+        addon.enableHookedLootCheckbox:SetChecked(addon.db.enableHookedLoot)
+    end
     if addon.bobberSelector then
         addon.bobberSelector:RefreshOptions()
         addon.bobberSelector:SetText(addon.db.selectedBobberToy or nil)
@@ -315,6 +318,7 @@ function config.SaveConfig(skipRefresh)
     }
     addon.db.castingModes = modeFlags
     addon.db.useUnderlightAngler = addon.underlightAnglerCheckbox and addon.underlightAnglerCheckbox:GetChecked()
+    addon.db.enableHookedLoot = addon.enableHookedLootCheckbox and addon.enableHookedLootCheckbox:GetChecked() or false
     addon.db.useOversizedBobber = addon.oversizedBobberCheckbox and addon.oversizedBobberCheckbox:GetChecked()
     if addon.escapeCloseCheckbox then
         addon.db.configCloseOnEscape = addon.escapeCloseCheckbox:GetChecked()
@@ -835,12 +839,13 @@ function config.CreateConfigPanel()
     addon.modeSingleRightClickConfigCheckbox = CreateCheckbox(modesPage, 20, -75, "Single right click (when DF window is open)", SaveLive)
     addon.modeSingleRightClickDoubleStartCheckbox = CreateCheckbox(modesPage, 20, -105, "Single right click (double right click to start. ESC to stop)", SaveLive)
     addon.modeHotkeyCheckbox = CreateCheckbox(modesPage, 20, -135, "Keyboard hotkey", SaveLive)
+    addon.enableHookedLootCheckbox = CreateCheckbox(modesPage, 20, -165, "Use same trigger to interact when fish is hooked", SaveLive)
 
     local hotkeyNote = modesPage:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
-    hotkeyNote:SetPoint("TOPLEFT", 20, -170)
-    hotkeyNote:SetText("Set key in Game Menu > Options > Keybindings > DreamFisher")
+    hotkeyNote:SetPoint("TOPLEFT", 20, -200)
+    hotkeyNote:SetText("Set key in Game Menu > Options > Keybindings > DreamFisher. Requires in-game interact/soft-target setup.")
 
-    addon.underlightAnglerCheckbox = CreateCheckbox(modesPage, 20, -205, "Equip Underlight Angler while swimming", SaveLive)
+    addon.underlightAnglerCheckbox = CreateCheckbox(modesPage, 20, -235, "Equip Underlight Angler while swimming", SaveLive)
 
     addon.buffItemControls = {}
     for i = 1, maxBuffSlots do

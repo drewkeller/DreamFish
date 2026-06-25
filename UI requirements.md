@@ -30,6 +30,7 @@ Modes
 			Right click with modifier (SHIFT, CTRL, ALT)
 		Keyboard hotkey (not currently implemented)
 		Single right click (when DF window is open)
+		Use same trigger to interact when fish is hooked (checkbox, requires game interact/soft-target setup)
 	Underlight Angler
 		Equip when swimming, unequip when casting (checkbox)
 
@@ -43,5 +44,6 @@ Modes
 /df duckaudio     - Manually start audio ducking (/df da) 🆕
 /df restoreaudio  - Manually restore audio (/df ra)
 /df debug         - Toggle debug mode (/df dbg)
+/df interactsetup - Show hooked-interact setup checklist (/df is)
 /df raft          - Apply the selected raft
 /df               - Toggle config UI

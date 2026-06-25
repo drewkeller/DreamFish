@@ -19,6 +19,8 @@ local function RegisterSlashCommands()
             PrintMessage("  |cFF7FFFDArestoreaudio, ra|r - Manually restore audio from ducking")
             PrintMessage("  |cFF7FFFDAdebug, dbg|r - Toggle debug mode on/off")
             PrintMessage("  |cFF7FFFDAcast|r - Show secure cast macro helper")
+            PrintMessage("  |cFF7FFFDAinteractsetup, is|r - Show hooked-interact setup checklist")
+            PrintMessage("  |cFF7FFFDAinteractdiag, id|r - Show live interact target diagnostics")
             PrintMessage("  |cFF7FFFDAraft|r - Apply the selected raft")
             PrintMessage("  |cFF7FFFDA(no args)|r - Toggle config UI")
             return
@@ -88,6 +90,26 @@ local function RegisterSlashCommands()
                 addon.fishing.HandleCastCommand()
                 PrintMessage("Use keybind or macro /click DreamFisherSecureFishingButton RightButton")
             end
+            return
+        end
+        if command == "interactsetup" or command == "is" then
+            PrintMessage("Hooked-interact setup checklist:")
+            PrintMessage("  1) Bind an Interact key in Game Menu > Options > Keybindings")
+            PrintMessage("  2) Enable game interact/soft-target assistance options")
+            PrintMessage("  3) Avoid conflicting addons that override world right-click")
+            PrintMessage("  4) Enable 'Use same trigger to interact when fish is hooked' in /df > Modes")
+            return
+        end
+        if command == "interactdiag" or command == "id" then
+            if addon.fishing and addon.fishing.GetInteractDiagnostics and addon.fishing.FormatInteractDiagnostics then
+                local diag = addon.fishing.GetInteractDiagnostics()
+                PrintMessage("Interact diag: " .. addon.fishing.FormatInteractDiagnostics(diag))
+            else
+                PrintMessage("Interact diagnostics unavailable")
+            end
+            PrintMessage("State: isFishing=" .. tostring(addon.state and addon.state.isFishing)
+                .. " isBobberActive=" .. tostring(addon.state and addon.state.isBobberActive)
+                .. " lootInProgress=" .. tostring(addon.state and addon.state.fishingLootInProgress))
             return
         end
         if command == "raft" then

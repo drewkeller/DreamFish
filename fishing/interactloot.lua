@@ -1,0 +1,177 @@
+-- DreamFisher: Hooked-fish interact action helpers
+
+local addon = _G["DreamFisher"]
+local DebugMessage = addon.DebugMessage
+addon.fishing = addon.fishing or {}
+
+local function GetInteractOverrideFrame()
+    if addon.frames and addon.frames.interactOverride then
+        return addon.frames.interactOverride
+    end
+    if type(CreateFrame) ~= "function" then
+        return nil
+    end
+    addon.frames = addon.frames or {}
+    addon.frames.interactOverride = CreateFrame("Frame", "DreamFisherInteractOverrideFrame", UIParent)
+    return addon.frames.interactOverride
+end
+
+local function ArmNativeInteractOverride(durationSeconds)
+    if InCombatLockdown() or type(GetBindingKey) ~= "function" then
+        return false
+    end
+    if type(SetOverrideBinding) ~= "function" or type(ClearOverrideBindings) ~= "function" then
+        return false
+    end
+
+    local owner = GetInteractOverrideFrame()
+    if not owner then
+        return false
+    end
+
+    ClearOverrideBindings(owner)
+    local boundKeys = { GetBindingKey("CLICK DreamFisherSecureFishingButton:RightButton") }
+    local applied = false
+    for _, key in ipairs(boundKeys) do
+        if type(key) == "string" and key ~= "" then
+            SetOverrideBinding(owner, true, key, "INTERACTTARGET")
+            applied = true
+        end
+    end
+
+    if not applied then
+        return false
+    end
+
+    local now = (type(GetTime) == "function") and GetTime() or 0
+    local expiresAt = now + (tonumber(durationSeconds) or 2.5)
+    addon.state.interactOverrideExpiresAt = expiresAt
+    owner:SetScript("OnUpdate", function(self)
+        if InCombatLockdown() then
+            return
+        end
+        local t = (type(GetTime) == "function") and GetTime() or 0
+        local stillHooked = addon.fishing and addon.fishing.IsHookedLootMode and addon.fishing.IsHookedLootMode()
+        if t >= (tonumber(addon.state.interactOverrideExpiresAt) or 0) or not stillHooked then
+            ClearOverrideBindings(self)
+            self:SetScript("OnUpdate", nil)
+            addon.state.interactOverrideExpiresAt = 0
+        end
+    end)
+    return true
+end
+
+local function GetUnitNameSafe(unit)
+    if type(UnitName) ~= "function" then
+        return nil
+    end
+    local name = UnitName(unit)
+    if type(name) == "string" and name ~= "" then
+        return name
+    end
+    return nil
+end
+
+local function GetInteractDiagnostics()
+    local softExists = (type(UnitExists) == "function") and UnitExists("softinteract") and true or false
+    local targetExists = (type(UnitExists) == "function") and UnitExists("target") and true or false
+    local mouseoverExists = (type(UnitExists) == "function") and UnitExists("mouseover") and true or false
+    return {
+        softExists = softExists,
+        softName = GetUnitNameSafe("softinteract"),
+        targetExists = targetExists,
+        targetName = GetUnitNameSafe("target"),
+        mouseoverExists = mouseoverExists,
+        mouseoverName = GetUnitNameSafe("mouseover"),
+    }
+end
+
+local function FormatInteractDiagnostics(diag)
+    if type(diag) ~= "table" then
+        return "interactDiag=unavailable"
+    end
+    return "soft=" .. tostring(diag.softExists)
+        .. "(" .. tostring(diag.softName or "-") .. ")"
+        .. " target=" .. tostring(diag.targetExists)
+        .. "(" .. tostring(diag.targetName or "-") .. ")"
+        .. " mouseover=" .. tostring(diag.mouseoverExists)
+        .. "(" .. tostring(diag.mouseoverName or "-") .. ")"
+end
+
+local function IsHookedLootMode()
+    if not addon.db or not addon.db.enableHookedLoot or not addon.state then
+        return false
+    end
+
+    local bobberActive = addon.state.isBobberActive and true or false
+    local fallbackHookWindow = false
+    if addon.state.isFishing and not addon.state.fishingLootInProgress then
+        local now = (type(GetTime) == "function") and GetTime() or 0
+        local graceUntil = tonumber(addon.state.fishingStartGraceUntil) or 0
+        -- Some clients do not reliably flip isBobberActive for secure-click hotkey paths.
+        -- Treat post-cast fishing state (after start grace) as a hooked-interact window.
+        fallbackHookWindow = now >= graceUntil
+    end
+
+    return bobberActive or fallbackHookWindow
+end
+
+local function ConfigureInteractLootAction(frame)
+    if not frame then
+        return false
+    end
+
+    local targetMacroLines = {}
+    local seenNames = {}
+    local function AddTargetName(name)
+        if type(name) ~= "string" or name == "" or seenNames[name] then
+            return
+        end
+        seenNames[name] = true
+        table.insert(targetMacroLines, "/targetexact " .. name)
+    end
+
+    local selectedBobberToy = addon.db and tonumber(addon.db.selectedBobberToy) or nil
+    if selectedBobberToy and selectedBobberToy > 0 and type(GetItemInfo) == "function" then
+        AddTargetName(GetItemInfo(selectedBobberToy))
+    end
+    AddTargetName("Fishing Bobber")
+
+    local diag = GetInteractDiagnostics()
+    local hasAnyInteractUnit = diag.softExists or diag.targetExists or diag.mouseoverExists
+    local now = (type(GetTime) == "function") and GetTime() or 0
+    local acquireExpiresAt = tonumber(addon.state and addon.state.interactAcquireExpiresAt) or 0
+    local inAcquireWindow = acquireExpiresAt > now
+
+    -- Some clients need one keypress to acquire bobber target, then one keypress to interact.
+    if type(UnitExists) == "function" and (not hasAnyInteractUnit) and (not inAcquireWindow) then
+        frame:SetAttribute("type", "macro")
+        frame:SetAttribute("macrotext", table.concat(targetMacroLines, "\n"))
+        frame:SetAttribute("spell", nil)
+        frame:SetAttribute("dreamfisher_duebuff", nil)
+        if addon.state then
+            addon.state.interactAcquireExpiresAt = now + 2.5
+        end
+        local armedNativeInteract = ArmNativeInteractOverride(2.5)
+        DebugMessage("Fishing click primed hooked target acquisition "
+            .. FormatInteractDiagnostics(diag)
+            .. " nativeOverride=" .. tostring(armedNativeInteract))
+        return true
+    end
+
+    frame:SetAttribute("type", "macro")
+    frame:SetAttribute("macrotext", "/interact")
+    frame:SetAttribute("spell", nil)
+    frame:SetAttribute("dreamfisher_duebuff", nil)
+    if addon.state then
+        addon.state.interactAcquireExpiresAt = 0
+    end
+    DebugMessage("Fishing click configured for hooked-fish interact "
+        .. FormatInteractDiagnostics(diag))
+    return true
+end
+
+addon.fishing.IsHookedLootMode = IsHookedLootMode
+addon.fishing.ConfigureInteractLootAction = ConfigureInteractLootAction
+addon.fishing.GetInteractDiagnostics = GetInteractDiagnostics
+addon.fishing.FormatInteractDiagnostics = FormatInteractDiagnostics

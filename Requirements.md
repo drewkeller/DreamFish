@@ -74,6 +74,13 @@ Initiating a cast can be done by any of the following
     (checkbox) Single right click (when DreamFishing window is open)
     (checkbox) "Cast" hotkey special "hotkey entry" box and label)
 
+## Hooked Interact Setup
+When the optional hooked-interact mode is enabled, users must configure game settings so a secure interact action can resolve the bobber:
+    Bind an Interact key in game keybindings.
+    Enable game interact/soft-target assistance options.
+    Avoid conflicting addons or click-cast setups that override world right-click behavior.
+    Enable the DreamFisher mode toggle for same-trigger interact while bobber is active.
+
 ## Buffs
 * Choose an appropriate buff
     - some buffs can stack with each other and some should be mutually exclusive

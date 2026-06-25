@@ -21,6 +21,7 @@ addon.defaults = {
     selectedRaftToy = nil,
     useOversizedBobber = false,
     useUnderlightAngler = false,
+    enableHookedLoot = false,
     castingModes = {
         doubleRightClick = true,
         singleRightClickConfig = false,
@@ -53,6 +54,7 @@ addon.state = {
     -- Right-click
     lastRightClickTime = 0,
     doubleClickWindow = 0.33,
+    lastFishingSecureClickAt = 0,
 
     -- Alerts
     lastBagWarning = 0,

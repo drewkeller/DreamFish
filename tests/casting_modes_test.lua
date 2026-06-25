@@ -88,6 +88,7 @@ dofile("buff/timing.lua")
 dofile("buff/management.lua")
 dofile("fishing/helpers.lua")
 dofile("fishing/casting.lua")
+dofile("fishing/interactloot.lua")
 dofile("fishing/state.lua")
 dofile("audio/ducking.lua")
 dofile("audio/alerts.lua")
@@ -428,7 +429,7 @@ end
 function tests.HotkeyConfiguresFishingSpellWhenNoBuffItems()
     -- With no configured buff items, fishing action should be set to spell cast
     local capturedAttrs = {}
-    local fishingFrame = DreamFisher.frames.fishing
+    local fishingFrame = DreamFisher.fishing.CreateSecureFishingFrame()
     if fishingFrame then
         local origSet = fishingFrame.SetAttribute
         fishingFrame.SetAttribute = function(self, k, v)
@@ -456,7 +457,7 @@ end
 function tests.HotkeyConfiguresMacroWhenDueBuffReady()
     -- With a due buff item available, action should be a macro containing /use and /cast Fishing
     local capturedAttrs = {}
-    local fishingFrame = DreamFisher.frames.fishing
+    local fishingFrame = DreamFisher.fishing.CreateSecureFishingFrame()
     if fishingFrame then
         local origSet = fishingFrame.SetAttribute
         fishingFrame.SetAttribute = function(self, k, v)
@@ -497,7 +498,7 @@ end
 function tests.HotkeyConfiguresFishingWhenBuffNotDue()
     -- Buff present but not due: should fall through to plain fishing spell
     local capturedAttrs = {}
-    local fishingFrame = DreamFisher.frames.fishing
+    local fishingFrame = DreamFisher.fishing.CreateSecureFishingFrame()
     if fishingFrame then
         local origSet = fishingFrame.SetAttribute
         fishingFrame.SetAttribute = function(self, k, v)
@@ -534,6 +535,81 @@ function tests.HotkeyConfiguresFishingWhenBuffNotDue()
             "Not-due buff: should configure spell or macro with no buff pre-cast"
         )
     end
+end
+
+function tests.HookedLootModeConfiguresInteractAction()
+    local capturedAttrs = {}
+    local fishingFrame = DreamFisher.fishing.CreateSecureFishingFrame()
+    local origSet = fishingFrame.SetAttribute
+    fishingFrame.SetAttribute = function(self, k, v)
+        capturedAttrs[k] = v
+        return origSet and origSet(self, k, v)
+    end
+
+    DreamFisher._test.SetDB({
+        castingModes = { hotkey = true },
+        buffItems = {},
+        buffAuraByItem = {},
+        enableHookedLoot = true,
+    })
+
+    DreamFisher.state.isBobberActive = true
+    DreamFisher.fishing.ConfigureFishingClickAction()
+
+    assertEquals(capturedAttrs["type"], "macro", "Hooked mode should configure macro action")
+    assertTrue((capturedAttrs["macrotext"] or ""):find("/interact", 1, true) ~= nil,
+        "Hooked mode should configure interact macro")
+end
+
+function tests.HookedLootModeDisabledKeepsFishingCastAction()
+    local capturedAttrs = {}
+    local fishingFrame = DreamFisher.fishing.CreateSecureFishingFrame()
+    local origSet = fishingFrame.SetAttribute
+    fishingFrame.SetAttribute = function(self, k, v)
+        capturedAttrs[k] = v
+        return origSet and origSet(self, k, v)
+    end
+
+    DreamFisher._test.SetDB({
+        castingModes = { hotkey = true },
+        buffItems = {},
+        buffAuraByItem = {},
+        enableHookedLoot = false,
+    })
+
+    DreamFisher.state.isBobberActive = true
+    DreamFisher.fishing.ConfigureFishingClickAction()
+
+    assertEquals(capturedAttrs["type"], "spell", "Disabled hooked mode should keep normal cast action")
+    assertEquals(capturedAttrs["spell"], "Fishing", "Disabled hooked mode should cast Fishing")
+end
+
+function tests.HookedLootFallbackWindowConfiguresInteractAction()
+    local capturedAttrs = {}
+    local fishingFrame = DreamFisher.fishing.CreateSecureFishingFrame()
+    local origSet = fishingFrame.SetAttribute
+    fishingFrame.SetAttribute = function(self, k, v)
+        capturedAttrs[k] = v
+        return origSet and origSet(self, k, v)
+    end
+
+    DreamFisher._test.SetDB({
+        castingModes = { hotkey = true },
+        buffItems = {},
+        buffAuraByItem = {},
+        enableHookedLoot = true,
+    })
+
+    DreamFisher.state.isFishing = true
+    DreamFisher.state.isBobberActive = false
+    DreamFisher.state.fishingLootInProgress = false
+    DreamFisher.state.fishingStartGraceUntil = mockTime - 1
+
+    DreamFisher.fishing.ConfigureFishingClickAction()
+
+    assertEquals(capturedAttrs["type"], "macro", "Fallback hook window should configure interact macro")
+    assertTrue((capturedAttrs["macrotext"] or ""):find("/interact", 1, true) ~= nil,
+        "Fallback hook window should use interact")
 end
 
 function tests.HotkeyPressInCombatReturnsTrue()

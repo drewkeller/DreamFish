@@ -167,9 +167,9 @@ local function CreateSecureFishingFrame()
         frame:EnableMouse(false)
     end
     ResetFishingFrameState(frame)
-    -- Accept both down and up because the override binding may resolve on either edge.
+    -- Use down-edge only so a single key press triggers one secure action.
     if frame.RegisterForClicks then
-        frame:RegisterForClicks("AnyDown", "AnyUp")
+        frame:RegisterForClicks("AnyDown")
     end
     -- Keybinding click targets should remain visible to be reliably clickable.
     frame:Show()
@@ -187,10 +187,19 @@ local function CreateSecureFishingFrame()
         local dueBuff = tostring(frame:GetAttribute("dreamfisher_duebuff") or "")
         local macrotext = tostring(frame:GetAttribute("macrotext") or "")
         if macrotext ~= "" then
-            local firstLine = macrotext:match("([^\n]+)") or macrotext
-            DebugMessage("Fishing secure click fired: type=" .. actionType .. " macro=" .. tostring(firstLine))
+            local firstLine, secondLine = macrotext:match("([^\n]+)\n([^\n]+)")
+            if firstLine and secondLine then
+                DebugMessage("Fishing secure click fired: type=" .. actionType
+                    .. " macro=" .. tostring(firstLine) .. " | " .. tostring(secondLine))
+            else
+                local onlyLine = macrotext:match("([^\n]+)") or macrotext
+                DebugMessage("Fishing secure click fired: type=" .. actionType .. " macro=" .. tostring(onlyLine))
+            end
         else
             DebugMessage("Fishing secure click fired: type=" .. actionType .. " spell=" .. spell)
+        end
+        if actionType ~= "nil" and addon.state then
+            addon.state.lastFishingSecureClickAt = (type(GetTime) == "function") and GetTime() or 0
         end
         if not InCombatLockdown() then
             -- Right-click override path still uses this frame.
@@ -217,7 +226,7 @@ local function CreateSecureBuffFrame()
     end
     ResetBuffFrameState(frame)
     if frame.RegisterForClicks then
-        frame:RegisterForClicks("AnyDown", "AnyUp")
+        frame:RegisterForClicks("AnyDown")
     end
     frame:Hide()
     frame:HookScript("OnClick", function(self)
@@ -262,7 +271,30 @@ ConfigureFishingClickAction = function()
         return
     end
 
+    local now = (type(GetTime) == "function") and GetTime() or 0
+    local lastSecureClickAt = tonumber(addon.state and addon.state.lastFishingSecureClickAt) or 0
+    if lastSecureClickAt > 0 and (now - lastSecureClickAt) < 0.20 then
+        DebugMessage("Suppressing duplicate secure fishing click: dt="
+            .. string.format("%.3f", now - lastSecureClickAt))
+        ResetFishingFrameState(fishingFrame)
+        return
+    end
+
     ResetFishingFrameState(fishingFrame)
+    if addon.fishing and addon.fishing.IsHookedLootMode and addon.fishing.IsHookedLootMode() then
+        if addon.fishing.ConfigureInteractLootAction then
+            addon.fishing.ConfigureInteractLootAction(fishingFrame)
+            return
+        end
+    elseif addon.db and addon.db.enableHookedLoot then
+        local now = (type(GetTime) == "function") and GetTime() or 0
+        local graceUntil = tonumber(addon.state and addon.state.fishingStartGraceUntil) or 0
+        DebugMessage("Hooked interact not armed: isFishing=" .. tostring(addon.state and addon.state.isFishing)
+            .. " isBobberActive=" .. tostring(addon.state and addon.state.isBobberActive)
+            .. " lootInProgress=" .. tostring(addon.state and addon.state.fishingLootInProgress)
+            .. " graceRemaining=" .. string.format("%.2f", math.max(0, graceUntil - now)))
+    end
+
     local bobberDecision = GetBobberUseDecision()
     local oversizedDecision = GetOversizedBobberDecision()
     local macroLines = {}
