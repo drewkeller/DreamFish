@@ -17,9 +17,16 @@ local buffItemLastKnownCount = {}
 local suppressLiveSave = false
 local SaveLive
 
-local function BuildOwnedToyOptions(candidateIDs)
+local function BuildOwnedToyOptions(candidateIDs, includeDefaultLabel)
     local options = {}
     local seen = {}
+
+    if type(includeDefaultLabel) == "string" and includeDefaultLabel ~= "" then
+        table.insert(options, {
+            value = 0,
+            label = includeDefaultLabel,
+        })
+    end
 
     if type(candidateIDs) ~= "table" then
         return options
@@ -821,7 +828,7 @@ function config.CreateConfigPanel()
     addon.audioLingerBox = CreateEditBox(focusPage, 20, -260, 100, "Audio Linger After Catch (s):", SaveLive)
 
     addon.bobberSelector = CreateToySelector(tacklePage, 20, -20, 360, "Selected Bobber:", function()
-        return BuildOwnedToyOptions(addon.const.bobberToyItemIDs)
+        return BuildOwnedToyOptions(addon.const.bobberToyItemIDs, "Standard Bobber")
     end, SaveLive)
     addon.oversizedBobberCheckbox = CreateCheckbox(tacklePage, 20, -85, "Use oversized bobber", SaveLive)
     addon.bobberApplyButton = CreateSecureToyActionButton(tacklePage, 20, -125, 160, "Apply Bobber")
