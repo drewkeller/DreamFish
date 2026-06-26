@@ -43,6 +43,7 @@ _G.UnitChannelInfo = function() return nil end
 _G.GetCVar = function() return "1.0" end
 _G.SetCVar = function() end
 _G.PlayerHasToy = function() return true end
+_G.IsSwimming = function() return false end
 
 local function makeFrame()
     return {
@@ -611,6 +612,38 @@ function tests.HookedLootFallbackWindowConfiguresInteractAction()
     assertEquals(capturedAttrs["type"], "macro", "Fallback hook window should configure interact macro")
     assertTrue((capturedAttrs["macrotext"] or ""):find("/interact", 1, true) ~= nil,
         "Fallback hook window should use interact")
+end
+
+function tests.PrecastIncludesRaftWhenSwimming()
+    local capturedAttrs = {}
+    local fishingFrame = DreamFisher.fishing.CreateSecureFishingFrame()
+    local origSet = fishingFrame.SetAttribute
+    fishingFrame.SetAttribute = function(self, k, v)
+        capturedAttrs[k] = v
+        return origSet and origSet(self, k, v)
+    end
+
+    DreamFisher._test.SetDB({
+        castingModes = { hotkey = true },
+        buffItems = {},
+        buffAuraByItem = {},
+        enableHookedLoot = false,
+        selectedRaftToy = 85500,
+        selectedBobberToy = nil,
+        useOversizedBobber = false,
+    })
+
+    local originalSwimming = _G.IsSwimming
+    _G.IsSwimming = function() return true end
+
+    DreamFisher.fishing.ConfigureFishingClickAction()
+
+    _G.IsSwimming = originalSwimming
+
+    assertEquals(capturedAttrs["type"], "macro", "Swimming with selected raft should use macro pre-cast")
+    local macrotext = capturedAttrs["macrotext"] or ""
+    assertTrue(macrotext:find("85500", 1, true) ~= nil, "Pre-cast macro should include selected raft toy")
+    assertTrue(macrotext:find("/cast Fishing", 1, true) ~= nil, "Pre-cast macro should still cast Fishing")
 end
 
 function tests.HookedRightClickRoutesToInteractWhenHooked()

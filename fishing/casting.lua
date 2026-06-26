@@ -79,6 +79,23 @@ local function GetBobberUseDecision()
     }
 end
 
+local function GetRaftUseDecision()
+    local raftToyID = addon.db and tonumber(addon.db.selectedRaftToy) or nil
+    local hasToy = (raftToyID and raftToyID > 0)
+        and (type(PlayerHasToy) ~= "function" or PlayerHasToy(raftToyID))
+    local raftReady = hasToy and IsItemReadyForUse(raftToyID)
+    local swimming = (type(IsSwimming) == "function" and IsSwimming()) or false
+    local shouldApply = hasToy and raftReady and swimming
+
+    return {
+        toyID = raftToyID,
+        hasToy = hasToy,
+        ready = raftReady,
+        swimming = swimming,
+        shouldApply = shouldApply,
+    }
+end
+
 local function GetOversizedBobberDecision()
     local shouldUse = addon.db and addon.db.useOversizedBobber
     if not shouldUse then
@@ -295,6 +312,7 @@ ConfigureFishingClickAction = function()
             .. " graceRemaining=" .. string.format("%.2f", math.max(0, graceUntil - now)))
     end
 
+    local raftDecision = GetRaftUseDecision()
     local bobberDecision = GetBobberUseDecision()
     local oversizedDecision = GetOversizedBobberDecision()
     local macroLines = {}
@@ -328,6 +346,15 @@ ConfigureFishingClickAction = function()
         else
             DebugMessage("Skipping oversized bobber; toy not owned: " .. GetDebugItemLabel(OVERSIZED_BOBBER_ITEM_ID))
         end
+    end
+
+    if raftDecision.shouldApply then
+        table.insert(macroLines, "/use item:" .. tostring(raftDecision.toyID))
+        DebugMessage("Fishing click will apply raft: "
+            .. GetDebugItemLabel(raftDecision.toyID) .. " " .. GetDebugCooldownText(raftDecision.toyID))
+    elseif raftDecision.hasToy and raftDecision.swimming and not raftDecision.ready then
+        DebugMessage("Skipping raft toy on cooldown: "
+            .. GetDebugItemLabel(raftDecision.toyID) .. " " .. GetDebugCooldownText(raftDecision.toyID))
     end
 
     if bobberDecision.shouldApply then

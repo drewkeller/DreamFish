@@ -834,7 +834,7 @@ function config.CreateConfigPanel()
     addon.bobberApplyButton = CreateSecureToyActionButton(tacklePage, 20, -125, 160, "Apply Bobber")
 
     addon.raftSelector = CreateToySelector(tacklePage, 20, -190, 360, "Selected Raft:", function()
-        return BuildOwnedToyOptions(addon.const.raftToyItemIDs)
+        return BuildOwnedToyOptions(addon.const.raftToyItemIDs, "No Raft")
     end, SaveLive)
     addon.raftApplyButton = CreateSecureToyActionButton(tacklePage, 20, -255, 160, "Apply Raft")
 
