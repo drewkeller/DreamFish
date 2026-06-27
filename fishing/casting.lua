@@ -8,6 +8,7 @@ local DUE_BUFF_CATEGORY_ORDER = { "lure", "food_drink", "other_consumable" }
 
 local ConfigureFishingClickAction
 local GetNextReadyDueBuffItem
+local GetNextCastableDueBuffItem
 
 local function GetDebugItemLabel(itemID)
     local numeric = tonumber(itemID)
@@ -326,6 +327,50 @@ local function IsLureCategory(category)
     return category == "lure"
 end
 
+local function IsFishingPoleEquippedInProfessionSlot()
+    if type(GetInventoryItemID) ~= "function" then
+        return true
+    end
+
+    -- Some clients can return no values; capture first to avoid calling tonumber()
+    -- with zero arguments.
+    local ok, rawItemID = pcall(GetInventoryItemID, "player", 28)
+    if not ok then
+        return false
+    end
+    if rawItemID == nil then
+        return false
+    end
+
+    local itemID = tonumber(rawItemID)
+    return itemID and itemID > 0 or false
+end
+
+local function WarnMissingProfessionFishingPoleForLure()
+    local now = (type(GetTime) == "function") and GetTime() or 0
+    local cooldown = tonumber(addon.state and addon.state.buffMissingWarningCooldown) or 8
+    local last = tonumber(addon.state and addon.state.lureMissingPoleWarningAt) or 0
+    if (now - last) < cooldown then
+        return
+    end
+    if addon.state then
+        addon.state.lureMissingPoleWarningAt = now
+    end
+
+    local warningText = "Cannot apply lure: no fishing pole equipped in profession slot."
+
+    if UIErrorsFrame and type(UIErrorsFrame.AddMessage) == "function" then
+        pcall(UIErrorsFrame.AddMessage, UIErrorsFrame, warningText, 1, 0.1, 0.1, 1.0)
+    end
+
+    if PrintMessage then
+        PrintMessage(warningText)
+    end
+    if addon.audio and type(addon.audio.PlayWarningCue) == "function" then
+        addon.audio.PlayWarningCue()
+    end
+end
+
 ConfigureFishingClickAction = function()
     local fishingFrame = addon.frames.fishing
     if not fishingFrame then
@@ -408,7 +453,9 @@ ConfigureFishingClickAction = function()
 
     if (not raftExclusiveWhileSwimming) and addon.buff and addon.buff.GetNextDueBuffItem then
         if type(GetNextReadyDueBuffItem) == "function" then
-            dueBuffItemID, _, dueBuffCategory = GetNextReadyDueBuffItem()
+            dueBuffItemID, _, dueBuffCategory = GetNextCastableDueBuffItem(
+                "Skipping lure due buff; no fishing pole equipped in profession slot"
+            )
         else
             DebugMessage("Due buff helper unavailable; skipping due buff on this click")
         end
@@ -482,12 +529,12 @@ local function GetNextReadyDueBuffItemForCategory(category, excludedBuffItemIDs)
     end
 end
 
-GetNextReadyDueBuffItem = function()
+GetNextReadyDueBuffItem = function(seedExcludedBuffItemIDs)
     if not HasConfiguredBuffItems() then
         return nil, false, nil
     end
 
-    local excludedBuffItemIDs = {}
+    local excludedBuffItemIDs = seedExcludedBuffItemIDs or {}
     local hadUnavailableDueBuff = false
 
     for _, category in ipairs(DUE_BUFF_CATEGORY_ORDER) do
@@ -499,6 +546,28 @@ GetNextReadyDueBuffItem = function()
     end
 
     return nil, hadUnavailableDueBuff, nil
+end
+
+GetNextCastableDueBuffItem = function(lureBlockedDebugMessage)
+    local excludedBuffItemIDs = {}
+    local hadUnavailableDueBuff = false
+
+    while true do
+        local candidateItemID, unavailable, category = GetNextReadyDueBuffItem(excludedBuffItemIDs)
+        hadUnavailableDueBuff = hadUnavailableDueBuff or unavailable
+
+        if not candidateItemID then
+            return nil, hadUnavailableDueBuff, nil
+        end
+
+        if IsLureCategory(category) and (not IsFishingPoleEquippedInProfessionSlot()) then
+            WarnMissingProfessionFishingPoleForLure()
+            DebugMessage(lureBlockedDebugMessage or "Skipping lure due buff; no fishing pole equipped in profession slot")
+            excludedBuffItemIDs[candidateItemID] = true
+        else
+            return candidateItemID, hadUnavailableDueBuff, category
+        end
+    end
 end
 
 local function ResolveBool(value, defaultValue)
@@ -682,7 +751,9 @@ local function HandleDirectCastStep()
 
     local hasConfiguredBuffItems = HasConfiguredBuffItems()
     if hasConfiguredBuffItems then
-        local candidateItemID, hadUnavailableDueBuff, category = GetNextReadyDueBuffItem()
+        local candidateItemID, hadUnavailableDueBuff, category = GetNextCastableDueBuffItem(
+            "Direct cast skipping lure due buff; no fishing pole equipped in profession slot"
+        )
         if candidateItemID and TryUseBuffItemDirect(candidateItemID) then
             if IsLureCategory(category) and not TryApplyFishingProfessionSlotDirect() then
                 DebugMessage("Direct cast step could not apply lure to profession slot after item use")
@@ -866,7 +937,9 @@ local function HandleWorldRightClick(forceImmediate)
         local pendingBuffCategory = nil
         local hadUnavailableDueBuff = false
         if hasConfiguredBuffItems then
-            pendingBuffItemID, hadUnavailableDueBuff, pendingBuffCategory = GetNextReadyDueBuffItem()
+            pendingBuffItemID, hadUnavailableDueBuff, pendingBuffCategory = GetNextCastableDueBuffItem(
+                "Double-click skipping lure due buff; no fishing pole equipped in profession slot"
+            )
         else
             DebugMessage("No configured buff items in cast handler; skipping buff arm")
         end

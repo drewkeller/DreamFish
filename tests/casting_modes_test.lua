@@ -579,6 +579,129 @@ function tests.HotkeyLureDueBuffAppliesProfessionSlot()
     end
 end
 
+function tests.HotkeyLureDueBuffWarnsWhenNoFishingPoleEquipped()
+    local capturedAttrs = {}
+    local fishingFrame = DreamFisher.fishing.CreateSecureFishingFrame()
+    if fishingFrame then
+        local origSet = fishingFrame.SetAttribute
+        fishingFrame.SetAttribute = function(self, k, v)
+            capturedAttrs[k] = v
+            return origSet and origSet(self, k, v)
+        end
+    end
+
+    DreamFisher._test.SetDB({
+        castingModes = { hotkey = true },
+        buffItems = { { itemID = 333, refreshSeconds = 60 } },
+        buffAuraByItem = {},
+        useOversizedBobber = false,
+        selectedBobberToy = nil,
+    })
+
+    DreamFisher.const.knownBuffItems[333] = { spellID = 100333, duration = 60, category = "lure" }
+    DreamFisher._test.SetBuffLastUseTime(333, mockTime - 200)
+
+    local originalFind = DreamFisher.buff.FindItemInBags
+    DreamFisher.buff.FindItemInBags = function(itemID)
+        if itemID == 333 then return 0, 3 end
+        return nil, nil
+    end
+
+    local cueCalls = 0
+    local originalWarningCue = DreamFisher.audio.PlayWarningCue
+    DreamFisher.audio.PlayWarningCue = function()
+        cueCalls = cueCalls + 1
+    end
+
+    local originalGetInventoryItemID = _G.GetInventoryItemID
+    _G.GetInventoryItemID = function(unit, slot)
+        return nil
+    end
+
+    DreamFisher.state.lureMissingPoleWarningAt = 0
+
+    DreamFisher.fishing.ConfigureFishingClickAction()
+
+    DreamFisher.buff.FindItemInBags = originalFind
+    DreamFisher.audio.PlayWarningCue = originalWarningCue
+    _G.GetInventoryItemID = originalGetInventoryItemID
+    DreamFisher.const.knownBuffItems[333] = nil
+
+    if fishingFrame then
+        local macrotext = capturedAttrs["macrotext"] or ""
+        assertTrue(macrotext:find("/use item:333", 1, true) == nil,
+            "Lure should be skipped when no fishing pole is equipped")
+    end
+    assertEquals(cueCalls, 1, "Missing fishing pole lure warning should play warning cue once")
+end
+
+function tests.HotkeyFallsBackToOtherConsumableWhenLureBlockedByMissingPole()
+    local capturedAttrs = {}
+    local fishingFrame = DreamFisher.fishing.CreateSecureFishingFrame()
+    if fishingFrame then
+        local origSet = fishingFrame.SetAttribute
+        fishingFrame.SetAttribute = function(self, k, v)
+            capturedAttrs[k] = v
+            return origSet and origSet(self, k, v)
+        end
+    end
+
+    DreamFisher._test.SetDB({
+        castingModes = { hotkey = true },
+        buffItems = {
+            { itemID = 333, refreshSeconds = 60 },
+            { itemID = 444, refreshSeconds = 60 },
+        },
+        buffAuraByItem = {},
+        useOversizedBobber = false,
+        selectedBobberToy = nil,
+    })
+
+    DreamFisher.const.knownBuffItems[333] = { spellID = 100333, duration = 60, category = "lure" }
+    DreamFisher.const.knownBuffItems[444] = { spellID = 100444, duration = 60, category = "other_consumable" }
+    DreamFisher._test.SetBuffLastUseTime(333, mockTime - 200)
+    DreamFisher._test.SetBuffLastUseTime(444, mockTime - 200)
+
+    local originalFind = DreamFisher.buff.FindItemInBags
+    DreamFisher.buff.FindItemInBags = function(itemID)
+        if itemID == 333 then return 0, 3 end
+        if itemID == 444 then return 0, 4 end
+        return nil, nil
+    end
+
+    local cueCalls = 0
+    local originalWarningCue = DreamFisher.audio.PlayWarningCue
+    DreamFisher.audio.PlayWarningCue = function()
+        cueCalls = cueCalls + 1
+    end
+
+    local originalGetInventoryItemID = _G.GetInventoryItemID
+    _G.GetInventoryItemID = function(unit, slot)
+        return nil
+    end
+
+    DreamFisher.state.lureMissingPoleWarningAt = 0
+
+    DreamFisher.fishing.ConfigureFishingClickAction()
+
+    DreamFisher.buff.FindItemInBags = originalFind
+    DreamFisher.audio.PlayWarningCue = originalWarningCue
+    _G.GetInventoryItemID = originalGetInventoryItemID
+    DreamFisher.const.knownBuffItems[333] = nil
+    DreamFisher.const.knownBuffItems[444] = nil
+
+    if fishingFrame then
+        local macrotext = capturedAttrs["macrotext"] or ""
+        assertTrue(macrotext:find("/use item:333", 1, true) == nil,
+            "Blocked lure should be skipped when no fishing pole is equipped")
+        assertTrue(macrotext:find("/use item:444", 1, true) ~= nil,
+            "Other consumable should be used when lure is blocked")
+        assertTrue(macrotext:find("/use 28", 1, true) == nil,
+            "Fallback non-lure item should not target fishing profession slot")
+    end
+    assertEquals(cueCalls, 1, "Blocked lure warning should still play warning cue once")
+end
+
 function tests.PrecastAppliesRaftBeforeDueBuff()
     local capturedAttrs = {}
     local fishingFrame = DreamFisher.fishing.CreateSecureFishingFrame()

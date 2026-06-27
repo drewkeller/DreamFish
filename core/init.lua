@@ -79,6 +79,7 @@ addon.state = {
     buffItemLastKnownCount = {},
     buffMissingWarningCooldown = 8,
     buffItemLastMissingWarningAt = {},
+    lureMissingPoleWarningAt = 0,
     pendingBuffObservation = nil,
     uiBuffCursorDragState = nil,
 }

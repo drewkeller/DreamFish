@@ -104,7 +104,7 @@ local function StartFishingAudioFocus()
     EnableFishingAudioFocus()
 end
 
-local function PlayBagFullCue()
+local function PlayWarningCue()
     if type(PlaySound) == "function" and SOUNDKIT then
         local cue = SOUNDKIT.UI_EPICLOOT_TOAST or SOUNDKIT.UI_RaidBossEmoteWarning
         if cue then
@@ -119,7 +119,7 @@ addon.audio.EnableFishingAudioFocus = EnableFishingAudioFocus
 addon.audio.RestoreFishingAudioFocus = RestoreFishingAudioFocus
 addon.audio.RestoreFishingAudioFocusAfterLinger = RestoreFishingAudioFocusAfterLinger
 addon.audio.StartFishingAudioFocus = StartFishingAudioFocus
-addon.audio.PlayBagFullCue = PlayBagFullCue
+addon.audio.PlayWarningCue = PlayWarningCue
 
 -- Test hooks
 addon._test.EnableFishingAudioFocus = function(force)

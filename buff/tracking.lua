@@ -89,6 +89,24 @@ local function UpdatePendingBuffObservation()
     end
 
     if bestSpellID then
+        local itemID = tonumber(addon.state.pendingBuffObservation.itemID)
+        local key = tostring(itemID)
+        local existingTracked = addon.db.buffAuraByItem[key]
+        local existingDuration = type(existingTracked) == "table" and tonumber(existingTracked.duration) or 0
+        local known = addon.const
+            and type(addon.const.knownBuffItems) == "table"
+            and addon.const.knownBuffItems[itemID]
+            or nil
+        local knownDuration = type(known) == "table" and tonumber(known.duration) or 0
+        local floorDuration = math.max(existingDuration or 0, knownDuration or 0)
+
+        -- Do not overwrite a known/learned long-duration mapping with a shorter
+        -- transient aura that appears during observation.
+        if floorDuration > 0 and bestDuration < floorDuration then
+            addon.state.pendingBuffObservation = nil
+            return
+        end
+
         local auraName = (type(GetSpellInfo) == "function" and GetSpellInfo(bestSpellID)) or nil
         addon.db.buffAuraByItem[tostring(addon.state.pendingBuffObservation.itemID)] = {
             spellID = bestSpellID,

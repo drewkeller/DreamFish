@@ -155,7 +155,7 @@ local function ShowBagFullAlert(force)
         end
     end)
 
-    addon.audio.PlayBagFullCue()
+    addon.audio.PlayWarningCue()
 end
 
 -- Export to addon
