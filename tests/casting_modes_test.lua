@@ -244,7 +244,7 @@ function tests.DoubleClickDueBuffArmsProfessionSlotMacro()
         assertEquals(capturedAttrs["type"], "macro", "Due buff arm should use secure macro action")
         local macrotext = capturedAttrs["macrotext"] or ""
         assertTrue(macrotext:find("/use 1 18", 1, true) ~= nil, "Due buff arm macro should use bag slot source")
-        assertTrue(macrotext:find("/use 28", 1, true) ~= nil, "Due buff arm macro should apply to profession slot")
+        assertTrue(macrotext:find("/use 28", 1, true) == nil, "Non-lure due buff arm should not apply profession slot")
     end
 end
 
@@ -531,8 +531,51 @@ function tests.HotkeyConfiguresMacroWhenDueBuffReady()
         assertEquals(capturedAttrs["type"], "macro", "Due buff: action type should be macro")
         local macrotext = capturedAttrs["macrotext"] or ""
         assertTrue(macrotext:find("111") ~= nil, "Due buff: macro should reference item 111")
-        assertTrue(macrotext:find("/use 28", 1, true) ~= nil, "Due buff: macro should target fishing profession slot")
+        assertTrue(macrotext:find("/use 28", 1, true) == nil, "Non-lure due buff should not target fishing profession slot")
         assertTrue(macrotext:find("/cast Fishing") ~= nil, "Due buff: macro should include /cast Fishing")
+    end
+end
+
+function tests.HotkeyLureDueBuffAppliesProfessionSlot()
+    local capturedAttrs = {}
+    local fishingFrame = DreamFisher.fishing.CreateSecureFishingFrame()
+    if fishingFrame then
+        local origSet = fishingFrame.SetAttribute
+        fishingFrame.SetAttribute = function(self, k, v)
+            capturedAttrs[k] = v
+            return origSet and origSet(self, k, v)
+        end
+    end
+
+    DreamFisher._test.SetDB({
+        castingModes = { hotkey = true },
+        buffItems = { { itemID = 333, refreshSeconds = 60 } },
+        buffAuraByItem = {},
+        useOversizedBobber = false,
+        selectedBobberToy = nil,
+    })
+
+    DreamFisher.const.knownBuffItems[333] = { spellID = 100333, duration = 60, category = "lure" }
+    DreamFisher._test.SetBuffLastUseTime(333, mockTime - 200)
+
+    local originalFind = DreamFisher.buff.FindItemInBags
+    DreamFisher.buff.FindItemInBags = function(itemID)
+        if itemID == 333 then return 0, 3 end
+        return nil, nil
+    end
+
+    DreamFisher.fishing.ConfigureFishingClickAction()
+
+    DreamFisher.buff.FindItemInBags = originalFind
+    DreamFisher.const.knownBuffItems[333] = nil
+
+    if fishingFrame then
+        local macrotext = capturedAttrs["macrotext"] or ""
+        local lureIndex = macrotext:find("/use item:333", 1, true)
+        local slotIndex = macrotext:find("/use 28", 1, true)
+        assertTrue(lureIndex ~= nil, "Lure due buff should be used in macro")
+        assertTrue(slotIndex ~= nil, "Lure due buff should apply profession slot")
+        assertTrue(lureIndex < slotIndex, "Lure item should be used before profession slot")
     end
 end
 
@@ -577,6 +620,88 @@ function tests.PrecastAppliesRaftBeforeDueBuff()
     assertTrue(raftIndex ~= nil, "Pre-cast should include raft toy use")
     assertTrue(buffIndex ~= nil, "Pre-cast should include due buff use")
     assertTrue(raftIndex < buffIndex, "Raft use should appear before due buff use")
+end
+
+function tests.PrecastAppliesBobberBeforeDueBuff()
+    local capturedAttrs = {}
+    local fishingFrame = DreamFisher.fishing.CreateSecureFishingFrame()
+    local origSet = fishingFrame.SetAttribute
+    fishingFrame.SetAttribute = function(self, k, v)
+        capturedAttrs[k] = v
+        return origSet and origSet(self, k, v)
+    end
+
+    DreamFisher._test.SetDB({
+        castingModes = { hotkey = true },
+        buffItems = { { itemID = 111, expectedDuration = 60 } },
+        buffAuraByItem = {},
+        enableHookedLoot = false,
+        selectedRaftToy = nil,
+        selectedBobberToy = 142531,
+        useOversizedBobber = false,
+    })
+
+    DreamFisher._test.SetBuffLastUseTime(111, mockTime - 200)
+
+    local originalFind = DreamFisher.buff.FindItemInBags
+    DreamFisher.buff.FindItemInBags = function(itemID)
+        if itemID == 111 then return 0, 1 end
+        return nil, nil
+    end
+
+    DreamFisher.fishing.ConfigureFishingClickAction()
+
+    DreamFisher.buff.FindItemInBags = originalFind
+
+    local macrotext = capturedAttrs["macrotext"] or ""
+    local bobberIndex = macrotext:find("/use item:142531", 1, true)
+    local buffIndex = macrotext:find("/use item:111", 1, true)
+    assertTrue(bobberIndex ~= nil, "Pre-cast should include bobber use")
+    assertTrue(buffIndex ~= nil, "Pre-cast should include due buff use")
+    assertTrue(bobberIndex < buffIndex, "Bobber use should appear before due buff use")
+end
+
+function tests.PrecastPrioritizesFoodDrinkBeforeOtherConsumable()
+    local capturedAttrs = {}
+    local fishingFrame = DreamFisher.fishing.CreateSecureFishingFrame()
+    local origSet = fishingFrame.SetAttribute
+    fishingFrame.SetAttribute = function(self, k, v)
+        capturedAttrs[k] = v
+        return origSet and origSet(self, k, v)
+    end
+
+    DreamFisher._test.SetDB({
+        castingModes = { hotkey = true },
+        buffItems = {
+            { itemID = 241316, expectedDuration = 3600 },
+            { itemID = 242299, expectedDuration = 3600 },
+        },
+        buffAuraByItem = {},
+        enableHookedLoot = false,
+        selectedRaftToy = nil,
+        selectedBobberToy = nil,
+        useOversizedBobber = false,
+    })
+
+    DreamFisher._test.SetBuffLastUseTime(241316, mockTime - 3700)
+    DreamFisher._test.SetBuffLastUseTime(242299, mockTime - 3700)
+
+    local originalFind = DreamFisher.buff.FindItemInBags
+    DreamFisher.buff.FindItemInBags = function(itemID)
+        if itemID == 241316 then return 0, 6 end
+        if itemID == 242299 then return 0, 7 end
+        return nil, nil
+    end
+
+    DreamFisher.fishing.ConfigureFishingClickAction()
+
+    DreamFisher.buff.FindItemInBags = originalFind
+
+    local macrotext = capturedAttrs["macrotext"] or ""
+    assertTrue(macrotext:find("/use item:242299", 1, true) ~= nil,
+        "Food/drink item should be selected when both categories are due")
+    assertTrue(macrotext:find("/use item:241316", 1, true) == nil,
+        "Other consumable should not be selected when food/drink is due")
 end
 
 function tests.HotkeyConfiguresFishingWhenBuffNotDue()
@@ -727,6 +852,119 @@ function tests.PrecastIncludesRaftWhenSwimming()
     local macrotext = capturedAttrs["macrotext"] or ""
     assertTrue(macrotext:find("85500", 1, true) ~= nil, "Pre-cast macro should include selected raft toy")
     assertTrue(macrotext:find("/cast Fishing", 1, true) ~= nil, "Pre-cast macro should still cast Fishing")
+end
+
+function tests.PrecastSkipsRaftWhenAuraCoversCast()
+    local capturedAttrs = {}
+    local fishingFrame = DreamFisher.fishing.CreateSecureFishingFrame()
+    local origSet = fishingFrame.SetAttribute
+    fishingFrame.SetAttribute = function(self, k, v)
+        capturedAttrs[k] = v
+        return origSet and origSet(self, k, v)
+    end
+
+    DreamFisher._test.SetDB({
+        castingModes = { hotkey = true },
+        buffItems = {},
+        buffAuraByItem = {},
+        enableHookedLoot = false,
+        selectedRaftToy = 85500,
+        selectedBobberToy = nil,
+        useOversizedBobber = false,
+    })
+
+    local originalSwimming = _G.IsSwimming
+    _G.IsSwimming = function() return true end
+
+    local originalGetItemSpell = _G.GetItemSpell
+    _G.GetItemSpell = function(itemID)
+        if itemID == 85500 then
+            return "Angler's Fishing Raft", 123450
+        end
+        return nil, nil
+    end
+
+    local originalCUnitAuras = _G.C_UnitAuras
+    _G.C_UnitAuras = {
+        GetPlayerAuraBySpellID = function(spellID)
+            if spellID == 123450 then
+                return {
+                    spellId = 123450,
+                    duration = 600,
+                    expirationTime = mockTime + 90,
+                }
+            end
+            return nil
+        end,
+        GetAuraDataByIndex = function() return nil end,
+    }
+
+    DreamFisher.fishing.ConfigureFishingClickAction()
+
+    _G.IsSwimming = originalSwimming
+    _G.GetItemSpell = originalGetItemSpell
+    _G.C_UnitAuras = originalCUnitAuras
+
+    assertEquals(capturedAttrs["type"], "spell", "Raft should not be reapplied when aura covers cast window")
+    local macrotext = capturedAttrs["macrotext"] or ""
+    assertTrue(macrotext == "", "No pre-cast raft macro should be configured when aura is sufficient")
+end
+
+function tests.PrecastReappliesRaftWhenAuraExpiringEvenIfNotSwimming()
+    local capturedAttrs = {}
+    local fishingFrame = DreamFisher.fishing.CreateSecureFishingFrame()
+    local origSet = fishingFrame.SetAttribute
+    fishingFrame.SetAttribute = function(self, k, v)
+        capturedAttrs[k] = v
+        return origSet and origSet(self, k, v)
+    end
+
+    DreamFisher._test.SetDB({
+        castingModes = { hotkey = true },
+        buffItems = {},
+        buffAuraByItem = {},
+        enableHookedLoot = false,
+        selectedRaftToy = 85500,
+        selectedBobberToy = nil,
+        useOversizedBobber = false,
+    })
+
+    local originalSwimming = _G.IsSwimming
+    _G.IsSwimming = function() return false end
+
+    local originalGetItemSpell = _G.GetItemSpell
+    _G.GetItemSpell = function(itemID)
+        if itemID == 85500 then
+            return "Angler's Fishing Raft", 123450
+        end
+        return nil, nil
+    end
+
+    local originalCUnitAuras = _G.C_UnitAuras
+    _G.C_UnitAuras = {
+        GetPlayerAuraBySpellID = function(spellID)
+            if spellID == 123450 then
+                return {
+                    spellId = 123450,
+                    duration = 600,
+                    expirationTime = mockTime + 10,
+                }
+            end
+            return nil
+        end,
+        GetAuraDataByIndex = function() return nil end,
+    }
+
+    DreamFisher.fishing.ConfigureFishingClickAction()
+
+    _G.IsSwimming = originalSwimming
+    _G.GetItemSpell = originalGetItemSpell
+    _G.C_UnitAuras = originalCUnitAuras
+
+    assertEquals(capturedAttrs["type"], "macro", "Raft should be reapplied when aura is expiring during cast")
+    local macrotext = capturedAttrs["macrotext"] or ""
+    assertTrue(macrotext:find("/use item:85500", 1, true) ~= nil,
+        "Pre-cast macro should reapply raft when aura would timeout during cast")
 end
 
 function tests.HookedRightClickRoutesToInteractWhenHooked()

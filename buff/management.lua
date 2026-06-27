@@ -5,6 +5,52 @@ local Clamp = addon.Clamp
 local PrintMessage = addon.PrintMessage
 local DebugMessage = addon.DebugMessage
 
+local function GetItemInfoInstantSafe(itemID)
+    if C_Item and type(C_Item.GetItemInfoInstant) == "function" then
+        return C_Item.GetItemInfoInstant(itemID)
+    end
+    if type(GetItemInfoInstant) == "function" then
+        return GetItemInfoInstant(itemID)
+    end
+    return nil
+end
+
+local function GetBuffItemCategory(itemID)
+    local numeric = tonumber(itemID)
+    if not numeric or numeric <= 0 then
+        return "other_consumable"
+    end
+
+    local known = addon.const
+        and type(addon.const.knownBuffItems) == "table"
+        and addon.const.knownBuffItems[numeric]
+        or nil
+    if type(known) == "table" and type(known.category) == "string" and known.category ~= "" then
+        return known.category
+    end
+
+    local _, itemType, itemSubType, _, _, classID = GetItemInfoInstantSafe(numeric)
+    local consumableClassID = rawget(_G, "LE_ITEM_CLASS_CONSUMABLE")
+    if classID and consumableClassID and classID ~= consumableClassID then
+        return "other_consumable"
+    end
+
+    local itemTypeText = type(itemType) == "string" and string.lower(itemType) or ""
+    local itemSubTypeText = type(itemSubType) == "string" and string.lower(itemSubType) or ""
+    if itemTypeText:find("consumable", 1, true) ~= nil then
+        if itemSubTypeText:find("food", 1, true) ~= nil or itemSubTypeText:find("drink", 1, true) ~= nil then
+            return "food_drink"
+        end
+        if itemSubTypeText:find("item enhancement", 1, true) ~= nil
+            or itemSubTypeText:find("enchant", 1, true) ~= nil
+            or itemSubTypeText:find("weapon", 1, true) ~= nil then
+            return "lure"
+        end
+    end
+
+    return "other_consumable"
+end
+
 local function GetBuffItemLabel(itemID)
     local numeric = tonumber(itemID)
     if not numeric or numeric <= 0 then
@@ -114,7 +160,7 @@ local function GetEntryExpectedDuration(entry)
     return Clamp(expectedDuration or addon.db.refreshSeconds or addon.defaults.refreshSeconds, 30, 3600)
 end
 
-local function GetNextDueBuffItem(requireAuraForCast, excludedItemIDs)
+local function GetNextDueBuffItem(requireAuraForCast, excludedItemIDs, requestedCategory)
     if not addon.db or type(addon.db.buffItems) ~= "table" then
         return nil
     end
@@ -138,9 +184,17 @@ local function GetNextDueBuffItem(requireAuraForCast, excludedItemIDs)
     for _, entry in ipairs(addon.db.buffItems) do
         local itemID = tonumber(entry.itemID)
         if itemID and itemID > 0 then
+            local itemCategory = GetBuffItemCategory(itemID)
             if type(excludedItemIDs) == "table" and excludedItemIDs[itemID] then
                 if addon.db and addon.db.debugMode then
                     DebugMessage("Skipping excluded due buff item: " .. tostring(itemID))
+                end
+            elseif requestedCategory and itemCategory ~= requestedCategory then
+                if addon.db and addon.db.debugMode then
+                    DebugMessage("Skipping due buff item for category pass: "
+                        .. GetBuffItemLabel(itemID)
+                        .. " category=" .. tostring(itemCategory)
+                        .. " requested=" .. tostring(requestedCategory))
                 end
             else
                 local expectedDuration = GetEntryExpectedDuration(entry)
@@ -284,6 +338,7 @@ addon.buff.AnnounceBuffUse = AnnounceBuffUse
 addon.buff.FindItemInBags = FindItemInBags
 addon.buff.WarnMissingBuffItem = WarnMissingBuffItem
 addon.buff.GetNextDueBuffItem = GetNextDueBuffItem
+addon.buff.GetBuffItemCategory = GetBuffItemCategory
 addon.buff.MaybeUseBuffItems = MaybeUseBuffItems
 addon.buff.NormalizeBuffConfig = NormalizeBuffConfig
 

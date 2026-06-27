@@ -4,6 +4,7 @@ local addon = _G["DreamFisher"]
 local PrintMessage = addon.PrintMessage
 local DebugMessage = addon.DebugMessage
 local OVERSIZED_BOBBER_ITEM_ID = 202207
+local DUE_BUFF_CATEGORY_ORDER = { "lure", "food_drink", "other_consumable" }
 
 local ConfigureFishingClickAction
 local GetNextReadyDueBuffItem
@@ -80,18 +81,49 @@ local function GetBobberUseDecision()
 end
 
 local function GetRaftUseDecision()
+    local function GetRaftAuraRemainingSeconds(raftToyID)
+        if type(GetItemSpell) ~= "function" or not (addon.buff and addon.buff.GetAuraBySpellID) then
+            return nil
+        end
+
+        local _, raftSpellID = GetItemSpell(raftToyID)
+        if not raftSpellID then
+            return nil
+        end
+
+        local aura = addon.buff.GetAuraBySpellID(raftSpellID)
+        if not aura or not aura.expirationTime or aura.expirationTime <= 0 then
+            return nil
+        end
+
+        return math.max(0, aura.expirationTime - GetTime())
+    end
+
     local raftToyID = addon.db and tonumber(addon.db.selectedRaftToy) or nil
     local hasToy = (raftToyID and raftToyID > 0)
         and (type(PlayerHasToy) ~= "function" or PlayerHasToy(raftToyID))
     local raftReady = hasToy and IsItemReadyForUse(raftToyID)
     local swimming = (type(IsSwimming) == "function" and IsSwimming()) or false
-    local shouldApply = hasToy and raftReady and swimming
+    local raftAuraRemaining = (hasToy and swimming) and GetRaftAuraRemainingSeconds(raftToyID) or nil
+    local castLead = (addon.const and addon.const.maxFishingCastSeconds or 20)
+        + (addon.const and addon.const.buffPreRefreshSafetySeconds or 2)
+    if raftAuraRemaining == nil and hasToy then
+        -- If aura can't be observed while not swimming, try once more without the swim gate.
+        raftAuraRemaining = GetRaftAuraRemainingSeconds(raftToyID)
+    end
+    local needsRefreshForCast = (raftAuraRemaining == nil) or (raftAuraRemaining <= castLead)
+    local shouldApply = hasToy
+        and raftReady
+        and needsRefreshForCast
+        and (swimming or raftAuraRemaining ~= nil)
 
     return {
         toyID = raftToyID,
         hasToy = hasToy,
         ready = raftReady,
         swimming = swimming,
+        auraRemaining = raftAuraRemaining,
+        needsRefreshForCast = needsRefreshForCast,
         shouldApply = shouldApply,
     }
 end
@@ -284,6 +316,10 @@ local function ApplySelectedRaftToy()
     return false
 end
 
+local function IsLureCategory(category)
+    return category == "lure"
+end
+
 ConfigureFishingClickAction = function()
     local fishingFrame = addon.frames.fishing
     if not fishingFrame then
@@ -319,32 +355,28 @@ ConfigureFishingClickAction = function()
     local oversizedDecision = GetOversizedBobberDecision()
     local macroLines = {}
     local dueBuffItemID = nil
+    local dueBuffCategory = nil
 
     if raftDecision.shouldApply then
         table.insert(macroLines, "/use item:" .. tostring(raftDecision.toyID))
         DebugMessage("Fishing click will apply raft: "
             .. GetDebugItemLabel(raftDecision.toyID) .. " " .. GetDebugCooldownText(raftDecision.toyID))
-    elseif raftDecision.hasToy and raftDecision.swimming and not raftDecision.ready then
+    elseif raftDecision.hasToy and raftDecision.swimming and raftDecision.auraRemaining and not raftDecision.needsRefreshForCast then
+        DebugMessage("Skipping raft reapply; aura covers cast: "
+            .. GetDebugItemLabel(raftDecision.toyID)
+            .. " auraRemaining=" .. string.format("%.1fs", raftDecision.auraRemaining))
+    elseif raftDecision.hasToy
+        and not raftDecision.ready
+        and raftDecision.needsRefreshForCast
+        and (raftDecision.swimming or raftDecision.auraRemaining ~= nil) then
         DebugMessage("Skipping raft toy on cooldown: "
             .. GetDebugItemLabel(raftDecision.toyID) .. " " .. GetDebugCooldownText(raftDecision.toyID))
     end
 
-    if addon.buff and addon.buff.GetNextDueBuffItem then
-            if type(GetNextReadyDueBuffItem) == "function" then
-                dueBuffItemID = GetNextReadyDueBuffItem()
-            else
-                DebugMessage("Due buff helper unavailable; skipping due buff on this click")
-            end
-    end
-
-    if dueBuffItemID then
-        table.insert(macroLines, "/use item:" .. tostring(dueBuffItemID))
-        table.insert(macroLines, "/use 28") -- apply to fishing profession equipment slot
-        fishingFrame:SetAttribute("dreamfisher_duebuff", dueBuffItemID)
-        DebugMessage("Fishing click will apply due buff: "
-            .. GetDebugItemLabel(dueBuffItemID) .. " " .. GetDebugCooldownText(dueBuffItemID))
-    else
-        fishingFrame:SetAttribute("dreamfisher_duebuff", nil)
+    if bobberDecision.shouldApply then
+        table.insert(macroLines, "/use item:" .. tostring(bobberDecision.toyID))
+        DebugMessage("Fishing click will apply bobber toy: "
+            .. GetDebugItemLabel(bobberDecision.toyID) .. " " .. GetDebugCooldownText(bobberDecision.toyID))
     end
 
     if oversizedDecision.enabled then
@@ -360,8 +392,26 @@ ConfigureFishingClickAction = function()
         end
     end
 
-    if bobberDecision.shouldApply then
-        table.insert(macroLines, "/use item:" .. tostring(bobberDecision.toyID))
+    if addon.buff and addon.buff.GetNextDueBuffItem then
+        if type(GetNextReadyDueBuffItem) == "function" then
+            dueBuffItemID, _, dueBuffCategory = GetNextReadyDueBuffItem()
+        else
+            DebugMessage("Due buff helper unavailable; skipping due buff on this click")
+        end
+    end
+
+    if dueBuffItemID then
+        table.insert(macroLines, "/use item:" .. tostring(dueBuffItemID))
+        if IsLureCategory(dueBuffCategory) then
+            table.insert(macroLines, "/use 28") -- apply lure to fishing profession equipment slot
+        end
+        fishingFrame:SetAttribute("dreamfisher_duebuff", dueBuffItemID)
+        DebugMessage("Fishing click will apply due buff: "
+            .. GetDebugItemLabel(dueBuffItemID)
+            .. " category=" .. tostring(dueBuffCategory)
+            .. " " .. GetDebugCooldownText(dueBuffItemID))
+    else
+        fishingFrame:SetAttribute("dreamfisher_duebuff", nil)
     end
 
     if #macroLines > 0 then
@@ -395,15 +445,10 @@ ConfigureFishingClickAction = function()
     end
 end
 
-GetNextReadyDueBuffItem = function()
-    if not HasConfiguredBuffItems() then
-        return nil, false
-    end
-
-    local excludedBuffItemIDs = {}
+local function GetNextReadyDueBuffItemForCategory(category, excludedBuffItemIDs)
     local hadUnavailableDueBuff = false
     while true do
-        local candidateItemID, dueStatus = addon.buff.GetNextDueBuffItem(true, excludedBuffItemIDs)
+        local candidateItemID, dueStatus = addon.buff.GetNextDueBuffItem(true, excludedBuffItemIDs, category)
         if not candidateItemID then
             hadUnavailableDueBuff = (dueStatus == "due_unavailable") or hadUnavailableDueBuff
             return nil, hadUnavailableDueBuff
@@ -415,6 +460,25 @@ GetNextReadyDueBuffItem = function()
             .. GetDebugItemLabel(candidateItemID) .. " " .. GetDebugCooldownText(candidateItemID))
         excludedBuffItemIDs[candidateItemID] = true
     end
+end
+
+GetNextReadyDueBuffItem = function()
+    if not HasConfiguredBuffItems() then
+        return nil, false, nil
+    end
+
+    local excludedBuffItemIDs = {}
+    local hadUnavailableDueBuff = false
+
+    for _, category in ipairs(DUE_BUFF_CATEGORY_ORDER) do
+        local candidateItemID, unavailableInCategory = GetNextReadyDueBuffItemForCategory(category, excludedBuffItemIDs)
+        hadUnavailableDueBuff = hadUnavailableDueBuff or unavailableInCategory
+        if candidateItemID then
+            return candidateItemID, hadUnavailableDueBuff, category
+        end
+    end
+
+    return nil, hadUnavailableDueBuff, nil
 end
 
 local function ResolveBool(value, defaultValue)
@@ -478,6 +542,14 @@ local function TryUseItemDirect(itemID)
         end
     end
 
+    return false
+end
+
+local function TryApplyFishingProfessionSlotDirect()
+    if type(UseInventoryItem) == "function" then
+        local ok = pcall(UseInventoryItem, 28)
+        return ok and true or false
+    end
     return false
 end
 
@@ -559,29 +631,22 @@ local function HandleDirectCastStep()
         return false
     end
 
-    local hasConfiguredBuffItems = HasConfiguredBuffItems()
-    if hasConfiguredBuffItems then
-        local excludedBuffItemIDs = {}
-        while true do
-            local candidateItemID, dueStatus = addon.buff.GetNextDueBuffItem(true, excludedBuffItemIDs)
-            if not candidateItemID then
-                if dueStatus == "due_unavailable" then
-                    DebugMessage("Direct cast: due buff exists but unavailable")
-                end
-                break
-            end
-
-            if IsItemReadyForUse(candidateItemID) then
-                if TryUseBuffItemDirect(candidateItemID) then
-                    return true
-                end
-                excludedBuffItemIDs[candidateItemID] = true
-            else
-                DebugMessage("Direct cast skipping due buff on cooldown: "
-                    .. GetDebugItemLabel(candidateItemID) .. " " .. GetDebugCooldownText(candidateItemID))
-                excludedBuffItemIDs[candidateItemID] = true
-            end
+    local raftDecision = GetRaftUseDecision()
+    if raftDecision.shouldApply and raftDecision.toyID then
+        if TryUseItemDirect(raftDecision.toyID) then
+            DebugMessage("Direct cast step used raft: " .. GetDebugItemLabel(raftDecision.toyID))
+            return true
         end
+        DebugMessage("Direct cast step failed raft use: " .. GetDebugItemLabel(raftDecision.toyID))
+    end
+
+    local bobberDecision = GetBobberUseDecision()
+    if bobberDecision.shouldApply and bobberDecision.toyID then
+        if TryUseItemDirect(bobberDecision.toyID) then
+            DebugMessage("Direct cast step used bobber toy: " .. GetDebugItemLabel(bobberDecision.toyID))
+            return true
+        end
+        DebugMessage("Direct cast step failed bobber toy use: " .. GetDebugItemLabel(bobberDecision.toyID))
     end
 
     local oversizedDecision = GetOversizedBobberDecision()
@@ -595,13 +660,18 @@ local function HandleDirectCastStep()
             .. GetDebugItemLabel(OVERSIZED_BOBBER_ITEM_ID))
     end
 
-    local bobberDecision = GetBobberUseDecision()
-    if bobberDecision.shouldApply and bobberDecision.toyID then
-        if TryUseItemDirect(bobberDecision.toyID) then
-            DebugMessage("Direct cast step used bobber toy: " .. GetDebugItemLabel(bobberDecision.toyID))
+    local hasConfiguredBuffItems = HasConfiguredBuffItems()
+    if hasConfiguredBuffItems then
+        local candidateItemID, hadUnavailableDueBuff, category = GetNextReadyDueBuffItem()
+        if candidateItemID and TryUseBuffItemDirect(candidateItemID) then
+            if IsLureCategory(category) and not TryApplyFishingProfessionSlotDirect() then
+                DebugMessage("Direct cast step could not apply lure to profession slot after item use")
+            end
             return true
         end
-        DebugMessage("Direct cast step failed bobber toy use: " .. GetDebugItemLabel(bobberDecision.toyID))
+        if hadUnavailableDueBuff then
+            DebugMessage("Direct cast: due buff exists but unavailable")
+        end
     end
 
     return TryCastFishingDirect()
@@ -724,7 +794,7 @@ local function HandleWorldRightClick(forceImmediate)
     end
 
     if buffFrame and buffFrame:IsShown() then
-        local currentlyDueItemID = addon.buff.GetNextDueBuffItem(true)
+        local currentlyDueItemID = GetNextReadyDueBuffItem()
         local armedItemID = tonumber(buffFrame:GetAttribute("dreamfisher_itemid"))
         if currentlyDueItemID and armedItemID and currentlyDueItemID == armedItemID and IsItemReadyForUse(armedItemID) then
             DebugMessage("Buff secure frame already shown; awaiting secure click")
@@ -751,25 +821,10 @@ local function HandleWorldRightClick(forceImmediate)
     if forceImmediate or allowSingleClick or (now - addon.state.lastRightClickTime) <= (addon.state.doubleClickWindow + 0.001) then
         addon.state.lastRightClickTime = 0
         local pendingBuffItemID = nil
+        local pendingBuffCategory = nil
         local hadUnavailableDueBuff = false
         if hasConfiguredBuffItems then
-            local excludedBuffItemIDs = {}
-            while true do
-                local candidateItemID, dueStatus = addon.buff.GetNextDueBuffItem(true, excludedBuffItemIDs)
-                if not candidateItemID then
-                    hadUnavailableDueBuff = (dueStatus == "due_unavailable") or hadUnavailableDueBuff
-                    break
-                end
-
-                if IsItemReadyForUse(candidateItemID) then
-                    pendingBuffItemID = candidateItemID
-                    break
-                end
-
-                DebugMessage("Skipping due buff on cooldown this click: "
-                    .. GetDebugItemLabel(candidateItemID) .. " " .. GetDebugCooldownText(candidateItemID))
-                excludedBuffItemIDs[candidateItemID] = true
-            end
+            pendingBuffItemID, hadUnavailableDueBuff, pendingBuffCategory = GetNextReadyDueBuffItem()
         else
             DebugMessage("No configured buff items in cast handler; skipping buff arm")
         end
@@ -790,7 +845,9 @@ local function HandleWorldRightClick(forceImmediate)
             else
                 table.insert(macroLines, "/use item:" .. tostring(pendingBuffItemID))
             end
-            table.insert(macroLines, "/use 28")
+            if IsLureCategory(pendingBuffCategory) then
+                table.insert(macroLines, "/use 28")
+            end
             local macrotext = table.concat(macroLines, "\n")
 
             buffFrame:SetAttribute("type", "macro")
@@ -801,6 +858,7 @@ local function HandleWorldRightClick(forceImmediate)
             buffFrame:SetAttribute("item2", nil)
             buffFrame:SetAttribute("dreamfisher_itemid", pendingBuffItemID)
             DebugMessage("Double-click arming due buff: " .. GetDebugItemLabel(pendingBuffItemID)
+                .. " category=" .. tostring(pendingBuffCategory)
                 .. " " .. GetDebugCooldownText(pendingBuffItemID)
                 .. " macro=" .. tostring(macrotext:gsub("\n", " | ")))
             if not InCombatLockdown() then
