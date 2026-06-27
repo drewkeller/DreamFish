@@ -139,7 +139,8 @@ local lootTracker = CreateFrame("Frame")
 lootTracker:RegisterEvent("LOOT_READY")
 lootTracker:RegisterEvent("LOOT_CLOSED")
 lootTracker:RegisterEvent("BAG_UPDATE")
-lootTracker:SetScript("OnEvent", function(_, event)
+lootTracker:RegisterEvent("UI_INFO_MESSAGE")
+lootTracker:SetScript("OnEvent", function(_, event, ...)
     if event == "LOOT_READY" then
         if addon.state.isBobberActive or addon.state.savedFishingAudioCVars ~= nil then
             addon.state.fishingLootInProgress = true
@@ -167,6 +168,32 @@ lootTracker:SetScript("OnEvent", function(_, event)
                 if control.itemBox and control.itemBox.UpdateCountDisplay then
                     control.itemBox:UpdateCountDisplay()
                 end
+            end
+        end
+    elseif event == "UI_INFO_MESSAGE" then
+        local arg1, arg2 = ...
+        local errType = arg1
+        local msg = nil
+        if type(arg2) == "string" and arg2 ~= "" then
+            msg = arg2
+        elseif type(arg1) == "string" and arg1 ~= "" then
+            msg = arg1
+        else
+            msg = ""
+        end
+
+        local noFishHooked = (tonumber(errType) == 413)
+
+        if noFishHooked then
+            addon.state.isFishing = false
+            addon.state.isBobberActive = false
+            addon.state.fishingLootInProgress = false
+            addon.state.interactAcquireExpiresAt = 0
+            if addon.fishing and addon.fishing.ClearNativeInteractOverride then
+                addon.fishing.ClearNativeInteractOverride()
+            end
+            if addon.DebugMessage then
+                addon.DebugMessage("Detected fish-hook info message (413); cleared fishing/hooked state")
             end
         end
     end

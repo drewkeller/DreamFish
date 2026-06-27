@@ -60,6 +60,13 @@ local function TryArmNativeInteractOverrideFromFishingState()
     end
 
     local now = (type(GetTime) == "function") and GetTime() or 0
+
+    local lastAttemptAt = tonumber(addon.state.interactFallbackArmLastAttemptAt) or 0
+    if lastAttemptAt > 0 and (now - lastAttemptAt) < 0.75 then
+        return
+    end
+    addon.state.interactFallbackArmLastAttemptAt = now
+
     local graceUntil = tonumber(addon.state.fishingStartGraceUntil) or 0
     if now < graceUntil then
         return
@@ -67,7 +74,11 @@ local function TryArmNativeInteractOverrideFromFishingState()
 
     local armed = addon.fishing.ArmNativeInteractOverride()
     if armed then
-        DebugMessage("Armed native interact override from fishing-state fallback")
+        local lastLogAt = tonumber(addon.state.interactFallbackArmLastLogAt) or 0
+        if lastLogAt <= 0 or (now - lastLogAt) >= 4 then
+            addon.state.interactFallbackArmLastLogAt = now
+            DebugMessage("Armed native interact override from fishing-state fallback")
+        end
     end
 end
 
@@ -176,6 +187,7 @@ local function CreateFishingStateFrame()
                 addon.state.isFishing = false
                 addon.state.isBobberActive = false
                 addon.state.fishingLootInProgress = false
+                addon.state.interactAcquireExpiresAt = 0
                 addon.state.audioRestoreAt = nil
                 if addon.fishing and addon.fishing.ClearNativeInteractOverride then
                     addon.fishing.ClearNativeInteractOverride()
@@ -191,6 +203,7 @@ local function CreateFishingStateFrame()
                 addon.state.isFishing = false
                 addon.state.isBobberActive = false
                 addon.state.fishingLootInProgress = false
+                addon.state.interactAcquireExpiresAt = 0
                 addon.state.audioRestoreAt = nil
                 if addon.fishing and addon.fishing.ClearNativeInteractOverride then
                     addon.fishing.ClearNativeInteractOverride()
@@ -206,6 +219,7 @@ local function CreateFishingStateFrame()
                 addon.state.isFishing = false
                 addon.state.isBobberActive = false
                 addon.state.fishingLootInProgress = false
+                addon.state.interactAcquireExpiresAt = 0
                 RestoreOriginalAutoLoot()
                 addon.state.audioRestoreAt = nil
                 if addon.fishing and addon.fishing.ClearNativeInteractOverride then

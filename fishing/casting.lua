@@ -828,6 +828,7 @@ local function HandleWorldRightClick(forceImmediate)
         addon.state.fishingStartTime = now
         addon.state.fishingStartGraceUntil = now + 1.5
         addon.state.fishingLootInProgress = false
+        addon.state.interactAcquireExpiresAt = 0
 
         if hadUnavailableDueBuff then
             DebugMessage("No usable due buffs; starting fishing cast")

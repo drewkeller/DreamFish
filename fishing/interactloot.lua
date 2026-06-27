@@ -4,6 +4,13 @@ local addon = _G["DreamFisher"]
 local DebugMessage = addon.DebugMessage
 addon.fishing = addon.fishing or {}
 
+local KNOWN_BOBBER_NPC_IDS = {
+    [216204] = true,
+    [265572] = true,
+    [124736] = true,
+    [261797] = true,
+}
+
 local function GetInteractOverrideFrame()
     if addon.frames and addon.frames.interactOverride then
         return addon.frames.interactOverride
@@ -39,7 +46,7 @@ local function ArmNativeInteractOverride(durationSeconds)
         end
     end
 
-    -- Support right-click catch flow: route BUTTON2 through native interact while hooked.
+    -- Keep native right-click interact available while hooked.
     SetOverrideBinding(owner, true, "BUTTON2", "INTERACTTARGET")
     applied = true
 
@@ -99,17 +106,58 @@ local function GetUnitNameSafe(unit)
     return nil
 end
 
+local function GetUnitGUIDSafe(unit)
+    if type(UnitGUID) ~= "function" then
+        return nil
+    end
+    local guid = UnitGUID(unit)
+    if type(guid) == "string" and guid ~= "" then
+        return guid
+    end
+    return nil
+end
+
+local function GetNpcIDFromGUID(guid)
+    if type(guid) ~= "string" then
+        return nil
+    end
+    local unitType, _, _, _, npcID = guid:match("^([^-]+)-([^-]+)-([^-]+)-([^-]+)-([^-]+)-(.+)$")
+    if (unitType == "Creature" or unitType == "Vehicle") and npcID then
+        local numeric = tonumber(npcID)
+        if numeric and numeric > 0 then
+            return numeric
+        end
+    end
+    return nil
+end
+
+local function IsFishingBobberName(name)
+    return type(name) == "string" and name == "Fishing Bobber"
+end
+
 local function GetInteractDiagnostics()
     local softExists = (type(UnitExists) == "function") and UnitExists("softinteract") and true or false
     local targetExists = (type(UnitExists) == "function") and UnitExists("target") and true or false
     local mouseoverExists = (type(UnitExists) == "function") and UnitExists("mouseover") and true or false
+    local softGUID = GetUnitGUIDSafe("softinteract")
+    local targetGUID = GetUnitGUIDSafe("target")
+    local mouseoverGUID = GetUnitGUIDSafe("mouseover")
+    local softNpcID = GetNpcIDFromGUID(softGUID)
+    local targetNpcID = GetNpcIDFromGUID(targetGUID)
+    local mouseoverNpcID = GetNpcIDFromGUID(mouseoverGUID)
     return {
         softExists = softExists,
         softName = GetUnitNameSafe("softinteract"),
+        softGUID = softGUID,
+        softNpcID = softNpcID,
         targetExists = targetExists,
         targetName = GetUnitNameSafe("target"),
+        targetGUID = targetGUID,
+        targetNpcID = targetNpcID,
         mouseoverExists = mouseoverExists,
         mouseoverName = GetUnitNameSafe("mouseover"),
+        mouseoverGUID = mouseoverGUID,
+        mouseoverNpcID = mouseoverNpcID,
     }
 end
 
@@ -119,10 +167,13 @@ local function FormatInteractDiagnostics(diag)
     end
     return "soft=" .. tostring(diag.softExists)
         .. "(" .. tostring(diag.softName or "-") .. ")"
+        .. " softNpcID=" .. tostring(diag.softNpcID or "-")
         .. " target=" .. tostring(diag.targetExists)
         .. "(" .. tostring(diag.targetName or "-") .. ")"
+        .. " targetNpcID=" .. tostring(diag.targetNpcID or "-")
         .. " mouseover=" .. tostring(diag.mouseoverExists)
         .. "(" .. tostring(diag.mouseoverName or "-") .. ")"
+        .. " mouseoverNpcID=" .. tostring(diag.mouseoverNpcID or "-")
 end
 
 local function IsHookedLootMode()
@@ -166,6 +217,20 @@ local function ConfigureInteractLootAction(frame)
     AddTargetName("Fishing Bobber")
 
     local diag = GetInteractDiagnostics()
+    local foundKnownNpcID = diag.softNpcID or diag.targetNpcID or diag.mouseoverNpcID
+    local matchedKnownNpc = (diag.softNpcID and KNOWN_BOBBER_NPC_IDS[diag.softNpcID])
+        or (diag.targetNpcID and KNOWN_BOBBER_NPC_IDS[diag.targetNpcID])
+        or (diag.mouseoverNpcID and KNOWN_BOBBER_NPC_IDS[diag.mouseoverNpcID])
+    local foundFishingBobberName = IsFishingBobberName(diag.softName)
+        or IsFishingBobberName(diag.targetName)
+        or IsFishingBobberName(diag.mouseoverName)
+    if matchedKnownNpc or foundFishingBobberName then
+        DebugMessage("Hooked diagnostics: bobber candidate found "
+            .. "knownNpc=" .. tostring(matchedKnownNpc and true or false)
+            .. " anyNpcID=" .. tostring(foundKnownNpcID or "-")
+            .. " byName=" .. tostring(foundFishingBobberName)
+            .. " " .. FormatInteractDiagnostics(diag))
+    end
     local hasAnyInteractUnit = diag.softExists or diag.targetExists or diag.mouseoverExists
     local hasSoftInteractNameOnly = (not hasAnyInteractUnit)
         and type(diag.softName) == "string"
@@ -187,13 +252,14 @@ local function ConfigureInteractLootAction(frame)
     -- Some clients need one keypress to acquire bobber target, then one keypress to interact.
     -- Keep target acquisition macro armed until an interactable unit actually exists.
     if type(UnitExists) == "function" and (not hasAnyInteractUnit) then
+        if addon.state and (not inAcquireWindow) then
+            addon.state.interactAcquireExpiresAt = now + 2.5
+        end
+
         frame:SetAttribute("type", "macro")
         frame:SetAttribute("macrotext", table.concat(targetMacroLines, "\n"))
         frame:SetAttribute("spell", nil)
         frame:SetAttribute("dreamfisher_duebuff", nil)
-        if addon.state and (not inAcquireWindow) then
-            addon.state.interactAcquireExpiresAt = now + 2.5
-        end
         local armedNativeInteract = false
         if not inAcquireWindow then
             armedNativeInteract = ArmNativeInteractOverride(2.5)

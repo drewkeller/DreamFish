@@ -67,6 +67,7 @@ addon.state = {
     -- Fishing tracking
     fishingStartGraceUntil = 0,
     fishingExpireSeconds = 35,
+    interactAcquireExpiresAt = 0,
 
     -- Buff management
     lastBuffCheckTime = 0,
