@@ -171,7 +171,10 @@ local function CheckBuffItemStockWarnings()
 
             if previousCount and previousCount > 0 and count <= 0 then
                 local itemName = (type(GetItemInfo) == "function" and GetItemInfo(itemID)) or ("item:" .. tostring(itemID))
-                addon.PrintMessage("Buff item depleted: " .. tostring(itemName) .. " (0 left).")
+                addon.PrintMessage("Buff item depleted: " .. tostring(itemName) .. " (" .. tostring(itemID) .. ", 0 left).")
+                if addon.audio and addon.audio.PlayBagFullCue then
+                    addon.audio.PlayBagFullCue()
+                end
             end
         end
     end

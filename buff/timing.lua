@@ -10,6 +10,7 @@ local function GetBuffRefreshLead(refreshSeconds)
 end
 
 local function IsBuffItemDue(itemID, refreshSeconds, requireAuraForCast)
+    local lastUsed = addon.state.buffItemLastUseAt[itemID] or 0
     local remaining = addon.buff.GetTrackedBuffRemaining(itemID)
     if remaining ~= nil then
         local lead = GetBuffRefreshLead(refreshSeconds)
@@ -17,21 +18,39 @@ local function IsBuffItemDue(itemID, refreshSeconds, requireAuraForCast)
     end
 
     local hasTrackedAura = false
+    local trackedSpellID = nil
     if addon.db and type(addon.db.buffAuraByItem) == "table" then
         local tracked = addon.db.buffAuraByItem[tostring(itemID)]
         if type(tracked) == "table" and tracked.spellID then
             hasTrackedAura = true
-            local aura = addon.buff.GetAuraBySpellID(tracked.spellID)
-            if not aura then
-                return true, 0, "tracked_missing_aura"
-            end
+            trackedSpellID = tracked.spellID
         end
     end
 
-    local lastUsed = addon.state.buffItemLastUseAt[itemID] or 0
+    if (not hasTrackedAura) and addon.const and type(addon.const.knownBuffItems) == "table" then
+        local known = addon.const.knownBuffItems[tonumber(itemID)]
+        if type(known) == "table" and known.spellID then
+            hasTrackedAura = true
+            trackedSpellID = known.spellID
+        end
+    end
+
+    if hasTrackedAura and trackedSpellID then
+        local aura = addon.buff.GetAuraBySpellID(trackedSpellID)
+        if not aura then
+            if lastUsed > 0 then
+                local elapsedTrackedFallback = GetTime() - lastUsed
+                if elapsedTrackedFallback < refreshSeconds then
+                    return false, nil, "tracked_missing_recent_use"
+                end
+            end
+            return true, 0, "tracked_missing_aura"
+        end
+    end
+
     if requireAuraForCast and not hasTrackedAura then
         if lastUsed <= 0 then
-            return false, nil, "untracked_no_history_skip_cast"
+            return true, nil, "untracked_no_history_due_cast"
         end
     end
 

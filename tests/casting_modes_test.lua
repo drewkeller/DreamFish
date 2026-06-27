@@ -209,6 +209,45 @@ function tests.DoubleClickDueBuff()
     DreamFisher.buff.FindItemInBags = originalFind
 end
 
+function tests.DoubleClickDueBuffArmsProfessionSlotMacro()
+    DreamFisher._test.SetDB({
+        buffItems = { { itemID = 111, expectedDuration = 60 } },
+        buffAuraByItem = {},
+    })
+
+    DreamFisher._test.SetBuffLastUseTime(111, mockTime - 100)
+
+    local capturedAttrs = {}
+    local buffFrame = DreamFisher.fishing.CreateSecureBuffFrame()
+    if buffFrame then
+        local origSet = buffFrame.SetAttribute
+        buffFrame.SetAttribute = function(self, k, v)
+            capturedAttrs[k] = v
+            return origSet and origSet(self, k, v)
+        end
+    end
+
+    local originalFind = DreamFisher.buff.FindItemInBags
+    DreamFisher.buff.FindItemInBags = function(itemID)
+        if itemID == 111 then return 1, 18 end
+        return nil, nil
+    end
+
+    mockTime = 1000
+    DreamFisher._test.HandleWorldRightClick()
+    mockTime = 1000.1
+    DreamFisher._test.HandleWorldRightClick()
+
+    DreamFisher.buff.FindItemInBags = originalFind
+
+    if buffFrame then
+        assertEquals(capturedAttrs["type"], "macro", "Due buff arm should use secure macro action")
+        local macrotext = capturedAttrs["macrotext"] or ""
+        assertTrue(macrotext:find("/use 1 18", 1, true) ~= nil, "Due buff arm macro should use bag slot source")
+        assertTrue(macrotext:find("/use 28", 1, true) ~= nil, "Due buff arm macro should apply to profession slot")
+    end
+end
+
 function tests.DoubleClickSelectsFirstDueBuff()
     -- When multiple buffs are due, double-click uses first one
     DreamFisher._test.SetDB({
@@ -492,8 +531,52 @@ function tests.HotkeyConfiguresMacroWhenDueBuffReady()
         assertEquals(capturedAttrs["type"], "macro", "Due buff: action type should be macro")
         local macrotext = capturedAttrs["macrotext"] or ""
         assertTrue(macrotext:find("111") ~= nil, "Due buff: macro should reference item 111")
+        assertTrue(macrotext:find("/use 28", 1, true) ~= nil, "Due buff: macro should target fishing profession slot")
         assertTrue(macrotext:find("/cast Fishing") ~= nil, "Due buff: macro should include /cast Fishing")
     end
+end
+
+function tests.PrecastAppliesRaftBeforeDueBuff()
+    local capturedAttrs = {}
+    local fishingFrame = DreamFisher.fishing.CreateSecureFishingFrame()
+    local origSet = fishingFrame.SetAttribute
+    fishingFrame.SetAttribute = function(self, k, v)
+        capturedAttrs[k] = v
+        return origSet and origSet(self, k, v)
+    end
+
+    DreamFisher._test.SetDB({
+        castingModes = { hotkey = true },
+        buffItems = { { itemID = 111, expectedDuration = 60 } },
+        buffAuraByItem = {},
+        enableHookedLoot = false,
+        selectedRaftToy = 85500,
+        selectedBobberToy = nil,
+        useOversizedBobber = false,
+    })
+
+    DreamFisher._test.SetBuffLastUseTime(111, mockTime - 200)
+
+    local originalFind = DreamFisher.buff.FindItemInBags
+    DreamFisher.buff.FindItemInBags = function(itemID)
+        if itemID == 111 then return 0, 1 end
+        return nil, nil
+    end
+
+    local originalSwimming = _G.IsSwimming
+    _G.IsSwimming = function() return true end
+
+    DreamFisher.fishing.ConfigureFishingClickAction()
+
+    _G.IsSwimming = originalSwimming
+    DreamFisher.buff.FindItemInBags = originalFind
+
+    local macrotext = capturedAttrs["macrotext"] or ""
+    local raftIndex = macrotext:find("/use item:85500", 1, true)
+    local buffIndex = macrotext:find("/use item:111", 1, true)
+    assertTrue(raftIndex ~= nil, "Pre-cast should include raft toy use")
+    assertTrue(buffIndex ~= nil, "Pre-cast should include due buff use")
+    assertTrue(raftIndex < buffIndex, "Raft use should appear before due buff use")
 end
 
 function tests.HotkeyConfiguresFishingWhenBuffNotDue()
@@ -680,6 +763,238 @@ function tests.HookedRightClickRoutesToInteractWhenHooked()
     assertEquals(DreamFisher._test.GetLastRightClickTime(), 0, "Hooked world right-click should clear double-click timing")
 
     _G.SetOverrideBindingClick = originalBindingClick
+end
+
+function tests.StaleHookedOverrideFallsBackToCastFlow()
+    local originalGetDiag = DreamFisher.fishing.GetInteractDiagnostics
+    DreamFisher.fishing.GetInteractDiagnostics = function()
+        return {
+            softExists = false,
+            targetExists = false,
+            mouseoverExists = false,
+        }
+    end
+
+    DreamFisher._test.SetDB({
+        castingModes = {
+            doubleRightClick = true,
+            singleRightClickConfig = false,
+            singleRightClickDoubleStart = false,
+            hotkey = false,
+        },
+        buffItems = {},
+        buffAuraByItem = {},
+        enableHookedLoot = true,
+    })
+
+    DreamFisher.state.isFishing = false
+    DreamFisher.state.isBobberActive = false
+    DreamFisher.state.fishingLootInProgress = false
+    DreamFisher.state.fishingStartTime = 0
+    DreamFisher.state.fishingStartGraceUntil = 0
+    DreamFisher.state.interactOverrideActive = true
+    DreamFisher.state.interactOverrideExpiresAt = mockTime + 10
+    DreamFisher.state.interactAcquireExpiresAt = 0
+    DreamFisher._test.SetLastRightClickTime(0)
+
+    DreamFisher._test.HandleWorldRightClick()
+
+    assertEquals(DreamFisher._test.GetLastRightClickTime(), mockTime,
+        "Stale hooked override should fall back to normal single-click cast flow")
+
+    DreamFisher.fishing.GetInteractDiagnostics = originalGetDiag
+end
+
+function tests.RecentFishingWithInteractTargetRoutesHookedFallback()
+    local originalGetDiag = DreamFisher.fishing.GetInteractDiagnostics
+    DreamFisher.fishing.GetInteractDiagnostics = function()
+        return {
+            softExists = true,
+            targetExists = false,
+            mouseoverExists = false,
+        }
+    end
+
+    local originalBindingClick = _G.SetOverrideBindingClick
+    local bindingCalls = 0
+    _G.SetOverrideBindingClick = function(...)
+        bindingCalls = bindingCalls + 1
+        if originalBindingClick then
+            return originalBindingClick(...)
+        end
+    end
+
+    DreamFisher._test.SetDB({
+        castingModes = {
+            doubleRightClick = true,
+            singleRightClickConfig = false,
+            singleRightClickDoubleStart = false,
+            hotkey = false,
+        },
+        buffItems = {},
+        buffAuraByItem = {},
+        enableHookedLoot = true,
+    })
+
+    DreamFisher.state.isFishing = false
+    DreamFisher.state.isBobberActive = false
+    DreamFisher.state.fishingLootInProgress = false
+    DreamFisher.state.fishingStartTime = mockTime - 3
+    DreamFisher.state.fishingStartGraceUntil = mockTime - 1
+    DreamFisher.state.interactOverrideActive = false
+    DreamFisher.state.interactAcquireExpiresAt = 0
+    DreamFisher._test.SetLastRightClickTime(12345)
+
+    DreamFisher._test.HandleWorldRightClick()
+
+    assertTrue(bindingCalls > 0,
+        "Recent fishing with interact target should route right-click to hooked interact")
+    assertEquals(DreamFisher._test.GetLastRightClickTime(), 0,
+        "Hooked fallback route should consume click and clear double-click timing")
+
+    DreamFisher.fishing.GetInteractDiagnostics = originalGetDiag
+    _G.SetOverrideBindingClick = originalBindingClick
+end
+
+function tests.PostCastHookWindowRoutesHookedFallbackWithoutUnits()
+    local originalGetDiag = DreamFisher.fishing.GetInteractDiagnostics
+    DreamFisher.fishing.GetInteractDiagnostics = function()
+        return {
+            softExists = false,
+            targetExists = false,
+            mouseoverExists = false,
+        }
+    end
+
+    local originalBindingClick = _G.SetOverrideBindingClick
+    local bindingCalls = 0
+    _G.SetOverrideBindingClick = function(...)
+        bindingCalls = bindingCalls + 1
+        if originalBindingClick then
+            return originalBindingClick(...)
+        end
+    end
+
+    DreamFisher._test.SetDB({
+        castingModes = {
+            doubleRightClick = true,
+            singleRightClickConfig = false,
+            singleRightClickDoubleStart = false,
+            hotkey = false,
+        },
+        buffItems = {},
+        buffAuraByItem = {},
+        enableHookedLoot = true,
+    })
+
+    DreamFisher.state.isFishing = true
+    DreamFisher.state.isBobberActive = false
+    DreamFisher.state.fishingLootInProgress = false
+    DreamFisher.state.fishingStartTime = mockTime - 3
+    DreamFisher.state.fishingStartGraceUntil = mockTime - 1
+    DreamFisher.state.interactOverrideActive = true
+    DreamFisher.state.interactOverrideExpiresAt = mockTime + 10
+    DreamFisher.state.interactAcquireExpiresAt = 0
+    DreamFisher._test.SetLastRightClickTime(12345)
+
+    DreamFisher._test.HandleWorldRightClick()
+
+    assertTrue(bindingCalls > 0,
+        "Post-cast hook window should route right-click to hooked interact even without unit tokens")
+    assertEquals(DreamFisher._test.GetLastRightClickTime(), 0,
+        "Hooked timing fallback should consume click and clear double-click timing")
+
+    DreamFisher.fishing.GetInteractDiagnostics = originalGetDiag
+    _G.SetOverrideBindingClick = originalBindingClick
+end
+
+function tests.HookedAcquireWindowKeepsTargetMacroWithoutSoftName()
+    local capturedAttrs = {}
+    local fishingFrame = DreamFisher.fishing.CreateSecureFishingFrame()
+    local origSet = fishingFrame.SetAttribute
+    fishingFrame.SetAttribute = function(self, k, v)
+        capturedAttrs[k] = v
+        return origSet and origSet(self, k, v)
+    end
+
+    DreamFisher._test.SetDB({
+        castingModes = { hotkey = true },
+        buffItems = {},
+        buffAuraByItem = {},
+        enableHookedLoot = true,
+    })
+
+    DreamFisher.state.isFishing = true
+    DreamFisher.state.isBobberActive = false
+    DreamFisher.state.fishingLootInProgress = false
+    DreamFisher.state.fishingStartGraceUntil = mockTime - 1
+    DreamFisher.state.interactAcquireExpiresAt = 0
+
+    local originalUnitExists = _G.UnitExists
+    local originalUnitName = _G.UnitName
+    _G.UnitExists = function() return false end
+    _G.UnitName = function(unit)
+        return nil
+    end
+
+    DreamFisher.fishing.ConfigureFishingClickAction()
+    local firstMacro = capturedAttrs["macrotext"] or ""
+    assertTrue(firstMacro:find("/targetexact", 1, true) ~= nil,
+        "First hooked acquire click should use target acquisition macro")
+
+    mockTime = mockTime + 0.5
+    DreamFisher.fishing.ConfigureFishingClickAction()
+    local secondMacro = capturedAttrs["macrotext"] or ""
+    assertTrue(secondMacro:find("/targetexact", 1, true) ~= nil,
+        "Acquire window should keep target acquisition macro when no unit exists")
+    assertTrue(secondMacro:find("/interact", 1, true) == nil,
+        "Acquire window should not switch to /interact before unit exists")
+
+    _G.UnitExists = originalUnitExists
+    _G.UnitName = originalUnitName
+end
+
+function tests.HookedSoftNameUsesAcquirePlusInteractMacro()
+    local capturedAttrs = {}
+    local fishingFrame = DreamFisher.fishing.CreateSecureFishingFrame()
+    local origSet = fishingFrame.SetAttribute
+    fishingFrame.SetAttribute = function(self, k, v)
+        capturedAttrs[k] = v
+        return origSet and origSet(self, k, v)
+    end
+
+    DreamFisher._test.SetDB({
+        castingModes = { hotkey = true },
+        buffItems = {},
+        buffAuraByItem = {},
+        enableHookedLoot = true,
+    })
+
+    DreamFisher.state.isFishing = true
+    DreamFisher.state.isBobberActive = false
+    DreamFisher.state.fishingLootInProgress = false
+    DreamFisher.state.fishingStartGraceUntil = mockTime - 1
+    DreamFisher.state.interactAcquireExpiresAt = 0
+
+    local originalUnitExists = _G.UnitExists
+    local originalUnitName = _G.UnitName
+    _G.UnitExists = function() return false end
+    _G.UnitName = function(unit)
+        if unit == "softinteract" then
+            return "Fishing Bobber"
+        end
+        return nil
+    end
+
+    DreamFisher.fishing.ConfigureFishingClickAction()
+    local firstMacro = capturedAttrs["macrotext"] or ""
+    assertTrue(firstMacro:find("/targetexact", 1, true) ~= nil,
+        "Soft-name-only hooked state should still include target acquisition")
+    assertTrue(firstMacro:find("/interact", 1, true) ~= nil,
+        "Soft-name-only hooked state should include /interact in same macro")
+
+    _G.UnitExists = originalUnitExists
+    _G.UnitName = originalUnitName
 end
 
 function tests.HotkeyPressInCombatReturnsTrue()

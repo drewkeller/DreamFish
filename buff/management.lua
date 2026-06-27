@@ -5,6 +5,18 @@ local Clamp = addon.Clamp
 local PrintMessage = addon.PrintMessage
 local DebugMessage = addon.DebugMessage
 
+local function GetBuffItemLabel(itemID)
+    local numeric = tonumber(itemID)
+    if not numeric or numeric <= 0 then
+        return "unknown"
+    end
+    local itemName = (type(GetItemInfo) == "function" and GetItemInfo(numeric)) or nil
+    if itemName and itemName ~= "" then
+        return tostring(itemName) .. " (" .. tostring(numeric) .. ")"
+    end
+    return "item:" .. tostring(numeric)
+end
+
 local function GetBuffTimingText(itemID)
     if not addon.db or type(addon.db.buffAuraByItem) ~= "table" then
         return "duration unknown (learning aura mapping)"
@@ -31,7 +43,7 @@ end
 
 local function AnnounceBuffUse(itemID)
     local itemName = (type(GetItemInfo) == "function" and GetItemInfo(itemID)) or ("item:" .. tostring(itemID))
-    PrintMessage("Using buff: " .. tostring(itemName) .. " [" .. GetBuffTimingText(itemID) .. "]")
+    PrintMessage("Using buff: " .. tostring(itemName) .. " (" .. tostring(itemID) .. ") [" .. GetBuffTimingText(itemID) .. "]")
 end
 
 local function FindItemInBags(itemID)
@@ -77,8 +89,29 @@ local function WarnMissingBuffItem(itemID, reason)
     addon.state.buffItemLastMissingWarningAt[itemID] = now
 
     local itemName = (type(GetItemInfo) == "function" and GetItemInfo(itemID)) or ("item:" .. tostring(itemID))
-    PrintMessage("Buff due but item missing in inventory: " .. tostring(itemName) .. ".")
-    addon.audio.PlayBagFullCue()
+    PrintMessage("Buff due but item missing in inventory: " .. tostring(itemName) .. " (" .. tostring(itemID) .. ").")
+end
+
+local function GetEntryExpectedDuration(entry)
+    local expectedDuration = type(entry) == "table" and tonumber(entry.expectedDuration) or nil
+    if not expectedDuration then
+        expectedDuration = type(entry) == "table" and tonumber(entry.refreshSeconds) or nil
+    end
+    if not expectedDuration and addon.db and type(addon.db.buffAuraByItem) == "table" then
+        local entryItemID = type(entry) == "table" and tonumber(entry.itemID) or nil
+        local tracked = entryItemID and addon.db.buffAuraByItem[tostring(entryItemID)] or nil
+        if type(tracked) == "table" then
+            expectedDuration = tonumber(tracked.duration)
+        end
+    end
+    if not expectedDuration and addon.const and type(addon.const.knownBuffItems) == "table" then
+        local entryItemID = type(entry) == "table" and tonumber(entry.itemID) or nil
+        local known = entryItemID and addon.const.knownBuffItems[entryItemID] or nil
+        if type(known) == "table" then
+            expectedDuration = tonumber(known.duration)
+        end
+    end
+    return Clamp(expectedDuration or addon.db.refreshSeconds or addon.defaults.refreshSeconds, 30, 3600)
 end
 
 local function GetNextDueBuffItem(requireAuraForCast, excludedItemIDs)
@@ -110,20 +143,20 @@ local function GetNextDueBuffItem(requireAuraForCast, excludedItemIDs)
                     DebugMessage("Skipping excluded due buff item: " .. tostring(itemID))
                 end
             else
-                local refreshSeconds = Clamp(tonumber(entry.refreshSeconds) or addon.db.refreshSeconds or addon.defaults.refreshSeconds, 30, 3600)
-                local isDue, remaining, reason = addon.buff.IsBuffItemDue(itemID, refreshSeconds, requireAuraForCast)
+                local expectedDuration = GetEntryExpectedDuration(entry)
+                local isDue, remaining, reason = addon.buff.IsBuffItemDue(itemID, expectedDuration, requireAuraForCast)
 
                 if isDue then
                     local bag, slot = LookupItemInBags(itemID)
                     if bag and slot then
-                        DebugMessage("Due buff item found: " .. tostring(itemID)
+                        DebugMessage("Due buff item found: " .. GetBuffItemLabel(itemID)
                             .. " bag=" .. tostring(bag)
                             .. " slot=" .. tostring(slot)
                             .. " remaining=" .. tostring(remaining)
                             .. " reason=" .. tostring(reason))
                         return itemID, "usable"
                     elseif addon.db and addon.db.debugMode then
-                        DebugMessage("Due buff item not in bags: " .. tostring(itemID)
+                        DebugMessage("Due buff item not in bags: " .. GetBuffItemLabel(itemID)
                             .. " reason=" .. tostring(reason))
                     end
                     hadUnavailableDueBuff = true
@@ -131,7 +164,7 @@ local function GetNextDueBuffItem(requireAuraForCast, excludedItemIDs)
                         WarnMissingBuffItem(itemID, reason)
                     end
                 elseif addon.db and addon.db.debugMode then
-                    DebugMessage("Buff item not due: " .. tostring(itemID)
+                    DebugMessage("Buff item not due: " .. GetBuffItemLabel(itemID)
                         .. " remaining=" .. tostring(remaining)
                         .. " reason=" .. tostring(reason))
                 end
@@ -156,25 +189,37 @@ local function MaybeUseBuffItems()
     end
     addon.state.lastBuffCheckTime = GetTime()
 
+    if not addon.state or not addon.state.isFishing then
+        return
+    end
+
     if InCombatLockdown() or addon.fishing.IsFishingCast() then
         return
     end
 
+    addon.state.buffItemLastReminderCastAnchor = addon.state.buffItemLastReminderCastAnchor or {}
+
     for _, entry in ipairs(addon.db.buffItems) do
         local itemID = tonumber(entry.itemID)
         if itemID and itemID > 0 then
-            local refreshSeconds = Clamp(tonumber(entry.refreshSeconds) or addon.db.refreshSeconds or addon.defaults.refreshSeconds, 30, 3600)
-            local shouldUse = addon.buff.IsBuffItemDue(itemID, refreshSeconds, false)
+            local expectedDuration = GetEntryExpectedDuration(entry)
+            local shouldUse = addon.buff.IsBuffItemDue(itemID, expectedDuration, false)
 
             if shouldUse then
                 local bag, slot = LookupItemInBags(itemID)
                 if bag and slot then
                     local now = GetTime()
                     local lastReminder = addon.state.buffItemLastReminderAt[itemID] or 0
+                    local castAnchor = tonumber(addon.state.fishingStartTime) or 0
+                    local remindedForCast = addon.state.buffItemLastReminderCastAnchor[itemID]
+                    if castAnchor > 0 and remindedForCast == castAnchor then
+                        return
+                    end
                     if (now - lastReminder) >= addon.state.buffReminderCooldown then
                         local itemName = (type(GetItemInfo) == "function" and GetItemInfo(itemID)) or ("item:" .. tostring(itemID))
                         PrintMessage("Buff due: use " .. tostring(itemName) .. ". (Drag onto action bar or macro: /use item:" .. tostring(itemID) .. ")")
                         addon.state.buffItemLastReminderAt[itemID] = now
+                        addon.state.buffItemLastReminderCastAnchor[itemID] = castAnchor
                         addon.state.buffItemLastUseAt[itemID] = now
                         addon.state.pendingBuffObservation = {
                             itemID = itemID,
@@ -210,11 +255,24 @@ local function NormalizeBuffConfig()
         local itemID = tonumber(entry.itemID)
         if itemID and itemID > 0 then
             entry.itemID = itemID
+            if addon.const and type(addon.const.knownBuffItems) == "table" and type(addon.db.buffAuraByItem) == "table" then
+                local key = tostring(itemID)
+                if type(addon.db.buffAuraByItem[key]) ~= "table" then
+                    local known = addon.const.knownBuffItems[itemID]
+                    if type(known) == "table" and known.spellID then
+                        addon.db.buffAuraByItem[key] = {
+                            spellID = known.spellID,
+                            duration = tonumber(known.duration) or GetEntryExpectedDuration(entry),
+                        }
+                    end
+                end
+            end
         else
             entry.itemID = nil
         end
 
-        entry.refreshSeconds = Clamp(tonumber(entry.refreshSeconds) or addon.db.refreshSeconds or addon.defaults.refreshSeconds, 30, 3600)
+        entry.expectedDuration = GetEntryExpectedDuration(entry)
+        entry.refreshSeconds = nil
         addon.db.buffItems[i] = entry
     end
 end
@@ -237,8 +295,8 @@ addon._test.GetNextDueBuffItem = function(requireAuraForCast)
     for _, entry in ipairs(addon.db.buffItems) do
         local itemID = tonumber(entry.itemID)
         if itemID and itemID > 0 then
-            local refreshSeconds = Clamp(tonumber(entry.refreshSeconds) or addon.db.refreshSeconds or addon.defaults.refreshSeconds, 30, 3600)
-            local isDue, remaining, reason = addon.buff.IsBuffItemDue(itemID, refreshSeconds, requireAuraForCast)
+            local expectedDuration = GetEntryExpectedDuration(entry)
+            local isDue, remaining, reason = addon.buff.IsBuffItemDue(itemID, expectedDuration, requireAuraForCast)
             if isDue then
                 return itemID, reason
             end

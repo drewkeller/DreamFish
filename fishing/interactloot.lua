@@ -167,23 +167,43 @@ local function ConfigureInteractLootAction(frame)
 
     local diag = GetInteractDiagnostics()
     local hasAnyInteractUnit = diag.softExists or diag.targetExists or diag.mouseoverExists
+    local hasSoftInteractNameOnly = (not hasAnyInteractUnit)
+        and type(diag.softName) == "string"
+        and diag.softName ~= ""
     local now = (type(GetTime) == "function") and GetTime() or 0
     local acquireExpiresAt = tonumber(addon.state and addon.state.interactAcquireExpiresAt) or 0
     local inAcquireWindow = acquireExpiresAt > now
 
+    if hasSoftInteractNameOnly then
+        frame:SetAttribute("type", "macro")
+        frame:SetAttribute("macrotext", table.concat(targetMacroLines, "\n") .. "\n/interact")
+        frame:SetAttribute("spell", nil)
+        frame:SetAttribute("dreamfisher_duebuff", nil)
+        DebugMessage("Fishing click using hooked soft-name acquire+interact "
+            .. FormatInteractDiagnostics(diag))
+        return true
+    end
+
     -- Some clients need one keypress to acquire bobber target, then one keypress to interact.
-    if type(UnitExists) == "function" and (not hasAnyInteractUnit) and (not inAcquireWindow) then
+    -- Keep target acquisition macro armed until an interactable unit actually exists.
+    if type(UnitExists) == "function" and (not hasAnyInteractUnit) then
         frame:SetAttribute("type", "macro")
         frame:SetAttribute("macrotext", table.concat(targetMacroLines, "\n"))
         frame:SetAttribute("spell", nil)
         frame:SetAttribute("dreamfisher_duebuff", nil)
-        if addon.state then
+        if addon.state and (not inAcquireWindow) then
             addon.state.interactAcquireExpiresAt = now + 2.5
         end
-        local armedNativeInteract = ArmNativeInteractOverride(2.5)
-        DebugMessage("Fishing click primed hooked target acquisition "
-            .. FormatInteractDiagnostics(diag)
-            .. " nativeOverride=" .. tostring(armedNativeInteract))
+        local armedNativeInteract = false
+        if not inAcquireWindow then
+            armedNativeInteract = ArmNativeInteractOverride(2.5)
+            DebugMessage("Fishing click primed hooked target acquisition "
+                .. FormatInteractDiagnostics(diag)
+                .. " nativeOverride=" .. tostring(armedNativeInteract))
+        else
+            DebugMessage("Fishing click continuing hooked target acquisition "
+                .. FormatInteractDiagnostics(diag))
+        end
         return true
     end
 

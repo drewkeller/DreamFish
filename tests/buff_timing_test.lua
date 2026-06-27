@@ -87,6 +87,10 @@ function RunTest(name, testFn)
             buffAuraByItem = {},
             refreshSeconds = 180,
         })
+        DreamFisher.state.buffItemLastUseAt = {}
+        DreamFisher.state.buffItemLastReminderAt = {}
+        DreamFisher.state.buffItemLastMissingWarningAt = {}
+        DreamFisher.state.pendingBuffObservation = nil
         testFn()
     end)
 
@@ -144,6 +148,16 @@ function tests.BuffDueWithTrackedAuraActive()
 
     -- Simulate GetAuraBySpellID would return this aura with 20s remaining
     _G.C_UnitAuras = {
+        GetPlayerAuraBySpellID = function(spellID)
+            if spellID == 999 then
+                return {
+                    spellId = 999,
+                    duration = 30,
+                    expirationTime = mockTime + 20,
+                }
+            end
+            return nil
+        end,
         GetAuraDataByIndex = function(unit, index, filter)
             if index == 1 then
                 return {
@@ -182,8 +196,58 @@ function tests.BuffDueWithTrackedAuraMissing()
 
     local isDue, remaining, reason = DreamFisher._test.IsBuffItemDue(111, 180, false)
     assertTrue(isDue, "Missing tracked aura should be due")
-    assertEquals(remaining, 0, "Remaining should be 0")
-    assertTrue(reason == "tracked_missing_aura" or reason == "tracked_remaining", "Should cite the tracked aura path")
+    assertTrue(remaining == nil or remaining == 0, "Remaining should be nil or 0 for missing tracked aura")
+    assertEquals(reason, "tracked_missing_aura", "Should cite missing tracked aura path")
+
+    _G.C_UnitAuras = originalCUnitAuras
+    _G.AuraUtil = originalAuraUtil
+end
+
+function tests.BuffDueWithTrackedAuraMissingRespectsRecentUse()
+    -- If tracked aura cannot be detected but item was just used, do not reapply immediately.
+    local originalCUnitAuras = _G.C_UnitAuras
+    local originalAuraUtil = _G.AuraUtil
+    DreamFisher._test.SetDB({
+        buffItems = { { itemID = 111, refreshSeconds = 180 } },
+        buffAuraByItem = { ["111"] = { spellID = 999, duration = 30 } },
+    })
+
+    _G.C_UnitAuras = {
+        GetPlayerAuraBySpellID = function() return nil end,
+        GetAuraDataByIndex = function() return nil end,
+    }
+    _G.AuraUtil = nil
+
+    DreamFisher._test.SetBuffLastUseTime(111, mockTime - 10)
+
+    local isDue, remaining, reason = DreamFisher._test.IsBuffItemDue(111, 180, true)
+    assertEquals(isDue, false, "Missing tracked aura with very recent use should not be due")
+    assertEquals(reason, "tracked_missing_recent_use", "Should cite recent-use tracked fallback")
+
+    _G.C_UnitAuras = originalCUnitAuras
+    _G.AuraUtil = originalAuraUtil
+end
+
+function tests.BuffDueWithTrackedAuraMissingAfterDuration()
+    -- If tracked aura is missing and expected duration window has elapsed, item is due.
+    local originalCUnitAuras = _G.C_UnitAuras
+    local originalAuraUtil = _G.AuraUtil
+    DreamFisher._test.SetDB({
+        buffItems = { { itemID = 111, refreshSeconds = 180 } },
+        buffAuraByItem = { ["111"] = { spellID = 999, duration = 30 } },
+    })
+
+    _G.C_UnitAuras = {
+        GetPlayerAuraBySpellID = function() return nil end,
+        GetAuraDataByIndex = function() return nil end,
+    }
+    _G.AuraUtil = nil
+
+    DreamFisher._test.SetBuffLastUseTime(111, mockTime - 181)
+
+    local isDue, remaining, reason = DreamFisher._test.IsBuffItemDue(111, 180, true)
+    assertEquals(isDue, true, "Missing tracked aura after expected duration should be due")
+    assertEquals(reason, "tracked_missing_aura", "Should cite missing tracked aura once fallback timer elapses")
 
     _G.C_UnitAuras = originalCUnitAuras
     _G.AuraUtil = originalAuraUtil
@@ -230,7 +294,19 @@ function tests.BuffDueUntrackedForCastIsAlwaysDue()
 
     local isDue, remaining, reason = DreamFisher._test.IsBuffItemDue(333, 60, true)
     assertEquals(isDue, false, "Untracked buff for cast should still respect timer when recently used")
-    assertTrue(reason:find("timer_elapsed") ~= nil or reason == "untracked_no_history_skip_cast", "Should cite the timer path or cast skip reason")
+    assertTrue(reason:find("timer_elapsed") ~= nil or reason == "untracked_no_history_due_cast", "Should cite the timer path or cast first-use reason")
+end
+
+function tests.BuffDueUntrackedNoHistoryForCast()
+    -- Untracked buff with no history should be due on cast so the addon can learn it.
+    DreamFisher._test.SetDB({
+        buffItems = { { itemID = 444, expectedDuration = 60 } },
+        buffAuraByItem = {},
+    })
+
+    local isDue, remaining, reason = DreamFisher._test.IsBuffItemDue(444, 60, true)
+    assertEquals(isDue, true, "Untracked buff with no history should be due for cast")
+    assertEquals(reason, "untracked_no_history_due_cast", "Should cite first-use cast reason")
 end
 
 -- ============================================================================

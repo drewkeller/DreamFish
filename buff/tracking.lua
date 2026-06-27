@@ -115,7 +115,7 @@ local function GetTrackedBuffRemaining(itemID)
 
     local aura = GetAuraBySpellID(tracked.spellID)
     if not aura then
-        return 0
+        return nil
     end
     if not aura.expirationTime or aura.expirationTime <= 0 then
         return nil

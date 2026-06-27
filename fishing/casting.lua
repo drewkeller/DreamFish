@@ -248,9 +248,11 @@ local function CreateSecureBuffFrame()
     frame:Hide()
     frame:HookScript("OnClick", function(self)
         local itemID = tonumber(self:GetAttribute("dreamfisher_itemid"))
+        local macrotext = tostring(self:GetAttribute("macrotext") or self:GetAttribute("macrotext2") or "")
         DebugMessage("Secure buff click fired: item=" .. GetDebugItemLabel(itemID)
             .. " item=" .. tostring(self:GetAttribute("item"))
-            .. " item2=" .. tostring(self:GetAttribute("item2")))
+            .. " item2=" .. tostring(self:GetAttribute("item2"))
+            .. " macro=" .. tostring(macrotext:match("([^\n]+)") or ""))
         if itemID and itemID > 0 then
             local now = GetTime()
             addon.state.buffItemLastUseAt[itemID] = now
@@ -318,6 +320,15 @@ ConfigureFishingClickAction = function()
     local macroLines = {}
     local dueBuffItemID = nil
 
+    if raftDecision.shouldApply then
+        table.insert(macroLines, "/use item:" .. tostring(raftDecision.toyID))
+        DebugMessage("Fishing click will apply raft: "
+            .. GetDebugItemLabel(raftDecision.toyID) .. " " .. GetDebugCooldownText(raftDecision.toyID))
+    elseif raftDecision.hasToy and raftDecision.swimming and not raftDecision.ready then
+        DebugMessage("Skipping raft toy on cooldown: "
+            .. GetDebugItemLabel(raftDecision.toyID) .. " " .. GetDebugCooldownText(raftDecision.toyID))
+    end
+
     if addon.buff and addon.buff.GetNextDueBuffItem then
             if type(GetNextReadyDueBuffItem) == "function" then
                 dueBuffItemID = GetNextReadyDueBuffItem()
@@ -328,6 +339,7 @@ ConfigureFishingClickAction = function()
 
     if dueBuffItemID then
         table.insert(macroLines, "/use item:" .. tostring(dueBuffItemID))
+        table.insert(macroLines, "/use 28") -- apply to fishing profession equipment slot
         fishingFrame:SetAttribute("dreamfisher_duebuff", dueBuffItemID)
         DebugMessage("Fishing click will apply due buff: "
             .. GetDebugItemLabel(dueBuffItemID) .. " " .. GetDebugCooldownText(dueBuffItemID))
@@ -346,15 +358,6 @@ ConfigureFishingClickAction = function()
         else
             DebugMessage("Skipping oversized bobber; toy not owned: " .. GetDebugItemLabel(OVERSIZED_BOBBER_ITEM_ID))
         end
-    end
-
-    if raftDecision.shouldApply then
-        table.insert(macroLines, "/use item:" .. tostring(raftDecision.toyID))
-        DebugMessage("Fishing click will apply raft: "
-            .. GetDebugItemLabel(raftDecision.toyID) .. " " .. GetDebugCooldownText(raftDecision.toyID))
-    elseif raftDecision.hasToy and raftDecision.swimming and not raftDecision.ready then
-        DebugMessage("Skipping raft toy on cooldown: "
-            .. GetDebugItemLabel(raftDecision.toyID) .. " " .. GetDebugCooldownText(raftDecision.toyID))
     end
 
     if bobberDecision.shouldApply then
@@ -614,8 +617,33 @@ local function HandleWorldRightClick(forceImmediate)
         and addon.state and addon.state.interactOverrideActive
         and addon.fishing and addon.fishing.IsHookedLootMode
         and addon.fishing.IsHookedLootMode() then
-        DebugMessage("Hooked phase world right-click delegated to native interact override")
-        return
+        local hasAnyInteractUnit = false
+        local hasSoftInteractNameOnly = false
+        if addon.fishing.GetInteractDiagnostics then
+            local diag = addon.fishing.GetInteractDiagnostics()
+            hasAnyInteractUnit = diag and (diag.softExists or diag.targetExists or diag.mouseoverExists) and true or false
+            hasSoftInteractNameOnly = diag
+                and (not hasAnyInteractUnit)
+                and type(diag.softName) == "string"
+                and diag.softName ~= ""
+                and true or false
+        end
+        local acquireExpiresAt = tonumber(addon.state.interactAcquireExpiresAt) or 0
+        local inAcquireWindow = acquireExpiresAt > GetTime()
+
+        if hasAnyInteractUnit or inAcquireWindow or hasSoftInteractNameOnly then
+            DebugMessage("Hooked phase world right-click delegated to native interact override")
+            return
+        end
+
+        DebugMessage("Stale hooked interact override with no target; clearing override and resuming cast flow")
+        if addon.fishing.ClearNativeInteractOverride then
+            addon.fishing.ClearNativeInteractOverride()
+        else
+            addon.state.interactOverrideActive = false
+            addon.state.interactOverrideExpiresAt = 0
+        end
+        addon.state.interactAcquireExpiresAt = 0
     end
 
     local now = GetTime()
@@ -624,12 +652,36 @@ local function HandleWorldRightClick(forceImmediate)
     local allowSingleClick = modes.singleRightClickConfig and addon.frames.config and addon.frames.config:IsShown() or false
     local hasConfiguredBuffItems = HasConfiguredBuffItems()
 
+    local hasAnyInteractUnit = false
+    if addon.db and addon.db.enableHookedLoot and addon.fishing and addon.fishing.GetInteractDiagnostics then
+        local diag = addon.fishing.GetInteractDiagnostics()
+        hasAnyInteractUnit = diag and (diag.softExists or diag.targetExists or diag.mouseoverExists) and true or false
+    end
+
+    local graceUntil = tonumber(addon.state and addon.state.fishingStartGraceUntil) or 0
+    local fishingStartTime = tonumber(addon.state and addon.state.fishingStartTime) or 0
+    local fishingExpireSeconds = tonumber(addon.state and addon.state.fishingExpireSeconds) or 35
+    local inFishingWindow = addon.state and (
+        addon.state.isFishing
+        or addon.state.isBobberActive
+        or (fishingStartTime > 0 and (now - fishingStartTime) <= (fishingExpireSeconds + 2))
+    ) or false
+    local postCastHookWindow = addon.state
+        and addon.state.isFishing
+        and (now >= graceUntil)
+        and (not addon.state.fishingLootInProgress)
+        and true or false
+
+    local hookedModeActive = addon.db and addon.db.enableHookedLoot
+        and addon.fishing and addon.fishing.IsHookedLootMode
+        and addon.fishing.IsHookedLootMode()
+    local shouldRouteHookedInteract = (addon.db and addon.db.enableHookedLoot)
+        and (hookedModeActive or (hasAnyInteractUnit and inFishingWindow) or postCastHookWindow)
+
     local buffFrame = addon.frames.buff
     local fishingFrame = addon.frames.fishing
 
-    if addon.db and addon.db.enableHookedLoot
-        and addon.fishing and addon.fishing.IsHookedLootMode
-        and addon.fishing.IsHookedLootMode() then
+    if shouldRouteHookedInteract then
         addon.state.lastRightClickTime = 0
 
         if not fishingFrame and addon.fishing and addon.fishing.CreateSecureFishingFrame then
@@ -645,6 +697,11 @@ local function HandleWorldRightClick(forceImmediate)
             ConfigureFishingClickAction()
             SetOverrideBindingClick(fishingFrame, true, "BUTTON2", fishingFrame:GetName(), "RightButton")
             fishingFrame:Show()
+            if (not hookedModeActive) and hasAnyInteractUnit and inFishingWindow then
+                DebugMessage("Hooked interact fallback active: routing right-click to interact target")
+            elseif (not hookedModeActive) and postCastHookWindow then
+                DebugMessage("Hooked interact timing fallback active: routing right-click during post-cast hook window")
+            end
             DebugMessage("Hooked phase world right-click routed to interact action")
             return
         end
@@ -727,19 +784,25 @@ local function HandleWorldRightClick(forceImmediate)
                 return
             end
             local bag, slot = addon.buff.FindItemInBags(pendingBuffItemID)
-            buffFrame:SetAttribute("type", "item")
-            buffFrame:SetAttribute("type2", "item")
+            local macroLines = {}
             if bag and slot then
-                buffFrame:SetAttribute("item", tostring(bag) .. " " .. tostring(slot))
-                buffFrame:SetAttribute("item2", tostring(bag) .. " " .. tostring(slot))
+                table.insert(macroLines, "/use " .. tostring(bag) .. " " .. tostring(slot))
             else
-                buffFrame:SetAttribute("item", "item:" .. tostring(pendingBuffItemID))
-                buffFrame:SetAttribute("item2", "item:" .. tostring(pendingBuffItemID))
+                table.insert(macroLines, "/use item:" .. tostring(pendingBuffItemID))
             end
+            table.insert(macroLines, "/use 28")
+            local macrotext = table.concat(macroLines, "\n")
+
+            buffFrame:SetAttribute("type", "macro")
+            buffFrame:SetAttribute("type2", "macro")
+            buffFrame:SetAttribute("macrotext", macrotext)
+            buffFrame:SetAttribute("macrotext2", macrotext)
+            buffFrame:SetAttribute("item", nil)
+            buffFrame:SetAttribute("item2", nil)
             buffFrame:SetAttribute("dreamfisher_itemid", pendingBuffItemID)
             DebugMessage("Double-click arming due buff: " .. GetDebugItemLabel(pendingBuffItemID)
                 .. " " .. GetDebugCooldownText(pendingBuffItemID)
-                .. " item2=" .. tostring(buffFrame:GetAttribute("item2")))
+                .. " macro=" .. tostring(macrotext:gsub("\n", " | ")))
             if not InCombatLockdown() then
                 if fishingFrame then
                     ClearOverrideBindings(fishingFrame)

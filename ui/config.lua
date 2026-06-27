@@ -62,6 +62,36 @@ local function CollectActiveBuffItemIDs(buffItems)
     return active
 end
 
+local function ResolveExpectedDurationForItem(itemID, fallbackSeconds)
+    local numeric = tonumber(itemID)
+    local fallback = tonumber(fallbackSeconds) or (addon.db and addon.db.refreshSeconds) or defaults.refreshSeconds
+    if not numeric or numeric <= 0 then
+        return addon.Clamp(fallback, 30, 3600)
+    end
+
+    if addon.db and type(addon.db.buffAuraByItem) == "table" then
+        local tracked = addon.db.buffAuraByItem[tostring(numeric)]
+        if type(tracked) == "table" and tonumber(tracked.duration) and tonumber(tracked.duration) > 0 then
+            return addon.Clamp(tonumber(tracked.duration), 30, 3600)
+        end
+    end
+
+    if addon.db and type(addon.db.buffItems) == "table" then
+        for _, entry in ipairs(addon.db.buffItems) do
+            local entryItemID = type(entry) == "table" and tonumber(entry.itemID) or nil
+            if entryItemID == numeric then
+                local expected = tonumber(entry.expectedDuration) or tonumber(entry.refreshSeconds)
+                if expected and expected > 0 then
+                    return addon.Clamp(expected, 30, 3600)
+                end
+                break
+            end
+        end
+    end
+
+    return addon.Clamp(fallback, 30, 3600)
+end
+
 local function SetDropdownText(selector, text)
     if selector and selector.dropdown then
         UIDropDownMenu_SetText(selector.dropdown, text or "None owned")
@@ -254,9 +284,6 @@ local function UpdateConfigUI()
     if addon.escapeCloseCheckbox then
         addon.escapeCloseCheckbox:SetChecked(addon.db.configCloseOnEscape)
     end
-    if addon.refreshBox then
-        addon.refreshBox:SetText(tostring(addon.db.refreshSeconds or defaults.refreshSeconds))
-    end
     if addon.lowBagBox then
         addon.lowBagBox:SetText(tostring(addon.db.lowBagThreshold or defaults.lowBagThreshold))
     end
@@ -264,9 +291,11 @@ local function UpdateConfigUI()
         for i, control in ipairs(addon.buffItemControls) do
             local entry = addon.db.buffItems and addon.db.buffItems[i] or nil
             local itemID = entry and entry.itemID or nil
-            local refreshSeconds = entry and entry.refreshSeconds or addon.db.refreshSeconds or defaults.refreshSeconds
+            local expectedDuration = ResolveExpectedDurationForItem(itemID, entry and (entry.expectedDuration or entry.refreshSeconds))
             control.itemBox:SetText(tostring(itemID or ""))
-            control.refreshBox:SetText(tostring(refreshSeconds))
+            if control.itemBox.SetExpectedDuration then
+                control.itemBox:SetExpectedDuration(expectedDuration)
+            end
         end
     end
     if addon.audioLingerBox then
@@ -310,7 +339,7 @@ function config.SaveConfig(skipRefresh)
 
     local previouslyActiveBuffItems = CollectActiveBuffItemIDs(addon.db.buffItems)
 
-    addon.db.refreshSeconds = addon.Clamp(tonumber(addon.refreshBox:GetText()) or defaults.refreshSeconds, 30, 600)
+    addon.db.refreshSeconds = addon.Clamp(tonumber(addon.db.refreshSeconds) or defaults.refreshSeconds, 30, 600)
     addon.db.lowBagThreshold = addon.Clamp(tonumber(addon.lowBagBox:GetText()) or defaults.lowBagThreshold, 0, 20)
     addon.db.audioFocusLinger = addon.Clamp(tonumber(addon.audioLingerBox:GetText()) or defaults.audioFocusLinger, 0, 60)
     addon.db.autoLoot = addon.autoLootCheckbox:GetChecked()
@@ -333,13 +362,19 @@ function config.SaveConfig(skipRefresh)
     SyncEscapeCloseRegistration()
 
     if addon.buffItemControls then
+        local previousBuffItems = addon.db.buffItems or {}
         addon.db.buffItems = {}
         for i, control in ipairs(addon.buffItemControls) do
             local itemID = tonumber(control.itemBox:GetText())
-            local refreshSeconds = addon.Clamp(tonumber(control.refreshBox:GetText()) or addon.db.refreshSeconds or defaults.refreshSeconds, 30, 3600)
+            local previous = previousBuffItems[i]
+            local previousExpected = type(previous) == "table" and (tonumber(previous.expectedDuration) or tonumber(previous.refreshSeconds)) or nil
+            local expectedDuration = ResolveExpectedDurationForItem(itemID, previousExpected)
+            if control.itemBox.GetExpectedDuration then
+                expectedDuration = addon.Clamp(tonumber(control.itemBox:GetExpectedDuration()) or expectedDuration, 30, 3600)
+            end
             addon.db.buffItems[i] = {
                 itemID = (itemID and itemID > 0) and itemID or nil,
-                refreshSeconds = refreshSeconds,
+                expectedDuration = expectedDuration,
             }
         end
     end
@@ -350,6 +385,9 @@ function config.SaveConfig(skipRefresh)
             if addon.state then
                 addon.state.buffItemLastUseAt[removedItemID] = nil
                 addon.state.buffItemLastReminderAt[removedItemID] = nil
+                if addon.state.buffItemLastReminderCastAnchor then
+                    addon.state.buffItemLastReminderCastAnchor[removedItemID] = nil
+                end
                 addon.state.buffItemLastMissingWarningAt[removedItemID] = nil
                 addon.state.buffItemLastKnownCount[removedItemID] = nil
             end
@@ -531,25 +569,6 @@ function config.CreateConfigPanel()
         return eb
     end
 
-    local function CreateBuffRefreshBox(parent, x, y, onLiveChange)
-        local lbl = parent:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
-        lbl:SetPoint("TOPLEFT", x, y)
-        lbl:SetText("Refresh (s)")
-
-        local eb = CreateFrame("EditBox", nil, parent, "InputBoxTemplate")
-        eb:SetSize(70, 20)
-        eb:SetPoint("TOPLEFT", x, y - 12)
-        eb:SetAutoFocus(false)
-        if onLiveChange then
-            eb:SetScript("OnTextChanged", function(_, userInput)
-                if userInput then
-                    onLiveChange()
-                end
-            end)
-        end
-        return eb
-    end
-
     local function CreateBuffItemDropBox(parent, x, y, label, onLiveChange)
         local lbl = parent:CreateFontString(nil, "OVERLAY", "GameFontNormal")
         lbl:SetPoint("TOPLEFT", x, y)
@@ -587,14 +606,17 @@ function config.CreateConfigPanel()
                 else
                     self.icon:SetTexture(nil)
                 end
-                if addon.fishing and addon.fishing.FindItemInBags then
-                    local bag, slot = addon.fishing.FindItemInBags(numeric)
-                    self:SetAttribute("type2", "item")
-                    if bag and slot then
-                        self:SetAttribute("item2", tostring(bag) .. " " .. tostring(slot))
-                    else
-                        self:SetAttribute("item2", "item:" .. tostring(numeric))
-                    end
+                local bag, slot = nil, nil
+                if addon.buff and addon.buff.FindItemInBags then
+                    bag, slot = addon.buff.FindItemInBags(numeric)
+                elseif addon.fishing and addon.fishing.FindItemInBags then
+                    bag, slot = addon.fishing.FindItemInBags(numeric)
+                end
+                self:SetAttribute("type2", "item")
+                if bag and slot then
+                    self:SetAttribute("item2", tostring(bag) .. " " .. tostring(slot))
+                else
+                    self:SetAttribute("item2", "item:" .. tostring(numeric))
                 end
             else
                 self.itemID = nil
@@ -613,20 +635,68 @@ function config.CreateConfigPanel()
             return self.textValue or ""
         end
 
-        local function TryAssignFromCursor(self)
-            if type(GetCursorInfo) ~= "function" then
-                return
-            end
-            local cursorType, itemID = GetCursorInfo()
-            if cursorType == "item" and itemID then
-                self:SetItemID(itemID)
-                if type(ClearCursor) == "function" then
-                    ClearCursor()
-                end
-            end
+        function box:SetExpectedDuration(seconds)
+            local resolved = ResolveExpectedDurationForItem(self.itemID, seconds)
+            self.expectedDuration = resolved
         end
 
-        local function SetDragHighlight(self, active)
+        function box:GetExpectedDuration()
+            return tonumber(self.expectedDuration) or ResolveExpectedDurationForItem(self.itemID, nil)
+        end
+
+        local function IsCursorHoldingItem()
+            if type(GetCursorInfo) ~= "function" then
+                return false
+            end
+            local cursorType = GetCursorInfo()
+            return cursorType == "item"
+        end
+
+        local SetDragHighlight
+
+        local function TryAssignFromCursor(self)
+            if type(GetCursorInfo) ~= "function" then
+                return false
+            end
+            local cursorType, itemID = GetCursorInfo()
+            if cursorType ~= "item" or not itemID then
+                return false
+            end
+
+            local targetItemID = self.itemID
+            local targetExpectedDuration = self:GetExpectedDuration()
+
+            self:SetItemID(itemID)
+            self:SetExpectedDuration(ResolveExpectedDurationForItem(itemID, targetExpectedDuration))
+            if type(ClearCursor) == "function" then
+                ClearCursor()
+            end
+
+            if targetItemID and targetItemID > 0 and tonumber(targetItemID) ~= tonumber(itemID) then
+                if type(PickupItem) == "function" then
+                    PickupItem(targetItemID)
+                end
+                if type(GetCursorInfo) == "function" then
+                    local swappedType, swappedItemID = GetCursorInfo()
+                    if swappedType == "item" and tonumber(swappedItemID) == tonumber(targetItemID) then
+                        uiBuffCursorDragState = {
+                            source = self,
+                            sourceItemID = targetItemID,
+                            sourceExpectedDuration = targetExpectedDuration,
+                        }
+                        SetDragHighlight(self, true)
+                    else
+                        uiBuffCursorDragState = nil
+                    end
+                end
+            else
+                uiBuffCursorDragState = nil
+            end
+
+            return true
+        end
+
+        SetDragHighlight = function(self, active)
             if active then
                 self:SetBackdropBorderColor(self.dragHoverBorderColor[1], self.dragHoverBorderColor[2], self.dragHoverBorderColor[3], self.dragHoverBorderColor[4])
             else
@@ -646,29 +716,38 @@ function config.CreateConfigPanel()
 
             local sourceState = uiBuffCursorDragState
             local source = sourceState and sourceState.source or nil
-            local sourceRefresh = sourceState and sourceState.sourceRefresh or nil
+            local sourceExpectedDuration = sourceState and sourceState.sourceExpectedDuration or nil
 
             local targetItemID = self.itemID
-            local targetRefresh = self.refreshBox and self.refreshBox:GetText() or tostring(addon.db and addon.db.refreshSeconds or defaults.refreshSeconds)
+            local targetExpectedDuration = self:GetExpectedDuration()
 
             self:SetItemID(cursorItemID)
-            if sourceRefresh and self.refreshBox then
-                self.refreshBox:SetText(sourceRefresh)
-            end
+            self:SetExpectedDuration(sourceExpectedDuration or ResolveExpectedDurationForItem(cursorItemID, targetExpectedDuration))
 
             if source and source ~= self then
                 source:SetItemID(targetItemID)
-                if source.refreshBox then
-                    source.refreshBox:SetText(targetRefresh)
-                end
+                source:SetExpectedDuration(targetExpectedDuration)
                 SetDragHighlight(source, false)
             end
 
-            if source and source == self and sourceRefresh and self.refreshBox then
-                self.refreshBox:SetText(sourceRefresh)
+            if source and source == self and sourceExpectedDuration then
+                self:SetExpectedDuration(sourceExpectedDuration)
             end
 
-            if type(ClearCursor) == "function" then
+            local shouldClearCursor = true
+            if (not source)
+                and targetItemID
+                and targetItemID > 0
+                and tonumber(targetItemID) ~= tonumber(cursorItemID)
+                and type(PickupItem) == "function" then
+                if type(ClearCursor) == "function" then
+                    ClearCursor()
+                end
+                PickupItem(targetItemID)
+                shouldClearCursor = false
+            end
+
+            if shouldClearCursor and type(ClearCursor) == "function" then
                 ClearCursor()
             end
 
@@ -681,7 +760,7 @@ function config.CreateConfigPanel()
         box:SetScript("OnDragStart", function(self)
             if self.itemID and self.itemID > 0 then
                 local sourceItemID = self.itemID
-                local sourceRefresh = self.refreshBox and self.refreshBox:GetText() or tostring(addon.db and addon.db.refreshSeconds or defaults.refreshSeconds)
+                local sourceExpectedDuration = self:GetExpectedDuration()
 
                 if type(PickupItem) == "function" then
                     PickupItem(sourceItemID)
@@ -691,10 +770,11 @@ function config.CreateConfigPanel()
                     local cursorType, cursorItemID = GetCursorInfo()
                     if cursorType == "item" and tonumber(cursorItemID) == tonumber(sourceItemID) then
                         self:SetItemID(nil)
+                        self.pendingDragPersist = true
                         uiBuffCursorDragState = {
                             source = self,
                             sourceItemID = sourceItemID,
-                            sourceRefresh = sourceRefresh,
+                            sourceExpectedDuration = sourceExpectedDuration,
                         }
                         SetDragHighlight(self, true)
                     else
@@ -711,6 +791,10 @@ function config.CreateConfigPanel()
             if uiBuffCursorDragState and uiBuffCursorDragState.source == self then
                 uiBuffCursorDragState = nil
             end
+            if self.pendingDragPersist and onLiveChange then
+                onLiveChange()
+            end
+            self.pendingDragPersist = nil
             SetDragHighlight(self, false)
         end)
         box:SetScript("OnReceiveDrag", function(self)
@@ -740,6 +824,30 @@ function config.CreateConfigPanel()
                         onLiveChange()
                     end
                 end
+            end
+        end)
+
+        box:SetScript("OnEnter", function(self)
+            if self.itemID and self.itemID > 0 and type(GameTooltip) == "table" then
+                GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
+                if type(GameTooltip.SetItemByID) == "function" then
+                    GameTooltip:SetItemByID(self.itemID)
+                else
+                    GameTooltip:SetText((type(GetItemInfo) == "function" and GetItemInfo(self.itemID)) or ("item:" .. tostring(self.itemID)))
+                end
+                GameTooltip:Show()
+            end
+            if IsCursorHoldingItem() then
+                SetDragHighlight(self, true)
+            end
+        end)
+
+        box:SetScript("OnLeave", function(self)
+            if type(GameTooltip) == "table" then
+                GameTooltip:Hide()
+            end
+            if not (uiBuffCursorDragState and uiBuffCursorDragState.source == self) then
+                SetDragHighlight(self, false)
             end
         end)
 
@@ -865,15 +973,12 @@ function config.CreateConfigPanel()
         local baseX = 20 + (col * 220)
         local baseY = -20 - (row * 95)
         local itemBox = CreateBuffItemDropBox(buffsPage, baseX, baseY, "Buff " .. i, SaveLive)
-        local refreshBox = CreateBuffRefreshBox(buffsPage, baseX + 65, baseY - 4, SaveLive)
-        itemBox.refreshBox = refreshBox
+        itemBox:SetExpectedDuration(addon.db and addon.db.refreshSeconds or defaults.refreshSeconds)
         itemBox.slotIndex = i
         addon.buffItemControls[i] = {
             itemBox = itemBox,
-            refreshBox = refreshBox,
         }
     end
-    addon.refreshBox = CreateEditBox(buffsPage, 20, -340, 100, "Default Refresh (s):", SaveLive)
 
     panel.buffItemControls = addon.buffItemControls
     UpdateToyApplyButtons()
