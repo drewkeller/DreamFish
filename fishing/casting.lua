@@ -69,13 +69,15 @@ local function GetBobberUseDecision()
         and (type(PlayerHasToy) ~= "function" or PlayerHasToy(bobberToyID))
     local bobberReady = hasToy and IsItemReadyForUse(bobberToyID)
     local mounted = (type(IsMounted) == "function" and IsMounted()) or false
-    local shouldApply = hasToy and bobberReady and not mounted
+    local swimming = (type(IsSwimming) == "function" and IsSwimming()) or false
+    local shouldApply = hasToy and bobberReady and not mounted and not swimming
 
     return {
         toyID = bobberToyID,
         hasToy = hasToy,
         ready = bobberReady,
         mounted = mounted,
+        swimming = swimming,
         shouldApply = shouldApply,
     }
 end
@@ -140,11 +142,15 @@ local function GetOversizedBobberDecision()
 
     local available = (type(PlayerHasToy) ~= "function") or PlayerHasToy(OVERSIZED_BOBBER_ITEM_ID)
     local ready = available and IsItemReadyForUse(OVERSIZED_BOBBER_ITEM_ID)
+    local swimming = (type(IsSwimming) == "function" and IsSwimming()) or false
+    local shouldApply = ready and not swimming
 
     return {
         enabled = true,
         available = available,
         ready = ready,
+        swimming = swimming,
+        shouldApply = shouldApply,
     }
 end
 
@@ -356,11 +362,16 @@ ConfigureFishingClickAction = function()
     local macroLines = {}
     local dueBuffItemID = nil
     local dueBuffCategory = nil
+    local raftExclusiveWhileSwimming = false
 
     if raftDecision.shouldApply then
         table.insert(macroLines, "/use item:" .. tostring(raftDecision.toyID))
         DebugMessage("Fishing click will apply raft: "
             .. GetDebugItemLabel(raftDecision.toyID) .. " " .. GetDebugCooldownText(raftDecision.toyID))
+        if raftDecision.swimming then
+            raftExclusiveWhileSwimming = true
+            DebugMessage("Raft needed while swimming; skipping other pre-cast items this click")
+        end
     elseif raftDecision.hasToy and raftDecision.swimming and raftDecision.auraRemaining and not raftDecision.needsRefreshForCast then
         DebugMessage("Skipping raft reapply; aura covers cast: "
             .. GetDebugItemLabel(raftDecision.toyID)
@@ -373,17 +384,20 @@ ConfigureFishingClickAction = function()
             .. GetDebugItemLabel(raftDecision.toyID) .. " " .. GetDebugCooldownText(raftDecision.toyID))
     end
 
-    if bobberDecision.shouldApply then
+    if (not raftExclusiveWhileSwimming) and bobberDecision.shouldApply then
         table.insert(macroLines, "/use item:" .. tostring(bobberDecision.toyID))
         DebugMessage("Fishing click will apply bobber toy: "
             .. GetDebugItemLabel(bobberDecision.toyID) .. " " .. GetDebugCooldownText(bobberDecision.toyID))
     end
 
-    if oversizedDecision.enabled then
-        if oversizedDecision.ready then
+    if (not raftExclusiveWhileSwimming) and oversizedDecision.enabled then
+        if oversizedDecision.shouldApply then
             table.insert(macroLines, "/use item:" .. tostring(OVERSIZED_BOBBER_ITEM_ID))
             DebugMessage("Fishing click will apply oversized bobber: "
                 .. GetDebugItemLabel(OVERSIZED_BOBBER_ITEM_ID) .. " " .. GetDebugCooldownText(OVERSIZED_BOBBER_ITEM_ID))
+        elseif oversizedDecision.ready and oversizedDecision.swimming then
+            DebugMessage("Skipping oversized bobber while swimming: "
+                .. GetDebugItemLabel(OVERSIZED_BOBBER_ITEM_ID))
         elseif oversizedDecision.available then
             DebugMessage("Skipping oversized bobber on cooldown: "
                 .. GetDebugItemLabel(OVERSIZED_BOBBER_ITEM_ID) .. " " .. GetDebugCooldownText(OVERSIZED_BOBBER_ITEM_ID))
@@ -392,7 +406,7 @@ ConfigureFishingClickAction = function()
         end
     end
 
-    if addon.buff and addon.buff.GetNextDueBuffItem then
+    if (not raftExclusiveWhileSwimming) and addon.buff and addon.buff.GetNextDueBuffItem then
         if type(GetNextReadyDueBuffItem) == "function" then
             dueBuffItemID, _, dueBuffCategory = GetNextReadyDueBuffItem()
         else
@@ -415,11 +429,15 @@ ConfigureFishingClickAction = function()
     end
 
     if #macroLines > 0 then
-        table.insert(macroLines, "/cast Fishing")
+        if not raftExclusiveWhileSwimming then
+            table.insert(macroLines, "/cast Fishing")
+        end
         fishingFrame:SetAttribute("type", "macro")
         fishingFrame:SetAttribute("macrotext", table.concat(macroLines, "\n"))
         fishingFrame:SetAttribute("spell", nil)
-        if bobberDecision.shouldApply then
+        if raftExclusiveWhileSwimming then
+            DebugMessage("Fishing click configured as raft-only pre-cast")
+        elseif bobberDecision.shouldApply then
             DebugMessage("Fishing click configured to use bobber toy: "
                 .. GetDebugItemLabel(bobberDecision.toyID) .. " " .. GetDebugCooldownText(bobberDecision.toyID))
         else
@@ -433,6 +451,8 @@ ConfigureFishingClickAction = function()
     fishingFrame:SetAttribute("macrotext", nil)
     if bobberDecision.hasToy and bobberDecision.mounted then
         DebugMessage("Skipping bobber toy while mounted: " .. GetDebugItemLabel(bobberDecision.toyID))
+    elseif bobberDecision.hasToy and bobberDecision.swimming then
+        DebugMessage("Skipping bobber toy while swimming: " .. GetDebugItemLabel(bobberDecision.toyID))
     elseif bobberDecision.hasToy and not bobberDecision.ready then
         DebugMessage("Skipping bobber toy on cooldown: "
             .. GetDebugItemLabel(bobberDecision.toyID) .. " " .. GetDebugCooldownText(bobberDecision.toyID))
@@ -650,7 +670,7 @@ local function HandleDirectCastStep()
     end
 
     local oversizedDecision = GetOversizedBobberDecision()
-    if oversizedDecision.enabled and oversizedDecision.ready then
+    if oversizedDecision.enabled and oversizedDecision.shouldApply then
         if TryUseItemDirect(OVERSIZED_BOBBER_ITEM_ID) then
             DebugMessage("Direct cast step used oversized bobber: "
                 .. GetDebugItemLabel(OVERSIZED_BOBBER_ITEM_ID))
@@ -820,6 +840,28 @@ local function HandleWorldRightClick(forceImmediate)
 
     if forceImmediate or allowSingleClick or (now - addon.state.lastRightClickTime) <= (addon.state.doubleClickWindow + 0.001) then
         addon.state.lastRightClickTime = 0
+        local raftDecision = GetRaftUseDecision()
+        if raftDecision.shouldApply and raftDecision.swimming then
+            if allowSingleClick then
+                DebugMessage("Config window open: single right-click applying raft before cast")
+            end
+            DebugMessage("Click-cast routing to raft-only pre-cast while swimming")
+            if not InCombatLockdown() then
+                if buffFrame then
+                    ClearOverrideBindings(buffFrame)
+                    buffFrame:Hide()
+                    ResetBuffFrameState(buffFrame)
+                end
+                local activeFishingFrame = addon.frames.fishing
+                if activeFishingFrame then
+                    ConfigureFishingClickAction()
+                    SetOverrideBindingClick(activeFishingFrame, true, "BUTTON2", activeFishingFrame:GetName(), "RightButton")
+                    activeFishingFrame:Show()
+                end
+            end
+            return
+        end
+
         local pendingBuffItemID = nil
         local pendingBuffCategory = nil
         local hadUnavailableDueBuff = false

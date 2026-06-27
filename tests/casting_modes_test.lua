@@ -607,11 +607,36 @@ function tests.PrecastAppliesRaftBeforeDueBuff()
     end
 
     local originalSwimming = _G.IsSwimming
-    _G.IsSwimming = function() return true end
+    _G.IsSwimming = function() return false end
+
+    local originalGetItemSpell = _G.GetItemSpell
+    _G.GetItemSpell = function(itemID)
+        if itemID == 85500 then
+            return "Angler's Fishing Raft", 123450
+        end
+        return nil, nil
+    end
+
+    local originalCUnitAuras = _G.C_UnitAuras
+    _G.C_UnitAuras = {
+        GetPlayerAuraBySpellID = function(spellID)
+            if spellID == 123450 then
+                return {
+                    spellId = 123450,
+                    duration = 600,
+                    expirationTime = mockTime + 10,
+                }
+            end
+            return nil
+        end,
+        GetAuraDataByIndex = function() return nil end,
+    }
 
     DreamFisher.fishing.ConfigureFishingClickAction()
 
     _G.IsSwimming = originalSwimming
+    _G.GetItemSpell = originalGetItemSpell
+    _G.C_UnitAuras = originalCUnitAuras
     DreamFisher.buff.FindItemInBags = originalFind
 
     local macrotext = capturedAttrs["macrotext"] or ""
@@ -851,7 +876,195 @@ function tests.PrecastIncludesRaftWhenSwimming()
     assertEquals(capturedAttrs["type"], "macro", "Swimming with selected raft should use macro pre-cast")
     local macrotext = capturedAttrs["macrotext"] or ""
     assertTrue(macrotext:find("85500", 1, true) ~= nil, "Pre-cast macro should include selected raft toy")
-    assertTrue(macrotext:find("/cast Fishing", 1, true) ~= nil, "Pre-cast macro should still cast Fishing")
+    assertTrue(macrotext:find("/cast Fishing", 1, true) == nil, "Raft-only swimming pre-cast should not cast Fishing on same click")
+end
+
+function tests.PrecastSkipsBobberAndOversizedWhileSwimming()
+    local capturedAttrs = {}
+    local fishingFrame = DreamFisher.fishing.CreateSecureFishingFrame()
+    local origSet = fishingFrame.SetAttribute
+    fishingFrame.SetAttribute = function(self, k, v)
+        capturedAttrs[k] = v
+        return origSet and origSet(self, k, v)
+    end
+
+    DreamFisher._test.SetDB({
+        castingModes = { hotkey = true },
+        buffItems = {},
+        buffAuraByItem = {},
+        enableHookedLoot = false,
+        selectedRaftToy = 85500,
+        selectedBobberToy = 147307,
+        useOversizedBobber = true,
+    })
+
+    local originalSwimming = _G.IsSwimming
+    _G.IsSwimming = function() return true end
+
+    local originalGetItemSpell = _G.GetItemSpell
+    _G.GetItemSpell = function(itemID)
+        if itemID == 85500 then
+            return "Angler's Fishing Raft", 123450
+        end
+        return nil, nil
+    end
+
+    local originalCUnitAuras = _G.C_UnitAuras
+    _G.C_UnitAuras = {
+        GetPlayerAuraBySpellID = function() return nil end,
+        GetAuraDataByIndex = function() return nil end,
+    }
+
+    DreamFisher.fishing.ConfigureFishingClickAction()
+
+    _G.IsSwimming = originalSwimming
+    _G.GetItemSpell = originalGetItemSpell
+    _G.C_UnitAuras = originalCUnitAuras
+
+    local macrotext = capturedAttrs["macrotext"] or ""
+    assertTrue(macrotext:find("/use item:85500", 1, true) ~= nil,
+        "Raft should be applied while swimming when aura is missing")
+    assertTrue(macrotext:find("/use item:147307", 1, true) == nil,
+        "Bobber should not be applied while swimming")
+    assertTrue(macrotext:find("/use item:202207", 1, true) == nil,
+        "Oversized bobber should not be applied while swimming")
+end
+
+function tests.PrecastUsesOnlyRaftItemWhenSwimmingAndNeeded()
+    local capturedAttrs = {}
+    local fishingFrame = DreamFisher.fishing.CreateSecureFishingFrame()
+    local origSet = fishingFrame.SetAttribute
+    fishingFrame.SetAttribute = function(self, k, v)
+        capturedAttrs[k] = v
+        return origSet and origSet(self, k, v)
+    end
+
+    DreamFisher._test.SetDB({
+        castingModes = { hotkey = true },
+        buffItems = { { itemID = 241316, expectedDuration = 3600 } },
+        buffAuraByItem = {},
+        enableHookedLoot = false,
+        selectedRaftToy = 85500,
+        selectedBobberToy = 147307,
+        useOversizedBobber = true,
+    })
+
+    DreamFisher._test.SetBuffLastUseTime(241316, mockTime - 4000)
+
+    local originalFind = DreamFisher.buff.FindItemInBags
+    DreamFisher.buff.FindItemInBags = function(itemID)
+        if itemID == 241316 then return 0, 8 end
+        return nil, nil
+    end
+
+    local originalSwimming = _G.IsSwimming
+    _G.IsSwimming = function() return true end
+
+    local originalGetItemSpell = _G.GetItemSpell
+    _G.GetItemSpell = function(itemID)
+        if itemID == 85500 then
+            return "Angler's Fishing Raft", 123450
+        end
+        return nil, nil
+    end
+
+    local originalCUnitAuras = _G.C_UnitAuras
+    _G.C_UnitAuras = {
+        GetPlayerAuraBySpellID = function() return nil end,
+        GetAuraDataByIndex = function() return nil end,
+    }
+
+    DreamFisher.fishing.ConfigureFishingClickAction()
+
+    DreamFisher.buff.FindItemInBags = originalFind
+    _G.IsSwimming = originalSwimming
+    _G.GetItemSpell = originalGetItemSpell
+    _G.C_UnitAuras = originalCUnitAuras
+
+    local macrotext = capturedAttrs["macrotext"] or ""
+    assertTrue(macrotext:find("/use item:85500", 1, true) ~= nil,
+        "Raft should be applied while swimming when needed")
+    assertTrue(macrotext:find("/use item:147307", 1, true) == nil,
+        "Bobber should be skipped when raft is exclusive")
+    assertTrue(macrotext:find("/use item:202207", 1, true) == nil,
+        "Oversized bobber should be skipped when raft is exclusive")
+    assertTrue(macrotext:find("/use item:241316", 1, true) == nil,
+        "Due consumable should be skipped when raft is exclusive")
+    assertTrue(macrotext:find("/cast Fishing", 1, true) == nil,
+        "Fishing cast should be skipped on raft-exclusive swimming click")
+end
+
+function tests.ClickCastUsesRaftOnlyWhenSwimmingEvenIfBuffDue()
+    local fishingAttrs = {}
+    local fishingFrame = DreamFisher.fishing.CreateSecureFishingFrame()
+    local origFishingSet = fishingFrame.SetAttribute
+    fishingFrame.SetAttribute = function(self, k, v)
+        fishingAttrs[k] = v
+        return origFishingSet and origFishingSet(self, k, v)
+    end
+
+    local buffAttrs = {}
+    local buffFrame = DreamFisher.fishing.CreateSecureBuffFrame()
+    local origBuffSet = buffFrame.SetAttribute
+    buffFrame.SetAttribute = function(self, k, v)
+        buffAttrs[k] = v
+        return origBuffSet and origBuffSet(self, k, v)
+    end
+
+    DreamFisher._test.SetDB({
+        castingModes = { hotkey = false, doubleRightClick = true },
+        buffItems = { { itemID = 241316, expectedDuration = 3600 } },
+        buffAuraByItem = {},
+        enableHookedLoot = false,
+        selectedRaftToy = 85500,
+        selectedBobberToy = nil,
+        useOversizedBobber = false,
+    })
+
+    DreamFisher._test.SetBuffLastUseTime(241316, mockTime - 4000)
+
+    local originalFind = DreamFisher.buff.FindItemInBags
+    DreamFisher.buff.FindItemInBags = function(itemID)
+        if itemID == 241316 then return 0, 8 end
+        return nil, nil
+    end
+
+    local originalSwimming = _G.IsSwimming
+    _G.IsSwimming = function() return true end
+
+    local originalGetItemSpell = _G.GetItemSpell
+    _G.GetItemSpell = function(itemID)
+        if itemID == 85500 then
+            return "Angler's Fishing Raft", 123450
+        end
+        return nil, nil
+    end
+
+    local originalCUnitAuras = _G.C_UnitAuras
+    _G.C_UnitAuras = {
+        GetPlayerAuraBySpellID = function() return nil end,
+        GetAuraDataByIndex = function() return nil end,
+    }
+
+    mockTime = 1000
+    DreamFisher._test.HandleWorldRightClick()
+    mockTime = 1000.1
+    DreamFisher._test.HandleWorldRightClick()
+
+    DreamFisher.buff.FindItemInBags = originalFind
+    _G.IsSwimming = originalSwimming
+    _G.GetItemSpell = originalGetItemSpell
+    _G.C_UnitAuras = originalCUnitAuras
+
+    local macrotext = fishingAttrs["macrotext"] or ""
+    assertTrue(macrotext:find("/use item:85500", 1, true) ~= nil,
+        "Click-cast should route to raft-only pre-cast while swimming")
+    assertTrue(macrotext:find("/use item:241316", 1, true) == nil,
+        "Click-cast should not arm due buff when raft-exclusive swimming path is active")
+    assertTrue(macrotext:find("/cast Fishing", 1, true) == nil,
+        "Click-cast raft-exclusive path should not cast Fishing on same click")
+    assertTrue(buffAttrs["dreamfisher_itemid"] == nil,
+        "Buff secure frame should not be armed on raft-exclusive swimming click")
 end
 
 function tests.PrecastSkipsRaftWhenAuraCoversCast()
