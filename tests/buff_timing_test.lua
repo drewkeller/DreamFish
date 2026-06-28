@@ -254,6 +254,46 @@ function tests.BuffDueWithTrackedAuraMissingAfterDuration()
     _G.AuraUtil = originalAuraUtil
 end
 
+function tests.KnownAuraFallbackPreventsStaleTrackedRecast()
+    -- If tracked mapping is stale/transient but known long-duration aura is active,
+    -- the item should not be considered due.
+    local originalCUnitAuras = _G.C_UnitAuras
+    local originalAuraUtil = _G.AuraUtil
+
+    DreamFisher._test.SetDB({
+        buffItems = { { itemID = 242299, expectedDuration = 3600 } },
+        buffAuraByItem = { ["242299"] = { spellID = 1277461, duration = 20 } },
+    })
+
+    _G.C_UnitAuras = {
+        GetPlayerAuraBySpellID = function(spellID)
+            if spellID == 1269152 then
+                return {
+                    spellId = 1269152,
+                    duration = 3600,
+                    expirationTime = mockTime + 3500,
+                }
+            end
+            return nil
+        end,
+        GetAuraDataByIndex = function() return nil end,
+    }
+    _G.AuraUtil = nil
+
+    local isDue, remaining, reason = DreamFisher._test.IsBuffItemDue(242299, 3600, true)
+    assertEquals(isDue, false, "Known active tea aura should prevent stale tracked recast")
+    assertEquals(reason, "tracked_remaining", "Known aura fallback should use tracked remaining path")
+    assertTrue(remaining and remaining > 0, "Known aura fallback should report remaining time")
+
+    local tracked = DreamFisher.db.buffAuraByItem["242299"]
+    assertTrue(type(tracked) == "table", "Self-heal should retain tracked mapping table")
+    assertEquals(tracked.spellID, 1269152, "Self-heal should rewrite tracked spellID to known lasting aura")
+    assertEquals(tracked.duration, 3600, "Self-heal should restore known expected duration")
+
+    _G.C_UnitAuras = originalCUnitAuras
+    _G.AuraUtil = originalAuraUtil
+end
+
 function tests.BuffDueUntrackedWithTimerNotExpired()
     -- Untracked buff: use timer; not due if within refresh window
     DreamFisher._test.SetDB({

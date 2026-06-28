@@ -174,24 +174,58 @@ local function UpdatePendingBuffObservation()
 end
 
 local function GetTrackedBuffRemaining(itemID)
-    if not addon.db or type(addon.db.buffAuraByItem) ~= "table" then
+    local numericItemID = tonumber(itemID)
+    if not numericItemID or numericItemID <= 0 then
         return nil
     end
 
-    local tracked = addon.db.buffAuraByItem[tostring(itemID)]
-    if type(tracked) ~= "table" or not tracked.spellID then
-        return nil
+    local knownSpellID = nil
+    local knownDuration = nil
+    if addon.const and type(addon.const.knownBuffItems) == "table" then
+        local known = addon.const.knownBuffItems[numericItemID]
+        if type(known) == "table" and known.spellID then
+            knownSpellID = tonumber(known.spellID)
+            knownDuration = tonumber(known.duration)
+        end
     end
 
-    local aura = GetAuraBySpellID(tracked.spellID)
-    if not aura then
-        return nil
-    end
-    if not aura.expirationTime or aura.expirationTime <= 0 then
-        return nil
+    local trackedSpellID = nil
+    local trackedDuration = nil
+    if addon.db and type(addon.db.buffAuraByItem) == "table" then
+        local tracked = addon.db.buffAuraByItem[tostring(numericItemID)]
+        if type(tracked) == "table" and tracked.spellID then
+            trackedSpellID = tonumber(tracked.spellID)
+            trackedDuration = tonumber(tracked.duration)
+        end
     end
 
-    return math.max(0, aura.expirationTime - GetTime())
+    local spellIDsToCheck = {}
+    if knownSpellID and knownSpellID > 0 then
+        table.insert(spellIDsToCheck, knownSpellID)
+    end
+    if trackedSpellID and trackedSpellID > 0 and trackedSpellID ~= knownSpellID then
+        table.insert(spellIDsToCheck, trackedSpellID)
+    end
+
+    for _, spellID in ipairs(spellIDsToCheck) do
+        local aura = GetAuraBySpellID(spellID)
+        if aura and aura.expirationTime and aura.expirationTime > 0 then
+            if spellID == knownSpellID
+                and trackedSpellID
+                and trackedSpellID > 0
+                and trackedSpellID ~= knownSpellID
+                and addon.db
+                and type(addon.db.buffAuraByItem) == "table" then
+                addon.db.buffAuraByItem[tostring(numericItemID)] = {
+                    spellID = knownSpellID,
+                    duration = knownDuration or trackedDuration or (tonumber(aura.duration) or 0),
+                }
+            end
+            return math.max(0, aura.expirationTime - GetTime())
+        end
+    end
+
+    return nil
 end
 
 local function FormatDuration(seconds)
