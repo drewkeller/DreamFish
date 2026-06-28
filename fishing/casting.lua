@@ -969,6 +969,43 @@ local function ClearRightClickFishingFrameState(fishingFrame, clearBeforeReset)
     end
 end
 
+local function EnsureFishingSecureFrame(frame)
+    if frame then
+        return frame
+    end
+    if addon.fishing and addon.fishing.CreateSecureFishingFrame then
+        return addon.fishing.CreateSecureFishingFrame()
+    end
+    return frame
+end
+
+local function EnsureBuffSecureFrame(frame)
+    if frame then
+        return frame
+    end
+    if addon.fishing and addon.fishing.CreateSecureBuffFrame then
+        return addon.fishing.CreateSecureBuffFrame()
+    end
+    return frame
+end
+
+local function GetInteractPresenceDiagnostics()
+    local hasAnyInteractUnit = false
+    local hasSoftInteractNameOnly = false
+
+    if addon.fishing and addon.fishing.GetInteractDiagnostics then
+        local diag = addon.fishing.GetInteractDiagnostics()
+        hasAnyInteractUnit = diag and (diag.softExists or diag.targetExists or diag.mouseoverExists) and true or false
+        hasSoftInteractNameOnly = diag
+            and (not hasAnyInteractUnit)
+            and type(diag.softName) == "string"
+            and diag.softName ~= ""
+            and true or false
+    end
+
+    return hasAnyInteractUnit, hasSoftInteractNameOnly
+end
+
 local function HandleWorldRightClick(forceImmediate)
     if InCombatLockdown() then
         DebugMessage("Right click ignored: in combat lockdown")
@@ -979,17 +1016,7 @@ local function HandleWorldRightClick(forceImmediate)
         and addon.state and addon.state.interactOverrideActive
         and addon.fishing and addon.fishing.IsHookedLootMode
         and addon.fishing.IsHookedLootMode() then
-        local hasAnyInteractUnit = false
-        local hasSoftInteractNameOnly = false
-        if addon.fishing.GetInteractDiagnostics then
-            local diag = addon.fishing.GetInteractDiagnostics()
-            hasAnyInteractUnit = diag and (diag.softExists or diag.targetExists or diag.mouseoverExists) and true or false
-            hasSoftInteractNameOnly = diag
-                and (not hasAnyInteractUnit)
-                and type(diag.softName) == "string"
-                and diag.softName ~= ""
-                and true or false
-        end
+        local hasAnyInteractUnit, hasSoftInteractNameOnly = GetInteractPresenceDiagnostics()
         local acquireExpiresAt = tonumber(addon.state.interactAcquireExpiresAt) or 0
         local inAcquireWindow = acquireExpiresAt > GetTime()
 
@@ -1013,11 +1040,11 @@ local function HandleWorldRightClick(forceImmediate)
     local modes = GetCastingModes()
     local allowSingleClick = modes.singleRightClickConfig and addon.frames.config and addon.frames.config:IsShown() or false
     local hasConfiguredBuffItems = HasConfiguredBuffItems()
+    local enableHookedLoot = addon.db and addon.db.enableHookedLoot
 
     local hasAnyInteractUnit = false
-    if addon.db and addon.db.enableHookedLoot and addon.fishing and addon.fishing.GetInteractDiagnostics then
-        local diag = addon.fishing.GetInteractDiagnostics()
-        hasAnyInteractUnit = diag and (diag.softExists or diag.targetExists or diag.mouseoverExists) and true or false
+    if enableHookedLoot then
+        hasAnyInteractUnit = GetInteractPresenceDiagnostics()
     end
 
     local graceUntil = tonumber(addon.state and addon.state.fishingStartGraceUntil) or 0
@@ -1034,10 +1061,10 @@ local function HandleWorldRightClick(forceImmediate)
         and (not addon.state.fishingLootInProgress)
         and true or false
 
-    local hookedModeActive = addon.db and addon.db.enableHookedLoot
+    local hookedModeActive = enableHookedLoot
         and addon.fishing and addon.fishing.IsHookedLootMode
         and addon.fishing.IsHookedLootMode()
-    local shouldRouteHookedInteract = (addon.db and addon.db.enableHookedLoot)
+    local shouldRouteHookedInteract = enableHookedLoot
         and (hookedModeActive or (hasAnyInteractUnit and inFishingWindow) or postCastHookWindow)
 
     local buffFrame = addon.frames.buff
@@ -1045,10 +1072,7 @@ local function HandleWorldRightClick(forceImmediate)
 
     if shouldRouteHookedInteract then
         addon.state.lastRightClickTime = 0
-
-        if not fishingFrame and addon.fishing and addon.fishing.CreateSecureFishingFrame then
-            fishingFrame = addon.fishing.CreateSecureFishingFrame()
-        end
+        fishingFrame = EnsureFishingSecureFrame(fishingFrame)
 
         if fishingFrame and not InCombatLockdown() then
             if buffFrame then
@@ -1070,12 +1094,8 @@ local function HandleWorldRightClick(forceImmediate)
         addon.state.pendingBuffObservation = nil
     end
 
-    if not fishingFrame and addon.fishing and addon.fishing.CreateSecureFishingFrame then
-        fishingFrame = addon.fishing.CreateSecureFishingFrame()
-    end
-    if not buffFrame and addon.fishing and addon.fishing.CreateSecureBuffFrame then
-        buffFrame = addon.fishing.CreateSecureBuffFrame()
-    end
+    fishingFrame = EnsureFishingSecureFrame(fishingFrame)
+    buffFrame = EnsureBuffSecureFrame(buffFrame)
 
     if buffFrame and buffFrame:IsShown() then
         local currentlyDueItemID = GetNextReadyDueBuffItem()
