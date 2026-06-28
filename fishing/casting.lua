@@ -160,6 +160,28 @@ local function GetRaftUseDecision()
 end
 
 local function GetOversizedBobberDecision()
+    local function GetOversizedBobberAuraRemainingSeconds()
+        if not (addon.buff and addon.buff.GetAuraBySpellID) then
+            return nil
+        end
+
+        local known = addon.const
+            and type(addon.const.knownBuffItems) == "table"
+            and addon.const.knownBuffItems[OVERSIZED_BOBBER_ITEM_ID]
+            or nil
+        local oversizedSpellID = type(known) == "table" and tonumber(known.spellID) or nil
+        if not oversizedSpellID or oversizedSpellID <= 0 then
+            return nil
+        end
+
+        local aura = addon.buff.GetAuraBySpellID(oversizedSpellID)
+        if not aura or not aura.expirationTime or aura.expirationTime <= 0 then
+            return nil
+        end
+
+        return math.max(0, aura.expirationTime - GetTime())
+    end
+
     local shouldUse = addon.db and addon.db.useOversizedBobber
     if not shouldUse then
         return {
@@ -171,13 +193,19 @@ local function GetOversizedBobberDecision()
 
     local available = (type(PlayerHasToy) ~= "function") or PlayerHasToy(OVERSIZED_BOBBER_ITEM_ID)
     local ready = available and IsItemReadyForUse(OVERSIZED_BOBBER_ITEM_ID)
+    local auraRemaining = available and GetOversizedBobberAuraRemainingSeconds() or nil
+    local castLead = (addon.const and addon.const.maxFishingCastSeconds or 20)
+        + (addon.const and addon.const.buffPreRefreshSafetySeconds or 2)
+    local needsRefreshForCast = (auraRemaining == nil) or (auraRemaining <= castLead)
     local swimming = (type(IsSwimming) == "function" and IsSwimming()) or false
-    local shouldApply = ready and not swimming
+    local shouldApply = ready and needsRefreshForCast and not swimming
 
     return {
         enabled = true,
         available = available,
         ready = ready,
+        auraRemaining = auraRemaining,
+        needsRefreshForCast = needsRefreshForCast,
         swimming = swimming,
         shouldApply = shouldApply,
     }
@@ -626,10 +654,14 @@ ConfigureFishingClickAction = function()
             table.insert(macroLines, "/use item:" .. tostring(OVERSIZED_BOBBER_ITEM_ID))
             DebugMessage("Fishing click will apply oversized bobber: "
                 .. GetDebugItemLabel(OVERSIZED_BOBBER_ITEM_ID) .. " " .. GetDebugCooldownText(OVERSIZED_BOBBER_ITEM_ID))
+        elseif oversizedDecision.auraRemaining and not oversizedDecision.needsRefreshForCast then
+            DebugMessage("Skipping oversized bobber reapply; aura covers cast: "
+                .. GetDebugItemLabel(OVERSIZED_BOBBER_ITEM_ID)
+                .. " auraRemaining=" .. string.format("%.1fs", oversizedDecision.auraRemaining))
         elseif oversizedDecision.ready and oversizedDecision.swimming then
             DebugMessage("Skipping oversized bobber while swimming: "
                 .. GetDebugItemLabel(OVERSIZED_BOBBER_ITEM_ID))
-        elseif oversizedDecision.available then
+        elseif oversizedDecision.available and not oversizedDecision.ready and oversizedDecision.needsRefreshForCast then
             DebugMessage("Skipping oversized bobber on cooldown: "
                 .. GetDebugItemLabel(OVERSIZED_BOBBER_ITEM_ID) .. " " .. GetDebugCooldownText(OVERSIZED_BOBBER_ITEM_ID))
         else

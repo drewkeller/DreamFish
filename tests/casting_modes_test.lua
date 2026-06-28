@@ -1393,6 +1393,92 @@ function tests.PrecastSkipsBobberAndOversizedWhileSwimming()
         "Oversized bobber should not be applied while swimming")
 end
 
+function tests.PrecastSkipsOversizedWhenAuraCoversCast()
+    local capturedAttrs = {}
+    local fishingFrame = DreamFisher.fishing.CreateSecureFishingFrame()
+    local origSet = fishingFrame.SetAttribute
+    fishingFrame.SetAttribute = function(self, k, v)
+        capturedAttrs[k] = v
+        return origSet and origSet(self, k, v)
+    end
+
+    DreamFisher._test.SetDB({
+        castingModes = { hotkey = true },
+        buffItems = {},
+        buffAuraByItem = {},
+        enableHookedLoot = false,
+        selectedRaftToy = nil,
+        selectedBobberToy = nil,
+        useOversizedBobber = true,
+    })
+
+    local originalCUnitAuras = _G.C_UnitAuras
+    _G.C_UnitAuras = {
+        GetPlayerAuraBySpellID = function(spellID)
+            if spellID == 397827 then
+                return {
+                    spellId = 397827,
+                    duration = 3600,
+                    expirationTime = mockTime + 2700,
+                }
+            end
+            return nil
+        end,
+        GetAuraDataByIndex = function() return nil end,
+    }
+
+    DreamFisher.fishing.ConfigureFishingClickAction()
+
+    _G.C_UnitAuras = originalCUnitAuras
+
+    local macrotext = capturedAttrs["macrotext"] or ""
+    assertTrue(macrotext:find("/use item:202207", 1, true) == nil,
+        "Oversized bobber should not be reapplied while aura covers cast")
+end
+
+function tests.PrecastAppliesOversizedWhenAuraExpiring()
+    local capturedAttrs = {}
+    local fishingFrame = DreamFisher.fishing.CreateSecureFishingFrame()
+    local origSet = fishingFrame.SetAttribute
+    fishingFrame.SetAttribute = function(self, k, v)
+        capturedAttrs[k] = v
+        return origSet and origSet(self, k, v)
+    end
+
+    DreamFisher._test.SetDB({
+        castingModes = { hotkey = true },
+        buffItems = {},
+        buffAuraByItem = {},
+        enableHookedLoot = false,
+        selectedRaftToy = nil,
+        selectedBobberToy = nil,
+        useOversizedBobber = true,
+    })
+
+    local originalCUnitAuras = _G.C_UnitAuras
+    _G.C_UnitAuras = {
+        GetPlayerAuraBySpellID = function(spellID)
+            if spellID == 397827 then
+                return {
+                    spellId = 397827,
+                    duration = 3600,
+                    expirationTime = mockTime + 10,
+                }
+            end
+            return nil
+        end,
+        GetAuraDataByIndex = function() return nil end,
+    }
+
+    DreamFisher.fishing.ConfigureFishingClickAction()
+
+    _G.C_UnitAuras = originalCUnitAuras
+
+    local macrotext = capturedAttrs["macrotext"] or ""
+    assertTrue(macrotext:find("/use item:202207", 1, true) ~= nil,
+        "Oversized bobber should be reapplied when aura is expiring")
+end
+
 function tests.PrecastUsesOnlyRaftItemWhenSwimmingAndNeeded()
     local capturedAttrs = {}
     local fishingFrame = DreamFisher.fishing.CreateSecureFishingFrame()
