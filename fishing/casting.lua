@@ -927,6 +927,18 @@ local function ResolveRightClickPendingDueBuff(hasConfiguredBuffItems)
     )
 end
 
+local function ArmFishingRightClickAction(fishingFrame)
+    if not fishingFrame then
+        return false
+    end
+
+    ConfigureFishingClickAction()
+    SetOverrideBindingClick(fishingFrame, true, "BUTTON2", fishingFrame:GetName(), "RightButton")
+    -- Show the secure frame so the current click release can trigger the secure action.
+    fishingFrame:Show()
+    return true
+end
+
 local function HandleWorldRightClick(forceImmediate)
     if InCombatLockdown() then
         DebugMessage("Right click ignored: in combat lockdown")
@@ -1014,9 +1026,7 @@ local function HandleWorldRightClick(forceImmediate)
                 buffFrame:Hide()
                 ResetBuffFrameState(buffFrame)
             end
-            ConfigureFishingClickAction()
-            SetOverrideBindingClick(fishingFrame, true, "BUTTON2", fishingFrame:GetName(), "RightButton")
-            fishingFrame:Show()
+            ArmFishingRightClickAction(fishingFrame)
             if (not hookedModeActive) and hasAnyInteractUnit and inFishingWindow then
                 DebugMessage("Hooked interact fallback active: routing right-click to interact target")
             elseif (not hookedModeActive) and postCastHookWindow then
@@ -1087,9 +1097,7 @@ local function HandleWorldRightClick(forceImmediate)
                 end
                 local activeFishingFrame = addon.frames.fishing
                 if activeFishingFrame then
-                    ConfigureFishingClickAction()
-                    SetOverrideBindingClick(activeFishingFrame, true, "BUTTON2", activeFishingFrame:GetName(), "RightButton")
-                    activeFishingFrame:Show()
+                    ArmFishingRightClickAction(activeFishingFrame)
                 end
             end
             return
@@ -1139,10 +1147,7 @@ local function HandleWorldRightClick(forceImmediate)
             end
             local fishingFrame = addon.frames.fishing
             if fishingFrame then
-                ConfigureFishingClickAction()
-                SetOverrideBindingClick(fishingFrame, true, "BUTTON2", fishingFrame:GetName(), "RightButton")
-                -- Show the secure frame so the current click release can trigger the secure action.
-                fishingFrame:Show()
+                ArmFishingRightClickAction(fishingFrame)
             end
         end
     else
