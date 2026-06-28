@@ -66,14 +66,19 @@ local function ArmNativeInteractOverride(durationSeconds)
             return
         end
         local t = (type(GetTime) == "function") and GetTime() or 0
+        local moving = (type(IsPlayerMoving) == "function") and IsPlayerMoving() or false
         local stillHooked = addon.fishing and addon.fishing.IsHookedLootMode and addon.fishing.IsHookedLootMode()
         local expiresAt = tonumber(addon.state.interactOverrideExpiresAt) or 0
         local expired = expiresAt > 0 and t >= expiresAt
-        if expired or not stillHooked then
+        if moving or expired or not stillHooked then
             ClearOverrideBindings(self)
             self:SetScript("OnUpdate", nil)
             addon.state.interactOverrideExpiresAt = 0
             addon.state.interactOverrideActive = false
+            addon.state.interactAcquireExpiresAt = 0
+            if moving then
+                DebugMessage("Cleared native interact override due to movement")
+            end
         end
     end)
     return true
@@ -93,6 +98,7 @@ local function ClearNativeInteractOverride()
     end
     addon.state.interactOverrideExpiresAt = 0
     addon.state.interactOverrideActive = false
+    addon.state.interactAcquireExpiresAt = 0
 end
 
 local function GetUnitNameSafe(unit)

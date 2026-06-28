@@ -199,6 +199,14 @@ local function CreateFishingStateFrame()
                 frame:SetScript("OnUpdate", nil)
             end
         elseif event == "PLAYER_STARTED_MOVING" then
+            if addon.fishing and addon.fishing.ClearNativeInteractOverride then
+                local acquireExpiresAt = tonumber(addon.state.interactAcquireExpiresAt) or 0
+                if addon.state.interactOverrideActive or acquireExpiresAt > GetTime() then
+                    addon.fishing.ClearNativeInteractOverride()
+                    addon.state.interactAcquireExpiresAt = 0
+                    DebugMessage("Movement detected: cleared interact override")
+                end
+            end
             if addon.state.savedFishingAudioCVars ~= nil then
                 addon.state.isFishing = false
                 addon.state.isBobberActive = false
