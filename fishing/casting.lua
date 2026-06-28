@@ -1113,7 +1113,7 @@ local function HandleWorldRightClick(forceImmediate)
 
     local graceUntil = tonumber(addon.state and addon.state.fishingStartGraceUntil) or 0
     local fishingStartTime = tonumber(addon.state and addon.state.fishingStartTime) or 0
-    local fishingExpireSeconds = tonumber(addon.state and addon.state.fishingExpireSeconds) or 35
+    local fishingExpireSeconds = tonumber(addon.state and addon.state.fishingExpireSeconds) or 20
     local inFishingWindow = addon.state and (
         addon.state.isFishing
         or addon.state.isBobberActive
