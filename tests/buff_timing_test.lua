@@ -350,6 +350,14 @@ function tests.BuffDueUntrackedNoHistoryForCast()
     assertEquals(reason, "untracked_no_history_due_cast", "Should cite first-use cast reason")
 end
 
+function tests.BobberToyItemsResolveBobberCategory()
+    local categoryKnown = DreamFisher.buff.GetBuffItemCategory(142529)
+    assertEquals(categoryKnown, "bobber", "Known bobber toy should resolve to bobber category")
+
+    local categoryFromList = DreamFisher.buff.GetBuffItemCategory(142531)
+    assertEquals(categoryFromList, "bobber", "Bobber toy from bobber list should resolve to bobber category")
+end
+
 function tests.TrackingDoesNotDowngradeKnownLongDurationToTransientAura()
     local originalCUnitAuras = _G.C_UnitAuras
     local originalAuraUtil = _G.AuraUtil

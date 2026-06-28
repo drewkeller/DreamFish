@@ -114,6 +114,20 @@ addon.const = {
         198428, -- Tuskarr Dinghy
     },
     knownBuffItems = {
+        [202207] = { spellID = 397827, duration = 3600, category = "bobber", }, -- Reusable Oversized Bobber (Bobber toy aura)
+        [180993] = { spellID = 335484, duration = 3600, category = "bobber", }, -- Bat Visage (Bobber toy aura)
+        [142528] = { spellID = 231291, duration = 3600, category = "bobber", }, -- Can of Worms (Bobber toy aura)
+        [147307] = { spellID = 240803, duration = 3600, category = "bobber", }, -- Carved Wooden Helm (Bobber toy aura)
+        [142529] = { spellID = 231319, duration = 3600, category = "bobber", }, -- Cat Head (Bobber toy aura)
+        [147312] = { spellID = 240801, duration = 3600, category = "bobber", }, -- Demon Noggin (Bobber toy aura)
+        [147308] = { spellID = 240800, duration = 3600, category = "bobber", }, -- Enchanted Bobber (Bobber toy aura)
+        [147309] = { spellID = 240806, duration = 3600, category = "bobber", }, -- Face of the Forest (Bobber toy aura)
+        [147310] = { spellID = 240802, duration = 3600, category = "bobber", }, -- Floating Totem (Bobber toy aura)
+        [142532] = { spellID = 231349, duration = 3600, category = "bobber", }, -- Murloc Head (Bobber toy aura)
+        [147311] = { spellID = 240804, duration = 3600, category = "bobber", }, -- Replica Gondola (Bobber toy aura)
+        [142531] = { spellID = 231341, duration = 3600, category = "bobber", }, -- Squeaky Duck (Bobber toy aura)
+        [142530] = { spellID = 231338, duration = 3600, category = "bobber", }, -- Tugboat (Bobber toy aura)
+        [143662] = { spellID = 232613, duration = 3600, category = "bobber", }, -- Wooden Pepe (Bobber toy aura)
         [238374] = { spellID = 1237942, duration = 30, category = "other_consumable", }, -- Tender Lumifin
         [238365] = { spellID = 1237942, duration = 30, category = "other_consumable", }, -- Sin'dorei Swarmer
         [238371] = { spellID = 1237942, duration = 30, category = "other_consumable", }, -- Arcane Wyrmfish

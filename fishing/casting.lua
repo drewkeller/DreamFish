@@ -4,7 +4,7 @@ local addon = _G["DreamFisher"]
 local PrintMessage = addon.PrintMessage
 local DebugMessage = addon.DebugMessage
 local OVERSIZED_BOBBER_ITEM_ID = 202207
-local DUE_BUFF_CATEGORY_ORDER = { "lure", "food_drink", "other_consumable" }
+local DUE_BUFF_CATEGORY_ORDER = { "lure", "food_drink", "bobber", "other_consumable" }
 
 local ConfigureFishingClickAction
 local GetNextReadyDueBuffItem
@@ -65,18 +65,46 @@ local function IsItemReadyForUse(itemID)
 end
 
 local function GetBobberUseDecision()
+    local function GetBobberAuraRemainingSeconds(bobberToyID)
+        if not (addon.buff and addon.buff.GetAuraBySpellID) then
+            return nil
+        end
+
+        local known = addon.const
+            and type(addon.const.knownBuffItems) == "table"
+            and addon.const.knownBuffItems[tonumber(bobberToyID)]
+            or nil
+        local bobberSpellID = type(known) == "table" and tonumber(known.spellID) or nil
+        if not bobberSpellID or bobberSpellID <= 0 then
+            return nil
+        end
+
+        local aura = addon.buff.GetAuraBySpellID(bobberSpellID)
+        if not aura or not aura.expirationTime or aura.expirationTime <= 0 then
+            return nil
+        end
+
+        return math.max(0, aura.expirationTime - GetTime())
+    end
+
     local bobberToyID = addon.db and tonumber(addon.db.selectedBobberToy) or nil
     local hasToy = (bobberToyID and bobberToyID > 0)
         and (type(PlayerHasToy) ~= "function" or PlayerHasToy(bobberToyID))
     local bobberReady = hasToy and IsItemReadyForUse(bobberToyID)
+    local bobberAuraRemaining = hasToy and GetBobberAuraRemainingSeconds(bobberToyID) or nil
+    local castLead = (addon.const and addon.const.maxFishingCastSeconds or 20)
+        + (addon.const and addon.const.buffPreRefreshSafetySeconds or 2)
+    local needsRefreshForCast = (bobberAuraRemaining == nil) or (bobberAuraRemaining <= castLead)
     local mounted = (type(IsMounted) == "function" and IsMounted()) or false
     local swimming = (type(IsSwimming) == "function" and IsSwimming()) or false
-    local shouldApply = hasToy and bobberReady and not mounted and not swimming
+    local shouldApply = hasToy and bobberReady and needsRefreshForCast and not mounted and not swimming
 
     return {
         toyID = bobberToyID,
         hasToy = hasToy,
         ready = bobberReady,
+        auraRemaining = bobberAuraRemaining,
+        needsRefreshForCast = needsRefreshForCast,
         mounted = mounted,
         swimming = swimming,
         shouldApply = shouldApply,
@@ -510,7 +538,11 @@ local function FinalizeSecureFishingAction(fishingFrame, macroLines, raftExclusi
         DebugMessage("Skipping bobber toy while mounted: " .. GetDebugItemLabel(bobberDecision.toyID))
     elseif bobberDecision.hasToy and bobberDecision.swimming then
         DebugMessage("Skipping bobber toy while swimming: " .. GetDebugItemLabel(bobberDecision.toyID))
-    elseif bobberDecision.hasToy and not bobberDecision.ready then
+    elseif bobberDecision.hasToy and bobberDecision.auraRemaining and not bobberDecision.needsRefreshForCast then
+        DebugMessage("Skipping bobber reapply; aura covers cast: "
+            .. GetDebugItemLabel(bobberDecision.toyID)
+            .. " auraRemaining=" .. string.format("%.1fs", bobberDecision.auraRemaining))
+    elseif bobberDecision.hasToy and not bobberDecision.ready and bobberDecision.needsRefreshForCast then
         DebugMessage("Skipping bobber toy on cooldown: "
             .. GetDebugItemLabel(bobberDecision.toyID) .. " " .. GetDebugCooldownText(bobberDecision.toyID))
         DebugMessage("Fishing click configured as spell cast only")

@@ -994,6 +994,161 @@ function tests.PrecastAppliesBobberBeforeDueBuff()
     assertTrue(bobberIndex < buffIndex, "Bobber use should appear before due buff use")
 end
 
+function tests.PrecastSkipsBobberWhenAuraCoversCast()
+    local capturedAttrs = {}
+    local fishingFrame = DreamFisher.fishing.CreateSecureFishingFrame()
+    local origSet = fishingFrame.SetAttribute
+    fishingFrame.SetAttribute = function(self, k, v)
+        capturedAttrs[k] = v
+        return origSet and origSet(self, k, v)
+    end
+
+    DreamFisher._test.SetDB({
+        castingModes = { hotkey = true },
+        buffItems = { { itemID = 111, expectedDuration = 60 } },
+        buffAuraByItem = {},
+        enableHookedLoot = false,
+        selectedRaftToy = nil,
+        selectedBobberToy = 142529,
+        useOversizedBobber = false,
+    })
+
+    DreamFisher._test.SetBuffLastUseTime(111, mockTime - 200)
+
+    local originalFind = DreamFisher.buff.FindItemInBags
+    DreamFisher.buff.FindItemInBags = function(itemID)
+        if itemID == 111 then return 0, 1 end
+        return nil, nil
+    end
+
+    local originalCUnitAuras = _G.C_UnitAuras
+    _G.C_UnitAuras = {
+        GetPlayerAuraBySpellID = function(spellID)
+            if spellID == 231319 then
+                return {
+                    spellId = 231319,
+                    duration = 3600,
+                    expirationTime = mockTime + 1800,
+                }
+            end
+            return nil
+        end,
+        GetAuraDataByIndex = function() return nil end,
+    }
+
+    DreamFisher.fishing.ConfigureFishingClickAction()
+
+    _G.C_UnitAuras = originalCUnitAuras
+    DreamFisher.buff.FindItemInBags = originalFind
+
+    local macrotext = capturedAttrs["macrotext"] or ""
+    assertTrue(macrotext:find("/use item:142529", 1, true) == nil,
+        "Bobber should not be reapplied while bobber aura covers cast")
+    assertTrue(macrotext:find("/use item:111", 1, true) ~= nil,
+        "Due buff should still be included when bobber aura covers cast")
+end
+
+function tests.PrecastAppliesBobberWhenAuraExpiring()
+    local capturedAttrs = {}
+    local fishingFrame = DreamFisher.fishing.CreateSecureFishingFrame()
+    local origSet = fishingFrame.SetAttribute
+    fishingFrame.SetAttribute = function(self, k, v)
+        capturedAttrs[k] = v
+        return origSet and origSet(self, k, v)
+    end
+
+    DreamFisher._test.SetDB({
+        castingModes = { hotkey = true },
+        buffItems = { { itemID = 111, expectedDuration = 60 } },
+        buffAuraByItem = {},
+        enableHookedLoot = false,
+        selectedRaftToy = nil,
+        selectedBobberToy = 142529,
+        useOversizedBobber = false,
+    })
+
+    DreamFisher._test.SetBuffLastUseTime(111, mockTime - 200)
+
+    local originalFind = DreamFisher.buff.FindItemInBags
+    DreamFisher.buff.FindItemInBags = function(itemID)
+        if itemID == 111 then return 0, 1 end
+        return nil, nil
+    end
+
+    local originalCUnitAuras = _G.C_UnitAuras
+    _G.C_UnitAuras = {
+        GetPlayerAuraBySpellID = function(spellID)
+            if spellID == 231319 then
+                return {
+                    spellId = 231319,
+                    duration = 3600,
+                    expirationTime = mockTime + 10,
+                }
+            end
+            return nil
+        end,
+        GetAuraDataByIndex = function() return nil end,
+    }
+
+    DreamFisher.fishing.ConfigureFishingClickAction()
+
+    _G.C_UnitAuras = originalCUnitAuras
+    DreamFisher.buff.FindItemInBags = originalFind
+
+    local macrotext = capturedAttrs["macrotext"] or ""
+    local bobberIndex = macrotext:find("/use item:142529", 1, true)
+    local buffIndex = macrotext:find("/use item:111", 1, true)
+    assertTrue(bobberIndex ~= nil, "Bobber should be reapplied when aura is expiring")
+    assertTrue(buffIndex ~= nil, "Due buff should still be included when bobber aura is expiring")
+    assertTrue(bobberIndex < buffIndex, "Bobber should remain ordered before due buff")
+end
+
+function tests.PrecastBobberFallsBackToCooldownWhenAuraUnavailable()
+    local capturedAttrs = {}
+    local fishingFrame = DreamFisher.fishing.CreateSecureFishingFrame()
+    local origSet = fishingFrame.SetAttribute
+    fishingFrame.SetAttribute = function(self, k, v)
+        capturedAttrs[k] = v
+        return origSet and origSet(self, k, v)
+    end
+
+    DreamFisher._test.SetDB({
+        castingModes = { hotkey = true },
+        buffItems = { { itemID = 111, expectedDuration = 60 } },
+        buffAuraByItem = {},
+        enableHookedLoot = false,
+        selectedRaftToy = nil,
+        selectedBobberToy = 142529,
+        useOversizedBobber = false,
+    })
+
+    DreamFisher._test.SetBuffLastUseTime(111, mockTime - 200)
+
+    local originalFind = DreamFisher.buff.FindItemInBags
+    DreamFisher.buff.FindItemInBags = function(itemID)
+        if itemID == 111 then return 0, 1 end
+        return nil, nil
+    end
+
+    local originalCUnitAuras = _G.C_UnitAuras
+    _G.C_UnitAuras = {
+        GetPlayerAuraBySpellID = function() return nil end,
+        GetAuraDataByIndex = function() return nil end,
+    }
+
+    DreamFisher.fishing.ConfigureFishingClickAction()
+
+    _G.C_UnitAuras = originalCUnitAuras
+    DreamFisher.buff.FindItemInBags = originalFind
+
+    local macrotext = capturedAttrs["macrotext"] or ""
+    local bobberIndex = macrotext:find("/use item:142529", 1, true)
+    local buffIndex = macrotext:find("/use item:111", 1, true)
+    assertTrue(bobberIndex ~= nil, "Bobber should still apply when aura cannot be observed and cooldown is ready")
+    assertTrue(buffIndex ~= nil, "Due buff should still be included when bobber falls back to cooldown")
+    assertTrue(bobberIndex < buffIndex, "Fallback bobber use should remain ordered before due buff")
+end
+
 function tests.PrecastPrioritizesFoodDrinkBeforeOtherConsumable()
     local capturedAttrs = {}
     local fishingFrame = DreamFisher.fishing.CreateSecureFishingFrame()

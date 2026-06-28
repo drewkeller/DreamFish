@@ -29,6 +29,14 @@ local function GetBuffItemCategory(itemID)
         return known.category
     end
 
+    if addon.const and type(addon.const.bobberToyItemIDs) == "table" then
+        for _, toyItemID in ipairs(addon.const.bobberToyItemIDs) do
+            if tonumber(toyItemID) == numeric then
+                return "bobber"
+            end
+        end
+    end
+
     local _, itemType, itemSubType, _, _, classID = GetItemInfoInstantSafe(numeric)
     local consumableClassID = rawget(_G, "LE_ITEM_CLASS_CONSUMABLE")
     if classID and consumableClassID and classID ~= consumableClassID then
