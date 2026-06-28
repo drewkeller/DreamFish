@@ -82,8 +82,82 @@ When the optional hooked-interact mode is enabled, users must configure game set
     Enable the DreamFisher mode toggle for same-trigger interact while bobber is active.
 
 ## Buffs
-* Choose an appropriate buff
+* Choose an appropriate buff (this section can be boiled down to tracking the auras applied by certain items)
     - some buffs can stack with each other and some should be mutually exclusive
     - don't apply buffs if they don't stack
     - prioritize?
+
+Arcane Lure
+
+## Bait
+Bait increases the chance of catching a certain type of fish.
+Only one of these auras can be applied at a time. If an aura already exists from a bait item, another bait item will not be applied.
+
+| Bait                      | Item   | Spell  |Time | Expansion           |
+|---------------------------|--------|--------|-----|---------------------|
+| Aileron Seamoth Lure      | 198401 | 383093 | 30m | Dragonflight        |
+| Cerulean Spinefish Lure   | 193896 | 375787 | 30m | Dragonflight        |
+| Islefin Dorado Lure       | 198043 | 383095 | 30m | Dragonflight        |
+| Scalebelly Mackerel Lure  | 193893 | 375779 | 30m | Dragonflight        |
+| Temporal Dragonhead Lure  | 193895 | 375784 | 30m | Dragonflight        |
+| Thousandbite Piranha Lure | 193894 | 375781 | 30m | Dragonflight        |
+| Lost Sole Bait            | 173038 | 331688 | 30m | Shadowlands         |
+| Elysian Thade Bait        | 173043 | 331698 | 30m | Shadowlands         |
+| Silvergill Pike Bait      | 173040 | 310665 | 30m | Shadowlands         |
+| Pocked Bonefish Bait      | 173041 | 331695 | 30m | Shadowlands         |
+| Iridescent Amberjack Bait | 173039 | 331692 | 30m | Shadowlands         |
+| Spinefin Piranha Bait     | 173042 | 331699 | 30m | Shadowlands         |
+| Abyssal Gulper Eel Bait   | 110293 | 158038 | 10m | Warlords of Draenor |
+| Blackwater Whiptail Bait  | 110294 | 158039 | 10m | Warlords of Draenor |
+| Blind Lake Sturgeon Bait  | 110290 | 158035 | 10m | Warlords of Draenor |
+| Fat Sleeper Bait          | 110289 | 158034 | 10m | Warlords of Draenor |
+| Fire Ammonite Bait        | 110291 | 158036 | 10m | Warlords of Draenor |
+| Jawless Skulker Bait      | 110274 | 158031 | 10m | Warlords of Draenor |
+| Sea Scorpion Bait         | 110292 | 158037 | 10m | Warlords of Draenor |
+
+There are a lot of Legion aura-producing baits to attract special fish. These are mainly related to catching fish for the `Bigger Fish to Fry` achievement (Warbound) or for empowering the `Underlight Angler`. Due to their specific requirements and rarity, the player may wish to handle these manually.
+The ones that have lasting effects are 5 minutes (some are instant, acting as a trigger for something).
+| Bait                      | Item   | Spell  |Time | Expansion           |
+|---------------------------|--------|--------|-----|---------------------|
+| Aromatic Murloc Slime     | 133702 | 201805 |  5m | Legion              |
+| Pearlescent Conch         | 133703 | 201806 |  5m | Legion              |
+| Rusty Queenfish Brooch    | 133704 | 201807 |  5m | Legion              |
+| Salmon Lure               | 133710 | 201813 |  5m | Legion              |
+| Frost Worm                | 133712 | 201815 |  5m | Legion              |
+| Swollen Murloc Egg        | 133711 | 201814 |  5m | Legion              |
+| Moosehorn Hook            | 133713 | 201816 |  5m | Legion              |
+| Silverscale Minnow        | 133714 | 201817 |  5m | Legion              |
+| Ancient Vrykul Ring       | 133715 | 201818 |  5m | Legion              |
+| Soggy Drakescale          | 133716 | 201819 |  5m | Legion              |
+| Rotten Fishbone           | 133705 | 201808 |  5m | Legion              |
+| Nightmare Nightcrawler    | 133707 | 201810 |  5m | Legion              |
+| Drowned Thistleleaf       | 133708 | 201811 |  5m | Legion              |
+| Demonic Detritus          | 133720 | 201822 |  5m | Legion              |
+| Enchanted Lure            | 133717 | 201820 |  5m | Legion              |
+| Axefish Lure              | 133722 | 201823 |  5m | Legion              |
+| Ravenous Fly              | 133795 | 202131 |  5m | Legion              |
+
+
+## Lures
+Lures add a temporary effect directly to the fishing pole.
+Only one lure can be applied to the fishing pole at a time.
+| Lure                          | Benefit   | Duration | Item   | Spell  |
+| ----------------------------- | --------- | -------- | ------ | ------ |
+| Glass Fishing Bobber          | +2 Skill  | 10m      | 67404  | 98849  |
+| Shiny Bauble                  | +3 Skill  | 10m      | 6529   | 8087   |
+| Nightcrawlers                 | +5 Skill  | 10m      | 6530   | 8088   |
+| Aquadynamic Fish Lens         | +5 Skill  | 10m      | 6811   | 8532   |
+| Bright Baubles                | +7 Skill  | 10m      | 6532   | 8090   |
+| Flesh Eating Worm             | +7 Skill  | 10m      | 7307   | 9092   |
+| Aquadynamic Fish Attractor    | +9 Skill  | 10m      | 6533   | 8089   |
+| Sharpened Fish Hook           | +9 Skill  | 10m      | 3486   | 45731  |
+| Feathered Lure                | +9 Skill  | 10m      | 6267   | 87646  |
+| Glow Worm                     | +9 Skill  | 60m      | 4600   | 64401  |
+| Heat-Treated Spinning Lure    | +10 Skill | 15m      | 6804   | 95244  |
+| Day-Old Darkmoon Doughnut     | +10 Skill | 10m      | 124674 | 185587 |
+| Worm Supreme                  | +10 Skill | 10m      | 118391 | 174471 |
+
+
+## Bobber Selection
+A bobber can be selected from a list. The first item on the list is not an actual item, but is the "Standard Bobber" in the game, which is what you get if you aren't applying a bobber. The rest of the list is dynamically created, based on what "Crate of Bobber" toys the player owns. The Reusable Oversized Bobber toy can be applied to any bobber, including the standard one, so applying the oversized bobber is offered as a separate option.
 
