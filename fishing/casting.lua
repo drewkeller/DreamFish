@@ -4,7 +4,7 @@ local addon = _G["DreamFisher"]
 local PrintMessage = addon.PrintMessage
 local DebugMessage = addon.DebugMessage
 local OVERSIZED_BOBBER_ITEM_ID = 202207
-local DUE_BUFF_CATEGORY_ORDER = { "lure", "food_drink", "bobber", "other_consumable" }
+local DUE_BUFF_CATEGORY_ORDER = { "lure", "bait", "food_drink", "bobber", "other_consumable" }
 
 local ConfigureFishingClickAction
 local GetNextReadyDueBuffItem
@@ -221,6 +221,28 @@ local function HasConfiguredBuffItems()
             return true
         end
     end
+    return false
+end
+
+local function HasAnyActiveBaitAura()
+    if not (addon.buff and type(addon.buff.GetAuraBySpellID) == "function") then
+        return false
+    end
+    if not (addon.const and type(addon.const.knownBuffItems) == "table") then
+        return false
+    end
+
+    for _, known in pairs(addon.const.knownBuffItems) do
+        local category = type(known) == "table" and known.category or nil
+        local spellID = type(known) == "table" and tonumber(known.spellID) or nil
+        if category == "bait" and spellID and spellID > 0 then
+            local aura = addon.buff.GetAuraBySpellID(spellID)
+            if aura and aura.expirationTime and aura.expirationTime > 0 then
+                return true
+            end
+        end
+    end
+
     return false
 end
 
@@ -700,10 +722,14 @@ GetNextReadyDueBuffItem = function(seedExcludedBuffItemIDs)
     local hadUnavailableDueBuff = false
 
     for _, category in ipairs(DUE_BUFF_CATEGORY_ORDER) do
-        local candidateItemID, unavailableInCategory = GetNextReadyDueBuffItemForCategory(category, excludedBuffItemIDs)
-        hadUnavailableDueBuff = hadUnavailableDueBuff or unavailableInCategory
-        if candidateItemID then
-            return candidateItemID, hadUnavailableDueBuff, category
+        if category == "bait" and HasAnyActiveBaitAura() then
+            DebugMessage("Skipping bait category pass: active bait aura detected")
+        else
+            local candidateItemID, unavailableInCategory = GetNextReadyDueBuffItemForCategory(category, excludedBuffItemIDs)
+            hadUnavailableDueBuff = hadUnavailableDueBuff or unavailableInCategory
+            if candidateItemID then
+                return candidateItemID, hadUnavailableDueBuff, category
+            end
         end
     end
 

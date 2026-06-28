@@ -1149,6 +1149,118 @@ function tests.PrecastBobberFallsBackToCooldownWhenAuraUnavailable()
     assertTrue(bobberIndex < buffIndex, "Fallback bobber use should remain ordered before due buff")
 end
 
+function tests.PrecastPrioritizesBaitAfterLureBeforeFoodDrink()
+    local capturedAttrs = {}
+    local fishingFrame = DreamFisher.fishing.CreateSecureFishingFrame()
+    local origSet = fishingFrame.SetAttribute
+    fishingFrame.SetAttribute = function(self, k, v)
+        capturedAttrs[k] = v
+        return origSet and origSet(self, k, v)
+    end
+
+    DreamFisher._test.SetDB({
+        castingModes = { hotkey = true },
+        buffItems = {
+            { itemID = 262651, expectedDuration = 600 }, -- lure
+            { itemID = 198401, expectedDuration = 1800 }, -- bait
+            { itemID = 242299, expectedDuration = 3600 }, -- food/drink
+        },
+        buffAuraByItem = {},
+        enableHookedLoot = false,
+        selectedRaftToy = nil,
+        selectedBobberToy = nil,
+        useOversizedBobber = false,
+    })
+
+    DreamFisher._test.SetBuffLastUseTime(262651, mockTime - 800)
+    DreamFisher._test.SetBuffLastUseTime(198401, mockTime - 2000)
+    DreamFisher._test.SetBuffLastUseTime(242299, mockTime - 4000)
+
+    local originalFind = DreamFisher.buff.FindItemInBags
+    DreamFisher.buff.FindItemInBags = function(itemID)
+        if itemID == 262651 then return nil, nil end -- force lure unavailable so next category is evaluated
+        if itemID == 198401 then return 0, 9 end
+        if itemID == 242299 then return 0, 10 end
+        return nil, nil
+    end
+
+    local originalCUnitAuras = _G.C_UnitAuras
+    _G.C_UnitAuras = {
+        GetPlayerAuraBySpellID = function() return nil end,
+        GetAuraDataByIndex = function() return nil end,
+    }
+
+    DreamFisher.fishing.ConfigureFishingClickAction()
+
+    _G.C_UnitAuras = originalCUnitAuras
+    DreamFisher.buff.FindItemInBags = originalFind
+
+    local macrotext = capturedAttrs["macrotext"] or ""
+    assertTrue(macrotext:find("/use item:198401", 1, true) ~= nil,
+        "Bait item should be selected immediately after lure pass")
+    assertTrue(macrotext:find("/use item:242299", 1, true) == nil,
+        "Food/drink should not be selected when bait is due and available")
+end
+
+function tests.PrecastSkipsBaitCategoryWhenAnyBaitAuraIsActive()
+    local capturedAttrs = {}
+    local fishingFrame = DreamFisher.fishing.CreateSecureFishingFrame()
+    local origSet = fishingFrame.SetAttribute
+    fishingFrame.SetAttribute = function(self, k, v)
+        capturedAttrs[k] = v
+        return origSet and origSet(self, k, v)
+    end
+
+    DreamFisher._test.SetDB({
+        castingModes = { hotkey = true },
+        buffItems = {
+            { itemID = 198401, expectedDuration = 1800 }, -- bait
+            { itemID = 241316, expectedDuration = 3600 }, -- other consumable
+        },
+        buffAuraByItem = {},
+        enableHookedLoot = false,
+        selectedRaftToy = nil,
+        selectedBobberToy = nil,
+        useOversizedBobber = false,
+    })
+
+    DreamFisher._test.SetBuffLastUseTime(198401, mockTime - 2000)
+    DreamFisher._test.SetBuffLastUseTime(241316, mockTime - 4000)
+
+    local originalFind = DreamFisher.buff.FindItemInBags
+    DreamFisher.buff.FindItemInBags = function(itemID)
+        if itemID == 198401 then return 0, 9 end
+        if itemID == 241316 then return 0, 10 end
+        return nil, nil
+    end
+
+    local originalCUnitAuras = _G.C_UnitAuras
+    _G.C_UnitAuras = {
+        GetPlayerAuraBySpellID = function(spellID)
+            if spellID == 375787 then -- Cerulean Spinefish Lure active
+                return {
+                    spellId = 375787,
+                    duration = 1800,
+                    expirationTime = mockTime + 900,
+                }
+            end
+            return nil
+        end,
+        GetAuraDataByIndex = function() return nil end,
+    }
+
+    DreamFisher.fishing.ConfigureFishingClickAction()
+
+    _G.C_UnitAuras = originalCUnitAuras
+    DreamFisher.buff.FindItemInBags = originalFind
+
+    local macrotext = capturedAttrs["macrotext"] or ""
+    assertTrue(macrotext:find("/use item:198401", 1, true) == nil,
+        "Bait category should be skipped while any bait aura is active")
+    assertTrue(macrotext:find("/use item:241316", 1, true) ~= nil,
+        "Selection should continue to next category when bait pass is skipped")
+end
+
 function tests.PrecastPrioritizesFoodDrinkBeforeOtherConsumable()
     local capturedAttrs = {}
     local fishingFrame = DreamFisher.fishing.CreateSecureFishingFrame()
