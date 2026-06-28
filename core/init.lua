@@ -79,7 +79,10 @@ addon.state = {
     buffItemLastKnownCount = {},
     buffMissingWarningCooldown = 8,
     buffItemLastMissingWarningAt = {},
+    buffItemTransientUntil = {},
     lureMissingPoleWarningAt = 0,
+    buffCastBlockWarningAt = 0,
+    foodDrinkCastBlockWarningAt = 0,
     pendingBuffObservation = nil,
     uiBuffCursorDragState = nil,
 }

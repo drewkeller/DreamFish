@@ -3,6 +3,27 @@
 local addon = _G["DreamFisher"]
 local Clamp = addon.Clamp
 
+local function GetBuffItemCategoryForDue(itemID)
+    local numeric = tonumber(itemID)
+    if not numeric or numeric <= 0 then
+        return "other_consumable"
+    end
+
+    local known = addon.const
+        and type(addon.const.knownBuffItems) == "table"
+        and addon.const.knownBuffItems[numeric]
+        or nil
+    if type(known) == "table" and type(known.category) == "string" and known.category ~= "" then
+        return known.category
+    end
+
+    if addon.buff and type(addon.buff.GetBuffItemCategory) == "function" then
+        return addon.buff.GetBuffItemCategory(numeric)
+    end
+
+    return "other_consumable"
+end
+
 local function GetBuffRefreshLead(refreshSeconds)
     local baseLead = Clamp(math.floor(refreshSeconds * 0.1), 3, 15)
     local castAwareLead = addon.const.maxFishingCastSeconds + addon.const.buffPreRefreshSafetySeconds
@@ -10,6 +31,14 @@ local function GetBuffRefreshLead(refreshSeconds)
 end
 
 local function IsBuffItemDue(itemID, refreshSeconds, requireAuraForCast)
+    local itemCategory = GetBuffItemCategoryForDue(itemID)
+    if itemCategory == "food_drink" and addon.state and type(addon.state.buffItemTransientUntil) == "table" then
+        local transientUntil = tonumber(addon.state.buffItemTransientUntil[tonumber(itemID)]) or 0
+        if transientUntil > GetTime() then
+            return false, (transientUntil - GetTime()), "food_drink_transient_active"
+        end
+    end
+
     local lastUsed = addon.state.buffItemLastUseAt[itemID] or 0
     local remaining = addon.buff.GetTrackedBuffRemaining(itemID)
     if remaining ~= nil then

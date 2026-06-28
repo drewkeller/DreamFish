@@ -90,6 +90,7 @@ function RunTest(name, testFn)
         DreamFisher.state.buffItemLastUseAt = {}
         DreamFisher.state.buffItemLastReminderAt = {}
         DreamFisher.state.buffItemLastMissingWarningAt = {}
+        DreamFisher.state.buffItemTransientUntil = {}
         DreamFisher.state.pendingBuffObservation = nil
         testFn()
     end)
@@ -307,6 +308,134 @@ function tests.BuffDueUntrackedNoHistoryForCast()
     local isDue, remaining, reason = DreamFisher._test.IsBuffItemDue(444, 60, true)
     assertEquals(isDue, true, "Untracked buff with no history should be due for cast")
     assertEquals(reason, "untracked_no_history_due_cast", "Should cite first-use cast reason")
+end
+
+function tests.TrackingDoesNotDowngradeKnownLongDurationToTransientAura()
+    local originalCUnitAuras = _G.C_UnitAuras
+    local originalAuraUtil = _G.AuraUtil
+
+    DreamFisher._test.SetDB({
+        buffItems = { { itemID = 242299, expectedDuration = 3600 } },
+        buffAuraByItem = {
+            ["242299"] = { spellID = 1269152, duration = 3600 },
+        },
+    })
+
+    DreamFisher.state.pendingBuffObservation = {
+        itemID = 242299,
+        before = {},
+        expiresAt = mockTime + 10,
+    }
+
+    _G.C_UnitAuras = {
+        GetPlayerAuraBySpellID = function() return nil end,
+        GetAuraDataByIndex = function(unit, index, filter)
+            if index == 1 then
+                return {
+                    spellId = 1277461,
+                    duration = 20,
+                    expirationTime = mockTime + 20,
+                }
+            end
+            return nil
+        end,
+    }
+    _G.AuraUtil = nil
+
+    DreamFisher.buff.UpdatePendingBuffObservation()
+
+    local tracked = DreamFisher.db.buffAuraByItem["242299"]
+    assertTrue(type(tracked) == "table", "Tracked mapping should exist for tea")
+    assertEquals(tracked.spellID, 1269152, "Transient aura should not replace long tracked spellID")
+    assertEquals(tracked.duration, 3600, "Transient aura should not replace long tracked duration")
+    assertEquals(DreamFisher.state.pendingBuffObservation, nil, "Pending observation should be cleared")
+
+    _G.C_UnitAuras = originalCUnitAuras
+    _G.AuraUtil = originalAuraUtil
+end
+
+function tests.TrackingSkipsTransientAuraForFoodDrinkByExpectedDuration()
+    local originalCUnitAuras = _G.C_UnitAuras
+    local originalAuraUtil = _G.AuraUtil
+    local originalGetBuffItemCategory = DreamFisher.buff.GetBuffItemCategory
+
+    DreamFisher._test.SetDB({
+        buffItems = { { itemID = 555001, expectedDuration = 1800 } },
+        buffAuraByItem = {},
+    })
+
+    DreamFisher.buff.GetBuffItemCategory = function(itemID)
+        if itemID == 555001 then
+            return "food_drink"
+        end
+        if originalGetBuffItemCategory then
+            return originalGetBuffItemCategory(itemID)
+        end
+        return "other_consumable"
+    end
+
+    DreamFisher.state.pendingBuffObservation = {
+        itemID = 555001,
+        before = {},
+        expiresAt = mockTime + 10,
+    }
+
+    _G.C_UnitAuras = {
+        GetPlayerAuraBySpellID = function() return nil end,
+        GetAuraDataByIndex = function(unit, index, filter)
+            if index == 1 then
+                return {
+                    spellId = 1277461,
+                    duration = 20,
+                    expirationTime = mockTime + 20,
+                }
+            end
+            return nil
+        end,
+    }
+    _G.AuraUtil = nil
+
+    DreamFisher.buff.UpdatePendingBuffObservation()
+
+    local tracked = DreamFisher.db.buffAuraByItem["555001"]
+    assertEquals(tracked, nil, "Food/drink mapping should not learn from transient short aura")
+    assertEquals(DreamFisher.state.pendingBuffObservation, nil, "Pending observation should be cleared")
+
+    DreamFisher.buff.GetBuffItemCategory = originalGetBuffItemCategory
+    _G.C_UnitAuras = originalCUnitAuras
+    _G.AuraUtil = originalAuraUtil
+end
+
+function tests.FoodDrinkTransientWindowSuppressesDueAction()
+    local originalCUnitAuras = _G.C_UnitAuras
+    local originalAuraUtil = _G.AuraUtil
+
+    DreamFisher._test.SetDB({
+        buffItems = { { itemID = 242299, expectedDuration = 3600 } },
+        buffAuraByItem = { ["242299"] = { spellID = 1269152, duration = 3600 } },
+    })
+
+    _G.C_UnitAuras = {
+        GetPlayerAuraBySpellID = function() return nil end,
+        GetAuraDataByIndex = function() return nil end,
+    }
+    _G.AuraUtil = nil
+
+    DreamFisher.state.buffItemTransientUntil[242299] = mockTime + 12
+
+    local isDueNow, remainingNow, reasonNow = DreamFisher._test.IsBuffItemDue(242299, 3600, true)
+    assertEquals(isDueNow, false, "Food/drink should not be due while transient window is active")
+    assertEquals(reasonNow, "food_drink_transient_active", "Should cite food_drink transient suppression")
+    assertTrue(remainingNow and remainingNow > 0, "Transient suppression should report remaining time")
+
+    mockTime = mockTime + 13
+
+    local isDueAfter, _, reasonAfter = DreamFisher._test.IsBuffItemDue(242299, 3600, true)
+    assertEquals(isDueAfter, true, "Food/drink can become due again after transient window expires")
+    assertEquals(reasonAfter, "tracked_missing_aura", "After transient window, fallback should be tracked_missing_aura")
+
+    _G.C_UnitAuras = originalCUnitAuras
+    _G.AuraUtil = originalAuraUtil
 end
 
 -- ============================================================================

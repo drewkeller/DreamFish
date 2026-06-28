@@ -45,6 +45,30 @@ local function BuildHelpfulAuraSnapshot()
     return snapshot
 end
 
+local function GetConfiguredExpectedDuration(itemID)
+    if not addon.db or type(addon.db.buffItems) ~= "table" then
+        return nil
+    end
+
+    local numeric = tonumber(itemID)
+    if not numeric or numeric <= 0 then
+        return nil
+    end
+
+    for _, entry in ipairs(addon.db.buffItems) do
+        local entryItemID = type(entry) == "table" and tonumber(entry.itemID) or nil
+        if entryItemID and entryItemID == numeric then
+            local expectedDuration = type(entry) == "table" and tonumber(entry.expectedDuration) or nil
+            if not expectedDuration then
+                expectedDuration = type(entry) == "table" and tonumber(entry.refreshSeconds) or nil
+            end
+            return expectedDuration
+        end
+    end
+
+    return nil
+end
+
 local function UpdatePendingBuffObservation()
     if not addon.state.pendingBuffObservation or not addon.db then
         return
@@ -77,6 +101,7 @@ local function UpdatePendingBuffObservation()
     local current = BuildHelpfulAuraSnapshot()
     local bestSpellID = nil
     local bestDuration = 0
+    local bestExpirationTime = nil
 
     for spellID, aura in pairs(current) do
         local previous = before[spellID]
@@ -85,6 +110,7 @@ local function UpdatePendingBuffObservation()
         if (isNewAura or refreshedAura) and aura.duration and aura.duration > bestDuration then
             bestSpellID = spellID
             bestDuration = aura.duration
+            bestExpirationTime = aura.expirationTime
         end
     end
 
@@ -98,21 +124,47 @@ local function UpdatePendingBuffObservation()
             and addon.const.knownBuffItems[itemID]
             or nil
         local knownDuration = type(known) == "table" and tonumber(known.duration) or 0
+
+        local category = nil
+        if type(known) == "table" and type(known.category) == "string" and known.category ~= "" then
+            category = known.category
+        elseif addon.buff and type(addon.buff.GetBuffItemCategory) == "function" then
+            category = addon.buff.GetBuffItemCategory(itemID)
+        end
+
+        local configuredExpectedDuration = tonumber(GetConfiguredExpectedDuration(itemID)) or 0
         local floorDuration = math.max(existingDuration or 0, knownDuration or 0)
+        if category == "food_drink" then
+            local foodDrinkExpected = math.max(configuredExpectedDuration, knownDuration or 0, existingDuration or 0)
+            if foodDrinkExpected > 0 then
+                floorDuration = math.max(floorDuration, foodDrinkExpected * 0.5)
+            end
+        end
 
         -- Do not overwrite a known/learned long-duration mapping with a shorter
         -- transient aura that appears during observation.
         if floorDuration > 0 and bestDuration < floorDuration then
+            if category == "food_drink" and bestDuration > 0 and addon.state then
+                addon.state.buffItemTransientUntil = addon.state.buffItemTransientUntil or {}
+                local now = GetTime()
+                local transientUntil = (bestExpirationTime and bestExpirationTime > now)
+                    and bestExpirationTime
+                    or (now + bestDuration)
+                addon.state.buffItemTransientUntil[itemID] = transientUntil
+            end
             addon.state.pendingBuffObservation = nil
             return
         end
 
         local auraName = (type(GetSpellInfo) == "function" and GetSpellInfo(bestSpellID)) or nil
-        addon.db.buffAuraByItem[tostring(addon.state.pendingBuffObservation.itemID)] = {
+        addon.db.buffAuraByItem[key] = {
             spellID = bestSpellID,
             duration = bestDuration,
         }
-        PrintMessage("Buff tracked for item:" .. tostring(addon.state.pendingBuffObservation.itemID)
+        if addon.state and addon.state.buffItemTransientUntil then
+            addon.state.buffItemTransientUntil[itemID] = nil
+        end
+        PrintMessage("Buff tracked for item:" .. tostring(itemID)
             .. " [spellID=" .. tostring(bestSpellID)
             .. (auraName and (", aura=" .. tostring(auraName)) or "")
             .. ", item=" .. addon.buff.FormatDuration(bestDuration)

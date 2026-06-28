@@ -113,6 +113,9 @@ function RunTest(name, testFn)
             buffAuraByItem = {},
             refreshSeconds = 180,
         })
+        DreamFisher.state.buffItemTransientUntil = {}
+        DreamFisher.state.buffCastBlockWarningAt = 0
+        DreamFisher.state.foodDrinkCastBlockWarningAt = 0
         DreamFisher._test.SetLastRightClickTime(0)  -- Clear click state
         testFn()
     end)
@@ -700,6 +703,188 @@ function tests.HotkeyFallsBackToOtherConsumableWhenLureBlockedByMissingPole()
             "Fallback non-lure item should not target fishing profession slot")
     end
     assertEquals(cueCalls, 1, "Blocked lure warning should still play warning cue once")
+end
+
+function tests.HotkeyAbortsWhenFoodDrinkTransientActiveWithoutLastingAura()
+    local capturedAttrs = {}
+    local fishingFrame = DreamFisher.fishing.CreateSecureFishingFrame()
+    if fishingFrame then
+        local origSet = fishingFrame.SetAttribute
+        fishingFrame.SetAttribute = function(self, k, v)
+            capturedAttrs[k] = v
+            return origSet and origSet(self, k, v)
+        end
+    end
+
+    DreamFisher._test.SetDB({
+        castingModes = { hotkey = true },
+        buffItems = { { itemID = 242299, expectedDuration = 3600 } },
+        buffAuraByItem = { ["242299"] = { spellID = 1269152, duration = 3600 } },
+        useOversizedBobber = false,
+        selectedBobberToy = nil,
+    })
+
+    local originalCUnitAuras = _G.C_UnitAuras
+    _G.C_UnitAuras = {
+        GetPlayerAuraBySpellID = function() return nil end,
+        GetAuraDataByIndex = function() return nil end,
+    }
+
+    DreamFisher.state.buffItemTransientUntil[242299] = mockTime + 15
+
+    local cueCalls = 0
+    local originalWarningCue = DreamFisher.audio.PlayWarningCue
+    DreamFisher.audio.PlayWarningCue = function()
+        cueCalls = cueCalls + 1
+    end
+
+    DreamFisher.fishing.ConfigureFishingClickAction()
+
+    DreamFisher.audio.PlayWarningCue = originalWarningCue
+    _G.C_UnitAuras = originalCUnitAuras
+
+    if fishingFrame then
+        assertEquals(capturedAttrs["type"], nil, "Food/drink transient should abort pre-cast action")
+        assertEquals(capturedAttrs["spell"], nil, "Food/drink transient should not set Fishing spell")
+        assertEquals(capturedAttrs["macrotext"], nil, "Food/drink transient should not set macro action")
+    end
+    assertEquals(cueCalls, 1, "Food/drink transient cast block should play warning cue once")
+end
+
+function tests.HotkeyTransientActiveDoesNotFallbackToOtherBuffItems()
+    local capturedAttrs = {}
+    local fishingFrame = DreamFisher.fishing.CreateSecureFishingFrame()
+    if fishingFrame then
+        local origSet = fishingFrame.SetAttribute
+        fishingFrame.SetAttribute = function(self, k, v)
+            capturedAttrs[k] = v
+            return origSet and origSet(self, k, v)
+        end
+    end
+
+    DreamFisher._test.SetDB({
+        castingModes = { hotkey = true },
+        buffItems = {
+            { itemID = 242299, expectedDuration = 3600 },
+            { itemID = 238367, expectedDuration = 30 },
+        },
+        buffAuraByItem = {
+            ["242299"] = { spellID = 1269152, duration = 3600 },
+            ["238367"] = { spellID = 1235216, duration = 30 },
+        },
+        useOversizedBobber = false,
+        selectedBobberToy = nil,
+    })
+
+    local originalFind = DreamFisher.buff.FindItemInBags
+    DreamFisher.buff.FindItemInBags = function(itemID)
+        if itemID == 242299 then return 1, 18 end
+        if itemID == 238367 then return 4, 17 end
+        return nil, nil
+    end
+
+    local originalCUnitAuras = _G.C_UnitAuras
+    _G.C_UnitAuras = {
+        GetPlayerAuraBySpellID = function() return nil end,
+        GetAuraDataByIndex = function() return nil end,
+    }
+
+    DreamFisher.state.buffItemTransientUntil[242299] = mockTime + 16
+
+    local cueCalls = 0
+    local originalWarningCue = DreamFisher.audio.PlayWarningCue
+    DreamFisher.audio.PlayWarningCue = function()
+        cueCalls = cueCalls + 1
+    end
+
+    DreamFisher.fishing.ConfigureFishingClickAction()
+
+    DreamFisher.audio.PlayWarningCue = originalWarningCue
+    DreamFisher.buff.FindItemInBags = originalFind
+    _G.C_UnitAuras = originalCUnitAuras
+
+    if fishingFrame then
+        local macrotext = capturedAttrs["macrotext"] or ""
+        assertEquals(capturedAttrs["type"], nil, "Transient buff should abort pre-cast action")
+        assertTrue(macrotext:find("/use item:238367", 1, true) == nil,
+            "No fallback buff item should be used while transient buff is active")
+    end
+    assertEquals(cueCalls, 1, "Transient cast block should play warning cue once")
+end
+
+function tests.HotkeyTeaTransientBlocksFallbackEvenIfTrackedAuraLooksActive()
+    local capturedAttrs = {}
+    local fishingFrame = DreamFisher.fishing.CreateSecureFishingFrame()
+    if fishingFrame then
+        local origSet = fishingFrame.SetAttribute
+        fishingFrame.SetAttribute = function(self, k, v)
+            capturedAttrs[k] = v
+            return origSet and origSet(self, k, v)
+        end
+    end
+
+    DreamFisher._test.SetDB({
+        castingModes = { hotkey = true },
+        buffItems = {
+            { itemID = 242299, expectedDuration = 3600 },
+            { itemID = 238381, expectedDuration = 30 },
+        },
+        -- Simulate transient remap for tea in saved mapping.
+        buffAuraByItem = {
+            ["242299"] = { spellID = 1277461, duration = 20 },
+            ["238381"] = { spellID = 1237942, duration = 30 },
+        },
+        useOversizedBobber = false,
+        selectedBobberToy = nil,
+    })
+
+    local originalFind = DreamFisher.buff.FindItemInBags
+    DreamFisher.buff.FindItemInBags = function(itemID)
+        if itemID == 242299 then return 1, 18 end
+        if itemID == 238381 then return 3, 31 end
+        return nil, nil
+    end
+
+    local originalCUnitAuras = _G.C_UnitAuras
+    _G.C_UnitAuras = {
+        GetPlayerAuraBySpellID = function(spellID)
+            if spellID == 1277461 then
+                return {
+                    spellId = 1277461,
+                    duration = 20,
+                    expirationTime = mockTime + 16,
+                }
+            end
+            -- Known lasting tea aura is not active yet.
+            if spellID == 1269152 then
+                return nil
+            end
+            return nil
+        end,
+        GetAuraDataByIndex = function() return nil end,
+    }
+
+    DreamFisher.state.buffItemTransientUntil[242299] = mockTime + 16
+
+    local cueCalls = 0
+    local originalWarningCue = DreamFisher.audio.PlayWarningCue
+    DreamFisher.audio.PlayWarningCue = function()
+        cueCalls = cueCalls + 1
+    end
+
+    DreamFisher.fishing.ConfigureFishingClickAction()
+
+    DreamFisher.audio.PlayWarningCue = originalWarningCue
+    DreamFisher.buff.FindItemInBags = originalFind
+    _G.C_UnitAuras = originalCUnitAuras
+
+    if fishingFrame then
+        local macrotext = capturedAttrs["macrotext"] or ""
+        assertEquals(capturedAttrs["type"], nil, "Tea transient should abort pre-cast action")
+        assertTrue(macrotext:find("/use item:238381", 1, true) == nil,
+            "Hollow Grouper should not be used while tea transient is active")
+    end
+    assertEquals(cueCalls, 1, "Tea transient cast block should play warning cue once")
 end
 
 function tests.PrecastAppliesRaftBeforeDueBuff()
