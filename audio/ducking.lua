@@ -4,6 +4,23 @@ local addon = _G["DreamFisher"]
 local Clamp = addon.Clamp
 local PrintMessage = addon.PrintMessage
 
+local function ToNumberOrNil(value)
+    local n = tonumber(value)
+    if not n then
+        return nil
+    end
+    return n
+end
+
+local function NearlyEqual(a, b)
+    local na = ToNumberOrNil(a)
+    local nb = ToNumberOrNil(b)
+    if not na or not nb then
+        return false
+    end
+    return math.abs(na - nb) <= 0.0001
+end
+
 local function EnableFishingAudioFocus(force)
     if not force and (not addon.db or not addon.db.enhancedSounds) then
         return
@@ -15,10 +32,27 @@ local function EnableFishingAudioFocus(force)
         return
     end
 
+    local currentAmbience = GetCVar("Sound_AmbienceVolume")
+    local currentMusic = GetCVar("Sound_MusicVolume")
+    local currentDialog = GetCVar("Sound_DialogVolume")
+
+    local lastDucked = addon.state.lastFishingDuckedAudioCVars
+    if type(lastDucked) == "table"
+        and NearlyEqual(currentAmbience, lastDucked.ambience)
+        and NearlyEqual(currentMusic, lastDucked.music)
+        and NearlyEqual(currentDialog, lastDucked.dialog) then
+        addon.state.savedFishingAudioCVars = {
+            ambience = currentAmbience,
+            music = currentMusic,
+            dialog = currentDialog,
+        }
+        return
+    end
+
     addon.state.savedFishingAudioCVars = {
-        ambience = GetCVar("Sound_AmbienceVolume"),
-        music = GetCVar("Sound_MusicVolume"),
-        dialog = GetCVar("Sound_DialogVolume"),
+        ambience = currentAmbience,
+        music = currentMusic,
+        dialog = currentDialog,
     }
 
     local ambienceVolume = tonumber(addon.state.savedFishingAudioCVars.ambience)
@@ -35,6 +69,12 @@ local function EnableFishingAudioFocus(force)
     if dialogVolume then
         SetCVar("Sound_DialogVolume", tostring(Clamp(dialogVolume * 0.5, 0, 1)))
     end
+
+    addon.state.lastFishingDuckedAudioCVars = {
+        ambience = GetCVar("Sound_AmbienceVolume"),
+        music = GetCVar("Sound_MusicVolume"),
+        dialog = GetCVar("Sound_DialogVolume"),
+    }
 end
 
 local function RestoreFishingAudioFocus()

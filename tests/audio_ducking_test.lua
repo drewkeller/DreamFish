@@ -208,6 +208,17 @@ assertTrue(addon._test.GetAudioDucked(), "Audio should duck on right-double-clic
 assertTrue(isFishing, "Fishing session should be active after right-double-click")
 assertTrue(bobberActive, "Bobber should be treated as active for fallback session tracking")
 
+-- Case 2b: If current levels already match previous ducked targets, do not duck again.
+addon._test.RestoreFishingAudioFocus()
+cvars.Sound_AmbienceVolume = tostring(0.4 * 0.35)
+cvars.Sound_MusicVolume = tostring(0.3 * 0.2)
+cvars.Sound_DialogVolume = tostring(0.8 * 0.5)
+addon._test.EnableFishingAudioFocus(true)
+assertEquals(cvars.Sound_AmbienceVolume, tostring(0.4 * 0.35), "Already-ducked ambience should not be ducked again")
+assertEquals(cvars.Sound_MusicVolume, tostring(0.3 * 0.2), "Already-ducked music should not be ducked again")
+assertEquals(cvars.Sound_DialogVolume, tostring(0.8 * 0.5), "Already-ducked dialog should not be ducked again")
+addon._test.RestoreFishingAudioFocus()
+
 -- Case 3: Manual cast start via spell-name fallback ducks audio and starts session.
 resetState()
 now = 300
