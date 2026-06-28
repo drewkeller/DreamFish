@@ -939,6 +939,36 @@ local function ArmFishingRightClickAction(fishingFrame)
     return true
 end
 
+local function ClearRightClickBuffFrameState(buffFrame, clearBeforeHide)
+    if not buffFrame then
+        return
+    end
+
+    if clearBeforeHide and not InCombatLockdown() then
+        ClearOverrideBindings(buffFrame)
+    end
+    buffFrame:Hide()
+    ResetBuffFrameState(buffFrame)
+    if (not clearBeforeHide) and not InCombatLockdown() then
+        ClearOverrideBindings(buffFrame)
+    end
+end
+
+local function ClearRightClickFishingFrameState(fishingFrame, clearBeforeReset)
+    if not fishingFrame then
+        return
+    end
+
+    if clearBeforeReset and not InCombatLockdown() then
+        ClearOverrideBindings(fishingFrame)
+    end
+    ResetFishingFrameState(fishingFrame)
+    fishingFrame:Hide()
+    if (not clearBeforeReset) and not InCombatLockdown() then
+        ClearOverrideBindings(fishingFrame)
+    end
+end
+
 local function HandleWorldRightClick(forceImmediate)
     if InCombatLockdown() then
         DebugMessage("Right click ignored: in combat lockdown")
@@ -1022,9 +1052,7 @@ local function HandleWorldRightClick(forceImmediate)
 
         if fishingFrame and not InCombatLockdown() then
             if buffFrame then
-                ClearOverrideBindings(buffFrame)
-                buffFrame:Hide()
-                ResetBuffFrameState(buffFrame)
+                ClearRightClickBuffFrameState(buffFrame, true)
             end
             ArmFishingRightClickAction(fishingFrame)
             if (not hookedModeActive) and hasAnyInteractUnit and inFishingWindow then
@@ -1038,11 +1066,7 @@ local function HandleWorldRightClick(forceImmediate)
     end
 
     if not hasConfiguredBuffItems and buffFrame then
-        buffFrame:Hide()
-        ResetBuffFrameState(buffFrame)
-        if not InCombatLockdown() then
-            ClearOverrideBindings(buffFrame)
-        end
+        ClearRightClickBuffFrameState(buffFrame, false)
         addon.state.pendingBuffObservation = nil
     end
 
@@ -1062,20 +1086,12 @@ local function HandleWorldRightClick(forceImmediate)
         end
 
         DebugMessage("Clearing stale secure buff click state")
-        buffFrame:Hide()
-        ResetBuffFrameState(buffFrame)
-        if not InCombatLockdown() then
-            ClearOverrideBindings(buffFrame)
-        end
+        ClearRightClickBuffFrameState(buffFrame, false)
     end
 
     if fishingFrame and fishingFrame:IsShown() then
         DebugMessage("Clearing stale secure fishing click state")
-        ResetFishingFrameState(fishingFrame)
-        fishingFrame:Hide()
-        if not InCombatLockdown() then
-            ClearOverrideBindings(fishingFrame)
-        end
+        ClearRightClickFishingFrameState(fishingFrame, false)
     end
 
     if forceImmediate or allowSingleClick or (now - addon.state.lastRightClickTime) <= (addon.state.doubleClickWindow + 0.001) then
@@ -1091,9 +1107,7 @@ local function HandleWorldRightClick(forceImmediate)
             DebugMessage("Click-cast routing to raft-only pre-cast while swimming")
             if not InCombatLockdown() then
                 if buffFrame then
-                    ClearOverrideBindings(buffFrame)
-                    buffFrame:Hide()
-                    ResetBuffFrameState(buffFrame)
+                    ClearRightClickBuffFrameState(buffFrame, true)
                 end
                 local activeFishingFrame = addon.frames.fishing
                 if activeFishingFrame then
@@ -1118,8 +1132,7 @@ local function HandleWorldRightClick(forceImmediate)
 
         -- Double-click detected with no due buffs: initiate fishing
         if buffFrame then
-            buffFrame:Hide()
-            ResetBuffFrameState(buffFrame)
+            ClearRightClickBuffFrameState(buffFrame, false)
         end
         addon.audio.StartFishingAudioFocus()
         local now = (type(GetTime) == "function") and GetTime() or 0
@@ -1143,7 +1156,7 @@ local function HandleWorldRightClick(forceImmediate)
         if not InCombatLockdown() then
             buffFrame = addon.frames.buff
             if buffFrame then
-                ClearOverrideBindings(buffFrame)
+                ClearRightClickBuffFrameState(buffFrame, true)
             end
             local fishingFrame = addon.frames.fishing
             if fishingFrame then
@@ -1155,15 +1168,11 @@ local function HandleWorldRightClick(forceImmediate)
         DebugMessage("Single right-click: no addon action (awaiting second click)")
         if not InCombatLockdown() then
             if fishingFrame then
-                ClearOverrideBindings(fishingFrame)
-                ResetFishingFrameState(fishingFrame)
-                fishingFrame:Hide()
+                ClearRightClickFishingFrameState(fishingFrame, true)
             end
             buffFrame = addon.frames.buff
             if buffFrame then
-                ClearOverrideBindings(buffFrame)
-                buffFrame:Hide()
-                ResetBuffFrameState(buffFrame)
+                ClearRightClickBuffFrameState(buffFrame, true)
             end
         end
     end
