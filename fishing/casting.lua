@@ -871,6 +871,62 @@ local function HandleDirectCastStep()
     return TryCastFishingDirect()
 end
 
+local function BuildDueBuffMacroText(itemID, category)
+    local bag, slot = addon.buff.FindItemInBags(itemID)
+    local macroLines = {}
+    if bag and slot then
+        table.insert(macroLines, "/use " .. tostring(bag) .. " " .. tostring(slot))
+    else
+        table.insert(macroLines, "/use item:" .. tostring(itemID))
+    end
+    if IsLureCategory(category) then
+        table.insert(macroLines, "/use 28")
+    end
+    return table.concat(macroLines, "\n")
+end
+
+local function ArmDueBuffRightClick(buffFrame, fishingFrame, pendingBuffItemID, pendingBuffCategory)
+    if not buffFrame then
+        DebugMessage("No secure buff frame available; skipping due buff binding")
+        return false
+    end
+
+    local macrotext = BuildDueBuffMacroText(pendingBuffItemID, pendingBuffCategory)
+
+    buffFrame:SetAttribute("type", "macro")
+    buffFrame:SetAttribute("type2", "macro")
+    buffFrame:SetAttribute("macrotext", macrotext)
+    buffFrame:SetAttribute("macrotext2", macrotext)
+    buffFrame:SetAttribute("item", nil)
+    buffFrame:SetAttribute("item2", nil)
+    buffFrame:SetAttribute("dreamfisher_itemid", pendingBuffItemID)
+    DebugMessage("Double-click arming due buff: " .. GetDebugItemLabel(pendingBuffItemID)
+        .. " category=" .. tostring(pendingBuffCategory)
+        .. " " .. GetDebugCooldownText(pendingBuffItemID)
+        .. " macro=" .. tostring(macrotext:gsub("\n", " | ")))
+
+    if not InCombatLockdown() then
+        if fishingFrame then
+            ClearOverrideBindings(fishingFrame)
+            fishingFrame:Hide()
+        end
+        SetOverrideBindingClick(buffFrame, true, "BUTTON2", buffFrame:GetName(), "RightButton")
+    end
+    buffFrame:Show()
+    return true
+end
+
+local function ResolveRightClickPendingDueBuff(hasConfiguredBuffItems)
+    if not hasConfiguredBuffItems then
+        DebugMessage("No configured buff items in cast handler; skipping buff arm")
+        return nil, false, nil
+    end
+
+    return GetNextCastableDueBuffItem(
+        "Double-click skipping lure due buff; no fishing pole equipped in profession slot"
+    )
+end
+
 local function HandleWorldRightClick(forceImmediate)
     if InCombatLockdown() then
         DebugMessage("Right click ignored: in combat lockdown")
@@ -1039,57 +1095,16 @@ local function HandleWorldRightClick(forceImmediate)
             return
         end
 
-        local pendingBuffItemID = nil
-        local pendingBuffCategory = nil
-        local hadUnavailableDueBuff = false
-        if hasConfiguredBuffItems then
-            pendingBuffItemID, hadUnavailableDueBuff, pendingBuffCategory = GetNextCastableDueBuffItem(
-                "Double-click skipping lure due buff; no fishing pole equipped in profession slot"
-            )
-        else
-            DebugMessage("No configured buff items in cast handler; skipping buff arm")
-        end
+        local pendingBuffItemID, hadUnavailableDueBuff, pendingBuffCategory = ResolveRightClickPendingDueBuff(hasConfiguredBuffItems)
 
         if pendingBuffItemID then
             if allowSingleClick then
                 DebugMessage("Config window open: single right-click using due buff")
             end
             buffFrame = addon.frames.buff
-            if not buffFrame then
-                DebugMessage("No secure buff frame available; skipping due buff binding")
+            if not ArmDueBuffRightClick(buffFrame, fishingFrame, pendingBuffItemID, pendingBuffCategory) then
                 return
             end
-            local bag, slot = addon.buff.FindItemInBags(pendingBuffItemID)
-            local macroLines = {}
-            if bag and slot then
-                table.insert(macroLines, "/use " .. tostring(bag) .. " " .. tostring(slot))
-            else
-                table.insert(macroLines, "/use item:" .. tostring(pendingBuffItemID))
-            end
-            if IsLureCategory(pendingBuffCategory) then
-                table.insert(macroLines, "/use 28")
-            end
-            local macrotext = table.concat(macroLines, "\n")
-
-            buffFrame:SetAttribute("type", "macro")
-            buffFrame:SetAttribute("type2", "macro")
-            buffFrame:SetAttribute("macrotext", macrotext)
-            buffFrame:SetAttribute("macrotext2", macrotext)
-            buffFrame:SetAttribute("item", nil)
-            buffFrame:SetAttribute("item2", nil)
-            buffFrame:SetAttribute("dreamfisher_itemid", pendingBuffItemID)
-            DebugMessage("Double-click arming due buff: " .. GetDebugItemLabel(pendingBuffItemID)
-                .. " category=" .. tostring(pendingBuffCategory)
-                .. " " .. GetDebugCooldownText(pendingBuffItemID)
-                .. " macro=" .. tostring(macrotext:gsub("\n", " | ")))
-            if not InCombatLockdown() then
-                if fishingFrame then
-                    ClearOverrideBindings(fishingFrame)
-                    fishingFrame:Hide()
-                end
-                SetOverrideBindingClick(buffFrame, true, "BUTTON2", buffFrame:GetName(), "RightButton")
-            end
-            buffFrame:Show()
             return
         end
 
