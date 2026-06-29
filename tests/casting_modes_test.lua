@@ -176,6 +176,21 @@ function tests.SingleClickClearsBindings()
     DreamFisher.buff.FindItemInBags = originalFind
 end
 
+function tests.TargetSelectedRightClickDoesNotStartFishingFlow()
+    local originalUnitExists = _G.UnitExists
+    _G.UnitExists = function(unit)
+        return unit == "target"
+    end
+
+    DreamFisher._test.SetLastRightClickTime(mockTime - 0.1)
+    DreamFisher._test.HandleWorldRightClick()
+
+    _G.UnitExists = originalUnitExists
+
+    assertEquals(DreamFisher._test.GetLastRightClickTime(), 0,
+        "Target-selected right-click should clear pending click timing")
+end
+
 -- ============================================================================
 -- Tests: Double-Click with Due Buff
 -- ============================================================================
@@ -468,6 +483,30 @@ end
 -- ============================================================================
 -- Tests: Hotkey Secure-Click Path (ConfigureFishingClickAction)
 -- ============================================================================
+
+function tests.TargetSelectedSkipsSecureFishingConfiguration()
+    local capturedAttrs = {}
+    local fishingFrame = DreamFisher.fishing.CreateSecureFishingFrame()
+    local origSet = fishingFrame.SetAttribute
+    fishingFrame.SetAttribute = function(self, k, v)
+        capturedAttrs[k] = v
+        return origSet and origSet(self, k, v)
+    end
+
+    local originalUnitExists = _G.UnitExists
+    _G.UnitExists = function(unit)
+        return unit == "target"
+    end
+
+    local configured = DreamFisher.fishing.ConfigureFishingClickAction()
+
+    _G.UnitExists = originalUnitExists
+
+    assertEquals(configured, false,
+        "Target-selected secure configure should return false")
+    assertEquals(capturedAttrs["type"], nil,
+        "Target-selected secure configure should not set an action type")
+end
 
 function tests.HotkeyConfiguresFishingSpellWhenNoBuffItems()
     -- With no configured buff items, fishing action should be set to spell cast

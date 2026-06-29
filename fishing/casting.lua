@@ -527,6 +527,10 @@ local function ShouldAbortPreCastForTransientBuffInUse()
     return true
 end
 
+local function HasTargetSelected()
+    return (type(UnitExists) == "function") and UnitExists("target") and true or false
+end
+
 local function ResolveSecurePreCastDueBuff(raftExclusiveWhileSwimming)
     if raftExclusiveWhileSwimming then
         return nil, nil
@@ -607,7 +611,13 @@ end
 ConfigureFishingClickAction = function()
     local fishingFrame = addon.frames.fishing
     if not fishingFrame then
-        return
+        return false
+    end
+
+    if HasTargetSelected() then
+        DebugMessage("Target selected; skipping fishing click configuration")
+        ResetFishingFrameState(fishingFrame)
+        return false
     end
 
     local now = (type(GetTime) == "function") and GetTime() or 0
@@ -694,6 +704,7 @@ ConfigureFishingClickAction = function()
     local dueBuffItemID, dueBuffCategory = ResolveSecurePreCastDueBuff(raftExclusiveWhileSwimming)
     ApplyDueBuffToSecureMacro(fishingFrame, macroLines, dueBuffItemID, dueBuffCategory)
     FinalizeSecureFishingAction(fishingFrame, macroLines, raftExclusiveWhileSwimming, bobberDecision)
+    return true
 end
 
 local function GetNextReadyDueBuffItemForCategory(category, excludedBuffItemIDs)
@@ -1022,7 +1033,10 @@ local function ArmFishingRightClickAction(fishingFrame)
         return false
     end
 
-    ConfigureFishingClickAction()
+    local configured = ConfigureFishingClickAction()
+    if configured == false then
+        return false
+    end
     SetOverrideBindingClick(fishingFrame, true, "BUTTON2", fishingFrame:GetName(), "RightButton")
     -- Show the secure frame so the current click release can trigger the secure action.
     fishingFrame:Show()
@@ -1099,6 +1113,20 @@ end
 local function HandleWorldRightClick(forceImmediate)
     if InCombatLockdown() then
         DebugMessage("Right click ignored: in combat lockdown")
+        return
+    end
+
+    if HasTargetSelected() then
+        addon.state.lastRightClickTime = 0
+        DebugMessage("Target selected; ignoring fishing right-click")
+        if not InCombatLockdown() then
+            if addon.frames.fishing then
+                ClearRightClickFishingFrameState(addon.frames.fishing, true)
+            end
+            if addon.frames.buff then
+                ClearRightClickBuffFrameState(addon.frames.buff, true)
+            end
+        end
         return
     end
 
