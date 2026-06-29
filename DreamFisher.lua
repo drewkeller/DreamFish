@@ -250,6 +250,9 @@ lootTracker:SetScript("OnEvent", function(_, event, ...)
         local noFishHooked = (tonumber(errType) == 413)
 
         if noFishHooked then
+            local now = (type(GetTime) == "function") and GetTime() or 0
+            local startedAt = tonumber(addon.state.fishingStartTime) or 0
+            local elapsed = (startedAt > 0 and now >= startedAt) and (now - startedAt) or 0
             addon.state.isFishing = false
             addon.state.isBobberActive = false
             addon.state.fishingLootInProgress = false
@@ -258,7 +261,11 @@ lootTracker:SetScript("OnEvent", function(_, event, ...)
                 addon.fishing.ClearNativeInteractOverride()
             end
             if addon.DebugMessage then
-                addon.DebugMessage("Detected fish-hook info message (413); cleared fishing/hooked state")
+                addon.DebugMessage("Detected fish-hook info message (413); cleared fishing/hooked state"
+                    .. " elapsed=" .. string.format("%.3f", elapsed)
+                    .. " msg=" .. tostring(msg)
+                    .. " audioDucked=" .. tostring(addon.state.savedFishingAudioCVars ~= nil)
+                    .. " interactOverrideActive=" .. tostring(addon.state.interactOverrideActive))
             end
         end
     end

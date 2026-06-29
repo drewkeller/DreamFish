@@ -3,6 +3,18 @@
 local addon = _G["DreamFisher"]
 local Clamp = addon.Clamp
 local PrintMessage = addon.PrintMessage
+local DebugMessage = addon.DebugMessage
+
+local function GetFishingElapsedSeconds()
+    if type(GetTime) ~= "function" then
+        return 0
+    end
+    local startedAt = tonumber(addon.state and addon.state.fishingStartTime) or 0
+    if startedAt <= 0 then
+        return 0
+    end
+    return math.max(0, GetTime() - startedAt)
+end
 
 local function ToNumberOrNil(value)
     local n = tonumber(value)
@@ -81,6 +93,12 @@ local function RestoreFishingAudioFocus()
     if addon.state.savedFishingAudioCVars == nil then
         return
     end
+    if addon.db and addon.db.debugMode and DebugMessage then
+        DebugMessage("Audio restore now: elapsed=" .. string.format("%.3f", GetFishingElapsedSeconds())
+            .. " isFishing=" .. tostring(addon.state and addon.state.isFishing)
+            .. " isBobberActive=" .. tostring(addon.state and addon.state.isBobberActive)
+            .. " lootInProgress=" .. tostring(addon.state and addon.state.fishingLootInProgress))
+    end
     if type(SetCVar) ~= "function" then
         addon.state.savedFishingAudioCVars = nil
         addon.state.audioRestoreAt = nil
@@ -110,11 +128,19 @@ end
 local function RestoreFishingAudioFocusAfterLinger()
     local linger = (addon.db and addon.db.audioFocusLinger) or addon.defaults.audioFocusLinger
     if linger <= 0 then
+        if addon.db and addon.db.debugMode and DebugMessage then
+            DebugMessage("Audio restore linger skipped (linger<=0)")
+        end
         RestoreFishingAudioFocus()
         return
     end
     addon.state.audioLingerGeneration = addon.state.audioLingerGeneration + 1
     addon.state.audioRestoreAt = GetTime() + linger
+    if addon.db and addon.db.debugMode and DebugMessage then
+        DebugMessage("Audio restore scheduled: in=" .. string.format("%.3f", linger)
+            .. "s at=" .. string.format("%.3f", addon.state.audioRestoreAt)
+            .. " elapsed=" .. string.format("%.3f", GetFishingElapsedSeconds()))
+    end
     if not addon.frames.audioRestore then
         addon.frames.audioRestore = CreateFrame("Frame")
         addon.frames.audioRestore:Hide()
@@ -140,6 +166,10 @@ local function StartFishingAudioFocus()
     addon.state.audioRestoreAt = nil
     if addon.frames.audioRestore then
         addon.frames.audioRestore:Hide()
+    end
+    if addon.db and addon.db.debugMode and DebugMessage then
+        DebugMessage("Audio focus start: start=" .. string.format("%.3f", addon.state.fishingStartTime)
+            .. " graceUntil=" .. string.format("%.3f", addon.state.fishingStartGraceUntil))
     end
     EnableFishingAudioFocus()
 end
