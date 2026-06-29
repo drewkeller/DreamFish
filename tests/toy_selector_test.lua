@@ -18,7 +18,11 @@ local toyOwnership = {
     [85500] = true,
 }
 
+local requestedToyData = {}
+local currentToyName = nil
+
 local function makeFrame()
+    local scripts = {}
     return {
         SetAllPoints = function() end,
         SetFrameStrata = function() end,
@@ -40,8 +44,15 @@ local function makeFrame()
         SetAttribute = function() end,
         GetAttribute = function() return nil end,
         GetName = function() return "Frame" end,
-        SetScript = function() end,
-        HookScript = function() end,
+        SetScript = function(self, event, handler)
+            scripts[event] = handler
+        end,
+        HookScript = function(self, event, handler)
+            scripts[event] = handler
+        end,
+        GetScript = function(self, event)
+            return scripts[event]
+        end,
         CreateFontString = function()
             return {
                 SetPoint = function() end,
@@ -72,8 +83,26 @@ _G.PlayerHasToy = function(itemID)
 end
 
 _G.GetItemInfo = function(itemID)
+    if tonumber(itemID) == 180993 and currentToyName then
+        return nil
+    end
     return "Toy " .. tostring(itemID)
 end
+
+_G.C_ToyBox = {
+    GetToyInfo = function(itemID)
+        if tonumber(itemID) == 180993 and currentToyName then
+            return nil, currentToyName
+        end
+        return nil, nil
+    end,
+}
+
+_G.C_Item = {
+    RequestLoadItemDataByID = function(itemID)
+        table.insert(requestedToyData, tonumber(itemID))
+    end,
+}
 
 _G.SetOverrideBindingClick = function() end
 _G.ClearOverrideBindings = function() end
@@ -108,6 +137,10 @@ dofile("DreamFisher.lua")
 local addon = _G.DreamFisher
 assertEquals(type(addon), "table", "Addon should load")
 
+assertTrue(#requestedToyData > 0, "Addon load should request toy item data")
+assertTrue(requestedToyData[1] == 180993 or requestedToyData[1] == 85500,
+    "Toy warmup should request configured toy item data")
+
 local bobbers = addon.utils.GetOwnedBobberToyItemIDs()
 local rafts = addon.utils.GetOwnedRaftToyItemIDs()
 
@@ -117,5 +150,38 @@ assertEquals(#rafts, 1, "Only owned raft toys should be returned")
 assertEquals(rafts[1], 85500, "Owned raft should be preserved")
 
 assertTrue(addon.utils.GetToyLabel(180993):find("Toy"), "Toy label should resolve")
+
+local refreshCount = 0
+local originalUpdateConfigUI = addon.config.UpdateConfigUI
+addon.frames.config = {}
+addon.config.UpdateConfigUI = function()
+    refreshCount = refreshCount + 1
+end
+
+assertTrue(type(addon._test.RefreshToySelectors) == "function", "Toy refresh helper should be exposed for tests")
+addon._test.RefreshToySelectors()
+addon._test.RefreshToySelectors()
+
+assertEquals(refreshCount, 2, "Toy data events should refresh the config UI")
+
+local warmupCount = 0
+addon.config.UpdateConfigUI = function()
+    warmupCount = warmupCount + 1
+end
+
+local warmupResult = addon._test.RequestToyLabelWarmup()
+assertTrue(type(warmupResult) == "table", "Toy warmup should return the loaded item set")
+
+assertTrue(type(addon._test.HandleToyItemDataLoadResult) == "function", "Toy data event handler should be exposed for tests")
+addon._test.HandleToyItemDataLoadResult(nil, "ITEM_DATA_LOAD_RESULT", 180993, true)
+addon._test.HandleToyItemDataLoadResult(nil, "ITEM_DATA_LOAD_RESULT", 85500, true)
+addon._test.HandleToyItemDataLoadResult(nil, "ITEM_DATA_LOAD_RESULT", 999999, true)
+
+assertEquals(warmupCount, 2, "Toy data load results should refresh only for warmed-up toy IDs")
+
+addon.config.UpdateConfigUI = originalUpdateConfigUI
+
+currentToyName = "Toy 180993"
+assertEquals(addon.utils.GetToyLabel(180993), "Toy 180993", "Toy box data should resolve the toy label")
 
 print("PASS: toy_selector_test")

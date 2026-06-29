@@ -46,6 +46,18 @@ local function GetToyLabel(itemID)
     if not numeric or numeric <= 0 then
         return nil
     end
+    local toyName = nil
+    if C_ToyBox and type(C_ToyBox.GetToyInfo) == "function" then
+        local first, second = C_ToyBox.GetToyInfo(numeric)
+        if type(first) == "string" and first ~= "" then
+            toyName = first
+        elseif type(second) == "string" and second ~= "" then
+            toyName = second
+        end
+    end
+    if toyName then
+        return toyName
+    end
     local itemName = (type(GetItemInfo) == "function" and GetItemInfo(numeric)) or nil
     return itemName or ("item:" .. tostring(numeric))
 end

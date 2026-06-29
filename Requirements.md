@@ -20,11 +20,18 @@ Name the addon "DreamFisher".
         Uses one item at a time, tracks last use per item, and avoids casting conflicts.
 
 ## Future Core Features
-* Provide an alert when a treasure chest is caught
-* Provide an alert when your bag is low on space (less than 2 slots)
-* Show on screen: fishing skill, increase of skill due to buffs, other active buffs related to fishing
-* Track current inventory of an item that can be caught
-* Track current amount of currency that can be caught while fishing (such as Shard of DundUn)
+[x] Provide an alert when a treasure chest is caught
+[x] Provide an alert when your bag is low on space (less than 2 slots)
+[ ] Show on screen: fishing skill, increase of skill due to buffs, other active buffs related to fishing
+[ ] Track current inventory of an item that can be caught
+[ ] Track current amount of currency that can be caught while fishing (such as Shard of DundUn)
+[ ] Trigger notifications when catching special items (allow player to enter item ids)
+    - High attention: Full screen coloration, "treasure" alert sound
+    - Medium attention: UI Info message, multiple "dings" or equivalent impact audio
+    - Low attention: UI Info message, single "ding"
+[ ] Add sliders so the player can configure how much to affect each audio channel when fishing
+[ ] Allow benefits of Underlight Angler when not fishing (walk on water, fast swimming)
+
 
 # UI Features
 The addon provies an interface window with the following features.

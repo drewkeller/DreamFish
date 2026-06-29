@@ -80,6 +80,71 @@ if not _G.BINDING_NAME_CLICK_DreamFisherSecureFishingButton_RightButton then
 
 -- Addon initialization event
 frame:RegisterEvent("ADDON_LOADED")
+
+local function RequestToyLabelWarmup()
+    if type(C_Item) ~= "table" or type(C_Item.RequestLoadItemDataByID) ~= "function" then
+        return
+    end
+
+    local seen = {}
+    local pending = {}
+    local function QueueItemData(itemID)
+        local numeric = tonumber(itemID)
+        if not numeric or numeric <= 0 or seen[numeric] then
+            return
+        end
+        seen[numeric] = true
+        pending[numeric] = true
+        C_Item.RequestLoadItemDataByID(numeric)
+    end
+
+    if addon.const then
+        if type(addon.const.bobberToyItemIDs) == "table" then
+            for _, itemID in ipairs(addon.const.bobberToyItemIDs) do
+                QueueItemData(itemID)
+            end
+        end
+        if type(addon.const.raftToyItemIDs) == "table" then
+            for _, itemID in ipairs(addon.const.raftToyItemIDs) do
+                QueueItemData(itemID)
+            end
+        end
+    end
+
+    return pending
+end
+
+local function RefreshToySelectors()
+    if addon.config and addon.config.UpdateConfigUI then
+        addon.config.UpdateConfigUI()
+    end
+end
+
+local toyLabelWarmupItemIDs = nil
+
+local function HandleToyItemDataLoadResult(_, event, itemID, success)
+    if event ~= "ITEM_DATA_LOAD_RESULT" or not success then
+        return
+    end
+
+    local numeric = tonumber(itemID)
+    if not numeric or not toyLabelWarmupItemIDs[numeric] then
+        return
+    end
+
+    RefreshToySelectors()
+end
+
+addon._test.RequestToyLabelWarmup = RequestToyLabelWarmup
+addon._test.RefreshToySelectors = RefreshToySelectors
+addon._test.HandleToyItemDataLoadResult = HandleToyItemDataLoadResult
+
+toyLabelWarmupItemIDs = RequestToyLabelWarmup() or {}
+
+local toyWarmupFrame = CreateFrame("Frame")
+toyWarmupFrame:RegisterEvent("ITEM_DATA_LOAD_RESULT")
+toyWarmupFrame:SetScript("OnEvent", HandleToyItemDataLoadResult)
+
 frame:SetScript("OnEvent", function(self, event, name)
     if event ~= "ADDON_LOADED" or name ~= addonName then return end
 
