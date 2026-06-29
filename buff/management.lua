@@ -5,6 +5,16 @@ local Clamp = addon.Clamp
 local PrintMessage = addon.PrintMessage
 local DebugMessage = addon.DebugMessage
 
+local function IsBuffDebugEnabled()
+    return addon.db and addon.db.debugMode and addon.db.debugBuffs
+end
+
+local function DebugBuffMessage(message)
+    if IsBuffDebugEnabled() then
+        DebugMessage(message)
+    end
+end
+
 local function GetItemInfoInstantSafe(itemID)
     if C_Item and type(C_Item.GetItemInfoInstant) == "function" then
         return C_Item.GetItemInfoInstant(itemID)
@@ -181,9 +191,7 @@ local function GetNextDueBuffItem(requireAuraForCast, excludedItemIDs, requested
         end
     end
     if not hasConfiguredBuffItems then
-        if addon.db and addon.db.debugMode then
-            DebugMessage("No configured buff items; skipping due buff selection")
-        end
+        DebugBuffMessage("No configured buff items; skipping due buff selection")
         return nil
     end
 
@@ -194,16 +202,12 @@ local function GetNextDueBuffItem(requireAuraForCast, excludedItemIDs, requested
         if itemID and itemID > 0 then
             local itemCategory = GetBuffItemCategory(itemID)
             if type(excludedItemIDs) == "table" and excludedItemIDs[itemID] then
-                if addon.db and addon.db.debugMode then
-                    DebugMessage("Skipping excluded due buff item: " .. tostring(itemID))
-                end
+                DebugBuffMessage("Skipping excluded due buff item: " .. tostring(itemID))
             elseif requestedCategory and itemCategory ~= requestedCategory then
-                if addon.db and addon.db.debugMode then
-                    DebugMessage("Skipping due buff item for category pass: "
-                        .. GetBuffItemLabel(itemID)
-                        .. " category=" .. tostring(itemCategory)
-                        .. " requested=" .. tostring(requestedCategory))
-                end
+                DebugBuffMessage("Skipping due buff item for category pass: "
+                    .. GetBuffItemLabel(itemID)
+                    .. " category=" .. tostring(itemCategory)
+                    .. " requested=" .. tostring(requestedCategory))
             else
                 local expectedDuration = GetEntryExpectedDuration(entry)
                 local isDue, remaining, reason = addon.buff.IsBuffItemDue(itemID, expectedDuration, requireAuraForCast)
@@ -211,22 +215,22 @@ local function GetNextDueBuffItem(requireAuraForCast, excludedItemIDs, requested
                 if isDue then
                     local bag, slot = LookupItemInBags(itemID)
                     if bag and slot then
-                        DebugMessage("Due buff item found: " .. GetBuffItemLabel(itemID)
+                        DebugBuffMessage("Due buff item found: " .. GetBuffItemLabel(itemID)
                             .. " bag=" .. tostring(bag)
                             .. " slot=" .. tostring(slot)
                             .. " remaining=" .. tostring(remaining)
                             .. " reason=" .. tostring(reason))
                         return itemID, "usable"
-                    elseif addon.db and addon.db.debugMode then
-                        DebugMessage("Due buff item not in bags: " .. GetBuffItemLabel(itemID)
-                            .. " reason=" .. tostring(reason))
                     end
+                    DebugBuffMessage("Due buff item not in bags: " .. GetBuffItemLabel(itemID)
+                        .. " reason=" .. tostring(reason))
                     hadUnavailableDueBuff = true
                     if requireAuraForCast then
                         WarnMissingBuffItem(itemID, reason)
                     end
-                elseif addon.db and addon.db.debugMode then
-                    DebugMessage("Buff item not due: " .. GetBuffItemLabel(itemID)
+                end
+                if not isDue then
+                    DebugBuffMessage("Buff item not due: " .. GetBuffItemLabel(itemID)
                         .. " remaining=" .. tostring(remaining)
                         .. " reason=" .. tostring(reason))
                 end

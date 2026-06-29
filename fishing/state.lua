@@ -3,6 +3,52 @@
 local addon = _G["DreamFisher"]
 local PrintMessage = addon.PrintMessage
 local DebugMessage = addon.DebugMessage
+local ignoredFailureDebugAtBySpell = {}
+
+local function IsStrictFishingSpellID(spellID)
+    local numeric = tonumber(spellID)
+    if not numeric then
+        return false
+    end
+    if addon.const and tonumber(addon.const.fishingSpellID) == numeric then
+        return true
+    end
+    if addon.const and tonumber(addon.const.fishingChannelSpellID) == numeric then
+        return true
+    end
+    return false
+end
+
+local function ShouldLogIgnoredFailure(spellID)
+    local key = tostring(tonumber(spellID) or spellID or "unknown")
+    local now = (type(GetTime) == "function") and GetTime() or 0
+    local last = tonumber(ignoredFailureDebugAtBySpell[key]) or 0
+    if last > 0 and (now - last) < 2 then
+        return false
+    end
+    ignoredFailureDebugAtBySpell[key] = now
+    return true
+end
+
+local function GetHookedInteractEvidence()
+    local now = (type(GetTime) == "function") and GetTime() or 0
+    local acquireExpiresAt = tonumber(addon.state and addon.state.interactAcquireExpiresAt) or 0
+    local inAcquireWindow = acquireExpiresAt > now
+    local hasAnyInteractUnit = false
+    local hasSoftInteractNameOnly = false
+
+    if addon.fishing and addon.fishing.GetInteractDiagnostics then
+        local diag = addon.fishing.GetInteractDiagnostics()
+        hasAnyInteractUnit = diag and (diag.softExists or diag.targetExists or diag.mouseoverExists) and true or false
+        hasSoftInteractNameOnly = diag
+            and (not hasAnyInteractUnit)
+            and type(diag.softName) == "string"
+            and diag.softName ~= ""
+            and true or false
+    end
+
+    return hasAnyInteractUnit, hasSoftInteractNameOnly, inAcquireWindow
+end
 
 local function LogStateTransition(reason, event, spellID, isFishingSpell)
     if not (addon.db and addon.db.debugMode) then
@@ -127,7 +173,9 @@ local function CreateFishingStateFrame()
         end
 
         local _, spellID = ...
-        local isFishingSpell = (spellID == addon.const.fishingSpellID) or IsFishingSpellByName()
+        local isFishingSpellStrict = IsStrictFishingSpellID(spellID)
+        local isFishingSpell = isFishingSpellStrict or IsFishingSpellByName()
+        local stopLooksFishing = isFishingSpellStrict or IsFishingSpellByName()
 
         if event == "UNIT_SPELLCAST_START" or event == "UNIT_SPELLCAST_CHANNEL_START" then
             if isFishingSpell then
@@ -139,8 +187,10 @@ local function CreateFishingStateFrame()
                 end
                 addon.state.isFishing = true
                 addon.state.isBobberActive = false
+                addon.state.fishingCastActive = true
                 addon.state.fishingStartTime = GetTime()
                 addon.state.fishingStartGraceUntil = addon.state.fishingStartTime + 1.5
+                addon.state.lastFishingCastStopAt = 0
                 EnableTemporaryAutoLoot()
                 addon.audio.EnableFishingAudioFocus()
                 frame:SetScript("OnUpdate", function()
@@ -151,7 +201,9 @@ local function CreateFishingStateFrame()
                         LogStateTransition("onupdate-expired-while-bobber", event, spellID, isFishingSpell)
                         addon.state.isFishing = false
                         addon.state.isBobberActive = false
+                        addon.state.fishingCastActive = false
                         addon.state.fishingLootInProgress = false
+                        addon.state.lastFishingCastStopAt = 0
                         addon.state.audioRestoreAt = nil
                         if addon.frames.audioRestore then
                             addon.frames.audioRestore:Hide()
@@ -164,7 +216,9 @@ local function CreateFishingStateFrame()
                 LogStateTransition("cast-start-nonfishing-clears-session", event, spellID, isFishingSpell)
                 addon.state.isFishing = false
                 addon.state.isBobberActive = false
+                addon.state.fishingCastActive = false
                 addon.state.fishingLootInProgress = false
+                addon.state.lastFishingCastStopAt = 0
                 addon.state.audioRestoreAt = nil
                 if addon.frames.audioRestore then
                     addon.frames.audioRestore:Hide()
@@ -173,7 +227,8 @@ local function CreateFishingStateFrame()
                 frame:SetScript("OnUpdate", nil)
             end
         elseif event == "UNIT_SPELLCAST_STOP" or event == "UNIT_SPELLCAST_CHANNEL_STOP" then
-            if (isFishingSpell and addon.state.isFishing) or (addon.state.savedFishingAudioCVars ~= nil and addon.state.isFishing) then
+            if stopLooksFishing and addon.state.isFishing and addon.state.savedFishingAudioCVars ~= nil then
+                addon.state.fishingCastActive = false
                 local linger = (addon.db and addon.db.audioFocusLinger) or addon.defaults.audioFocusLinger
                 local elapsed = (addon.state.fishingStartTime > 0) and (GetTime() - addon.state.fishingStartTime) or 0
                 LogStateTransition("cast-stop-evaluating", event, spellID, isFishingSpell)
@@ -181,20 +236,25 @@ local function CreateFishingStateFrame()
                     LogStateTransition("cast-stop-restore-immediate-linger-zero", event, spellID, isFishingSpell)
                     addon.state.isFishing = false
                     addon.state.isBobberActive = false
+                    addon.state.fishingCastActive = false
                     addon.state.fishingLootInProgress = false
+                    addon.state.lastFishingCastStopAt = 0
                     addon.audio.RestoreFishingAudioFocus()
                     frame:SetScript("OnUpdate", nil)
                 elseif elapsed >= addon.state.fishingExpireSeconds and not addon.state.fishingLootInProgress then
                     LogStateTransition("cast-stop-restore-linger-after-expire", event, spellID, isFishingSpell)
                     addon.state.isFishing = false
                     addon.state.isBobberActive = false
+                    addon.state.fishingCastActive = false
                     addon.state.fishingLootInProgress = false
+                    addon.state.lastFishingCastStopAt = 0
                     addon.audio.RestoreFishingAudioFocusAfterLinger()
                     frame:SetScript("OnUpdate", nil)
                 else
                     LogStateTransition("cast-stop-enter-bobber-window", event, spellID, isFishingSpell)
                     addon.state.isFishing = true
                     addon.state.isBobberActive = true
+                    addon.state.lastFishingCastStopAt = GetTime()
                     if addon.fishing and addon.fishing.ArmNativeInteractOverride then
                         addon.fishing.ArmNativeInteractOverride()
                     end
@@ -202,11 +262,44 @@ local function CreateFishingStateFrame()
                         TryArmNativeInteractOverrideFromFishingState()
                         addon.utils.CheckBagSpace()
                         addon.buff.MaybeUseBuffItems()
+                        local now = GetTime()
+                        local confirmSeconds = (addon.const and tonumber(addon.const.hookedEvidenceConfirmSeconds)) or 4
+                        local lastStopAt = tonumber(addon.state.lastFishingCastStopAt) or 0
+                        if addon.state.isBobberActive
+                            and addon.state.savedFishingAudioCVars ~= nil
+                            and lastStopAt > 0
+                            and (now - lastStopAt) >= confirmSeconds
+                            and not addon.state.fishingLootInProgress then
+                            local hasAnyInteractUnit, hasSoftInteractNameOnly, inAcquireWindow = GetHookedInteractEvidence()
+                            if (not hasAnyInteractUnit) and (not hasSoftInteractNameOnly) and (not inAcquireWindow) then
+                                LogStateTransition("post-stop-no-hooked-evidence-cancel", event, spellID, isFishingSpell)
+                                addon.state.isFishing = false
+                                addon.state.isBobberActive = false
+                                addon.state.fishingCastActive = false
+                                addon.state.fishingLootInProgress = false
+                                addon.state.lastFishingCastStopAt = 0
+                                addon.state.interactAcquireExpiresAt = 0
+                                addon.state.audioRestoreAt = nil
+                                if addon.fishing and addon.fishing.ClearNativeInteractOverride then
+                                    addon.fishing.ClearNativeInteractOverride()
+                                end
+                                addon.state.interactOverrideActive = false
+                                addon.state.interactOverrideExpiresAt = 0
+                                if addon.frames.audioRestore then
+                                    addon.frames.audioRestore:Hide()
+                                end
+                                addon.audio.RestoreFishingAudioFocus()
+                                frame:SetScript("OnUpdate", nil)
+                                return
+                            end
+                        end
                         if addon.state.isBobberActive and addon.state.savedFishingAudioCVars ~= nil and addon.state.fishingStartTime > 0 and (GetTime() - addon.state.fishingStartTime) > addon.state.fishingExpireSeconds then
                             LogStateTransition("onupdate-expired-after-cast-stop", event, spellID, isFishingSpell)
                             addon.state.isFishing = false
                             addon.state.isBobberActive = false
+                            addon.state.fishingCastActive = false
                             addon.state.fishingLootInProgress = false
+                            addon.state.lastFishingCastStopAt = 0
                             addon.audio.RestoreFishingAudioFocusAfterLinger()
                             frame:SetScript("OnUpdate", nil)
                         end
@@ -214,21 +307,43 @@ local function CreateFishingStateFrame()
                 end
             end
         elseif event == "UNIT_SPELLCAST_INTERRUPTED" or event == "UNIT_SPELLCAST_FAILED" or event == "UNIT_SPELLCAST_FAILED_QUIET" then
-            if (isFishingSpell and addon.state.savedFishingAudioCVars ~= nil) or (addon.state.savedFishingAudioCVars ~= nil and addon.state.isFishing) then
+            local shouldCancelFishingSession = false
+            if addon.state.savedFishingAudioCVars ~= nil then
+                if event == "UNIT_SPELLCAST_INTERRUPTED" then
+                    shouldCancelFishingSession = isFishingSpellStrict
+                        or (addon.state.fishingCastActive and IsFishingSpellByName())
+                else
+                    -- FAILED/FAILED_QUIET are noisy in many contexts; only trust strict fishing spell IDs.
+                    shouldCancelFishingSession = isFishingSpellStrict
+                end
+            end
+
+            if shouldCancelFishingSession then
                 LogStateTransition("cast-failed-or-interrupted", event, spellID, isFishingSpell)
                 addon.state.isFishing = false
                 addon.state.isBobberActive = false
+                addon.state.fishingCastActive = false
                 addon.state.fishingLootInProgress = false
+                addon.state.lastFishingCastStopAt = 0
                 addon.state.interactAcquireExpiresAt = 0
                 addon.state.audioRestoreAt = nil
                 if addon.fishing and addon.fishing.ClearNativeInteractOverride then
                     addon.fishing.ClearNativeInteractOverride()
                 end
+                addon.state.interactOverrideActive = false
+                addon.state.interactOverrideExpiresAt = 0
                 if addon.frames.audioRestore then
                     addon.frames.audioRestore:Hide()
                 end
                 addon.audio.RestoreFishingAudioFocus()
                 frame:SetScript("OnUpdate", nil)
+            elseif addon.db and addon.db.debugMode and addon.state.savedFishingAudioCVars ~= nil and ShouldLogIgnoredFailure(spellID) then
+                DebugMessage("Ignoring non-fishing cast failure event while fishing session active:"
+                    .. " event=" .. tostring(event)
+                    .. " spellID=" .. tostring(spellID)
+                    .. " strictFishing=" .. tostring(isFishingSpellStrict)
+                    .. " byName=" .. tostring(IsFishingSpellByName())
+                    .. " interactOverrideActive=" .. tostring(addon.state and addon.state.interactOverrideActive))
             end
         elseif event == "PLAYER_STARTED_MOVING" then
             if addon.fishing and addon.fishing.ClearNativeInteractOverride then
@@ -244,7 +359,9 @@ local function CreateFishingStateFrame()
                 LogStateTransition("movement-clears-fishing-session", event, spellID, isFishingSpell)
                 addon.state.isFishing = false
                 addon.state.isBobberActive = false
+                addon.state.fishingCastActive = false
                 addon.state.fishingLootInProgress = false
+                addon.state.lastFishingCastStopAt = 0
                 addon.state.interactAcquireExpiresAt = 0
                 addon.state.audioRestoreAt = nil
                 if addon.fishing and addon.fishing.ClearNativeInteractOverride then
@@ -261,7 +378,9 @@ local function CreateFishingStateFrame()
                 LogStateTransition("combat-start-clears-fishing-session", event, spellID, isFishingSpell)
                 addon.state.isFishing = false
                 addon.state.isBobberActive = false
+                addon.state.fishingCastActive = false
                 addon.state.fishingLootInProgress = false
+                addon.state.lastFishingCastStopAt = 0
                 addon.state.interactAcquireExpiresAt = 0
                 RestoreOriginalAutoLoot()
                 addon.state.audioRestoreAt = nil
@@ -298,6 +417,7 @@ end
 addon._test.SetFishingFlags = function(fishing, bobber, loot)
     addon.state.isFishing = fishing and true or false
     addon.state.isBobberActive = bobber and true or false
+    addon.state.fishingCastActive = (fishing and (not bobber)) and true or false
     addon.state.fishingLootInProgress = loot and true or false
 end
 addon._test.GetFishingFlags = function()

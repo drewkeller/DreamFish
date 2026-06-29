@@ -191,6 +191,38 @@ function tests.TargetSelectedRightClickDoesNotStartFishingFlow()
         "Target-selected right-click should clear pending click timing")
 end
 
+function tests.TargetSelectedRightClickExitsFishingSessionState()
+    local originalUnitExists = _G.UnitExists
+    _G.UnitExists = function(unit)
+        return unit == "target"
+    end
+
+    DreamFisher.state.isFishing = true
+    DreamFisher.state.isBobberActive = true
+    DreamFisher.state.fishingLootInProgress = true
+    DreamFisher.state.interactAcquireExpiresAt = mockTime + 5
+    DreamFisher.state.savedFishingAudioCVars = {
+        ambience = "0.4",
+        music = "0.3",
+        dialog = "0.8",
+    }
+
+    DreamFisher._test.HandleWorldRightClick()
+
+    _G.UnitExists = originalUnitExists
+
+    assertEquals(DreamFisher.state.isFishing, false,
+        "Target-selected right-click should exit fishing state")
+    assertEquals(DreamFisher.state.isBobberActive, false,
+        "Target-selected right-click should clear bobber-active state")
+    assertEquals(DreamFisher.state.fishingLootInProgress, false,
+        "Target-selected right-click should clear fishing loot progress")
+    assertEquals(DreamFisher.state.interactAcquireExpiresAt, 0,
+        "Target-selected right-click should clear interact acquire window")
+    assertEquals(DreamFisher.state.savedFishingAudioCVars, nil,
+        "Target-selected right-click should restore and clear ducked audio state")
+end
+
 -- ============================================================================
 -- Tests: Double-Click with Due Buff
 -- ============================================================================
@@ -2043,17 +2075,19 @@ function tests.PostCastHookWindowRoutesHookedFallbackWithoutUnits()
     DreamFisher.state.fishingLootInProgress = false
     DreamFisher.state.fishingStartTime = mockTime - 3
     DreamFisher.state.fishingStartGraceUntil = mockTime - 1
-    DreamFisher.state.interactOverrideActive = true
-    DreamFisher.state.interactOverrideExpiresAt = mockTime + 10
+    DreamFisher.state.interactOverrideActive = false
+    DreamFisher.state.interactOverrideExpiresAt = 0
     DreamFisher.state.interactAcquireExpiresAt = 0
-    DreamFisher._test.SetLastRightClickTime(12345)
+    DreamFisher._test.SetLastRightClickTime(0)
 
     DreamFisher._test.HandleWorldRightClick()
 
-    assertTrue(bindingCalls > 0,
-        "Post-cast hook window should route right-click to hooked interact even without unit tokens")
-    assertEquals(DreamFisher._test.GetLastRightClickTime(), 0,
-        "Hooked timing fallback should consume click and clear double-click timing")
+    assertEquals(bindingCalls, 0,
+        "Post-cast no-evidence state should not force hooked interact routing")
+    assertEquals(DreamFisher._test.GetLastRightClickTime(), mockTime,
+        "Post-cast no-evidence state should return to normal click timing flow")
+    assertEquals(DreamFisher.state.isFishing, false,
+        "Post-cast no-evidence fallback should clear stale fishing state")
 
     DreamFisher.fishing.GetInteractDiagnostics = originalGetDiag
     _G.SetOverrideBindingClick = originalBindingClick

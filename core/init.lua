@@ -35,6 +35,7 @@ addon.defaults = {
     lowBagThreshold = 2,
     audioFocusLinger = 10,
     debugMode = true,
+    debugBuffs = false,
 }
 
 -- Global state variables
@@ -46,6 +47,7 @@ addon.state = {
     isFishing = false,
     isBobberActive = false,
     fishingStartTime = 0,
+    fishingCastActive = false,
     fishingLootInProgress = false,
 
     -- Audio
@@ -66,6 +68,7 @@ addon.state = {
 
     -- Fishing tracking
     fishingStartGraceUntil = 0,
+    lastFishingCastStopAt = 0,
     fishingExpireSeconds = 20,
     interactAcquireExpiresAt = 0,
 
@@ -94,6 +97,8 @@ addon.const = {
     buffPreRefreshSafetySeconds = 2,
     patientlyRewardedSpellID = 1235378,
     fishingSpellID = 131474,
+    fishingChannelSpellID = 131476,
+    hookedEvidenceConfirmSeconds = 4,
     bobberToyItemIDs = {
         180993, -- Bat Visage
         142528, -- Can of Worms

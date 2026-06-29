@@ -231,7 +231,7 @@ assertTrue(not bobberActive, "Bobber should not be active until cast/channel sto
 
 -- Case 4: Cast stop transitions to bobber-active while keeping fishing session active.
 currentCastName = nil
-onEvent(fishingStateFrame, "UNIT_SPELLCAST_STOP", "player", "cast-guid", 999999)
+onEvent(fishingStateFrame, "UNIT_SPELLCAST_STOP", "player", "cast-guid", addon.const.fishingSpellID)
 isFishing, bobberActive = addon._test.GetFishingFlags()
 assertTrue(isFishing, "Fishing session should remain active after cast stop")
 assertTrue(bobberActive, "Bobber should become active after cast stop")
@@ -266,15 +266,15 @@ addon._test.SetFishingFlags(true, true, false)
 onEvent(fishingStateFrame, "PLAYER_REGEN_DISABLED")
 assertTrue(not addon._test.GetAudioDucked(), "Audio should restore immediately on combat")
 
--- Case 8: Failed/quiet cancel restores immediately while ducked.
+-- Case 8: Strict fishing failed/quiet should cancel session.
 resetState()
-currentCastName = "Fishing"
+currentCastName = nil
 addon._test.EnableFishingAudioFocus(true)
 addon._test.SetFishingFlags(true, false, false)
-onEvent(fishingStateFrame, "UNIT_SPELLCAST_FAILED_QUIET", "player", "cast-guid", 999999)
+onEvent(fishingStateFrame, "UNIT_SPELLCAST_FAILED_QUIET", "player", "cast-guid", addon.const.fishingSpellID)
 assertTrue(not addon._test.GetAudioDucked(), "Audio should restore on failed/quiet fishing cancel")
 
--- Case 9: A different player spell after the grace period cancels fishing and restores audio.
+-- Case 11: Non-fishing failed/quiet should not cancel active cast-stage session.
 resetState()
 now = 400
 addon._test.HandleWorldRightClick()
@@ -295,7 +295,37 @@ addon._test.HandleWorldRightClick()
 now = 500.1
 addon._test.HandleWorldRightClick()
 currentCastName = nil
-onEvent(fishingStateFrame, "UNIT_SPELLCAST_STOP", "player", "cast-guid", 999999)
+onEvent(fishingStateFrame, "UNIT_SPELLCAST_STOP", "player", "cast-guid", addon.const.fishingSpellID)
 assertTrue(not addon._test.GetAudioDucked(), "Audio should restore immediately when fishing expires with zero linger")
+
+resetState()
+now = 700
+currentCastName = "Fishing"
+onEvent(fishingStateFrame, "UNIT_SPELLCAST_START", "player", "cast-guid", addon.const.fishingSpellID)
+addon.state.interactOverrideActive = true
+addon.state.interactAcquireExpiresAt = now + 2
+onEvent(fishingStateFrame, "UNIT_SPELLCAST_FAILED_QUIET", "player", "cast-guid", 121125)
+assertTrue(addon._test.GetAudioDucked(), "Non-fishing failed/quiet should not cancel active fishing cast")
+isFishing, bobberActive = addon._test.GetFishingFlags()
+assertTrue(isFishing and not bobberActive, "Non-fishing failed/quiet should keep cast-stage fishing state")
+assertEquals(addon.state.interactOverrideActive, true, "Non-fishing failed/quiet should not clear native interact override")
+
+-- Case 12: Post-stop bobber mode with no hooked evidence should self-clear after confirmation window.
+resetState()
+addon.db.audioFocusLinger = 10
+now = 800
+currentCastName = "Fishing"
+onEvent(fishingStateFrame, "UNIT_SPELLCAST_START", "player", "cast-guid", addon.const.fishingSpellID)
+currentCastName = nil
+now = 808
+onEvent(fishingStateFrame, "UNIT_SPELLCAST_CHANNEL_STOP", "player", "cast-guid", addon.const.fishingChannelSpellID)
+isFishing, bobberActive = addon._test.GetFishingFlags()
+assertTrue(isFishing and bobberActive, "Post-stop should enter bobber mode before stale-evidence check")
+driveOnUpdateUntil(813)
+isFishing, bobberActive = addon._test.GetFishingFlags()
+assertTrue(not isFishing and not bobberActive,
+    "No-evidence bobber mode should self-clear after hooked evidence confirmation window")
+assertTrue(not addon._test.GetAudioDucked(),
+    "Audio should restore when stale bobber mode self-clears")
 
 print("PASS: audio_ducking_test")
