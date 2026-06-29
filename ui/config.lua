@@ -305,7 +305,6 @@ local function UpdateConfigUI()
         local modes = GetCastingModesForConfig()
         addon.modeDoubleRightClickCheckbox:SetChecked(modes.doubleRightClick)
         addon.modeSingleRightClickConfigCheckbox:SetChecked(modes.singleRightClickConfig)
-        addon.modeSingleRightClickDoubleStartCheckbox:SetChecked(modes.singleRightClickDoubleStart)
         addon.modeHotkeyCheckbox:SetChecked(modes.hotkey)
     end
     if addon.underlightAnglerCheckbox then
@@ -349,7 +348,6 @@ function config.SaveConfig(skipRefresh)
     local modeFlags = {
         doubleRightClick = addon.modeDoubleRightClickCheckbox and addon.modeDoubleRightClickCheckbox:GetChecked() or false,
         singleRightClickConfig = addon.modeSingleRightClickConfigCheckbox and addon.modeSingleRightClickConfigCheckbox:GetChecked() or false,
-        singleRightClickDoubleStart = addon.modeSingleRightClickDoubleStartCheckbox and addon.modeSingleRightClickDoubleStartCheckbox:GetChecked() or false,
         hotkey = addon.modeHotkeyCheckbox and addon.modeHotkeyCheckbox:GetChecked() or false,
     }
     addon.db.castingModes = modeFlags
@@ -533,11 +531,17 @@ function config.CreateConfigPanel()
     local buffsPage = CreatePage("buffs")
     local modesPage = CreatePage("modes")
 
+    local function CreateTitle(parent, x, y, text)
+        local title = parent:CreateFontString(nil, "OVERLAY", "GameFontNormal")
+        title:SetPoint("TOPLEFT", x, y)
+        title:SetText(text)
+    end
+
     local function CreateCheckbox(parent, x, y, label, onLiveChange)
         local cb = CreateFrame("CheckButton", nil, parent, "UICheckButtonTemplate")
         cb:SetPoint("TOPLEFT", x, y)
         cb.Text:SetText(label)
-        cb.Text:SetTextColor(1, 1, 1, 1)
+        cb.Text:SetTextColor(0.9, 0.9, 0.9, 1)
         if onLiveChange then
             cb:SetScript("OnClick", onLiveChange)
         end
@@ -853,7 +857,7 @@ function config.CreateConfigPanel()
 
         box.countText = box:CreateFontString(nil, "OVERLAY", "NumberFontNormal")
         box.countText:SetPoint("BOTTOMRIGHT", box, "BOTTOMRIGHT", -2, 2)
-        box.countText:SetTextColor(1, 1, 1, 1)
+        box.countText:SetTextColor(0.9, 0.9, 0.9, 1)
         box.countText:SetText("")
 
         local function UpdateCountDisplay()
@@ -928,43 +932,44 @@ function config.CreateConfigPanel()
     end
 
     addon.autoLootCheckbox = CreateCheckbox(focusPage, 20, -20, "Temporary Auto-Loot", SaveLive)
-    addon.enhancedSoundsCheckbox = CreateCheckbox(focusPage, 20, -55, "Fishing Focused Audio", SaveLive)
-    addon.treasureAlertsCheckbox = CreateCheckbox(focusPage, 20, -90, "Patient Treasure Notification", SaveLive)
-    addon.bagAlertsCheckbox = CreateCheckbox(focusPage, 20, -125, "Bag Monitor / Alert", SaveLive)
-    addon.escapeCloseCheckbox = CreateCheckbox(focusPage, 20, -160, "Escape closes this window", SaveLive)
-    addon.lowBagBox = CreateEditBox(focusPage, 20, -210, 100, "Low Bag Threshold:", SaveLive)
-    addon.audioLingerBox = CreateEditBox(focusPage, 20, -260, 100, "Audio Linger After Catch (s):", SaveLive)
+    addon.treasureAlertsCheckbox = CreateCheckbox(focusPage, 20, -55, "Patient Treasure Notification", SaveLive)
+    addon.bagAlertsCheckbox = CreateCheckbox(focusPage, 20, -90, "Bag Monitor / Alert", SaveLive)
+    addon.lowBagBox = CreateEditBox(focusPage, 60, -125, 100, "Low Bag Threshold:", SaveLive)
+
+    CreateTitle(focusPage, 20, -250, "Audio:")
+    addon.enhancedSoundsCheckbox = CreateCheckbox(focusPage, 20, -270, "Fishing Focused Audio", SaveLive)
+    addon.audioLingerBox = CreateEditBox(focusPage, 60, -305, 100, "Audio Linger After Catch (s):", SaveLive)
 
     addon.bobberSelector = CreateToySelector(tacklePage, 20, -20, 360, "Selected Bobber:", function()
         return BuildOwnedToyOptions(addon.const.bobberToyItemIDs, "Standard Bobber")
     end, SaveLive)
-    addon.oversizedBobberCheckbox = CreateCheckbox(tacklePage, 20, -85, "Use oversized bobber", SaveLive)
-    addon.bobberApplyButton = CreateSecureToyActionButton(tacklePage, 20, -125, 160, "Apply Bobber")
+    addon.oversizedBobberCheckbox = CreateCheckbox(tacklePage, 20, -65, "Use oversized bobber", SaveLive)
+    addon.bobberApplyButton = CreateSecureToyActionButton(tacklePage, 20, -100, 160, "Apply Bobber")
 
-    addon.raftSelector = CreateToySelector(tacklePage, 20, -190, 360, "Selected Raft:", function()
+    addon.raftSelector = CreateToySelector(tacklePage, 20, -170, 360, "Selected Raft:", function()
         return BuildOwnedToyOptions(addon.const.raftToyItemIDs, "No Raft")
     end, SaveLive)
-    addon.raftApplyButton = CreateSecureToyActionButton(tacklePage, 20, -255, 160, "Apply Raft")
+    addon.raftApplyButton = CreateSecureToyActionButton(tacklePage, 20, -220, 160, "Apply Raft")
 
-    local modeLabel = modesPage:CreateFontString(nil, "OVERLAY", "GameFontNormal")
-    modeLabel:SetPoint("TOPLEFT", 20, -20)
-    modeLabel:SetText("Casting Triggers:")
-
+    CreateTitle(modesPage, 20, -20, "Casting Triggers:")
     addon.modeDoubleRightClickCheckbox = CreateCheckbox(modesPage, 20, -45, "Right double click", SaveLive)
-    addon.modeSingleRightClickConfigCheckbox = CreateCheckbox(modesPage, 20, -75, "Single right click (when DF window is open)", SaveLive)
-    addon.modeSingleRightClickDoubleStartCheckbox = CreateCheckbox(modesPage, 20, -105, "Single right click (double right click to start. ESC to stop)", SaveLive)
-    addon.modeHotkeyCheckbox = CreateCheckbox(modesPage, 20, -135, "Keybinding (set the key in Keybindings > DreamFisher)", SaveLive)
-    addon.enableHookedLootCheckbox = CreateCheckbox(modesPage, 20, -165, "Use right click and/or hotkey to reel in the fish", SaveLive)
+    addon.modeSingleRightClickConfigCheckbox = CreateCheckbox(modesPage, 20, -75, "Single right click (when this window is open)", SaveLive)
+    addon.modeHotkeyCheckbox = CreateCheckbox(modesPage, 20, -105, "Keybinding (set the key in Keybindings > DreamFisher)", SaveLive)
+    addon.enableHookedLootCheckbox = CreateCheckbox(modesPage, 20, -135, "Use right click and/or hotkey to reel in the fish", SaveLive)
 
     local hotkeyNote = modesPage:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
-    hotkeyNote:SetPoint("TOPLEFT", 40, -200)
+    hotkeyNote:SetPoint("TOPLEFT", 40, -170)
     hotkeyNote:SetText("Requires some setup in Game Menu > Options: \n"
         .. "1. Turn on \"Enable Interact Key\" (Options > Controls).\n"
-        .. "2. Set a keybinding (Keybindings > DreamFisher).")
+        .. "2. Set a keybinding (Keybindings > DreamFisher).\n"
+        .. "3. Ensure another addon does not try to control interactions while fishing.")
     hotkeyNote:SetJustifyH("LEFT")
     hotkeyNote:SetWidth(480)
 
-    addon.underlightAnglerCheckbox = CreateCheckbox(modesPage, 20, -255, "Equip Underlight Angler while swimming", SaveLive)
+    addon.escapeCloseCheckbox = CreateCheckbox(modesPage, 20, -235, "Escape closes this window", SaveLive)
+
+    CreateTitle(modesPage, 20, -295, "Underlight Angler:")
+    addon.underlightAnglerCheckbox = CreateCheckbox(modesPage, 20, -315, "Equip Underlight Angler while swimming", SaveLive)
 
     addon.buffItemControls = {}
     for i = 1, maxBuffSlots do
