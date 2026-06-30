@@ -36,6 +36,7 @@ addon.defaults = {
     audioFocusLinger = 10,
     debugMode = true,
     debugState = false,
+    debugBags = false,
     debugBuffs = false,
 }
 

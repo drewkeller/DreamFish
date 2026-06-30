@@ -126,7 +126,7 @@ setBagState(
 )
 assertEquals(addon._test.GetFreeBagSlots(), 2, "Should count free slots across normal and reagent bags")
 
--- Case 2: Warning fires at threshold and is throttled for 10 seconds.
+-- Case 2: Warning fires at threshold and is throttled for 60 seconds.
 addon._test.SetDB({ lowBagThreshold = 2, bagAlerts = true })
 addon._test.ResetBagWarningState()
 clearMessages()
@@ -139,7 +139,7 @@ now = 105
 addon._test.CheckBagSpace()
 assertEquals(#messages, 1, "Should not warn again before cooldown expires")
 
-now = 111
+now = 161
 addon._test.CheckBagSpace()
 assertEquals(#messages, 2, "Should warn again after cooldown expires")
 
@@ -160,5 +160,24 @@ clearMessages()
 now = 200
 addon._test.CheckBagSpace()
 assertEquals(#messages, 0, "Should not warn when free slots exceed threshold")
+
+-- Case 4: Warning fires when regular bags are above threshold but reagent bag is at threshold.
+setBagState(
+    {
+        [0] = 4,
+        [5] = 2,
+    },
+    {
+        [0] = { [1] = nil, [2] = nil, [3] = nil, [4] = nil },
+        [5] = { [1] = 444, [2] = nil },
+    }
+)
+addon._test.SetDB({ lowBagThreshold = 1, bagAlerts = true })
+addon._test.ResetBagWarningState()
+clearMessages()
+now = 300
+addon._test.CheckBagSpace()
+assertEquals(#messages, 1, "Should warn when reagent bag free slots are at threshold")
+assertTrue(string.find(messages[1], "Reagent: 1", 1, true) ~= nil, "Warning should include reagent free-slot count")
 
 print("PASS: bag_space_test")

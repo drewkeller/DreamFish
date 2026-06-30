@@ -53,6 +53,11 @@ end
 
 local DebugStateMessage = addon.DebugStateMessage or addon.DebugMessage
 
+local function DebugBagMessage(msg)
+    if addon.db and addon.db.debugMode and addon.db.debugBags then
+        addon.DebugMessage(msg)
+    end
+end
 
 _G.BINDING_HEADER_DREAMFISHER = "DreamFisher"
 -- Label for CLICK DreamFisherSecureFishingButton:RightButton binding.
@@ -203,6 +208,8 @@ if WorldFrame then
 end
 
 -- Loot tracking
+local fishingLootBagCheckPendingUntil = 0
+
 local lootTracker = CreateFrame("Frame")
 lootTracker:RegisterEvent("LOOT_READY")
 lootTracker:RegisterEvent("LOOT_CLOSED")
@@ -218,11 +225,12 @@ lootTracker:SetScript("OnEvent", function(_, event, ...)
     elseif event == "LOOT_CLOSED" then
         if addon.fishing then addon.fishing.RestoreOriginalAutoLoot() end
         if addon.state.fishingLootInProgress then
+            DebugBagMessage("Fishing loot in progress ended")
             addon.state.fishingLootInProgress = false
             if addon.audio then addon.audio.RestoreFishingAudioFocusAfterLinger() end
-            if addon.utils and addon.utils.GetFreeBagSlots() == 0 then
-                if addon.alerts then addon.alerts.ShowBagFullAlert() end
-            end
+            local now = (type(GetTime) == "function") and GetTime() or 0
+            fishingLootBagCheckPendingUntil = now + 2
+            DebugBagMessage("Queued bag-threshold check for BAG_UPDATE_DELAYED")
         end
         addon.state.isBobberActive = false
         addon.state.lastBagWarning = 0
@@ -263,8 +271,8 @@ lootTracker:SetScript("OnEvent", function(_, event, ...)
             if addon.fishing and addon.fishing.ClearNativeInteractOverride then
                 addon.fishing.ClearNativeInteractOverride()
             end
-            if addon.DebugMessage then
-                addon.DebugMessage("Detected fish-hook info message (413); cleared fishing/hooked state"
+            if DebugStateMessage then
+                DebugStateMessage("Detected fish-hook info message (413); cleared fishing/hooked state"
                     .. " elapsed=" .. string.format("%.3f", elapsed)
                     .. " msg=" .. tostring(msg)
                     .. " audioDucked=" .. tostring(addon.state.savedFishingAudioCVars ~= nil)
@@ -278,8 +286,31 @@ end)
 local bagMonitor = CreateFrame("Frame")
 bagMonitor:RegisterEvent("PLAYER_ENTERING_WORLD")
 bagMonitor:RegisterEvent("BAG_UPDATE_DELAYED")
-bagMonitor:SetScript("OnEvent", function()
+bagMonitor:SetScript("OnEvent", function(_, event)
     if addon.utils then addon.utils.CheckBagSpace() end
+    DebugBagMessage("Event received: " .. tostring(event))
+    if event == "BAG_UPDATE_DELAYED" and addon.utils and addon.alerts then
+        local now = (type(GetTime) == "function") and GetTime() or 0
+        if fishingLootBagCheckPendingUntil > 0 then
+            if now <= fishingLootBagCheckPendingUntil then
+                local threshold = (addon.db and addon.db.lowBagThreshold) or addon.defaults.lowBagThreshold
+                local regularFree = addon.utils.GetFreeBagSlots(false)
+                local reagentFree = addon.utils.GetFreeReagentBagSlots()
+                DebugBagMessage("Low bag threshold set to " .. tostring(threshold))
+                DebugBagMessage("BAG_UPDATE_DELAYED slots: regularFree=" .. tostring(regularFree) .. ", reagentFree=" .. tostring(reagentFree))
+                if regularFree <= threshold or reagentFree <= threshold then
+                    DebugBagMessage("Bag space low after loot close: regularFree=" .. tostring(regularFree) .. ", reagentFree=" .. tostring(reagentFree))
+                    addon.alerts.ShowBagFullAlert()
+                    fishingLootBagCheckPendingUntil = 0
+                else
+                    DebugBagMessage("Bag space not low yet; waiting for next BAG_UPDATE_DELAYED")
+                end
+            else
+                DebugBagMessage("Bag-threshold check window expired")
+                fishingLootBagCheckPendingUntil = 0
+            end
+        end
+    end
 end)
 
 -- Aura tracking

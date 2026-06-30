@@ -143,7 +143,7 @@ local function CountItemInBags(itemID)
     return total
 end
 
-local function GetFreeBagSlots()
+local function GetFreeBagSlots(includeReagentBag)
     local free = 0
     local bagCount = NUM_BAG_SLOTS or 4
     for bag = 0, bagCount do
@@ -156,6 +156,21 @@ local function GetFreeBagSlots()
             end
         end
     end
+    if includeReagentBag then
+        local reagentSlots = ContainerNumSlots(5)
+        if reagentSlots and reagentSlots > 0 then
+            for slot = 1, reagentSlots do
+                if not ContainerItemID(5, slot) then
+                    free = free + 1
+                end
+            end
+        end
+    end
+    return free
+end
+
+local function GetFreeReagentBagSlots()
+    local free = 0
     local reagentSlots = ContainerNumSlots(5)
     if reagentSlots and reagentSlots > 0 then
         for slot = 1, reagentSlots do
@@ -198,13 +213,17 @@ local function CheckBagSpace()
     end
 
     local threshold = addon.db.lowBagThreshold or addon.defaults.lowBagThreshold
-    local free = GetFreeBagSlots()
+    local regularFree = GetFreeBagSlots(false)
+    local reagentFree = GetFreeReagentBagSlots()
 
-    if free <= threshold then
+    if regularFree <= threshold or reagentFree <= threshold then
         local now = GetTime()
-        if now - addon.state.lastBagWarning >= 10 then
+        if now - addon.state.lastBagWarning >= 60 then
             addon.state.lastBagWarning = now
-            addon.PrintMessage("Low bag space! " .. free .. " slot(s) remaining (threshold: " .. threshold .. ").")
+            addon.PrintMessage(
+                "Low bag space! Bags: " .. regularFree .. ", Reagent: " .. reagentFree ..
+                " slot(s) remaining (threshold: " .. threshold .. ")."
+            )
         end
     end
 end
@@ -216,6 +235,7 @@ addon.utils.ContainerItemID = ContainerItemID
 addon.utils.ContainerItemCount = ContainerItemCount
 addon.utils.CountItemInBags = CountItemInBags
 addon.utils.GetFreeBagSlots = GetFreeBagSlots
+addon.utils.GetFreeReagentBagSlots = GetFreeReagentBagSlots
 addon.utils.CheckBuffItemStockWarnings = CheckBuffItemStockWarnings
 addon.utils.CheckBagSpace = CheckBagSpace
 addon.utils.GetOwnedBobberToyItemIDs = GetOwnedBobberToyItemIDs
@@ -225,6 +245,7 @@ addon.utils.TryUseToy = TryUseToy
 
 -- Test hooks
 addon._test.GetFreeBagSlots = GetFreeBagSlots
+addon._test.GetFreeReagentBagSlots = GetFreeReagentBagSlots
 addon._test.CheckBagSpace = CheckBagSpace
 addon._test.ResetBagWarningState = function()
     addon.state.lastBagWarning = 0

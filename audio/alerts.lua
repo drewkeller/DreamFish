@@ -142,8 +142,10 @@ local function ShowBagFullAlert(force)
     end
 
     local alert = CreateBagFullAlertFrame()
-    alert.title:SetText("Bags Full")
-    alert.subtext:SetText("No free bag slots remaining")
+    local regularFree = addon.utils.GetFreeBagSlots(false)
+    local reagentFree = addon.utils.GetFreeReagentBagSlots()
+    alert.title:SetText("Bag space is low!")
+    alert.subtext:SetText("Regular slots: " .. tostring(regularFree) .. "\nReagent slots: " .. tostring(reagentFree))
     alert:Show()
 
     alert.timeLeft = 2.2
