@@ -1244,25 +1244,10 @@ local function HandleWorldRightClick(forceImmediate)
         inAcquireWindow = acquireExpiresAt > now
     end
 
-    local graceUntil = tonumber(addon.state and addon.state.fishingStartGraceUntil) or 0
-    local fishingStartTime = tonumber(addon.state and addon.state.fishingStartTime) or 0
-    local fishingExpireSeconds = tonumber(addon.state and addon.state.fishingExpireSeconds) or 20
-    local inFishingWindow = addon.state and (
-        addon.state.isFishing
-        or addon.state.isBobberActive
-        or (fishingStartTime > 0 and (now - fishingStartTime) <= (fishingExpireSeconds + 2))
-    ) or false
-    local postCastHookWindow = addon.state
-        and addon.state.isFishing
-        and (now >= graceUntil)
-        and (not addon.state.fishingLootInProgress)
-        and true or false
-
     local hookedModeActive = enableHookedLoot
         and addon.fishing and addon.fishing.IsHookedLootMode
         and addon.fishing.IsHookedLootMode()
-    local shouldRouteHookedInteract = enableHookedLoot
-        and (hookedModeActive or (hasAnyInteractUnit and inFishingWindow) or postCastHookWindow)
+    local shouldRouteHookedInteract = enableHookedLoot and hookedModeActive
     local noHookedEvidence = enableHookedLoot
         and (not hasAnyInteractUnit)
         and (not hasSoftInteractNameOnly)
@@ -1288,11 +1273,6 @@ local function HandleWorldRightClick(forceImmediate)
                 ClearRightClickBuffFrameState(buffFrame, true)
             end
             ArmFishingRightClickAction(fishingFrame)
-            if (not hookedModeActive) and hasAnyInteractUnit and inFishingWindow then
-                DebugMessage("Hooked interact fallback active: routing right-click to interact target")
-            elseif (not hookedModeActive) and postCastHookWindow then
-                DebugMessage("Hooked interact timing fallback active: routing right-click during post-cast hook window")
-            end
             DebugMessage("Hooked phase world right-click routed to interact action")
             return
         end

@@ -1938,7 +1938,8 @@ function tests.HookedRightClickRoutesToInteractWhenHooked()
     DreamFisher.state.isBobberActive = true
     DreamFisher.state.fishingLootInProgress = false
     DreamFisher.state.fishingStartGraceUntil = mockTime - 1
-    DreamFisher._test.SetLastRightClickTime(12345)
+    DreamFisher.state.interactAcquireExpiresAt = mockTime + 2
+    DreamFisher._test.SetLastRightClickTime(0)
 
     DreamFisher._test.HandleWorldRightClick()
 
@@ -2026,14 +2027,14 @@ function tests.RecentFishingWithInteractTargetRoutesHookedFallback()
     DreamFisher.state.fishingStartGraceUntil = mockTime - 1
     DreamFisher.state.interactOverrideActive = false
     DreamFisher.state.interactAcquireExpiresAt = 0
-    DreamFisher._test.SetLastRightClickTime(12345)
+    DreamFisher._test.SetLastRightClickTime(0)
 
     DreamFisher._test.HandleWorldRightClick()
 
-    assertTrue(bindingCalls > 0,
-        "Recent fishing with interact target should route right-click to hooked interact")
-    assertEquals(DreamFisher._test.GetLastRightClickTime(), 0,
-        "Hooked fallback route should consume click and clear double-click timing")
+    assertEquals(bindingCalls, 0,
+        "Recent fishing with interact target should not force hooked interact without hooked mode")
+    assertEquals(DreamFisher._test.GetLastRightClickTime(), mockTime,
+        "Without hooked-mode routing, first click should follow normal timing flow")
 
     DreamFisher.fishing.GetInteractDiagnostics = originalGetDiag
     _G.SetOverrideBindingClick = originalBindingClick

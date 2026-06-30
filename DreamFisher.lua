@@ -288,7 +288,6 @@ bagMonitor:RegisterEvent("PLAYER_ENTERING_WORLD")
 bagMonitor:RegisterEvent("BAG_UPDATE_DELAYED")
 bagMonitor:SetScript("OnEvent", function(_, event)
     if addon.utils then addon.utils.CheckBagSpace() end
-    DebugBagMessage("Event received: " .. tostring(event))
     if event == "BAG_UPDATE_DELAYED" and addon.utils and addon.alerts then
         local now = (type(GetTime) == "function") and GetTime() or 0
         if fishingLootBagCheckPendingUntil > 0 then
