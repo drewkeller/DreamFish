@@ -51,6 +51,9 @@ addon.DebugMessage = function(msg)
     end
 end
 
+local DebugStateMessage = addon.DebugStateMessage or addon.DebugMessage
+
+
 _G.BINDING_HEADER_DREAMFISHER = "DreamFisher"
 -- Label for CLICK DreamFisherSecureFishingButton:RightButton binding.
 -- WoW normalizes click-binding token characters to underscores.

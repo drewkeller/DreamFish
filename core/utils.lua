@@ -48,6 +48,12 @@ local function DebugMessage(msg)
     end
 end
 
+local function DebugStateMessage(msg)
+    if addon.db and addon.db.debugMode and addon.db.debugState then
+        DebugMessage(msg)
+    end
+end
+
 -- Export to addon
 addon.utils = {
     Clamp = Clamp,
@@ -55,6 +61,7 @@ addon.utils = {
     CopyDefaults = CopyDefaults,
     PrintMessage = PrintMessage,
     DebugMessage = DebugMessage,
+    DebugStateMessage = DebugStateMessage,
 }
 
 -- Also expose at module level for backward compatibility
@@ -63,3 +70,4 @@ addon.DeepCopy = DeepCopy
 addon.CopyDefaults = CopyDefaults
 addon.PrintMessage = PrintMessage
 addon.DebugMessage = DebugMessage
+addon.DebugStateMessage = DebugStateMessage

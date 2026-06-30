@@ -3,6 +3,7 @@
 local addon = _G["DreamFisher"]
 local PrintMessage = addon.PrintMessage
 local DebugMessage = addon.DebugMessage
+local DebugStateMessage = addon.DebugStateMessage or function() end
 local ignoredFailureDebugAtBySpell = {}
 
 local function IsStrictFishingSpellID(spellID)
@@ -51,7 +52,7 @@ local function GetHookedInteractEvidence()
 end
 
 local function LogStateTransition(reason, event, spellID, isFishingSpell)
-    if not (addon.db and addon.db.debugMode) then
+    if not (addon.db and addon.db.debugMode and addon.db.debugState) then
         return
     end
     local now = (type(GetTime) == "function") and GetTime() or 0
@@ -59,7 +60,7 @@ local function LogStateTransition(reason, event, spellID, isFishingSpell)
     local elapsed = (startedAt > 0 and now >= startedAt) and (now - startedAt) or 0
     local graceUntil = tonumber(addon.state and addon.state.fishingStartGraceUntil) or 0
     local graceRemaining = math.max(0, graceUntil - now)
-    DebugMessage("State transition: " .. tostring(reason)
+    DebugStateMessage("State transition: " .. tostring(reason)
         .. " event=" .. tostring(event)
         .. " spellID=" .. tostring(spellID)
         .. " isFishingSpell=" .. tostring(isFishingSpell)
@@ -146,7 +147,7 @@ local function TryArmNativeInteractOverrideFromFishingState()
         local lastLogAt = tonumber(addon.state.interactFallbackArmLastLogAt) or 0
         if lastLogAt <= 0 or (now - lastLogAt) >= 4 then
             addon.state.interactFallbackArmLastLogAt = now
-            DebugMessage("Armed native interact override from fishing-state fallback")
+            DebugStateMessage("Armed native interact override from fishing-state fallback")
         end
     end
 end
@@ -337,8 +338,8 @@ local function CreateFishingStateFrame()
                 end
                 addon.audio.RestoreFishingAudioFocus()
                 frame:SetScript("OnUpdate", nil)
-            elseif addon.db and addon.db.debugMode and addon.state.savedFishingAudioCVars ~= nil and ShouldLogIgnoredFailure(spellID) then
-                DebugMessage("Ignoring non-fishing cast failure event while fishing session active:"
+            elseif addon.db and addon.db.debugMode and addon.db.debugState and addon.state.savedFishingAudioCVars ~= nil and ShouldLogIgnoredFailure(spellID) then
+                DebugStateMessage("Ignoring non-fishing cast failure event while fishing session active:"
                     .. " event=" .. tostring(event)
                     .. " spellID=" .. tostring(spellID)
                     .. " strictFishing=" .. tostring(isFishingSpellStrict)
@@ -352,7 +353,7 @@ local function CreateFishingStateFrame()
                     LogStateTransition("movement-clears-interact-override", event, spellID, isFishingSpell)
                     addon.fishing.ClearNativeInteractOverride()
                     addon.state.interactAcquireExpiresAt = 0
-                    DebugMessage("Movement detected: cleared interact override")
+                    DebugStateMessage("Movement detected: cleared interact override")
                 end
             end
             if addon.state.savedFishingAudioCVars ~= nil then

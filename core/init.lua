@@ -35,6 +35,7 @@ addon.defaults = {
     lowBagThreshold = 2,
     audioFocusLinger = 10,
     debugMode = true,
+    debugState = false,
     debugBuffs = false,
 }
 
