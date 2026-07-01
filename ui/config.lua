@@ -1022,14 +1022,95 @@ function config.CreateConfigPanel()
         return button
     end
 
-    addon.autoLootCheckbox = CreateCheckbox(focusPage, 20, -20, "Temporary Auto-Loot", SaveLive)
-    addon.treasureAlertsCheckbox = CreateCheckbox(focusPage, 20, -55, "Patient Treasure Notification", SaveLive)
-    addon.bagAlertsCheckbox = CreateCheckbox(focusPage, 20, -90, "Bag Monitor / Alert", SaveLive)
-    addon.lowBagBox = CreateEditBox(focusPage, 60, -125, 100, "Low Bag Threshold:", SaveLive)
+    if usingAceGUIWindow and aceGUIInstance then
+        local aceWidgets = {}
+        panel.aceWidgets = aceWidgets
 
-    CreateTitle(focusPage, 20, -250, "Audio:")
-    addon.enhancedSoundsCheckbox = CreateCheckbox(focusPage, 20, -270, "Fishing Focused Audio", SaveLive)
-    addon.audioLingerBox = CreateEditBox(focusPage, 60, -305, 100, "Audio Linger After Catch (s):", SaveLive)
+        local function WrapAceCheckbox(widget)
+            local wrapper = {}
+            function wrapper:SetChecked(value)
+                widget:SetValue(value and true or false)
+            end
+            function wrapper:GetChecked()
+                return widget:GetValue() and true or false
+            end
+            return wrapper
+        end
+
+        local function WrapAceEditBox(widget)
+            local wrapper = {}
+            function wrapper:SetText(value)
+                widget:SetText(tostring(value or ""))
+            end
+            function wrapper:GetText()
+                return widget:GetText() or ""
+            end
+            return wrapper
+        end
+
+        local function CreateAceCheckbox(parent, x, y, label, onLiveChange)
+            local widget = aceGUIInstance:Create("CheckBox")
+            widget:SetType("checkbox")
+            widget:SetLabel(label)
+            widget.frame:SetParent(parent)
+            widget.frame:SetPoint("TOPLEFT", x, y)
+            widget.frame:Show()
+            if onLiveChange then
+                widget:SetCallback("OnValueChanged", function()
+                    onLiveChange()
+                end)
+            end
+            table.insert(aceWidgets, widget)
+            return WrapAceCheckbox(widget)
+        end
+
+        local function CreateAceEditBox(parent, x, y, width, label, onLiveChange)
+            local widget = aceGUIInstance:Create("EditBox")
+            widget:SetLabel(label)
+            widget:SetWidth(width)
+            widget.frame:SetParent(parent)
+            widget.frame:SetPoint("TOPLEFT", x, y)
+            widget.frame:Show()
+            if onLiveChange then
+                widget:SetCallback("OnTextChanged", function()
+                    onLiveChange()
+                end)
+                widget:SetCallback("OnEnterPressed", function()
+                    onLiveChange()
+                end)
+            end
+            table.insert(aceWidgets, widget)
+            return WrapAceEditBox(widget)
+        end
+
+        local function CreateAceTitle(parent, x, y, text)
+            local widget = aceGUIInstance:Create("Label")
+            widget:SetText(text)
+            widget.frame:SetParent(parent)
+            widget.frame:SetPoint("TOPLEFT", x, y)
+            widget.frame:Show()
+            table.insert(aceWidgets, widget)
+            return widget
+        end
+
+        addon.autoLootCheckbox = CreateAceCheckbox(focusPage, 20, -20, "Temporary Auto-Loot", SaveLive)
+        addon.treasureAlertsCheckbox = CreateAceCheckbox(focusPage, 20, -50, "Patient Treasure Notification", SaveLive)
+        addon.bagAlertsCheckbox = CreateAceCheckbox(focusPage, 20, -80, "Bag Monitor / Alert", SaveLive)
+        addon.lowBagBox = CreateAceEditBox(focusPage, 60, -120, 140, "Low Bag Threshold:", SaveLive)
+
+        CreateAceTitle(focusPage, 20, -200, "Audio:")
+        addon.enhancedSoundsCheckbox = CreateAceCheckbox(focusPage, 20, -230, "Fishing Focused Audio", SaveLive)
+        addon.audioLingerBox = CreateAceEditBox(focusPage, 60, -270, 180, "Audio Linger After Catch (s):", SaveLive)
+    else
+        addon.autoLootCheckbox = CreateCheckbox(focusPage, 20, -20, "Temporary Auto-Loot", SaveLive)
+        addon.treasureAlertsCheckbox = CreateCheckbox(focusPage, 20, -55, "Patient Treasure Notification", SaveLive)
+        addon.bagAlertsCheckbox = CreateCheckbox(focusPage, 20, -90, "Bag Monitor / Alert", SaveLive)
+        addon.lowBagBox = CreateEditBox(focusPage, 60, -125, 100, "Low Bag Threshold:", SaveLive)
+
+        CreateTitle(focusPage, 20, -250, "Audio:")
+        addon.enhancedSoundsCheckbox = CreateCheckbox(focusPage, 20, -270, "Fishing Focused Audio", SaveLive)
+        addon.audioLingerBox = CreateEditBox(focusPage, 60, -305, 100, "Audio Linger After Catch (s):", SaveLive)
+    end
 
     addon.bobberSelector = CreateToySelector(tacklePage, 20, -20, 360, "Selected Bobber:", function()
         return BuildOwnedToyOptions(addon.const.bobberToyItemIDs, "Standard Bobber")
@@ -1042,25 +1123,98 @@ function config.CreateConfigPanel()
     end, SaveLive)
     addon.raftApplyButton = CreateSecureToyActionButton(tacklePage, 20, -220, 160, "Apply Raft")
 
-    CreateTitle(modesPage, 20, -20, "Casting Triggers:")
-    addon.modeDoubleRightClickCheckbox = CreateCheckbox(modesPage, 20, -45, "Right double click", SaveLive)
-    addon.modeSingleRightClickConfigCheckbox = CreateCheckbox(modesPage, 20, -75, "Single right click (when this window is open)", SaveLive)
-    addon.modeHotkeyCheckbox = CreateCheckbox(modesPage, 20, -105, "Keybinding (set the key in Keybindings > DreamFisher)", SaveLive)
-    addon.enableHookedLootCheckbox = CreateCheckbox(modesPage, 20, -135, "Use right click and/or hotkey to reel in the fish", SaveLive)
+    if usingAceGUIWindow and aceGUIInstance then
+        local function WrapAceCheckbox(widget)
+            local wrapper = {}
+            function wrapper:SetChecked(value)
+                widget:SetValue(value and true or false)
+            end
+            function wrapper:GetChecked()
+                return widget:GetValue() and true or false
+            end
+            return wrapper
+        end
 
-    local hotkeyNote = modesPage:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
-    hotkeyNote:SetPoint("TOPLEFT", 40, -170)
-    hotkeyNote:SetText("Requires some setup in Game Menu > Options: \n"
-        .. "1. Turn on \"Enable Interact Key\" (Options > Controls).\n"
-        .. "2. Set a keybinding (Keybindings > DreamFisher).\n"
-        .. "3. Ensure another addon does not try to control interactions while fishing.")
-    hotkeyNote:SetJustifyH("LEFT")
-    hotkeyNote:SetWidth(480)
+        local function CreateAceCheckbox(parent, x, y, label, onLiveChange)
+            local widget = aceGUIInstance:Create("CheckBox")
+            widget:SetType("checkbox")
+            widget:SetLabel(label)
+            widget.frame:SetParent(parent)
+            widget.frame:SetPoint("TOPLEFT", x, y)
+            widget.frame:Show()
+            if onLiveChange then
+                widget:SetCallback("OnValueChanged", function()
+                    onLiveChange()
+                end)
+            end
+            if panel.aceWidgets then
+                table.insert(panel.aceWidgets, widget)
+            end
+            return WrapAceCheckbox(widget)
+        end
 
-    addon.escapeCloseCheckbox = CreateCheckbox(modesPage, 20, -235, "Escape closes this window", SaveLive)
+        local function CreateAceTitle(parent, x, y, text)
+            local widget = aceGUIInstance:Create("Label")
+            widget:SetText(text)
+            widget.frame:SetParent(parent)
+            widget.frame:SetPoint("TOPLEFT", x, y)
+            widget.frame:Show()
+            if panel.aceWidgets then
+                table.insert(panel.aceWidgets, widget)
+            end
+            return widget
+        end
 
-    CreateTitle(modesPage, 20, -295, "Underlight Angler:")
-    addon.underlightAnglerCheckbox = CreateCheckbox(modesPage, 20, -315, "Equip Underlight Angler while swimming", SaveLive)
+        local function CreateAceNote(parent, x, y, width, text)
+            local widget = aceGUIInstance:Create("Label")
+            widget:SetText(text)
+            widget:SetWidth(width)
+            widget.frame:SetParent(parent)
+            widget.frame:SetPoint("TOPLEFT", x, y)
+            widget.frame:Show()
+            if panel.aceWidgets then
+                table.insert(panel.aceWidgets, widget)
+            end
+            return widget
+        end
+
+        CreateAceTitle(modesPage, 20, -20, "Casting Triggers:")
+        addon.modeDoubleRightClickCheckbox = CreateAceCheckbox(modesPage, 20, -45, "Right double click", SaveLive)
+        addon.modeSingleRightClickConfigCheckbox = CreateAceCheckbox(modesPage, 20, -75, "Single right click (when this window is open)", SaveLive)
+        addon.modeHotkeyCheckbox = CreateAceCheckbox(modesPage, 20, -105, "Keybinding (set the key in Keybindings > DreamFisher)", SaveLive)
+        addon.enableHookedLootCheckbox = CreateAceCheckbox(modesPage, 20, -135, "Use right click and/or hotkey to reel in the fish", SaveLive)
+
+        CreateAceNote(modesPage, 40, -170, 480,
+            "Requires some setup in Game Menu > Options: \n"
+            .. "1. Turn on \"Enable Interact Key\" (Options > Controls).\n"
+            .. "2. Set a keybinding (Keybindings > DreamFisher).\n"
+            .. "3. Ensure another addon does not try to control interactions while fishing.")
+
+        addon.escapeCloseCheckbox = CreateAceCheckbox(modesPage, 20, -235, "Escape closes this window", SaveLive)
+
+        CreateAceTitle(modesPage, 20, -295, "Underlight Angler:")
+        addon.underlightAnglerCheckbox = CreateAceCheckbox(modesPage, 20, -315, "Equip Underlight Angler while swimming", SaveLive)
+    else
+        CreateTitle(modesPage, 20, -20, "Casting Triggers:")
+        addon.modeDoubleRightClickCheckbox = CreateCheckbox(modesPage, 20, -45, "Right double click", SaveLive)
+        addon.modeSingleRightClickConfigCheckbox = CreateCheckbox(modesPage, 20, -75, "Single right click (when this window is open)", SaveLive)
+        addon.modeHotkeyCheckbox = CreateCheckbox(modesPage, 20, -105, "Keybinding (set the key in Keybindings > DreamFisher)", SaveLive)
+        addon.enableHookedLootCheckbox = CreateCheckbox(modesPage, 20, -135, "Use right click and/or hotkey to reel in the fish", SaveLive)
+
+        local hotkeyNote = modesPage:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
+        hotkeyNote:SetPoint("TOPLEFT", 40, -170)
+        hotkeyNote:SetText("Requires some setup in Game Menu > Options: \n"
+            .. "1. Turn on \"Enable Interact Key\" (Options > Controls).\n"
+            .. "2. Set a keybinding (Keybindings > DreamFisher).\n"
+            .. "3. Ensure another addon does not try to control interactions while fishing.")
+        hotkeyNote:SetJustifyH("LEFT")
+        hotkeyNote:SetWidth(480)
+
+        addon.escapeCloseCheckbox = CreateCheckbox(modesPage, 20, -235, "Escape closes this window", SaveLive)
+
+        CreateTitle(modesPage, 20, -295, "Underlight Angler:")
+        addon.underlightAnglerCheckbox = CreateCheckbox(modesPage, 20, -315, "Equip Underlight Angler while swimming", SaveLive)
+    end
 
     addon.buffItemControls = {}
     for i = 1, maxBuffSlots do
