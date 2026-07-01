@@ -18,28 +18,6 @@ local suppressLiveSave = false
 local SaveLive
 local aceGUI = nil
 
-local function WrapAceCheckbox(widget)
-    local wrapper = {}
-    function wrapper:SetChecked(value)
-        widget:SetValue(value and true or false)
-    end
-    function wrapper:GetChecked()
-        return widget:GetValue() and true or false
-    end
-    return wrapper
-end
-
-local function WrapAceEditBox(widget)
-    local wrapper = {}
-    function wrapper:SetText(value)
-        widget:SetText(tostring(value or ""))
-    end
-    function wrapper:GetText()
-        return widget:GetText() or ""
-    end
-    return wrapper
-end
-
 local function TryGetAceGUI()
     if aceGUI then
         return aceGUI
@@ -59,12 +37,7 @@ local function TryGetAceGUI()
     return nil
 end
 
-local function IsAceGUIMigrationEnabled()
-    return addon.db and addon.db.useAceGUIConfig == true and TryGetAceGUI() ~= nil
-end
-
 config.TryGetAceGUI = TryGetAceGUI
-config.IsAceGUIMigrationEnabled = IsAceGUIMigrationEnabled
 
 local function BuildOwnedToyOptions(candidateIDs, includeDefaultLabel)
     local options = {}
@@ -139,107 +112,6 @@ local function ResolveExpectedDurationForItem(itemID, fallbackSeconds)
     end
 
     return addon.Clamp(fallback, 30, 3600)
-end
-
-local function SetDropdownText(selector, text)
-    if selector and selector.dropdown then
-        UIDropDownMenu_SetText(selector.dropdown, text or "None owned")
-    end
-    selector.displayText = text or "None owned"
-end
-
-local function SetSelectorValue(selector, itemID)
-    if not selector then
-        return
-    end
-
-    local numeric = tonumber(itemID)
-    selector.selectedValue = numeric and numeric > 0 and numeric or nil
-
-    if not selector.options or #selector.options == 0 then
-        SetDropdownText(selector, "None owned")
-        return
-    end
-
-    for index, option in ipairs(selector.options) do
-        if option.value == selector.selectedValue then
-            selector.selectedIndex = index
-            break
-        end
-    end
-
-    if not selector.selectedIndex then
-        selector.selectedIndex = 1
-        selector.selectedValue = selector.options[1].value
-    end
-
-    SetDropdownText(selector, selector.options[selector.selectedIndex].label or tostring(selector.selectedValue))
-end
-
-local function CreateDropdownMenu(selector)
-    return function(frame, level, menuList)
-        local options = selector.options or {}
-        for _, option in ipairs(options) do
-            local info = UIDropDownMenu_CreateInfo()
-            info.text = option.label or tostring(option.value)
-            info.value = option.value
-            info.checked = (option.value == selector.selectedValue)
-            info.func = function()
-                selector.selectedValue = option.value
-                selector.selectedIndex = nil
-                SetDropdownText(selector, option.label or tostring(option.value))
-                if selector.onValueChanged then
-                    selector.onValueChanged(selector.selectedValue)
-                end
-            end
-            UIDropDownMenu_AddButton(info, level)
-        end
-    end
-end
-
-local function CreateToySelector(parent, x, y, width, label, optionsGetter, onLiveChange)
-    local row = CreateFrame("Frame", nil, parent)
-    row:SetSize(width, 52)
-    row:SetPoint("TOPLEFT", x, y)
-
-    row.label = row:CreateFontString(nil, "OVERLAY", "GameFontNormal")
-    row.label:SetPoint("TOPLEFT", 0, 0)
-    row.label:SetText(label)
-
-    row.dropdown = CreateFrame("Frame", nil, row, "UIDropDownMenuTemplate")
-    row.dropdown:SetPoint("TOPLEFT", row.label, "BOTTOMLEFT", -16, -2)
-    UIDropDownMenu_SetWidth(row.dropdown, math.max(180, width - 8))
-    UIDropDownMenu_JustifyText(row.dropdown, "LEFT")
-
-    row.options = {}
-    row.selectedValue = nil
-    row.selectedIndex = nil
-    row.onValueChanged = onLiveChange
-
-    function row:RefreshOptions()
-        self.options = optionsGetter and optionsGetter() or {}
-        if #self.options == 0 then
-            self.selectedValue = nil
-            self.selectedIndex = nil
-            SetDropdownText(self, "None owned")
-            return
-        end
-        SetSelectorValue(self, self.selectedValue or self.options[1].value)
-        UIDropDownMenu_Initialize(self.dropdown, CreateDropdownMenu(self))
-    end
-
-    function row:SetText(value)
-        SetSelectorValue(self, value)
-        UIDropDownMenu_Initialize(self.dropdown, CreateDropdownMenu(self))
-    end
-
-    function row:GetText()
-        return tostring(self.selectedValue or "")
-    end
-
-    UIDropDownMenu_Initialize(row.dropdown, CreateDropdownMenu(row))
-    row:RefreshOptions()
-    return row
 end
 
 local function ResolveBool(value, defaultValue)
@@ -477,32 +349,23 @@ function config.CreateConfigPanel()
     end
 
     local panel = nil
-    local aceGUIInstance = IsAceGUIMigrationEnabled() and TryGetAceGUI() or nil
-    local isAceGUIMode = aceGUIInstance ~= nil
-
-    if isAceGUIMode then
-        local aceWindow = aceGUIInstance:Create("Frame")
-        aceWindow:SetTitle(addonName .. " Settings")
-        aceWindow:SetStatusText("")
-        aceWindow:SetLayout("Fill")
-        aceWindow:SetWidth(520)
-        aceWindow:SetHeight(690)
-        if aceWindow.EnableResize then
-            aceWindow:EnableResize(false)
-        end
-        panel = aceWindow.frame
-        panel.aceWindow = aceWindow
-        panel:Hide()
-    else
-        panel = CreateFrame("Frame", addonName .. "ConfigFrame", UIParent, "BackdropTemplate")
-        panel:SetSize(520, 690)
-        panel:SetMovable(true)
-        panel:SetClampedToScreen(true)
-        panel:EnableMouse(true)
-        panel:EnableKeyboard(false)
-        panel:RegisterForDrag("LeftButton")
-        panel:SetScript("OnDragStart", panel.StartMoving)
+    local aceGUIInstance = TryGetAceGUI()
+    if not aceGUIInstance then
+        return nil
     end
+
+    local aceWindow = aceGUIInstance:Create("Frame")
+    aceWindow:SetTitle(addonName .. " Settings")
+    aceWindow:SetStatusText("")
+    aceWindow:SetLayout("Fill")
+    aceWindow:SetWidth(520)
+    aceWindow:SetHeight(690)
+    if aceWindow.EnableResize then
+        aceWindow:EnableResize(false)
+    end
+    panel = aceWindow.frame
+    panel.aceWindow = aceWindow
+    panel:Hide()
 
     local function SavePanelPosition(self)
         if addon.db then
@@ -516,20 +379,13 @@ function config.CreateConfigPanel()
         end
     end
 
-    if isAceGUIMode then
-        panel:SetClampedToScreen(true)
-        panel:EnableMouse(true)
-        panel:EnableKeyboard(false)
-        panel:RegisterForDrag("LeftButton")
-        panel:HookScript("OnDragStop", function(self)
-            SavePanelPosition(self)
-        end)
-    else
-        panel:SetScript("OnDragStop", function(self)
-            self:StopMovingOrSizing()
-            SavePanelPosition(self)
-        end)
-    end
+    panel:SetClampedToScreen(true)
+    panel:EnableMouse(true)
+    panel:EnableKeyboard(false)
+    panel:RegisterForDrag("LeftButton")
+    panel:HookScript("OnDragStop", function(self)
+        SavePanelPosition(self)
+    end)
 
     if addon.db and type(addon.db.configWindowPosition) == "table" then
         local pos = addon.db.configWindowPosition
@@ -539,27 +395,8 @@ function config.CreateConfigPanel()
     end
     panel:Hide()
 
-    if not isAceGUIMode then
-        panel:SetBackdrop({
-            bgFile = "Interface\\ChatFrame\\ChatFrameBackground",
-            edgeFile = "Interface\\DialogFrame\\UI-DialogBox-Border",
-            tile = true, tileSize = 32, edgeSize = 32,
-            insets = { left = 8, right = 8, top = 8, bottom = 8 }
-        })
-        panel:SetBackdropColor(0, 0, 0, 0.85)
-    end
-
     addon.frames.config = panel
     SyncEscapeCloseRegistration()
-
-    if not isAceGUIMode then
-        panel.title = panel:CreateFontString(nil, "OVERLAY", "GameFontNormalLarge")
-        panel.title:SetPoint("TOPLEFT", 20, -20)
-        panel.title:SetText(addonName .. " Settings")
-
-        local closeBtn = CreateFrame("Button", nil, panel, "UIPanelCloseButton")
-        closeBtn:SetPoint("TOPRIGHT", -8, -8)
-    end
 
     local ShowTab = nil
     local focusPage = nil
@@ -593,52 +430,25 @@ function config.CreateConfigPanel()
             end
         end
 
-        local function CreateTabButton(tabName, x)
-            local button = CreateFrame("Button", nil, panel, "UIPanelButtonTemplate")
-            button:SetSize(92, 22)
-            button:SetPoint("TOPLEFT", x, -46)
-            button:SetText(tabLabels[tabName] or tabName)
-            button:SetScript("OnClick", function()
-                ShowTab(tabName)
-            end)
-            panel.tabButtons[tabName] = button
-            return button
-        end
-
-        if isAceGUIMode then
-            local aceTabGroup = aceGUIInstance:Create("TabGroup")
-            aceTabGroup:SetLayout("Fill")
-            aceTabGroup:SetTabs({
-                { text = tabLabels.focus, value = "focus" },
-                { text = tabLabels.tackle, value = "tackle" },
-                { text = tabLabels.buffs, value = "buffs" },
-                { text = tabLabels.modes, value = "modes" },
-            })
-            aceTabGroup:SetCallback("OnGroupSelected", function(_, _, group)
-                ShowTab(group)
-            end)
-            panel.aceTabGroup = aceTabGroup
-            panel.aceWindow:AddChild(aceTabGroup)
-        else
-            CreateTabButton("focus", 18)
-            CreateTabButton("tackle", 114)
-            CreateTabButton("buffs", 210)
-            CreateTabButton("modes", 306)
-        end
+        local aceTabGroup = aceGUIInstance:Create("TabGroup")
+        aceTabGroup:SetLayout("Fill")
+        aceTabGroup:SetTabs({
+            { text = tabLabels.focus, value = "focus" },
+            { text = tabLabels.tackle, value = "tackle" },
+            { text = tabLabels.buffs, value = "buffs" },
+            { text = tabLabels.modes, value = "modes" },
+        })
+        aceTabGroup:SetCallback("OnGroupSelected", function(_, _, group)
+            ShowTab(group)
+        end)
+        panel.aceTabGroup = aceTabGroup
+        panel.aceWindow:AddChild(aceTabGroup)
 
         local function CreatePage(name)
-            local parentFrame = panel
-            if isAceGUIMode and panel.aceTabGroup and panel.aceTabGroup.content then
-                parentFrame = panel.aceTabGroup.content
-            end
+            local parentFrame = panel.aceTabGroup and panel.aceTabGroup.content or panel
             local page = CreateFrame("Frame", nil, parentFrame, "BackdropTemplate")
-            if isAceGUIMode and panel.aceTabGroup and panel.aceTabGroup.content then
-                page:SetPoint("TOPLEFT", parentFrame, "TOPLEFT", 8, -8)
-                page:SetPoint("BOTTOMRIGHT", parentFrame, "BOTTOMRIGHT", -8, 8)
-            else
-                page:SetPoint("TOPLEFT", 18, -76)
-                page:SetPoint("BOTTOMRIGHT", -18, 18)
-            end
+            page:SetPoint("TOPLEFT", parentFrame, "TOPLEFT", 8, -8)
+            page:SetPoint("BOTTOMRIGHT", parentFrame, "BOTTOMRIGHT", -8, 8)
             page:Hide()
             panel.pages[name] = page
             return page
@@ -651,48 +461,6 @@ function config.CreateConfigPanel()
     end
 
     BuildTabScaffold()
-
-    local function CreateTitle(parent, x, y, text)
-        local title = parent:CreateFontString(nil, "OVERLAY", "GameFontNormal")
-        title:SetPoint("TOPLEFT", x, y)
-        title:SetText(text)
-    end
-
-    local function CreateCheckbox(parent, x, y, label, onLiveChange)
-        local cb = CreateFrame("CheckButton", nil, parent, "UICheckButtonTemplate")
-        cb:SetPoint("TOPLEFT", x, y)
-        cb.Text:SetText(label)
-        cb.Text:SetTextColor(0.9, 0.9, 0.9, 1)
-        if onLiveChange then
-            cb:SetScript("OnClick", onLiveChange)
-        end
-        return cb
-    end
-
-    local function CreateEditBox(parent, x, y, width, label, onLiveChange)
-        local lbl = parent:CreateFontString(nil, "OVERLAY", "GameFontNormal")
-        lbl:SetPoint("TOPLEFT", x, y)
-        lbl:SetText(label)
-
-        local eb = CreateFrame("EditBox", nil, parent, "InputBoxTemplate")
-        eb:SetSize(width, 20)
-        eb:SetPoint("TOPLEFT", x, y - 15)
-        eb:SetAutoFocus(false)
-        eb:SetScript("OnEscapePressed", function(self)
-            self:ClearFocus()
-            if addon.db and addon.db.configCloseOnEscape then
-                panel:Hide()
-            end
-        end)
-        if onLiveChange then
-            eb:SetScript("OnTextChanged", function(_, userInput)
-                if userInput then
-                    onLiveChange()
-                end
-            end)
-        end
-        return eb
-    end
 
     local function CreateBuffItemDropBox(parent, x, y, label, onLiveChange)
         local lbl = parent:CreateFontString(nil, "OVERLAY", "GameFontNormal")
@@ -1032,15 +800,6 @@ function config.CreateConfigPanel()
         config.SaveConfig(true)
     end
 
-    local function CreateActionButton(parent, x, y, width, text, onClick)
-        local button = CreateFrame("Button", nil, parent, "UIPanelButtonTemplate")
-        button:SetSize(width, 22)
-        button:SetPoint("TOPLEFT", x, y)
-        button:SetText(text)
-        button:SetScript("OnClick", onClick)
-        return button
-    end
-
     local function CreateSecureToyActionButton(parent, x, y, width, text)
         local button = CreateFrame("Button", nil, parent, "UIPanelButtonTemplate,SecureActionButtonTemplate")
         button:SetSize(width, 22)
@@ -1058,7 +817,7 @@ function config.CreateConfigPanel()
     local CreateAceNote = nil
     local CreateAceToySelector = nil
 
-    if isAceGUIMode then
+    do
         local aceWidgets = {}
         panel.aceWidgets = aceWidgets
 
@@ -1084,7 +843,15 @@ function config.CreateConfigPanel()
                 end)
             end
             widget = AnchorAceWidget(widget, parent, x, y)
-            return WrapAceCheckbox(widget)
+
+            return {
+                SetChecked = function(_, value)
+                    widget:SetValue(value and true or false)
+                end,
+                GetChecked = function()
+                    return widget:GetValue() and true or false
+                end,
+            }
         end
 
         CreateAceEditBox = function(parent, x, y, width, label, onLiveChange)
@@ -1100,7 +867,15 @@ function config.CreateConfigPanel()
                 end)
             end
             widget = AnchorAceWidget(widget, parent, x, y)
-            return WrapAceEditBox(widget)
+
+            return {
+                SetText = function(_, value)
+                    widget:SetText(tostring(value or ""))
+                end,
+                GetText = function()
+                    return widget:GetText() or ""
+                end,
+            }
         end
 
         CreateAceTitle = function(parent, x, y, text)
@@ -1186,43 +961,22 @@ function config.CreateConfigPanel()
     end
 
     local ui = {
-        Checkbox = CreateCheckbox,
-        EditBox = CreateEditBox,
-        Title = CreateTitle,
-        StaticTitle = CreateTitle,
-        ToySelector = CreateToySelector,
+        Checkbox = CreateAceCheckbox,
+        EditBox = CreateAceEditBox,
+        Title = CreateAceTitle,
+        StaticTitle = CreateAceTitle,
+        ToySelector = CreateAceToySelector,
         CreateBuffsHost = function(parent)
-            local host = CreateFrame("Frame", nil, parent)
-            host:SetPoint("TOPLEFT", parent, "TOPLEFT", 0, 0)
-            host:SetPoint("BOTTOMRIGHT", parent, "BOTTOMRIGHT", 0, 0)
-            return host
-        end,
-        Note = function(parent, x, y, width, text)
-            local note = parent:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
-            note:SetPoint("TOPLEFT", x, y)
-            note:SetText(text)
-            note:SetJustifyH("LEFT")
-            note:SetWidth(width)
-            return note
-        end,
-    }
-
-    if isAceGUIMode then
-        ui.Checkbox = CreateAceCheckbox
-        ui.EditBox = CreateAceEditBox
-        ui.Title = CreateAceTitle
-        ui.ToySelector = CreateAceToySelector
-        ui.Note = CreateAceNote
-        ui.CreateBuffsHost = function(parent)
             local host = CreateFrame("Frame", nil, parent)
             host:SetPoint("TOPLEFT", parent, "TOPLEFT", 12, -12)
             host:SetPoint("BOTTOMRIGHT", parent, "BOTTOMRIGHT", -12, 12)
             return host
-        end
-    end
+        end,
+        Note = CreateAceNote,
+    }
 
     local function BuildFocusTab()
-        local layout = isAceGUIMode and {
+        local layout = {
             treasureY = -50,
             bagY = -80,
             thresholdY = -120,
@@ -1231,15 +985,6 @@ function config.CreateConfigPanel()
             audioCheckboxY = -230,
             audioLingerY = -270,
             audioLingerWidth = 180,
-        } or {
-            treasureY = -55,
-            bagY = -90,
-            thresholdY = -125,
-            thresholdWidth = 100,
-            audioTitleY = -250,
-            audioCheckboxY = -270,
-            audioLingerY = -305,
-            audioLingerWidth = 100,
         }
 
         addon.autoLootCheckbox = ui.Checkbox(focusPage, 20, -20, "Temporary Auto-Loot", SaveLive)
@@ -1253,16 +998,11 @@ function config.CreateConfigPanel()
     end
 
     local function BuildTackleTab()
-        local layout = isAceGUIMode and {
+        local layout = {
             selectorWidth = 280,
             oversizedY = -82,
             bobberApplyY = -116,
             raftApplyY = -236,
-        } or {
-            selectorWidth = 360,
-            oversizedY = -65,
-            bobberApplyY = -100,
-            raftApplyY = -220,
         }
 
         addon.bobberSelector = ui.ToySelector(tacklePage, 20, -20, layout.selectorWidth, "Selected Bobber:", function()
@@ -1331,9 +1071,7 @@ function config.CreateConfigPanel()
 
     local function ShowCurrentActiveTab()
         local selectedTab = panel.activeTab or "focus"
-        if isAceGUIMode then
-            SelectAceTab(selectedTab)
-        end
+        SelectAceTab(selectedTab)
         ShowTab(selectedTab)
     end
 
@@ -1350,21 +1088,13 @@ function config.CreateConfigPanel()
     end
 
     local function BindPanelLifecycle()
-        if isAceGUIMode then
-            panel:HookScript("OnShow", HandlePanelShow)
-            panel:HookScript("OnHide", HandlePanelHide)
-            return
-        end
-
-        panel:SetScript("OnShow", HandlePanelShow)
-        panel:SetScript("OnHide", HandlePanelHide)
+        panel:HookScript("OnShow", HandlePanelShow)
+        panel:HookScript("OnHide", HandlePanelHide)
     end
 
     BindPanelLifecycle()
     ShowTab("focus")
-    if isAceGUIMode then
-        SelectAceTab("focus")
-    end
+    SelectAceTab("focus")
     return panel
 end
 
