@@ -89,6 +89,7 @@ dofile("fishing/state.lua")
 dofile("audio/ducking.lua")
 dofile("audio/alerts.lua")
 dofile("ui/commands.lua")
+dofile("ui/ace_widget_factory.lua")
 dofile("ui/buff_item_drop_box.lua")
 dofile("ui/config.lua")
 

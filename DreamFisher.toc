@@ -39,6 +39,7 @@ audio/alerts.lua
 
 # UI system (commands, config)
 ui/commands.lua
+ui/ace_widget_factory.lua
 ui/buff_item_drop_box.lua
 ui/config.lua
 

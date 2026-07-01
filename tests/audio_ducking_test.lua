@@ -120,7 +120,6 @@ _G.strtrim = function(s)
     return (s:gsub("^%s+", ""):gsub("%s+$", ""))
 end
 
--- Load addon file in mocked environment.
 dofile("core/init.lua")
 dofile("core/utils.lua")
 dofile("buff/tracking.lua")
@@ -130,6 +129,7 @@ dofile("fishing/helpers.lua")
 dofile("fishing/casting.lua")
 dofile("fishing/state.lua")
 dofile("audio/ducking.lua")
+dofile("ui/ace_widget_factory.lua")
 dofile("ui/buff_item_drop_box.lua")
 dofile("ui/config.lua")
 dofile("DreamFisher.lua")
