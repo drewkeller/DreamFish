@@ -1189,7 +1189,14 @@ function config.CreateConfigPanel()
         Checkbox = CreateCheckbox,
         EditBox = CreateEditBox,
         Title = CreateTitle,
+        StaticTitle = CreateTitle,
         ToySelector = CreateToySelector,
+        CreateBuffsHost = function(parent)
+            local host = CreateFrame("Frame", nil, parent)
+            host:SetPoint("TOPLEFT", parent, "TOPLEFT", 0, 0)
+            host:SetPoint("BOTTOMRIGHT", parent, "BOTTOMRIGHT", 0, 0)
+            return host
+        end,
         Note = function(parent, x, y, width, text)
             local note = parent:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
             note:SetPoint("TOPLEFT", x, y)
@@ -1206,6 +1213,12 @@ function config.CreateConfigPanel()
         ui.Title = CreateAceTitle
         ui.ToySelector = CreateAceToySelector
         ui.Note = CreateAceNote
+        ui.CreateBuffsHost = function(parent)
+            local host = CreateFrame("Frame", nil, parent)
+            host:SetPoint("TOPLEFT", parent, "TOPLEFT", 12, -12)
+            host:SetPoint("BOTTOMRIGHT", parent, "BOTTOMRIGHT", -12, 12)
+            return host
+        end
     end
 
     local function BuildFocusTab()
@@ -1284,18 +1297,8 @@ function config.CreateConfigPanel()
     end
 
     local function BuildBuffsTab()
-        local buffsHost = CreateFrame("Frame", nil, buffsPage)
-        if isAceGUIMode and panel.aceTabGroup and panel.aceTabGroup.content then
-            buffsHost:SetPoint("TOPLEFT", buffsPage, "TOPLEFT", 12, -12)
-            buffsHost:SetPoint("BOTTOMRIGHT", buffsPage, "BOTTOMRIGHT", -12, 12)
-        else
-            buffsHost:SetPoint("TOPLEFT", buffsPage, "TOPLEFT", 0, 0)
-            buffsHost:SetPoint("BOTTOMRIGHT", buffsPage, "BOTTOMRIGHT", 0, 0)
-        end
-
-        local buffsTitle = buffsHost:CreateFontString(nil, "OVERLAY", "GameFontNormal")
-        buffsTitle:SetPoint("TOPLEFT", 20, -20)
-        buffsTitle:SetText("Buff Items")
+        local buffsHost = ui.CreateBuffsHost(buffsPage)
+        ui.StaticTitle(buffsHost, 20, -20, "Buff Items")
 
         addon.buffItemControls = {}
         for i = 1, maxBuffSlots do
