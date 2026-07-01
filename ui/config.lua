@@ -1176,16 +1176,19 @@ function config.CreateConfigPanel()
         end
     end
 
-    if isAceGUIMode then
-        addon.autoLootCheckbox = CreateAceCheckbox(focusPage, 20, -20, "Temporary Auto-Loot", SaveLive)
-        addon.treasureAlertsCheckbox = CreateAceCheckbox(focusPage, 20, -50, "Patient Treasure Notification", SaveLive)
-        addon.bagAlertsCheckbox = CreateAceCheckbox(focusPage, 20, -80, "Bag Monitor / Alert", SaveLive)
-        addon.lowBagBox = CreateAceEditBox(focusPage, 60, -120, 140, "Low Bag Threshold:", SaveLive)
+    local function BuildFocusTab()
+        if isAceGUIMode then
+            addon.autoLootCheckbox = CreateAceCheckbox(focusPage, 20, -20, "Temporary Auto-Loot", SaveLive)
+            addon.treasureAlertsCheckbox = CreateAceCheckbox(focusPage, 20, -50, "Patient Treasure Notification", SaveLive)
+            addon.bagAlertsCheckbox = CreateAceCheckbox(focusPage, 20, -80, "Bag Monitor / Alert", SaveLive)
+            addon.lowBagBox = CreateAceEditBox(focusPage, 60, -120, 140, "Low Bag Threshold:", SaveLive)
 
-        CreateAceTitle(focusPage, 20, -200, "Audio:")
-        addon.enhancedSoundsCheckbox = CreateAceCheckbox(focusPage, 20, -230, "Fishing Focused Audio", SaveLive)
-        addon.audioLingerBox = CreateAceEditBox(focusPage, 60, -270, 180, "Audio Linger After Catch (s):", SaveLive)
-    else
+            CreateAceTitle(focusPage, 20, -200, "Audio:")
+            addon.enhancedSoundsCheckbox = CreateAceCheckbox(focusPage, 20, -230, "Fishing Focused Audio", SaveLive)
+            addon.audioLingerBox = CreateAceEditBox(focusPage, 60, -270, 180, "Audio Linger After Catch (s):", SaveLive)
+            return
+        end
+
         addon.autoLootCheckbox = CreateCheckbox(focusPage, 20, -20, "Temporary Auto-Loot", SaveLive)
         addon.treasureAlertsCheckbox = CreateCheckbox(focusPage, 20, -55, "Patient Treasure Notification", SaveLive)
         addon.bagAlertsCheckbox = CreateCheckbox(focusPage, 20, -90, "Bag Monitor / Alert", SaveLive)
@@ -1196,18 +1199,21 @@ function config.CreateConfigPanel()
         addon.audioLingerBox = CreateEditBox(focusPage, 60, -305, 100, "Audio Linger After Catch (s):", SaveLive)
     end
 
-    if isAceGUIMode then
-        addon.bobberSelector = CreateAceToySelector(tacklePage, 20, -20, 280, "Selected Bobber:", function()
-            return BuildOwnedToyOptions(addon.const.bobberToyItemIDs, "Standard Bobber")
-        end, SaveLive)
-        addon.oversizedBobberCheckbox = CreateAceCheckbox(tacklePage, 20, -82, "Use oversized bobber", SaveLive)
-        addon.bobberApplyButton = CreateSecureToyActionButton(tacklePage, 20, -116, 160, "Apply Bobber")
+    local function BuildTackleTab()
+        if isAceGUIMode then
+            addon.bobberSelector = CreateAceToySelector(tacklePage, 20, -20, 280, "Selected Bobber:", function()
+                return BuildOwnedToyOptions(addon.const.bobberToyItemIDs, "Standard Bobber")
+            end, SaveLive)
+            addon.oversizedBobberCheckbox = CreateAceCheckbox(tacklePage, 20, -82, "Use oversized bobber", SaveLive)
+            addon.bobberApplyButton = CreateSecureToyActionButton(tacklePage, 20, -116, 160, "Apply Bobber")
 
-        addon.raftSelector = CreateAceToySelector(tacklePage, 20, -170, 280, "Selected Raft:", function()
-            return BuildOwnedToyOptions(addon.const.raftToyItemIDs, "No Raft")
-        end, SaveLive)
-        addon.raftApplyButton = CreateSecureToyActionButton(tacklePage, 20, -236, 160, "Apply Raft")
-    else
+            addon.raftSelector = CreateAceToySelector(tacklePage, 20, -170, 280, "Selected Raft:", function()
+                return BuildOwnedToyOptions(addon.const.raftToyItemIDs, "No Raft")
+            end, SaveLive)
+            addon.raftApplyButton = CreateSecureToyActionButton(tacklePage, 20, -236, 160, "Apply Raft")
+            return
+        end
+
         addon.bobberSelector = CreateToySelector(tacklePage, 20, -20, 360, "Selected Bobber:", function()
             return BuildOwnedToyOptions(addon.const.bobberToyItemIDs, "Standard Bobber")
         end, SaveLive)
@@ -1220,24 +1226,27 @@ function config.CreateConfigPanel()
         addon.raftApplyButton = CreateSecureToyActionButton(tacklePage, 20, -220, 160, "Apply Raft")
     end
 
-    if isAceGUIMode then
-        CreateAceTitle(modesPage, 20, -20, "Casting Triggers:")
-        addon.modeDoubleRightClickCheckbox = CreateAceCheckbox(modesPage, 20, -45, "Right double click", SaveLive)
-        addon.modeSingleRightClickConfigCheckbox = CreateAceCheckbox(modesPage, 20, -75, "Single right click (when this window is open)", SaveLive)
-        addon.modeHotkeyCheckbox = CreateAceCheckbox(modesPage, 20, -105, "Keybinding (set the key in Keybindings > DreamFisher)", SaveLive)
-        addon.enableHookedLootCheckbox = CreateAceCheckbox(modesPage, 20, -135, "Use right click and/or hotkey to reel in the fish", SaveLive)
+    local function BuildModesTab()
+        if isAceGUIMode then
+            CreateAceTitle(modesPage, 20, -20, "Casting Triggers:")
+            addon.modeDoubleRightClickCheckbox = CreateAceCheckbox(modesPage, 20, -45, "Right double click", SaveLive)
+            addon.modeSingleRightClickConfigCheckbox = CreateAceCheckbox(modesPage, 20, -75, "Single right click (when this window is open)", SaveLive)
+            addon.modeHotkeyCheckbox = CreateAceCheckbox(modesPage, 20, -105, "Keybinding (set the key in Keybindings > DreamFisher)", SaveLive)
+            addon.enableHookedLootCheckbox = CreateAceCheckbox(modesPage, 20, -135, "Use right click and/or hotkey to reel in the fish", SaveLive)
 
-        CreateAceNote(modesPage, 40, -170, 480,
-            "Requires some setup in Game Menu > Options: \n"
-            .. "1. Turn on \"Enable Interact Key\" (Options > Controls).\n"
-            .. "2. Set a keybinding (Keybindings > DreamFisher).\n"
-            .. "3. Ensure another addon does not try to control interactions while fishing.")
+            CreateAceNote(modesPage, 40, -170, 480,
+                "Requires some setup in Game Menu > Options: \n"
+                .. "1. Turn on \"Enable Interact Key\" (Options > Controls).\n"
+                .. "2. Set a keybinding (Keybindings > DreamFisher).\n"
+                .. "3. Ensure another addon does not try to control interactions while fishing.")
 
-        addon.escapeCloseCheckbox = CreateAceCheckbox(modesPage, 20, -235, "Escape closes this window", SaveLive)
+            addon.escapeCloseCheckbox = CreateAceCheckbox(modesPage, 20, -235, "Escape closes this window", SaveLive)
 
-        CreateAceTitle(modesPage, 20, -295, "Underlight Angler:")
-        addon.underlightAnglerCheckbox = CreateAceCheckbox(modesPage, 20, -315, "Equip Underlight Angler while swimming", SaveLive)
-    else
+            CreateAceTitle(modesPage, 20, -295, "Underlight Angler:")
+            addon.underlightAnglerCheckbox = CreateAceCheckbox(modesPage, 20, -315, "Equip Underlight Angler while swimming", SaveLive)
+            return
+        end
+
         CreateTitle(modesPage, 20, -20, "Casting Triggers:")
         addon.modeDoubleRightClickCheckbox = CreateCheckbox(modesPage, 20, -45, "Right double click", SaveLive)
         addon.modeSingleRightClickConfigCheckbox = CreateCheckbox(modesPage, 20, -75, "Single right click (when this window is open)", SaveLive)
@@ -1259,32 +1268,39 @@ function config.CreateConfigPanel()
         addon.underlightAnglerCheckbox = CreateCheckbox(modesPage, 20, -315, "Equip Underlight Angler while swimming", SaveLive)
     end
 
-    local buffsHost = CreateFrame("Frame", nil, buffsPage)
-    if isAceGUIMode and panel.aceTabGroup and panel.aceTabGroup.content then
-        buffsHost:SetPoint("TOPLEFT", buffsPage, "TOPLEFT", 12, -12)
-        buffsHost:SetPoint("BOTTOMRIGHT", buffsPage, "BOTTOMRIGHT", -12, 12)
-    else
-        buffsHost:SetPoint("TOPLEFT", buffsPage, "TOPLEFT", 0, 0)
-        buffsHost:SetPoint("BOTTOMRIGHT", buffsPage, "BOTTOMRIGHT", 0, 0)
+    local function BuildBuffsTab()
+        local buffsHost = CreateFrame("Frame", nil, buffsPage)
+        if isAceGUIMode and panel.aceTabGroup and panel.aceTabGroup.content then
+            buffsHost:SetPoint("TOPLEFT", buffsPage, "TOPLEFT", 12, -12)
+            buffsHost:SetPoint("BOTTOMRIGHT", buffsPage, "BOTTOMRIGHT", -12, 12)
+        else
+            buffsHost:SetPoint("TOPLEFT", buffsPage, "TOPLEFT", 0, 0)
+            buffsHost:SetPoint("BOTTOMRIGHT", buffsPage, "BOTTOMRIGHT", 0, 0)
+        end
+
+        local buffsTitle = buffsHost:CreateFontString(nil, "OVERLAY", "GameFontNormal")
+        buffsTitle:SetPoint("TOPLEFT", 20, -20)
+        buffsTitle:SetText("Buff Items")
+
+        addon.buffItemControls = {}
+        for i = 1, maxBuffSlots do
+            local row = math.floor((i - 1) / 2)
+            local col = (i - 1) % 2
+            local baseX = 20 + (col * 220)
+            local baseY = -56 - (row * 95)
+            local itemBox = CreateBuffItemDropBox(buffsHost, baseX, baseY, "Buff " .. i, SaveLive)
+            itemBox:SetExpectedDuration(addon.db and addon.db.refreshSeconds or defaults.refreshSeconds)
+            itemBox.slotIndex = i
+            addon.buffItemControls[i] = {
+                itemBox = itemBox,
+            }
+        end
     end
 
-    local buffsTitle = buffsHost:CreateFontString(nil, "OVERLAY", "GameFontNormal")
-    buffsTitle:SetPoint("TOPLEFT", 20, -20)
-    buffsTitle:SetText("Buff Items")
-
-    addon.buffItemControls = {}
-    for i = 1, maxBuffSlots do
-        local row = math.floor((i - 1) / 2)
-        local col = (i - 1) % 2
-        local baseX = 20 + (col * 220)
-        local baseY = -56 - (row * 95)
-        local itemBox = CreateBuffItemDropBox(buffsHost, baseX, baseY, "Buff " .. i, SaveLive)
-        itemBox:SetExpectedDuration(addon.db and addon.db.refreshSeconds or defaults.refreshSeconds)
-        itemBox.slotIndex = i
-        addon.buffItemControls[i] = {
-            itemBox = itemBox,
-        }
-    end
+    BuildFocusTab()
+    BuildTackleTab()
+    BuildModesTab()
+    BuildBuffsTab()
 
     panel.buffItemControls = addon.buffItemControls
     UpdateToyApplyButtons()
