@@ -561,87 +561,96 @@ function config.CreateConfigPanel()
         closeBtn:SetPoint("TOPRIGHT", -8, -8)
     end
 
-    local tabLabels = {
-        focus = "Focus",
-        tackle = "Tackle",
-        buffs = "Buffs",
-        modes = "Modes",
-    }
+    local ShowTab = nil
+    local focusPage = nil
+    local tacklePage = nil
+    local buffsPage = nil
+    local modesPage = nil
 
-    panel.tabButtons = {}
-    panel.pages = {}
-    panel.activeTab = "focus"
+    local function BuildTabScaffold()
+        local tabLabels = {
+            focus = "Focus",
+            tackle = "Tackle",
+            buffs = "Buffs",
+            modes = "Modes",
+        }
 
-    local function ShowTab(tabName)
-        panel.activeTab = tabName
-        for name, page in pairs(panel.pages) do
-            page:SetShown(name == tabName)
-        end
-        for name, button in pairs(panel.tabButtons) do
-            if name == tabName then
-                button:Disable()
-            else
-                button:Enable()
+        panel.tabButtons = {}
+        panel.pages = {}
+        panel.activeTab = "focus"
+
+        ShowTab = function(tabName)
+            panel.activeTab = tabName
+            for name, page in pairs(panel.pages) do
+                page:SetShown(name == tabName)
+            end
+            for name, button in pairs(panel.tabButtons) do
+                if name == tabName then
+                    button:Disable()
+                else
+                    button:Enable()
+                end
             end
         end
-    end
 
-    local function CreateTabButton(tabName, x)
-        local button = CreateFrame("Button", nil, panel, "UIPanelButtonTemplate")
-        button:SetSize(92, 22)
-        button:SetPoint("TOPLEFT", x, -46)
-        button:SetText(tabLabels[tabName] or tabName)
-        button:SetScript("OnClick", function()
-            ShowTab(tabName)
-        end)
-        panel.tabButtons[tabName] = button
-        return button
-    end
-
-    local aceTabGroup = nil
-    if isAceGUIMode then
-        aceTabGroup = aceGUIInstance:Create("TabGroup")
-        aceTabGroup:SetLayout("Fill")
-        aceTabGroup:SetTabs({
-            { text = tabLabels.focus, value = "focus" },
-            { text = tabLabels.tackle, value = "tackle" },
-            { text = tabLabels.buffs, value = "buffs" },
-            { text = tabLabels.modes, value = "modes" },
-        })
-        aceTabGroup:SetCallback("OnGroupSelected", function(_, _, group)
-            ShowTab(group)
-        end)
-        panel.aceTabGroup = aceTabGroup
-        panel.aceWindow:AddChild(aceTabGroup)
-    else
-        CreateTabButton("focus", 18)
-        CreateTabButton("tackle", 114)
-        CreateTabButton("buffs", 210)
-        CreateTabButton("modes", 306)
-    end
-
-    local function CreatePage(name)
-        local parentFrame = panel
-        if isAceGUIMode and panel.aceTabGroup and panel.aceTabGroup.content then
-            parentFrame = panel.aceTabGroup.content
+        local function CreateTabButton(tabName, x)
+            local button = CreateFrame("Button", nil, panel, "UIPanelButtonTemplate")
+            button:SetSize(92, 22)
+            button:SetPoint("TOPLEFT", x, -46)
+            button:SetText(tabLabels[tabName] or tabName)
+            button:SetScript("OnClick", function()
+                ShowTab(tabName)
+            end)
+            panel.tabButtons[tabName] = button
+            return button
         end
-        local page = CreateFrame("Frame", nil, parentFrame, "BackdropTemplate")
-        if isAceGUIMode and panel.aceTabGroup and panel.aceTabGroup.content then
-            page:SetPoint("TOPLEFT", parentFrame, "TOPLEFT", 8, -8)
-            page:SetPoint("BOTTOMRIGHT", parentFrame, "BOTTOMRIGHT", -8, 8)
+
+        if isAceGUIMode then
+            local aceTabGroup = aceGUIInstance:Create("TabGroup")
+            aceTabGroup:SetLayout("Fill")
+            aceTabGroup:SetTabs({
+                { text = tabLabels.focus, value = "focus" },
+                { text = tabLabels.tackle, value = "tackle" },
+                { text = tabLabels.buffs, value = "buffs" },
+                { text = tabLabels.modes, value = "modes" },
+            })
+            aceTabGroup:SetCallback("OnGroupSelected", function(_, _, group)
+                ShowTab(group)
+            end)
+            panel.aceTabGroup = aceTabGroup
+            panel.aceWindow:AddChild(aceTabGroup)
         else
-            page:SetPoint("TOPLEFT", 18, -76)
-            page:SetPoint("BOTTOMRIGHT", -18, 18)
+            CreateTabButton("focus", 18)
+            CreateTabButton("tackle", 114)
+            CreateTabButton("buffs", 210)
+            CreateTabButton("modes", 306)
         end
-        page:Hide()
-        panel.pages[name] = page
-        return page
+
+        local function CreatePage(name)
+            local parentFrame = panel
+            if isAceGUIMode and panel.aceTabGroup and panel.aceTabGroup.content then
+                parentFrame = panel.aceTabGroup.content
+            end
+            local page = CreateFrame("Frame", nil, parentFrame, "BackdropTemplate")
+            if isAceGUIMode and panel.aceTabGroup and panel.aceTabGroup.content then
+                page:SetPoint("TOPLEFT", parentFrame, "TOPLEFT", 8, -8)
+                page:SetPoint("BOTTOMRIGHT", parentFrame, "BOTTOMRIGHT", -8, 8)
+            else
+                page:SetPoint("TOPLEFT", 18, -76)
+                page:SetPoint("BOTTOMRIGHT", -18, 18)
+            end
+            page:Hide()
+            panel.pages[name] = page
+            return page
+        end
+
+        focusPage = CreatePage("focus")
+        tacklePage = CreatePage("tackle")
+        buffsPage = CreatePage("buffs")
+        modesPage = CreatePage("modes")
     end
 
-    local focusPage = CreatePage("focus")
-    local tacklePage = CreatePage("tackle")
-    local buffsPage = CreatePage("buffs")
-    local modesPage = CreatePage("modes")
+    BuildTabScaffold()
 
     local function CreateTitle(parent, x, y, text)
         local title = parent:CreateFontString(nil, "OVERLAY", "GameFontNormal")
