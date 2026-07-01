@@ -18,6 +18,28 @@ local suppressLiveSave = false
 local SaveLive
 local aceGUI = nil
 
+local function WrapAceCheckbox(widget)
+    local wrapper = {}
+    function wrapper:SetChecked(value)
+        widget:SetValue(value and true or false)
+    end
+    function wrapper:GetChecked()
+        return widget:GetValue() and true or false
+    end
+    return wrapper
+end
+
+local function WrapAceEditBox(widget)
+    local wrapper = {}
+    function wrapper:SetText(value)
+        widget:SetText(tostring(value or ""))
+    end
+    function wrapper:GetText()
+        return widget:GetText() or ""
+    end
+    return wrapper
+end
+
 local function TryGetAceGUI()
     if aceGUI then
         return aceGUI
@@ -1026,28 +1048,6 @@ function config.CreateConfigPanel()
         local aceWidgets = {}
         panel.aceWidgets = aceWidgets
 
-        local function WrapAceCheckbox(widget)
-            local wrapper = {}
-            function wrapper:SetChecked(value)
-                widget:SetValue(value and true or false)
-            end
-            function wrapper:GetChecked()
-                return widget:GetValue() and true or false
-            end
-            return wrapper
-        end
-
-        local function WrapAceEditBox(widget)
-            local wrapper = {}
-            function wrapper:SetText(value)
-                widget:SetText(tostring(value or ""))
-            end
-            function wrapper:GetText()
-                return widget:GetText() or ""
-            end
-            return wrapper
-        end
-
         local function CreateAceCheckbox(parent, x, y, label, onLiveChange)
             local widget = aceGUIInstance:Create("CheckBox")
             widget:SetType("checkbox")
@@ -1112,29 +1112,129 @@ function config.CreateConfigPanel()
         addon.audioLingerBox = CreateEditBox(focusPage, 60, -305, 100, "Audio Linger After Catch (s):", SaveLive)
     end
 
-    addon.bobberSelector = CreateToySelector(tacklePage, 20, -20, 360, "Selected Bobber:", function()
-        return BuildOwnedToyOptions(addon.const.bobberToyItemIDs, "Standard Bobber")
-    end, SaveLive)
-    addon.oversizedBobberCheckbox = CreateCheckbox(tacklePage, 20, -65, "Use oversized bobber", SaveLive)
-    addon.bobberApplyButton = CreateSecureToyActionButton(tacklePage, 20, -100, 160, "Apply Bobber")
-
-    addon.raftSelector = CreateToySelector(tacklePage, 20, -170, 360, "Selected Raft:", function()
-        return BuildOwnedToyOptions(addon.const.raftToyItemIDs, "No Raft")
-    end, SaveLive)
-    addon.raftApplyButton = CreateSecureToyActionButton(tacklePage, 20, -220, 160, "Apply Raft")
-
     if usingAceGUIWindow and aceGUIInstance then
-        local function WrapAceCheckbox(widget)
-            local wrapper = {}
-            function wrapper:SetChecked(value)
-                widget:SetValue(value and true or false)
+        local function CreateAceToySelector(parent, x, y, width, label, optionsGetter, onLiveChange)
+            local heading = aceGUIInstance:Create("Label")
+            heading:SetText(label)
+            heading.frame:SetParent(parent)
+            heading.frame:SetPoint("TOPLEFT", x, y)
+            heading.frame:Show()
+            if panel.aceWidgets then
+                table.insert(panel.aceWidgets, heading)
             end
-            function wrapper:GetChecked()
-                return widget:GetValue() and true or false
+
+            local dropdown = aceGUIInstance:Create("Dropdown")
+            dropdown:SetWidth(width)
+            dropdown.frame:SetParent(parent)
+            dropdown.frame:SetPoint("TOPLEFT", x, y - 24)
+            dropdown.frame:Show()
+            if panel.aceWidgets then
+                table.insert(panel.aceWidgets, dropdown)
             end
-            return wrapper
+
+            local selector = {
+                options = {},
+                selectedValue = nil,
+                onValueChanged = onLiveChange,
+                dropdown = nil,
+            }
+
+            function selector:RefreshOptions()
+                self.options = optionsGetter and optionsGetter() or {}
+
+                local list = {}
+                for _, option in ipairs(self.options) do
+                    list[option.value] = option.label or tostring(option.value)
+                end
+                dropdown:SetList(list)
+
+                if #self.options == 0 then
+                    self.selectedValue = nil
+                    dropdown:SetValue(nil)
+                    return
+                end
+
+                local desired = tonumber(self.selectedValue)
+                local found = false
+                for _, option in ipairs(self.options) do
+                    if option.value == desired then
+                        found = true
+                        break
+                    end
+                end
+
+                if not found then
+                    self.selectedValue = self.options[1].value
+                else
+                    self.selectedValue = desired
+                end
+
+                dropdown:SetValue(self.selectedValue)
+            end
+
+            function selector:SetText(value)
+                local numeric = tonumber(value)
+                self.selectedValue = numeric and numeric > 0 and numeric or 0
+                self:RefreshOptions()
+            end
+
+            function selector:GetText()
+                return tostring(self.selectedValue or "")
+            end
+
+            dropdown:SetCallback("OnValueChanged", function(_, _, value)
+                selector.selectedValue = tonumber(value) or 0
+                if selector.onValueChanged then
+                    selector.onValueChanged(selector.selectedValue)
+                end
+            end)
+
+            selector:RefreshOptions()
+            return selector
         end
 
+        local function CreateAceCheckbox(parent, x, y, label, onLiveChange)
+            local widget = aceGUIInstance:Create("CheckBox")
+            widget:SetType("checkbox")
+            widget:SetLabel(label)
+            widget.frame:SetParent(parent)
+            widget.frame:SetPoint("TOPLEFT", x, y)
+            widget.frame:Show()
+            if onLiveChange then
+                widget:SetCallback("OnValueChanged", function()
+                    onLiveChange()
+                end)
+            end
+            if panel.aceWidgets then
+                table.insert(panel.aceWidgets, widget)
+            end
+            return WrapAceCheckbox(widget)
+        end
+
+        addon.bobberSelector = CreateAceToySelector(tacklePage, 20, -20, 280, "Selected Bobber:", function()
+            return BuildOwnedToyOptions(addon.const.bobberToyItemIDs, "Standard Bobber")
+        end, SaveLive)
+        addon.oversizedBobberCheckbox = CreateAceCheckbox(tacklePage, 20, -82, "Use oversized bobber", SaveLive)
+        addon.bobberApplyButton = CreateSecureToyActionButton(tacklePage, 20, -116, 160, "Apply Bobber")
+
+        addon.raftSelector = CreateAceToySelector(tacklePage, 20, -170, 280, "Selected Raft:", function()
+            return BuildOwnedToyOptions(addon.const.raftToyItemIDs, "No Raft")
+        end, SaveLive)
+        addon.raftApplyButton = CreateSecureToyActionButton(tacklePage, 20, -236, 160, "Apply Raft")
+    else
+        addon.bobberSelector = CreateToySelector(tacklePage, 20, -20, 360, "Selected Bobber:", function()
+            return BuildOwnedToyOptions(addon.const.bobberToyItemIDs, "Standard Bobber")
+        end, SaveLive)
+        addon.oversizedBobberCheckbox = CreateCheckbox(tacklePage, 20, -65, "Use oversized bobber", SaveLive)
+        addon.bobberApplyButton = CreateSecureToyActionButton(tacklePage, 20, -100, 160, "Apply Bobber")
+
+        addon.raftSelector = CreateToySelector(tacklePage, 20, -170, 360, "Selected Raft:", function()
+            return BuildOwnedToyOptions(addon.const.raftToyItemIDs, "No Raft")
+        end, SaveLive)
+        addon.raftApplyButton = CreateSecureToyActionButton(tacklePage, 20, -220, 160, "Apply Raft")
+    end
+
+    if usingAceGUIWindow and aceGUIInstance then
         local function CreateAceCheckbox(parent, x, y, label, onLiveChange)
             local widget = aceGUIInstance:Create("CheckBox")
             widget:SetType("checkbox")
