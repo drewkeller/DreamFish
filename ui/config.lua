@@ -477,10 +477,10 @@ function config.CreateConfigPanel()
     end
 
     local panel = nil
-    local usingAceGUIWindow = false
     local aceGUIInstance = IsAceGUIMigrationEnabled() and TryGetAceGUI() or nil
+    local isAceGUIMode = aceGUIInstance ~= nil
 
-    if aceGUIInstance then
+    if isAceGUIMode then
         local aceWindow = aceGUIInstance:Create("Frame")
         aceWindow:SetTitle(addonName .. " Settings")
         aceWindow:SetStatusText("")
@@ -493,7 +493,6 @@ function config.CreateConfigPanel()
         panel = aceWindow.frame
         panel.aceWindow = aceWindow
         panel:Hide()
-        usingAceGUIWindow = true
     else
         panel = CreateFrame("Frame", addonName .. "ConfigFrame", UIParent, "BackdropTemplate")
         panel:SetSize(520, 690)
@@ -517,7 +516,7 @@ function config.CreateConfigPanel()
         end
     end
 
-    if usingAceGUIWindow then
+    if isAceGUIMode then
         panel:SetClampedToScreen(true)
         panel:EnableMouse(true)
         panel:EnableKeyboard(false)
@@ -540,7 +539,7 @@ function config.CreateConfigPanel()
     end
     panel:Hide()
 
-    if not usingAceGUIWindow then
+    if not isAceGUIMode then
         panel:SetBackdrop({
             bgFile = "Interface\\ChatFrame\\ChatFrameBackground",
             edgeFile = "Interface\\DialogFrame\\UI-DialogBox-Border",
@@ -553,7 +552,7 @@ function config.CreateConfigPanel()
     addon.frames.config = panel
     SyncEscapeCloseRegistration()
 
-    if not usingAceGUIWindow then
+    if not isAceGUIMode then
         panel.title = panel:CreateFontString(nil, "OVERLAY", "GameFontNormalLarge")
         panel.title:SetPoint("TOPLEFT", 20, -20)
         panel.title:SetText(addonName .. " Settings")
@@ -600,7 +599,7 @@ function config.CreateConfigPanel()
     end
 
     local aceTabGroup = nil
-    if usingAceGUIWindow and aceGUIInstance then
+    if isAceGUIMode then
         aceTabGroup = aceGUIInstance:Create("TabGroup")
         aceTabGroup:SetLayout("Fill")
         aceTabGroup:SetTabs({
@@ -623,11 +622,11 @@ function config.CreateConfigPanel()
 
     local function CreatePage(name)
         local parentFrame = panel
-        if usingAceGUIWindow and panel.aceTabGroup and panel.aceTabGroup.content then
+        if isAceGUIMode and panel.aceTabGroup and panel.aceTabGroup.content then
             parentFrame = panel.aceTabGroup.content
         end
         local page = CreateFrame("Frame", nil, parentFrame, "BackdropTemplate")
-        if usingAceGUIWindow and panel.aceTabGroup and panel.aceTabGroup.content then
+        if isAceGUIMode and panel.aceTabGroup and panel.aceTabGroup.content then
             page:SetPoint("TOPLEFT", parentFrame, "TOPLEFT", 8, -8)
             page:SetPoint("BOTTOMRIGHT", parentFrame, "BOTTOMRIGHT", -8, 8)
         else
@@ -1044,33 +1043,45 @@ function config.CreateConfigPanel()
         return button
     end
 
-    if usingAceGUIWindow and aceGUIInstance then
+    local CreateAceCheckbox = nil
+    local CreateAceEditBox = nil
+    local CreateAceTitle = nil
+    local CreateAceNote = nil
+    local CreateAceToySelector = nil
+
+    if isAceGUIMode then
         local aceWidgets = {}
         panel.aceWidgets = aceWidgets
 
-        local function CreateAceCheckbox(parent, x, y, label, onLiveChange)
-            local widget = aceGUIInstance:Create("CheckBox")
-            widget:SetType("checkbox")
-            widget:SetLabel(label)
+        local function RegisterAceWidget(widget)
+            table.insert(aceWidgets, widget)
+            return widget
+        end
+
+        local function AnchorAceWidget(widget, parent, x, y)
             widget.frame:SetParent(parent)
             widget.frame:SetPoint("TOPLEFT", x, y)
             widget.frame:Show()
+            return RegisterAceWidget(widget)
+        end
+
+        CreateAceCheckbox = function(parent, x, y, label, onLiveChange)
+            local widget = aceGUIInstance:Create("CheckBox")
+            widget:SetType("checkbox")
+            widget:SetLabel(label)
             if onLiveChange then
                 widget:SetCallback("OnValueChanged", function()
                     onLiveChange()
                 end)
             end
-            table.insert(aceWidgets, widget)
+            widget = AnchorAceWidget(widget, parent, x, y)
             return WrapAceCheckbox(widget)
         end
 
-        local function CreateAceEditBox(parent, x, y, width, label, onLiveChange)
+        CreateAceEditBox = function(parent, x, y, width, label, onLiveChange)
             local widget = aceGUIInstance:Create("EditBox")
             widget:SetLabel(label)
             widget:SetWidth(width)
-            widget.frame:SetParent(parent)
-            widget.frame:SetPoint("TOPLEFT", x, y)
-            widget.frame:Show()
             if onLiveChange then
                 widget:SetCallback("OnTextChanged", function()
                     onLiveChange()
@@ -1079,58 +1090,29 @@ function config.CreateConfigPanel()
                     onLiveChange()
                 end)
             end
-            table.insert(aceWidgets, widget)
+            widget = AnchorAceWidget(widget, parent, x, y)
             return WrapAceEditBox(widget)
         end
 
-        local function CreateAceTitle(parent, x, y, text)
+        CreateAceTitle = function(parent, x, y, text)
             local widget = aceGUIInstance:Create("Label")
             widget:SetText(text)
-            widget.frame:SetParent(parent)
-            widget.frame:SetPoint("TOPLEFT", x, y)
-            widget.frame:Show()
-            table.insert(aceWidgets, widget)
-            return widget
+            return AnchorAceWidget(widget, parent, x, y)
         end
 
-        addon.autoLootCheckbox = CreateAceCheckbox(focusPage, 20, -20, "Temporary Auto-Loot", SaveLive)
-        addon.treasureAlertsCheckbox = CreateAceCheckbox(focusPage, 20, -50, "Patient Treasure Notification", SaveLive)
-        addon.bagAlertsCheckbox = CreateAceCheckbox(focusPage, 20, -80, "Bag Monitor / Alert", SaveLive)
-        addon.lowBagBox = CreateAceEditBox(focusPage, 60, -120, 140, "Low Bag Threshold:", SaveLive)
+        CreateAceNote = function(parent, x, y, width, text)
+            local widget = aceGUIInstance:Create("Label")
+            widget:SetText(text)
+            widget:SetWidth(width)
+            return AnchorAceWidget(widget, parent, x, y)
+        end
 
-        CreateAceTitle(focusPage, 20, -200, "Audio:")
-        addon.enhancedSoundsCheckbox = CreateAceCheckbox(focusPage, 20, -230, "Fishing Focused Audio", SaveLive)
-        addon.audioLingerBox = CreateAceEditBox(focusPage, 60, -270, 180, "Audio Linger After Catch (s):", SaveLive)
-    else
-        addon.autoLootCheckbox = CreateCheckbox(focusPage, 20, -20, "Temporary Auto-Loot", SaveLive)
-        addon.treasureAlertsCheckbox = CreateCheckbox(focusPage, 20, -55, "Patient Treasure Notification", SaveLive)
-        addon.bagAlertsCheckbox = CreateCheckbox(focusPage, 20, -90, "Bag Monitor / Alert", SaveLive)
-        addon.lowBagBox = CreateEditBox(focusPage, 60, -125, 100, "Low Bag Threshold:", SaveLive)
-
-        CreateTitle(focusPage, 20, -250, "Audio:")
-        addon.enhancedSoundsCheckbox = CreateCheckbox(focusPage, 20, -270, "Fishing Focused Audio", SaveLive)
-        addon.audioLingerBox = CreateEditBox(focusPage, 60, -305, 100, "Audio Linger After Catch (s):", SaveLive)
-    end
-
-    if usingAceGUIWindow and aceGUIInstance then
-        local function CreateAceToySelector(parent, x, y, width, label, optionsGetter, onLiveChange)
-            local heading = aceGUIInstance:Create("Label")
-            heading:SetText(label)
-            heading.frame:SetParent(parent)
-            heading.frame:SetPoint("TOPLEFT", x, y)
-            heading.frame:Show()
-            if panel.aceWidgets then
-                table.insert(panel.aceWidgets, heading)
-            end
+        CreateAceToySelector = function(parent, x, y, width, label, optionsGetter, onLiveChange)
+            CreateAceTitle(parent, x, y, label)
 
             local dropdown = aceGUIInstance:Create("Dropdown")
             dropdown:SetWidth(width)
-            dropdown.frame:SetParent(parent)
-            dropdown.frame:SetPoint("TOPLEFT", x, y - 24)
-            dropdown.frame:Show()
-            if panel.aceWidgets then
-                table.insert(panel.aceWidgets, dropdown)
-            end
+            dropdown = AnchorAceWidget(dropdown, parent, x, y - 24)
 
             local selector = {
                 options = {},
@@ -1192,25 +1174,29 @@ function config.CreateConfigPanel()
             selector:RefreshOptions()
             return selector
         end
+    end
 
-        local function CreateAceCheckbox(parent, x, y, label, onLiveChange)
-            local widget = aceGUIInstance:Create("CheckBox")
-            widget:SetType("checkbox")
-            widget:SetLabel(label)
-            widget.frame:SetParent(parent)
-            widget.frame:SetPoint("TOPLEFT", x, y)
-            widget.frame:Show()
-            if onLiveChange then
-                widget:SetCallback("OnValueChanged", function()
-                    onLiveChange()
-                end)
-            end
-            if panel.aceWidgets then
-                table.insert(panel.aceWidgets, widget)
-            end
-            return WrapAceCheckbox(widget)
-        end
+    if isAceGUIMode then
+        addon.autoLootCheckbox = CreateAceCheckbox(focusPage, 20, -20, "Temporary Auto-Loot", SaveLive)
+        addon.treasureAlertsCheckbox = CreateAceCheckbox(focusPage, 20, -50, "Patient Treasure Notification", SaveLive)
+        addon.bagAlertsCheckbox = CreateAceCheckbox(focusPage, 20, -80, "Bag Monitor / Alert", SaveLive)
+        addon.lowBagBox = CreateAceEditBox(focusPage, 60, -120, 140, "Low Bag Threshold:", SaveLive)
 
+        CreateAceTitle(focusPage, 20, -200, "Audio:")
+        addon.enhancedSoundsCheckbox = CreateAceCheckbox(focusPage, 20, -230, "Fishing Focused Audio", SaveLive)
+        addon.audioLingerBox = CreateAceEditBox(focusPage, 60, -270, 180, "Audio Linger After Catch (s):", SaveLive)
+    else
+        addon.autoLootCheckbox = CreateCheckbox(focusPage, 20, -20, "Temporary Auto-Loot", SaveLive)
+        addon.treasureAlertsCheckbox = CreateCheckbox(focusPage, 20, -55, "Patient Treasure Notification", SaveLive)
+        addon.bagAlertsCheckbox = CreateCheckbox(focusPage, 20, -90, "Bag Monitor / Alert", SaveLive)
+        addon.lowBagBox = CreateEditBox(focusPage, 60, -125, 100, "Low Bag Threshold:", SaveLive)
+
+        CreateTitle(focusPage, 20, -250, "Audio:")
+        addon.enhancedSoundsCheckbox = CreateCheckbox(focusPage, 20, -270, "Fishing Focused Audio", SaveLive)
+        addon.audioLingerBox = CreateEditBox(focusPage, 60, -305, 100, "Audio Linger After Catch (s):", SaveLive)
+    end
+
+    if isAceGUIMode then
         addon.bobberSelector = CreateAceToySelector(tacklePage, 20, -20, 280, "Selected Bobber:", function()
             return BuildOwnedToyOptions(addon.const.bobberToyItemIDs, "Standard Bobber")
         end, SaveLive)
@@ -1234,50 +1220,7 @@ function config.CreateConfigPanel()
         addon.raftApplyButton = CreateSecureToyActionButton(tacklePage, 20, -220, 160, "Apply Raft")
     end
 
-    if usingAceGUIWindow and aceGUIInstance then
-        local function CreateAceCheckbox(parent, x, y, label, onLiveChange)
-            local widget = aceGUIInstance:Create("CheckBox")
-            widget:SetType("checkbox")
-            widget:SetLabel(label)
-            widget.frame:SetParent(parent)
-            widget.frame:SetPoint("TOPLEFT", x, y)
-            widget.frame:Show()
-            if onLiveChange then
-                widget:SetCallback("OnValueChanged", function()
-                    onLiveChange()
-                end)
-            end
-            if panel.aceWidgets then
-                table.insert(panel.aceWidgets, widget)
-            end
-            return WrapAceCheckbox(widget)
-        end
-
-        local function CreateAceTitle(parent, x, y, text)
-            local widget = aceGUIInstance:Create("Label")
-            widget:SetText(text)
-            widget.frame:SetParent(parent)
-            widget.frame:SetPoint("TOPLEFT", x, y)
-            widget.frame:Show()
-            if panel.aceWidgets then
-                table.insert(panel.aceWidgets, widget)
-            end
-            return widget
-        end
-
-        local function CreateAceNote(parent, x, y, width, text)
-            local widget = aceGUIInstance:Create("Label")
-            widget:SetText(text)
-            widget:SetWidth(width)
-            widget.frame:SetParent(parent)
-            widget.frame:SetPoint("TOPLEFT", x, y)
-            widget.frame:Show()
-            if panel.aceWidgets then
-                table.insert(panel.aceWidgets, widget)
-            end
-            return widget
-        end
-
+    if isAceGUIMode then
         CreateAceTitle(modesPage, 20, -20, "Casting Triggers:")
         addon.modeDoubleRightClickCheckbox = CreateAceCheckbox(modesPage, 20, -45, "Right double click", SaveLive)
         addon.modeSingleRightClickConfigCheckbox = CreateAceCheckbox(modesPage, 20, -75, "Single right click (when this window is open)", SaveLive)
@@ -1316,13 +1259,26 @@ function config.CreateConfigPanel()
         addon.underlightAnglerCheckbox = CreateCheckbox(modesPage, 20, -315, "Equip Underlight Angler while swimming", SaveLive)
     end
 
+    local buffsHost = CreateFrame("Frame", nil, buffsPage)
+    if isAceGUIMode and panel.aceTabGroup and panel.aceTabGroup.content then
+        buffsHost:SetPoint("TOPLEFT", buffsPage, "TOPLEFT", 12, -12)
+        buffsHost:SetPoint("BOTTOMRIGHT", buffsPage, "BOTTOMRIGHT", -12, 12)
+    else
+        buffsHost:SetPoint("TOPLEFT", buffsPage, "TOPLEFT", 0, 0)
+        buffsHost:SetPoint("BOTTOMRIGHT", buffsPage, "BOTTOMRIGHT", 0, 0)
+    end
+
+    local buffsTitle = buffsHost:CreateFontString(nil, "OVERLAY", "GameFontNormal")
+    buffsTitle:SetPoint("TOPLEFT", 20, -20)
+    buffsTitle:SetText("Buff Items")
+
     addon.buffItemControls = {}
     for i = 1, maxBuffSlots do
         local row = math.floor((i - 1) / 2)
         local col = (i - 1) % 2
         local baseX = 20 + (col * 220)
-        local baseY = -20 - (row * 95)
-        local itemBox = CreateBuffItemDropBox(buffsPage, baseX, baseY, "Buff " .. i, SaveLive)
+        local baseY = -56 - (row * 95)
+        local itemBox = CreateBuffItemDropBox(buffsHost, baseX, baseY, "Buff " .. i, SaveLive)
         itemBox:SetExpectedDuration(addon.db and addon.db.refreshSeconds or defaults.refreshSeconds)
         itemBox.slotIndex = i
         addon.buffItemControls[i] = {
@@ -1333,7 +1289,7 @@ function config.CreateConfigPanel()
     panel.buffItemControls = addon.buffItemControls
     UpdateToyApplyButtons()
 
-    if usingAceGUIWindow then
+    if isAceGUIMode then
         panel:HookScript("OnShow", function()
             UpdateConfigUI()
             SyncEscapeCloseRegistration()
