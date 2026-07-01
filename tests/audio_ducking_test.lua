@@ -130,6 +130,7 @@ dofile("fishing/helpers.lua")
 dofile("fishing/casting.lua")
 dofile("fishing/state.lua")
 dofile("audio/ducking.lua")
+dofile("ui/buff_item_drop_box.lua")
 dofile("ui/config.lua")
 dofile("DreamFisher.lua")
 

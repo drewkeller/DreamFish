@@ -39,6 +39,7 @@ audio/alerts.lua
 
 # UI system (commands, config)
 ui/commands.lua
+ui/buff_item_drop_box.lua
 ui/config.lua
 
 # Main coordinator (runs after all modules load)
