@@ -1305,36 +1305,47 @@ function config.CreateConfigPanel()
     panel.buffItemControls = addon.buffItemControls
     UpdateToyApplyButtons()
 
-    if isAceGUIMode then
-        panel:HookScript("OnShow", function()
-            UpdateConfigUI()
-            SyncEscapeCloseRegistration()
-            if panel.aceTabGroup and panel.aceTabGroup.SelectTab then
-                panel.aceTabGroup:SelectTab(panel.activeTab or "focus")
-            end
-            ShowTab(panel.activeTab or "focus")
-        end)
-        panel:HookScript("OnHide", function()
-            if not suppressLiveSave then
-                config.SaveConfig(true)
-            end
-        end)
-    else
-        panel:SetScript("OnShow", function()
-            UpdateConfigUI()
-            SyncEscapeCloseRegistration()
-            ShowTab(panel.activeTab or "focus")
-        end)
-        panel:SetScript("OnHide", function()
-            if not suppressLiveSave then
-                config.SaveConfig(true)
-            end
-        end)
+    local function SelectAceTab(tabName)
+        if panel.aceTabGroup and panel.aceTabGroup.SelectTab then
+            panel.aceTabGroup:SelectTab(tabName)
+        end
     end
 
+    local function ShowCurrentActiveTab()
+        local selectedTab = panel.activeTab or "focus"
+        if isAceGUIMode then
+            SelectAceTab(selectedTab)
+        end
+        ShowTab(selectedTab)
+    end
+
+    local function HandlePanelShow()
+        UpdateConfigUI()
+        SyncEscapeCloseRegistration()
+        ShowCurrentActiveTab()
+    end
+
+    local function HandlePanelHide()
+        if not suppressLiveSave then
+            config.SaveConfig(true)
+        end
+    end
+
+    local function BindPanelLifecycle()
+        if isAceGUIMode then
+            panel:HookScript("OnShow", HandlePanelShow)
+            panel:HookScript("OnHide", HandlePanelHide)
+            return
+        end
+
+        panel:SetScript("OnShow", HandlePanelShow)
+        panel:SetScript("OnHide", HandlePanelHide)
+    end
+
+    BindPanelLifecycle()
     ShowTab("focus")
-    if panel.aceTabGroup and panel.aceTabGroup.SelectTab then
-        panel.aceTabGroup:SelectTab("focus")
+    if isAceGUIMode then
+        SelectAceTab("focus")
     end
     return panel
 end
