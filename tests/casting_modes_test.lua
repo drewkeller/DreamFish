@@ -1913,6 +1913,14 @@ function tests.PrecastReappliesRaftWhenAuraExpiringEvenIfNotSwimming()
 end
 
 function tests.HookedRightClickRoutesToInteractWhenHooked()
+    local originalUnitExists = _G.UnitExists
+    _G.UnitExists = function(unit)
+        if unit == "target" then
+            return false
+        end
+        return false
+    end
+
     local originalBindingClick = _G.SetOverrideBindingClick
     local bindingCalls = 0
     _G.SetOverrideBindingClick = function(...)
@@ -1946,6 +1954,7 @@ function tests.HookedRightClickRoutesToInteractWhenHooked()
     assertTrue(bindingCalls > 0, "Hooked world right-click should route to secure interact binding")
     assertEquals(DreamFisher._test.GetLastRightClickTime(), 0, "Hooked world right-click should clear double-click timing")
 
+    _G.UnitExists = originalUnitExists
     _G.SetOverrideBindingClick = originalBindingClick
 end
 

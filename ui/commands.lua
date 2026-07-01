@@ -21,6 +21,7 @@ local function RegisterSlashCommands()
             PrintMessage("  |cFF7FFFDAcast|r - Show secure cast macro helper")
             PrintMessage("  |cFF7FFFDAinteractsetup, is|r - Show hooked-interact setup checklist")
             PrintMessage("  |cFF7FFFDAinteractdiag, id|r - Show live interact target diagnostics")
+            PrintMessage("  |cFF7FFFDAaceui|r - Toggle AceGUI config UI migration path")
             PrintMessage("  |cFF7FFFDAraft|r - Apply the selected raft")
             PrintMessage("  |cFF7FFFDA(no args)|r - Toggle config UI")
             return
@@ -114,6 +115,15 @@ local function RegisterSlashCommands()
         end
         if command == "raft" then
             PrintMessage("Raft toy usage requires a secure click. Use the Tackle tab's Apply Raft button.")
+            return
+        end
+        if command == "aceui" then
+            addon.db.useAceGUIConfig = not not (not addon.db.useAceGUIConfig)
+            PrintMessage("AceGUI config path: " .. (addon.db.useAceGUIConfig and "ON" or "OFF"))
+            if addon.frames and addon.frames.config then
+                addon.frames.config:Hide()
+                addon.frames.config = nil
+            end
             return
         end
         addon:ToggleUI()

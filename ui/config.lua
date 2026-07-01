@@ -16,6 +16,33 @@ local buffItemLastUseAt = {}
 local buffItemLastKnownCount = {}
 local suppressLiveSave = false
 local SaveLive
+local aceGUI = nil
+
+local function TryGetAceGUI()
+    if aceGUI then
+        return aceGUI
+    end
+
+    local libStub = _G.LibStub
+    if type(libStub) ~= "table" and type(libStub) ~= "function" then
+        return nil
+    end
+
+    local ok, lib = pcall(libStub.GetLibrary, libStub, "AceGUI-3.0", true)
+    if ok and lib then
+        aceGUI = lib
+        return aceGUI
+    end
+
+    return nil
+end
+
+local function IsAceGUIMigrationEnabled()
+    return addon.db and addon.db.useAceGUIConfig == true and TryGetAceGUI() ~= nil
+end
+
+config.TryGetAceGUI = TryGetAceGUI
+config.IsAceGUIMigrationEnabled = IsAceGUIMigrationEnabled
 
 local function BuildOwnedToyOptions(candidateIDs, includeDefaultLabel)
     local options = {}
@@ -427,16 +454,36 @@ function config.CreateConfigPanel()
         return addon.frames.config
     end
 
-    local panel = CreateFrame("Frame", addonName .. "ConfigFrame", UIParent, "BackdropTemplate")
-    panel:SetSize(520, 690)
-    panel:SetMovable(true)
-    panel:SetClampedToScreen(true)
-    panel:EnableMouse(true)
-    panel:EnableKeyboard(false)
-    panel:RegisterForDrag("LeftButton")
-    panel:SetScript("OnDragStart", panel.StartMoving)
-    panel:SetScript("OnDragStop", function(self)
-        self:StopMovingOrSizing()
+    local panel = nil
+    local usingAceGUIWindow = false
+    local aceGUIInstance = IsAceGUIMigrationEnabled() and TryGetAceGUI() or nil
+
+    if aceGUIInstance then
+        local aceWindow = aceGUIInstance:Create("Frame")
+        aceWindow:SetTitle(addonName .. " Settings")
+        aceWindow:SetStatusText("")
+        aceWindow:SetLayout("Fill")
+        aceWindow:SetWidth(520)
+        aceWindow:SetHeight(690)
+        if aceWindow.EnableResize then
+            aceWindow:EnableResize(false)
+        end
+        panel = aceWindow.frame
+        panel.aceWindow = aceWindow
+        panel:Hide()
+        usingAceGUIWindow = true
+    else
+        panel = CreateFrame("Frame", addonName .. "ConfigFrame", UIParent, "BackdropTemplate")
+        panel:SetSize(520, 690)
+        panel:SetMovable(true)
+        panel:SetClampedToScreen(true)
+        panel:EnableMouse(true)
+        panel:EnableKeyboard(false)
+        panel:RegisterForDrag("LeftButton")
+        panel:SetScript("OnDragStart", panel.StartMoving)
+    end
+
+    local function SavePanelPosition(self)
         if addon.db then
             local point, _, relativePoint, x, y = self:GetPoint(1)
             addon.db.configWindowPosition = {
@@ -446,7 +493,22 @@ function config.CreateConfigPanel()
                 y = math.floor((y or 0) + 0.5),
             }
         end
-    end)
+    end
+
+    if usingAceGUIWindow then
+        panel:SetClampedToScreen(true)
+        panel:EnableMouse(true)
+        panel:EnableKeyboard(false)
+        panel:RegisterForDrag("LeftButton")
+        panel:HookScript("OnDragStop", function(self)
+            SavePanelPosition(self)
+        end)
+    else
+        panel:SetScript("OnDragStop", function(self)
+            self:StopMovingOrSizing()
+            SavePanelPosition(self)
+        end)
+    end
 
     if addon.db and type(addon.db.configWindowPosition) == "table" then
         local pos = addon.db.configWindowPosition
@@ -456,25 +518,28 @@ function config.CreateConfigPanel()
     end
     panel:Hide()
 
-    panel:SetBackdrop({
-        bgFile = "Interface\\ChatFrame\\ChatFrameBackground",
-        edgeFile = "Interface\\DialogFrame\\UI-DialogBox-Border",
-        tile = true, tileSize = 32, edgeSize = 32,
-        insets = { left = 8, right = 8, top = 8, bottom = 8 }
-    })
-    panel:SetBackdropColor(0, 0, 0, 0.85)
+    if not usingAceGUIWindow then
+        panel:SetBackdrop({
+            bgFile = "Interface\\ChatFrame\\ChatFrameBackground",
+            edgeFile = "Interface\\DialogFrame\\UI-DialogBox-Border",
+            tile = true, tileSize = 32, edgeSize = 32,
+            insets = { left = 8, right = 8, top = 8, bottom = 8 }
+        })
+        panel:SetBackdropColor(0, 0, 0, 0.85)
+    end
 
     addon.frames.config = panel
     SyncEscapeCloseRegistration()
 
-    panel.title = panel:CreateFontString(nil, "OVERLAY", "GameFontNormalLarge")
-    panel.title:SetPoint("TOPLEFT", 20, -20)
-    panel.title:SetText(addonName .. " Settings")
+    if not usingAceGUIWindow then
+        panel.title = panel:CreateFontString(nil, "OVERLAY", "GameFontNormalLarge")
+        panel.title:SetPoint("TOPLEFT", 20, -20)
+        panel.title:SetText(addonName .. " Settings")
 
-    local closeBtn = CreateFrame("Button", nil, panel, "UIPanelCloseButton")
-    closeBtn:SetPoint("TOPRIGHT", -8, -8)
+        local closeBtn = CreateFrame("Button", nil, panel, "UIPanelCloseButton")
+        closeBtn:SetPoint("TOPRIGHT", -8, -8)
+    end
 
-    local tabNames = { "focus", "tackle", "buffs", "modes" }
     local tabLabels = {
         focus = "Focus",
         tackle = "Tackle",
@@ -512,15 +577,41 @@ function config.CreateConfigPanel()
         return button
     end
 
-    CreateTabButton("focus", 18)
-    CreateTabButton("tackle", 114)
-    CreateTabButton("buffs", 210)
-    CreateTabButton("modes", 306)
+    local aceTabGroup = nil
+    if usingAceGUIWindow and aceGUIInstance then
+        aceTabGroup = aceGUIInstance:Create("TabGroup")
+        aceTabGroup:SetLayout("Fill")
+        aceTabGroup:SetTabs({
+            { text = tabLabels.focus, value = "focus" },
+            { text = tabLabels.tackle, value = "tackle" },
+            { text = tabLabels.buffs, value = "buffs" },
+            { text = tabLabels.modes, value = "modes" },
+        })
+        aceTabGroup:SetCallback("OnGroupSelected", function(_, _, group)
+            ShowTab(group)
+        end)
+        panel.aceTabGroup = aceTabGroup
+        panel.aceWindow:AddChild(aceTabGroup)
+    else
+        CreateTabButton("focus", 18)
+        CreateTabButton("tackle", 114)
+        CreateTabButton("buffs", 210)
+        CreateTabButton("modes", 306)
+    end
 
     local function CreatePage(name)
-        local page = CreateFrame("Frame", nil, panel, "BackdropTemplate")
-        page:SetPoint("TOPLEFT", 18, -76)
-        page:SetPoint("BOTTOMRIGHT", -18, 18)
+        local parentFrame = panel
+        if usingAceGUIWindow and panel.aceTabGroup and panel.aceTabGroup.content then
+            parentFrame = panel.aceTabGroup.content
+        end
+        local page = CreateFrame("Frame", nil, parentFrame, "BackdropTemplate")
+        if usingAceGUIWindow and panel.aceTabGroup and panel.aceTabGroup.content then
+            page:SetPoint("TOPLEFT", parentFrame, "TOPLEFT", 8, -8)
+            page:SetPoint("BOTTOMRIGHT", parentFrame, "BOTTOMRIGHT", -8, 8)
+        else
+            page:SetPoint("TOPLEFT", 18, -76)
+            page:SetPoint("BOTTOMRIGHT", -18, 18)
+        end
         page:Hide()
         panel.pages[name] = page
         return page
@@ -988,18 +1079,37 @@ function config.CreateConfigPanel()
     panel.buffItemControls = addon.buffItemControls
     UpdateToyApplyButtons()
 
-    panel:SetScript("OnShow", function()
-        UpdateConfigUI()
-        SyncEscapeCloseRegistration()
-        ShowTab(panel.activeTab or "focus")
-    end)
-    panel:SetScript("OnHide", function()
-        if not suppressLiveSave then
-            config.SaveConfig(true)
-        end
-    end)
+    if usingAceGUIWindow then
+        panel:HookScript("OnShow", function()
+            UpdateConfigUI()
+            SyncEscapeCloseRegistration()
+            if panel.aceTabGroup and panel.aceTabGroup.SelectTab then
+                panel.aceTabGroup:SelectTab(panel.activeTab or "focus")
+            end
+            ShowTab(panel.activeTab or "focus")
+        end)
+        panel:HookScript("OnHide", function()
+            if not suppressLiveSave then
+                config.SaveConfig(true)
+            end
+        end)
+    else
+        panel:SetScript("OnShow", function()
+            UpdateConfigUI()
+            SyncEscapeCloseRegistration()
+            ShowTab(panel.activeTab or "focus")
+        end)
+        panel:SetScript("OnHide", function()
+            if not suppressLiveSave then
+                config.SaveConfig(true)
+            end
+        end)
+    end
 
     ShowTab("focus")
+    if panel.aceTabGroup and panel.aceTabGroup.SelectTab then
+        panel.aceTabGroup:SelectTab("focus")
+    end
     return panel
 end
 

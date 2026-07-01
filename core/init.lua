@@ -34,6 +34,7 @@ addon.defaults = {
     refreshSeconds = 180,
     lowBagThreshold = 2,
     audioFocusLinger = 10,
+    useAceGUIConfig = false,
     debugMode = true,
     debugState = false,
     debugBags = false,
