@@ -342,18 +342,7 @@ function config.SaveConfig(skipRefresh)
     end
 end
 
--- Create and return the config panel frame
-function config.CreateConfigPanel()
-    if addon.frames.config then
-        return addon.frames.config
-    end
-
-    local panel = nil
-    local aceGUIInstance = TryGetAceGUI()
-    if not aceGUIInstance then
-        return nil
-    end
-
+local function BuildPanelShell(aceGUIInstance)
     local aceWindow = aceGUIInstance:Create("Frame")
     aceWindow:SetTitle(addonName .. " Settings")
     aceWindow:SetStatusText("")
@@ -363,7 +352,8 @@ function config.CreateConfigPanel()
     if aceWindow.EnableResize then
         aceWindow:EnableResize(false)
     end
-    panel = aceWindow.frame
+
+    local panel = aceWindow.frame
     panel.aceWindow = aceWindow
     panel:Hide()
 
@@ -395,72 +385,194 @@ function config.CreateConfigPanel()
     end
     panel:Hide()
 
+    return panel
+end
+
+local function BuildTabs(panel, aceGUIInstance)
+    local tabLabels = {
+        focus = "Focus",
+        tackle = "Tackle",
+        buffs = "Buffs",
+        modes = "Modes",
+    }
+
+    panel.tabButtons = {}
+    panel.pages = {}
+    panel.activeTab = "focus"
+
+    local function ShowTab(tabName)
+        panel.activeTab = tabName
+        for name, page in pairs(panel.pages) do
+            page:SetShown(name == tabName)
+        end
+        for name, button in pairs(panel.tabButtons) do
+            if name == tabName then
+                button:Disable()
+            else
+                button:Enable()
+            end
+        end
+    end
+
+    local aceTabGroup = aceGUIInstance:Create("TabGroup")
+    aceTabGroup:SetLayout("Fill")
+    aceTabGroup:SetTabs({
+        { text = tabLabels.focus, value = "focus" },
+        { text = tabLabels.tackle, value = "tackle" },
+        { text = tabLabels.buffs, value = "buffs" },
+        { text = tabLabels.modes, value = "modes" },
+    })
+    aceTabGroup:SetCallback("OnGroupSelected", function(_, _, group)
+        ShowTab(group)
+    end)
+    panel.aceTabGroup = aceTabGroup
+    panel.aceWindow:AddChild(aceTabGroup)
+
+    local function CreatePage(name)
+        local parentFrame = panel.aceTabGroup and panel.aceTabGroup.content or panel
+        local page = CreateFrame("Frame", nil, parentFrame, "BackdropTemplate")
+        page:SetPoint("TOPLEFT", parentFrame, "TOPLEFT", 8, -8)
+        page:SetPoint("BOTTOMRIGHT", parentFrame, "BOTTOMRIGHT", -8, 8)
+        page:Hide()
+        panel.pages[name] = page
+        return page
+    end
+
+    local pages = {
+        focus = CreatePage("focus"),
+        tackle = CreatePage("tackle"),
+        buffs = CreatePage("buffs"),
+        modes = CreatePage("modes"),
+    }
+
+    local function SelectTab(tabName)
+        if panel.aceTabGroup and panel.aceTabGroup.SelectTab then
+            panel.aceTabGroup:SelectTab(tabName)
+        end
+    end
+
+    return {
+        pages = pages,
+        ShowTab = ShowTab,
+        SelectTab = SelectTab,
+    }
+end
+
+local function CreateSecureToyActionButton(parent, x, y, width, text)
+    local button = CreateFrame("Button", nil, parent, "UIPanelButtonTemplate,SecureActionButtonTemplate")
+    button:SetSize(width, 22)
+    button:SetPoint("TOPLEFT", x, y)
+    button:SetText(text)
+    button:RegisterForClicks("AnyDown", "AnyUp")
+    button:SetAttribute("type", "toy")
+    button:SetAttribute("toy", nil)
+    return button
+end
+
+local function CreateBuffsHost(parent)
+    local host = CreateFrame("Frame", nil, parent)
+    host:SetPoint("TOPLEFT", parent, "TOPLEFT", 12, -12)
+    host:SetPoint("BOTTOMRIGHT", parent, "BOTTOMRIGHT", -12, 12)
+    return host
+end
+
+local function BuildFocusTab(focusPage, ui, onLiveChange)
+    local layout = {
+        treasureY = -50,
+        bagY = -80,
+        thresholdY = -120,
+        thresholdWidth = 140,
+        audioTitleY = -200,
+        audioCheckboxY = -230,
+        audioLingerY = -270,
+        audioLingerWidth = 180,
+    }
+
+    addon.autoLootCheckbox = ui.Checkbox(focusPage, 20, -20, "Temporary Auto-Loot", onLiveChange)
+    addon.treasureAlertsCheckbox = ui.Checkbox(focusPage, 20, layout.treasureY, "Patient Treasure Notification", onLiveChange)
+    addon.bagAlertsCheckbox = ui.Checkbox(focusPage, 20, layout.bagY, "Bag Monitor / Alert", onLiveChange)
+    addon.lowBagBox = ui.EditBox(focusPage, 60, layout.thresholdY, layout.thresholdWidth, "Low Bag Threshold:", onLiveChange)
+
+    ui.Title(focusPage, 20, layout.audioTitleY, "Audio:")
+    addon.enhancedSoundsCheckbox = ui.Checkbox(focusPage, 20, layout.audioCheckboxY, "Fishing Focused Audio", onLiveChange)
+    addon.audioLingerBox = ui.EditBox(focusPage, 60, layout.audioLingerY, layout.audioLingerWidth, "Audio Linger After Catch (s):", onLiveChange)
+end
+
+local function BuildTackleTab(tacklePage, ui, onLiveChange)
+    local layout = {
+        selectorWidth = 280,
+        oversizedY = -82,
+        bobberApplyY = -116,
+        raftApplyY = -236,
+    }
+
+    addon.bobberSelector = ui.ToySelector(tacklePage, 20, -20, layout.selectorWidth, "Selected Bobber:", function()
+        return BuildOwnedToyOptions(addon.const.bobberToyItemIDs, "Standard Bobber")
+    end, onLiveChange)
+    addon.oversizedBobberCheckbox = ui.Checkbox(tacklePage, 20, layout.oversizedY, "Use oversized bobber", onLiveChange)
+    addon.bobberApplyButton = CreateSecureToyActionButton(tacklePage, 20, layout.bobberApplyY, 160, "Apply Bobber")
+
+    addon.raftSelector = ui.ToySelector(tacklePage, 20, -170, layout.selectorWidth, "Selected Raft:", function()
+        return BuildOwnedToyOptions(addon.const.raftToyItemIDs, "No Raft")
+    end, onLiveChange)
+    addon.raftApplyButton = CreateSecureToyActionButton(tacklePage, 20, layout.raftApplyY, 160, "Apply Raft")
+end
+
+local function BuildModesTab(modesPage, ui, onLiveChange)
+    ui.Title(modesPage, 20, -20, "Casting Triggers:")
+    addon.modeDoubleRightClickCheckbox = ui.Checkbox(modesPage, 20, -45, "Right double click", onLiveChange)
+    addon.modeSingleRightClickConfigCheckbox = ui.Checkbox(modesPage, 20, -75, "Single right click (when this window is open)", onLiveChange)
+    addon.modeHotkeyCheckbox = ui.Checkbox(modesPage, 20, -105, "Keybinding (set the key in Keybindings > DreamFisher)", onLiveChange)
+    addon.enableHookedLootCheckbox = ui.Checkbox(modesPage, 20, -135, "Use right click and/or hotkey to reel in the fish", onLiveChange)
+
+    ui.Note(modesPage, 40, -170, 480,
+        "Requires some setup in Game Menu > Options: \n"
+        .. "1. Turn on \"Enable Interact Key\" (Options > Controls).\n"
+        .. "2. Set a keybinding (Keybindings > DreamFisher).\n"
+        .. "3. Ensure another addon does not try to control interactions while fishing.")
+
+    addon.escapeCloseCheckbox = ui.Checkbox(modesPage, 20, -235, "Escape closes this window", onLiveChange)
+
+    ui.Title(modesPage, 20, -295, "Underlight Angler:")
+    addon.underlightAnglerCheckbox = ui.Checkbox(modesPage, 20, -315, "Equip Underlight Angler while swimming", onLiveChange)
+end
+
+local function BuildBuffsTab(buffsPage, ui, createBuffItemDropBox, onLiveChange, refreshSeconds)
+    local buffsHost = CreateBuffsHost(buffsPage)
+    ui.StaticTitle(buffsHost, 20, -20, "Buff Items")
+
+    addon.buffItemControls = {}
+    for i = 1, maxBuffSlots do
+        local row = math.floor((i - 1) / 2)
+        local col = (i - 1) % 2
+        local baseX = 20 + (col * 220)
+        local baseY = -56 - (row * 95)
+        local itemBox = createBuffItemDropBox(buffsHost, baseX, baseY, "Buff " .. i, onLiveChange)
+        itemBox:SetExpectedDuration(refreshSeconds)
+        itemBox.slotIndex = i
+        addon.buffItemControls[i] = {
+            itemBox = itemBox,
+        }
+    end
+end
+
+-- Create and return the config panel frame
+function config.CreateConfigPanel()
+    if addon.frames.config then
+        return addon.frames.config
+    end
+
+    local aceGUIInstance = TryGetAceGUI()
+    if not aceGUIInstance then
+        return nil
+    end
+
+    local panel = BuildPanelShell(aceGUIInstance)
+
     addon.frames.config = panel
     SyncEscapeCloseRegistration()
 
-    local ShowTab = nil
-    local focusPage = nil
-    local tacklePage = nil
-    local buffsPage = nil
-    local modesPage = nil
-
-    local function BuildTabScaffold()
-        local tabLabels = {
-            focus = "Focus",
-            tackle = "Tackle",
-            buffs = "Buffs",
-            modes = "Modes",
-        }
-
-        panel.tabButtons = {}
-        panel.pages = {}
-        panel.activeTab = "focus"
-
-        ShowTab = function(tabName)
-            panel.activeTab = tabName
-            for name, page in pairs(panel.pages) do
-                page:SetShown(name == tabName)
-            end
-            for name, button in pairs(panel.tabButtons) do
-                if name == tabName then
-                    button:Disable()
-                else
-                    button:Enable()
-                end
-            end
-        end
-
-        local aceTabGroup = aceGUIInstance:Create("TabGroup")
-        aceTabGroup:SetLayout("Fill")
-        aceTabGroup:SetTabs({
-            { text = tabLabels.focus, value = "focus" },
-            { text = tabLabels.tackle, value = "tackle" },
-            { text = tabLabels.buffs, value = "buffs" },
-            { text = tabLabels.modes, value = "modes" },
-        })
-        aceTabGroup:SetCallback("OnGroupSelected", function(_, _, group)
-            ShowTab(group)
-        end)
-        panel.aceTabGroup = aceTabGroup
-        panel.aceWindow:AddChild(aceTabGroup)
-
-        local function CreatePage(name)
-            local parentFrame = panel.aceTabGroup and panel.aceTabGroup.content or panel
-            local page = CreateFrame("Frame", nil, parentFrame, "BackdropTemplate")
-            page:SetPoint("TOPLEFT", parentFrame, "TOPLEFT", 8, -8)
-            page:SetPoint("BOTTOMRIGHT", parentFrame, "BOTTOMRIGHT", -8, 8)
-            page:Hide()
-            panel.pages[name] = page
-            return page
-        end
-
-        focusPage = CreatePage("focus")
-        tacklePage = CreatePage("tackle")
-        buffsPage = CreatePage("buffs")
-        modesPage = CreatePage("modes")
-    end
-
-    BuildTabScaffold()
+    local tabs = BuildTabs(panel, aceGUIInstance)
 
     local function CreateBuffItemDropBox(parent, x, y, label, onLiveChange)
         return addon.ui.CreateBuffItemDropBox({
@@ -483,126 +595,22 @@ function config.CreateConfigPanel()
         config.SaveConfig(true)
     end
 
-    local function CreateSecureToyActionButton(parent, x, y, width, text)
-        local button = CreateFrame("Button", nil, parent, "UIPanelButtonTemplate,SecureActionButtonTemplate")
-        button:SetSize(width, 22)
-        button:SetPoint("TOPLEFT", x, y)
-        button:SetText(text)
-        button:RegisterForClicks("AnyDown", "AnyUp")
-        button:SetAttribute("type", "toy")
-        button:SetAttribute("toy", nil)
-        return button
-    end
-
     local ui = addon.ui.CreateAceWidgetAdapters(aceGUIInstance, panel)
     if not ui then
         return nil
     end
-    ui.CreateBuffsHost = function(parent)
-        local host = CreateFrame("Frame", nil, parent)
-        host:SetPoint("TOPLEFT", parent, "TOPLEFT", 12, -12)
-        host:SetPoint("BOTTOMRIGHT", parent, "BOTTOMRIGHT", -12, 12)
-        return host
-    end
-
-    local function BuildFocusTab()
-        local layout = {
-            treasureY = -50,
-            bagY = -80,
-            thresholdY = -120,
-            thresholdWidth = 140,
-            audioTitleY = -200,
-            audioCheckboxY = -230,
-            audioLingerY = -270,
-            audioLingerWidth = 180,
-        }
-
-        addon.autoLootCheckbox = ui.Checkbox(focusPage, 20, -20, "Temporary Auto-Loot", SaveLive)
-        addon.treasureAlertsCheckbox = ui.Checkbox(focusPage, 20, layout.treasureY, "Patient Treasure Notification", SaveLive)
-        addon.bagAlertsCheckbox = ui.Checkbox(focusPage, 20, layout.bagY, "Bag Monitor / Alert", SaveLive)
-        addon.lowBagBox = ui.EditBox(focusPage, 60, layout.thresholdY, layout.thresholdWidth, "Low Bag Threshold:", SaveLive)
-
-        ui.Title(focusPage, 20, layout.audioTitleY, "Audio:")
-        addon.enhancedSoundsCheckbox = ui.Checkbox(focusPage, 20, layout.audioCheckboxY, "Fishing Focused Audio", SaveLive)
-        addon.audioLingerBox = ui.EditBox(focusPage, 60, layout.audioLingerY, layout.audioLingerWidth, "Audio Linger After Catch (s):", SaveLive)
-    end
-
-    local function BuildTackleTab()
-        local layout = {
-            selectorWidth = 280,
-            oversizedY = -82,
-            bobberApplyY = -116,
-            raftApplyY = -236,
-        }
-
-        addon.bobberSelector = ui.ToySelector(tacklePage, 20, -20, layout.selectorWidth, "Selected Bobber:", function()
-            return BuildOwnedToyOptions(addon.const.bobberToyItemIDs, "Standard Bobber")
-        end, SaveLive)
-        addon.oversizedBobberCheckbox = ui.Checkbox(tacklePage, 20, layout.oversizedY, "Use oversized bobber", SaveLive)
-        addon.bobberApplyButton = CreateSecureToyActionButton(tacklePage, 20, layout.bobberApplyY, 160, "Apply Bobber")
-
-        addon.raftSelector = ui.ToySelector(tacklePage, 20, -170, layout.selectorWidth, "Selected Raft:", function()
-            return BuildOwnedToyOptions(addon.const.raftToyItemIDs, "No Raft")
-        end, SaveLive)
-        addon.raftApplyButton = CreateSecureToyActionButton(tacklePage, 20, layout.raftApplyY, 160, "Apply Raft")
-    end
-
-    local function BuildModesTab()
-        ui.Title(modesPage, 20, -20, "Casting Triggers:")
-        addon.modeDoubleRightClickCheckbox = ui.Checkbox(modesPage, 20, -45, "Right double click", SaveLive)
-        addon.modeSingleRightClickConfigCheckbox = ui.Checkbox(modesPage, 20, -75, "Single right click (when this window is open)", SaveLive)
-        addon.modeHotkeyCheckbox = ui.Checkbox(modesPage, 20, -105, "Keybinding (set the key in Keybindings > DreamFisher)", SaveLive)
-        addon.enableHookedLootCheckbox = ui.Checkbox(modesPage, 20, -135, "Use right click and/or hotkey to reel in the fish", SaveLive)
-
-        ui.Note(modesPage, 40, -170, 480,
-            "Requires some setup in Game Menu > Options: \n"
-            .. "1. Turn on \"Enable Interact Key\" (Options > Controls).\n"
-            .. "2. Set a keybinding (Keybindings > DreamFisher).\n"
-            .. "3. Ensure another addon does not try to control interactions while fishing.")
-
-        addon.escapeCloseCheckbox = ui.Checkbox(modesPage, 20, -235, "Escape closes this window", SaveLive)
-
-        ui.Title(modesPage, 20, -295, "Underlight Angler:")
-        addon.underlightAnglerCheckbox = ui.Checkbox(modesPage, 20, -315, "Equip Underlight Angler while swimming", SaveLive)
-    end
-
-    local function BuildBuffsTab()
-        local buffsHost = ui.CreateBuffsHost(buffsPage)
-        ui.StaticTitle(buffsHost, 20, -20, "Buff Items")
-
-        addon.buffItemControls = {}
-        for i = 1, maxBuffSlots do
-            local row = math.floor((i - 1) / 2)
-            local col = (i - 1) % 2
-            local baseX = 20 + (col * 220)
-            local baseY = -56 - (row * 95)
-            local itemBox = CreateBuffItemDropBox(buffsHost, baseX, baseY, "Buff " .. i, SaveLive)
-            itemBox:SetExpectedDuration(addon.db and addon.db.refreshSeconds or defaults.refreshSeconds)
-            itemBox.slotIndex = i
-            addon.buffItemControls[i] = {
-                itemBox = itemBox,
-            }
-        end
-    end
-
-    BuildFocusTab()
-    BuildTackleTab()
-    BuildModesTab()
-    BuildBuffsTab()
+    BuildFocusTab(tabs.pages.focus, ui, SaveLive)
+    BuildTackleTab(tabs.pages.tackle, ui, SaveLive)
+    BuildModesTab(tabs.pages.modes, ui, SaveLive)
+    BuildBuffsTab(tabs.pages.buffs, ui, CreateBuffItemDropBox, SaveLive, addon.db and addon.db.refreshSeconds or defaults.refreshSeconds)
 
     panel.buffItemControls = addon.buffItemControls
     UpdateToyApplyButtons()
 
-    local function SelectAceTab(tabName)
-        if panel.aceTabGroup and panel.aceTabGroup.SelectTab then
-            panel.aceTabGroup:SelectTab(tabName)
-        end
-    end
-
     local function ShowCurrentActiveTab()
         local selectedTab = panel.activeTab or "focus"
-        SelectAceTab(selectedTab)
-        ShowTab(selectedTab)
+        tabs.SelectTab(selectedTab)
+        tabs.ShowTab(selectedTab)
     end
 
     local function HandlePanelShow()
@@ -623,8 +631,8 @@ function config.CreateConfigPanel()
     end
 
     BindPanelLifecycle()
-    ShowTab("focus")
-    SelectAceTab("focus")
+    tabs.ShowTab("focus")
+    tabs.SelectTab("focus")
     return panel
 end
 
