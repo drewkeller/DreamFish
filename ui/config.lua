@@ -1185,96 +1185,102 @@ function config.CreateConfigPanel()
         end
     end
 
+    local ui = {
+        Checkbox = CreateCheckbox,
+        EditBox = CreateEditBox,
+        Title = CreateTitle,
+        ToySelector = CreateToySelector,
+        Note = function(parent, x, y, width, text)
+            local note = parent:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
+            note:SetPoint("TOPLEFT", x, y)
+            note:SetText(text)
+            note:SetJustifyH("LEFT")
+            note:SetWidth(width)
+            return note
+        end,
+    }
+
+    if isAceGUIMode then
+        ui.Checkbox = CreateAceCheckbox
+        ui.EditBox = CreateAceEditBox
+        ui.Title = CreateAceTitle
+        ui.ToySelector = CreateAceToySelector
+        ui.Note = CreateAceNote
+    end
+
     local function BuildFocusTab()
-        if isAceGUIMode then
-            addon.autoLootCheckbox = CreateAceCheckbox(focusPage, 20, -20, "Temporary Auto-Loot", SaveLive)
-            addon.treasureAlertsCheckbox = CreateAceCheckbox(focusPage, 20, -50, "Patient Treasure Notification", SaveLive)
-            addon.bagAlertsCheckbox = CreateAceCheckbox(focusPage, 20, -80, "Bag Monitor / Alert", SaveLive)
-            addon.lowBagBox = CreateAceEditBox(focusPage, 60, -120, 140, "Low Bag Threshold:", SaveLive)
+        local layout = isAceGUIMode and {
+            treasureY = -50,
+            bagY = -80,
+            thresholdY = -120,
+            thresholdWidth = 140,
+            audioTitleY = -200,
+            audioCheckboxY = -230,
+            audioLingerY = -270,
+            audioLingerWidth = 180,
+        } or {
+            treasureY = -55,
+            bagY = -90,
+            thresholdY = -125,
+            thresholdWidth = 100,
+            audioTitleY = -250,
+            audioCheckboxY = -270,
+            audioLingerY = -305,
+            audioLingerWidth = 100,
+        }
 
-            CreateAceTitle(focusPage, 20, -200, "Audio:")
-            addon.enhancedSoundsCheckbox = CreateAceCheckbox(focusPage, 20, -230, "Fishing Focused Audio", SaveLive)
-            addon.audioLingerBox = CreateAceEditBox(focusPage, 60, -270, 180, "Audio Linger After Catch (s):", SaveLive)
-            return
-        end
+        addon.autoLootCheckbox = ui.Checkbox(focusPage, 20, -20, "Temporary Auto-Loot", SaveLive)
+        addon.treasureAlertsCheckbox = ui.Checkbox(focusPage, 20, layout.treasureY, "Patient Treasure Notification", SaveLive)
+        addon.bagAlertsCheckbox = ui.Checkbox(focusPage, 20, layout.bagY, "Bag Monitor / Alert", SaveLive)
+        addon.lowBagBox = ui.EditBox(focusPage, 60, layout.thresholdY, layout.thresholdWidth, "Low Bag Threshold:", SaveLive)
 
-        addon.autoLootCheckbox = CreateCheckbox(focusPage, 20, -20, "Temporary Auto-Loot", SaveLive)
-        addon.treasureAlertsCheckbox = CreateCheckbox(focusPage, 20, -55, "Patient Treasure Notification", SaveLive)
-        addon.bagAlertsCheckbox = CreateCheckbox(focusPage, 20, -90, "Bag Monitor / Alert", SaveLive)
-        addon.lowBagBox = CreateEditBox(focusPage, 60, -125, 100, "Low Bag Threshold:", SaveLive)
-
-        CreateTitle(focusPage, 20, -250, "Audio:")
-        addon.enhancedSoundsCheckbox = CreateCheckbox(focusPage, 20, -270, "Fishing Focused Audio", SaveLive)
-        addon.audioLingerBox = CreateEditBox(focusPage, 60, -305, 100, "Audio Linger After Catch (s):", SaveLive)
+        ui.Title(focusPage, 20, layout.audioTitleY, "Audio:")
+        addon.enhancedSoundsCheckbox = ui.Checkbox(focusPage, 20, layout.audioCheckboxY, "Fishing Focused Audio", SaveLive)
+        addon.audioLingerBox = ui.EditBox(focusPage, 60, layout.audioLingerY, layout.audioLingerWidth, "Audio Linger After Catch (s):", SaveLive)
     end
 
     local function BuildTackleTab()
-        if isAceGUIMode then
-            addon.bobberSelector = CreateAceToySelector(tacklePage, 20, -20, 280, "Selected Bobber:", function()
-                return BuildOwnedToyOptions(addon.const.bobberToyItemIDs, "Standard Bobber")
-            end, SaveLive)
-            addon.oversizedBobberCheckbox = CreateAceCheckbox(tacklePage, 20, -82, "Use oversized bobber", SaveLive)
-            addon.bobberApplyButton = CreateSecureToyActionButton(tacklePage, 20, -116, 160, "Apply Bobber")
+        local layout = isAceGUIMode and {
+            selectorWidth = 280,
+            oversizedY = -82,
+            bobberApplyY = -116,
+            raftApplyY = -236,
+        } or {
+            selectorWidth = 360,
+            oversizedY = -65,
+            bobberApplyY = -100,
+            raftApplyY = -220,
+        }
 
-            addon.raftSelector = CreateAceToySelector(tacklePage, 20, -170, 280, "Selected Raft:", function()
-                return BuildOwnedToyOptions(addon.const.raftToyItemIDs, "No Raft")
-            end, SaveLive)
-            addon.raftApplyButton = CreateSecureToyActionButton(tacklePage, 20, -236, 160, "Apply Raft")
-            return
-        end
-
-        addon.bobberSelector = CreateToySelector(tacklePage, 20, -20, 360, "Selected Bobber:", function()
+        addon.bobberSelector = ui.ToySelector(tacklePage, 20, -20, layout.selectorWidth, "Selected Bobber:", function()
             return BuildOwnedToyOptions(addon.const.bobberToyItemIDs, "Standard Bobber")
         end, SaveLive)
-        addon.oversizedBobberCheckbox = CreateCheckbox(tacklePage, 20, -65, "Use oversized bobber", SaveLive)
-        addon.bobberApplyButton = CreateSecureToyActionButton(tacklePage, 20, -100, 160, "Apply Bobber")
+        addon.oversizedBobberCheckbox = ui.Checkbox(tacklePage, 20, layout.oversizedY, "Use oversized bobber", SaveLive)
+        addon.bobberApplyButton = CreateSecureToyActionButton(tacklePage, 20, layout.bobberApplyY, 160, "Apply Bobber")
 
-        addon.raftSelector = CreateToySelector(tacklePage, 20, -170, 360, "Selected Raft:", function()
+        addon.raftSelector = ui.ToySelector(tacklePage, 20, -170, layout.selectorWidth, "Selected Raft:", function()
             return BuildOwnedToyOptions(addon.const.raftToyItemIDs, "No Raft")
         end, SaveLive)
-        addon.raftApplyButton = CreateSecureToyActionButton(tacklePage, 20, -220, 160, "Apply Raft")
+        addon.raftApplyButton = CreateSecureToyActionButton(tacklePage, 20, layout.raftApplyY, 160, "Apply Raft")
     end
 
     local function BuildModesTab()
-        if isAceGUIMode then
-            CreateAceTitle(modesPage, 20, -20, "Casting Triggers:")
-            addon.modeDoubleRightClickCheckbox = CreateAceCheckbox(modesPage, 20, -45, "Right double click", SaveLive)
-            addon.modeSingleRightClickConfigCheckbox = CreateAceCheckbox(modesPage, 20, -75, "Single right click (when this window is open)", SaveLive)
-            addon.modeHotkeyCheckbox = CreateAceCheckbox(modesPage, 20, -105, "Keybinding (set the key in Keybindings > DreamFisher)", SaveLive)
-            addon.enableHookedLootCheckbox = CreateAceCheckbox(modesPage, 20, -135, "Use right click and/or hotkey to reel in the fish", SaveLive)
+        ui.Title(modesPage, 20, -20, "Casting Triggers:")
+        addon.modeDoubleRightClickCheckbox = ui.Checkbox(modesPage, 20, -45, "Right double click", SaveLive)
+        addon.modeSingleRightClickConfigCheckbox = ui.Checkbox(modesPage, 20, -75, "Single right click (when this window is open)", SaveLive)
+        addon.modeHotkeyCheckbox = ui.Checkbox(modesPage, 20, -105, "Keybinding (set the key in Keybindings > DreamFisher)", SaveLive)
+        addon.enableHookedLootCheckbox = ui.Checkbox(modesPage, 20, -135, "Use right click and/or hotkey to reel in the fish", SaveLive)
 
-            CreateAceNote(modesPage, 40, -170, 480,
-                "Requires some setup in Game Menu > Options: \n"
-                .. "1. Turn on \"Enable Interact Key\" (Options > Controls).\n"
-                .. "2. Set a keybinding (Keybindings > DreamFisher).\n"
-                .. "3. Ensure another addon does not try to control interactions while fishing.")
-
-            addon.escapeCloseCheckbox = CreateAceCheckbox(modesPage, 20, -235, "Escape closes this window", SaveLive)
-
-            CreateAceTitle(modesPage, 20, -295, "Underlight Angler:")
-            addon.underlightAnglerCheckbox = CreateAceCheckbox(modesPage, 20, -315, "Equip Underlight Angler while swimming", SaveLive)
-            return
-        end
-
-        CreateTitle(modesPage, 20, -20, "Casting Triggers:")
-        addon.modeDoubleRightClickCheckbox = CreateCheckbox(modesPage, 20, -45, "Right double click", SaveLive)
-        addon.modeSingleRightClickConfigCheckbox = CreateCheckbox(modesPage, 20, -75, "Single right click (when this window is open)", SaveLive)
-        addon.modeHotkeyCheckbox = CreateCheckbox(modesPage, 20, -105, "Keybinding (set the key in Keybindings > DreamFisher)", SaveLive)
-        addon.enableHookedLootCheckbox = CreateCheckbox(modesPage, 20, -135, "Use right click and/or hotkey to reel in the fish", SaveLive)
-
-        local hotkeyNote = modesPage:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
-        hotkeyNote:SetPoint("TOPLEFT", 40, -170)
-        hotkeyNote:SetText("Requires some setup in Game Menu > Options: \n"
+        ui.Note(modesPage, 40, -170, 480,
+            "Requires some setup in Game Menu > Options: \n"
             .. "1. Turn on \"Enable Interact Key\" (Options > Controls).\n"
             .. "2. Set a keybinding (Keybindings > DreamFisher).\n"
             .. "3. Ensure another addon does not try to control interactions while fishing.")
-        hotkeyNote:SetJustifyH("LEFT")
-        hotkeyNote:SetWidth(480)
 
-        addon.escapeCloseCheckbox = CreateCheckbox(modesPage, 20, -235, "Escape closes this window", SaveLive)
+        addon.escapeCloseCheckbox = ui.Checkbox(modesPage, 20, -235, "Escape closes this window", SaveLive)
 
-        CreateTitle(modesPage, 20, -295, "Underlight Angler:")
-        addon.underlightAnglerCheckbox = CreateCheckbox(modesPage, 20, -315, "Equip Underlight Angler while swimming", SaveLive)
+        ui.Title(modesPage, 20, -295, "Underlight Angler:")
+        addon.underlightAnglerCheckbox = ui.Checkbox(modesPage, 20, -315, "Equip Underlight Angler while swimming", SaveLive)
     end
 
     local function BuildBuffsTab()
