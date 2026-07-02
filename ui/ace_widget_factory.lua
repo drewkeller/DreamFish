@@ -119,6 +119,119 @@ function addon.ui.CreateAceWidgetAdapters(aceGUIInstance, panel)
         return RegisterAndAttachChild(parent, widget)
     end
 
+    local function CreateAceFlowColumns(parent, columnCount)
+        local columns = {}
+        local count = tonumber(columnCount) or 2
+        if count < 1 then
+            count = 1
+        end
+
+        local row = aceGUIInstance:Create("SimpleGroup")
+        row:SetLayout("Flow")
+        row:SetFullWidth(true)
+        row = RegisterAndAttachChild(parent, row)
+
+        local width = 1 / count
+        for _ = 1, count do
+            local col = aceGUIInstance:Create("SimpleGroup")
+            col:SetLayout("List")
+            col:SetRelativeWidth(width)
+            col = RegisterAndAttachChild(row, col)
+            table.insert(columns, col)
+        end
+
+        return columns
+    end
+
+    local function CreateAceFlowDropdown(parent, label, width, optionsGetter, onLiveChange)
+        if label and label ~= "" then
+            CreateAceFlowTitle(parent, label)
+        end
+
+        local dropdown = aceGUIInstance:Create("Dropdown")
+        dropdown:SetFullWidth(true)
+        if width then
+            dropdown:SetWidth(width)
+        end
+        dropdown = RegisterAndAttachChild(parent, dropdown)
+
+        local selector = {
+            options = {},
+            selectedValue = nil,
+            onValueChanged = onLiveChange,
+            dropdown = dropdown,
+        }
+
+        function selector:RefreshOptions()
+            self.options = optionsGetter and optionsGetter() or {}
+
+            local list = {}
+            local order = {}
+            for _, option in ipairs(self.options) do
+                list[option.value] = option.label or tostring(option.value)
+                table.insert(order, option.value)
+            end
+            dropdown:SetList(list, order)
+
+            if #self.options == 0 then
+                self.selectedValue = nil
+                dropdown:SetValue(nil)
+                return
+            end
+
+            local desired = self.selectedValue
+            local found = false
+            for _, option in ipairs(self.options) do
+                if option.value == desired then
+                    found = true
+                    break
+                end
+            end
+
+            if not found then
+                self.selectedValue = self.options[1].value
+            end
+
+            dropdown:SetValue(self.selectedValue)
+        end
+
+        function selector:SetText(value)
+            if value == nil or value == "" then
+                self.selectedValue = nil
+            else
+                self.selectedValue = value
+            end
+            if not self.options or #self.options == 0 then
+                self:RefreshOptions()
+                return
+            end
+            dropdown:SetValue(self.selectedValue)
+        end
+
+        function selector:GetText()
+            if self.selectedValue == nil then
+                return ""
+            end
+            return tostring(self.selectedValue)
+        end
+
+        function selector:SetEnabled(enabled)
+            if dropdown and dropdown.SetDisabled then
+                dropdown:SetDisabled(not enabled)
+            end
+        end
+
+        dropdown:SetCallback("OnValueChanged", function(_, _, value)
+            selector.selectedValue = value
+            if selector.onValueChanged then
+                selector.onValueChanged(selector.selectedValue)
+            end
+        end)
+
+        selector:RefreshOptions()
+        return selector
+    end
+
     local function CreateAceFlowToySelector(parent, label, width, optionsGetter, onLiveChange)
         CreateAceFlowTitle(parent, label)
 
@@ -141,10 +254,12 @@ function addon.ui.CreateAceWidgetAdapters(aceGUIInstance, panel)
             self.options = optionsGetter and optionsGetter() or {}
 
             local list = {}
+            local order = {}
             for _, option in ipairs(self.options) do
                 list[option.value] = option.label or tostring(option.value)
+                table.insert(order, option.value)
             end
-            dropdown:SetList(list)
+            dropdown:SetList(list, order)
 
             if #self.options == 0 then
                 self.selectedValue = nil
@@ -173,7 +288,11 @@ function addon.ui.CreateAceWidgetAdapters(aceGUIInstance, panel)
         function selector:SetText(value)
             local numeric = tonumber(value)
             self.selectedValue = numeric and numeric > 0 and numeric or 0
-            self:RefreshOptions()
+            if not self.options or #self.options == 0 then
+                self:RefreshOptions()
+                return
+            end
+            dropdown:SetValue(self.selectedValue)
         end
 
         function selector:GetText()
@@ -377,7 +496,11 @@ function addon.ui.CreateAceWidgetAdapters(aceGUIInstance, panel)
         function selector:SetText(value)
             local numeric = tonumber(value)
             self.selectedValue = numeric and numeric > 0 and numeric or 0
-            self:RefreshOptions()
+            if not self.options or #self.options == 0 then
+                self:RefreshOptions()
+                return
+            end
+            dropdown:SetValue(self.selectedValue)
         end
 
         function selector:GetText()
@@ -408,6 +531,8 @@ function addon.ui.CreateAceWidgetAdapters(aceGUIInstance, panel)
         FlowEditBox = CreateAceFlowEditBox,
         FlowTitle = CreateAceFlowTitle,
         FlowNote = CreateAceFlowNote,
+        FlowColumns = CreateAceFlowColumns,
+        FlowDropdown = CreateAceFlowDropdown,
         FlowToySelector = CreateAceFlowToySelector,
         FlowSecureToyActionButton = CreateAceFlowSecureToyActionButton,
         FlowRowHost = CreateAceFlowRowHost,

@@ -119,6 +119,14 @@ function RunTest(name, testFn)
         DreamFisher.state.buffCastBlockWarningAt = 0
         DreamFisher.state.foodDrinkCastBlockWarningAt = 0
         DreamFisher._test.SetLastRightClickTime(0)  -- Clear click state
+        DreamFisher.state.lastFishingSecureClickAt = 0
+        DreamFisher.state.isFishing = false
+        DreamFisher.state.isBobberActive = false
+        DreamFisher.state.fishingLootInProgress = false
+        DreamFisher.state.fishingStartGraceUntil = 0
+        DreamFisher.state.interactAcquireExpiresAt = 0
+        DreamFisher.state.interactOverrideActive = false
+        DreamFisher.state.interactOverrideExpiresAt = 0
         testFn()
     end)
 
@@ -1065,6 +1073,230 @@ function tests.PrecastAppliesBobberBeforeDueBuff()
     assertTrue(bobberIndex ~= nil, "Pre-cast should include bobber use")
     assertTrue(buffIndex ~= nil, "Pre-cast should include due buff use")
     assertTrue(bobberIndex < buffIndex, "Bobber use should appear before due buff use")
+end
+
+function tests.PrecastEquipsSelectedFishingPoleBeforeBobber()
+    local capturedAttrs = {}
+    local fishingFrame = DreamFisher.fishing.CreateSecureFishingFrame()
+    local origSet = fishingFrame.SetAttribute
+    fishingFrame.SetAttribute = function(self, k, v)
+        capturedAttrs[k] = v
+        return origSet and origSet(self, k, v)
+    end
+
+    DreamFisher._test.SetDB({
+        castingModes = { hotkey = true },
+        buffItems = {},
+        buffAuraByItem = {},
+        enableHookedLoot = false,
+        selectedRaftToy = nil,
+        selectedFishingPole = 555001,
+        selectedUnderlightAngler = nil,
+        underlightAnglerMode = "disabled",
+        selectedBobberToy = 142531,
+        useOversizedBobber = false,
+    })
+
+    local originalFind = DreamFisher.buff.FindItemInBags
+    DreamFisher.buff.FindItemInBags = function(itemID)
+        if itemID == 555001 then return 0, 2 end
+        return nil, nil
+    end
+
+    DreamFisher.fishing.ConfigureFishingClickAction()
+
+    DreamFisher.buff.FindItemInBags = originalFind
+
+    local macrotext = capturedAttrs["macrotext"] or ""
+    local poleIndex = macrotext:find("/equip item:555001", 1, true)
+    local bobberIndex = macrotext:find("/use item:142531", 1, true)
+    assertTrue(poleIndex ~= nil, "Pre-cast should include selected fishing pole equip")
+    assertTrue(bobberIndex ~= nil, "Pre-cast should include bobber use")
+    assertTrue(poleIndex < bobberIndex, "Fishing pole equip should appear before bobber")
+end
+
+function tests.PrecastLockUnderlightSkipsPrimaryPoleSwap()
+    local capturedAttrs = {}
+    local fishingFrame = DreamFisher.fishing.CreateSecureFishingFrame()
+    local origSet = fishingFrame.SetAttribute
+    fishingFrame.SetAttribute = function(self, k, v)
+        capturedAttrs[k] = v
+        return origSet and origSet(self, k, v)
+    end
+
+    DreamFisher._test.SetDB({
+        castingModes = { hotkey = true },
+        buffItems = {},
+        buffAuraByItem = {},
+        enableHookedLoot = false,
+        selectedRaftToy = nil,
+        selectedFishingPole = 555001,
+        selectedUnderlightAngler = 133755,
+        underlightAnglerMode = "lock_underlight",
+        selectedBobberToy = nil,
+        useOversizedBobber = false,
+    })
+
+    local originalFind = DreamFisher.buff.FindItemInBags
+    DreamFisher.buff.FindItemInBags = function(itemID)
+        if itemID == 133755 then return 0, 3 end
+        if itemID == 555001 then return 0, 2 end
+        return nil, nil
+    end
+
+    DreamFisher.fishing.ConfigureFishingClickAction()
+
+    DreamFisher.buff.FindItemInBags = originalFind
+
+    local macrotext = capturedAttrs["macrotext"] or ""
+    assertTrue(macrotext:find("/equip item:133755", 1, true) ~= nil,
+        "Lock-underlight mode should equip Underlight")
+    assertTrue(macrotext:find("/equip item:555001", 1, true) == nil,
+        "Lock-underlight mode should not swap to primary fishing pole")
+end
+
+function tests.AlwaysExceptFishingIdleHelperEquipsUnderlight()
+    DreamFisher._test.SetDB({
+        buffItems = {},
+        buffAuraByItem = {},
+        selectedUnderlightAngler = 133755,
+        underlightAnglerMode = "always_except_fishing",
+    })
+
+    DreamFisher.state.isFishing = false
+    DreamFisher.state.isBobberActive = false
+
+    local originalFind = DreamFisher.buff.FindItemInBags
+    DreamFisher.buff.FindItemInBags = function(itemID)
+        if itemID == 133755 then return 0, 1 end
+        return nil, nil
+    end
+
+    local originalEquip = _G.EquipItemByName
+    local originalGetInventoryItemID = _G.GetInventoryItemID
+    local equippedItemInMainHand = nil
+    local equipCalls = 0
+    _G.EquipItemByName = function(itemRef, slot)
+        equipCalls = equipCalls + 1
+        if tostring(itemRef) == "item:133755" then
+            equippedItemInMainHand = 133755
+        end
+    end
+    _G.GetInventoryItemID = function(_, slot)
+        if slot == 16 then
+            return equippedItemInMainHand
+        end
+        return nil
+    end
+
+    local equipped = DreamFisher.fishing.MaybeEquipConfiguredUnderlight("test-idle")
+
+    _G.EquipItemByName = originalEquip
+    _G.GetInventoryItemID = originalGetInventoryItemID
+    DreamFisher.buff.FindItemInBags = originalFind
+
+    assertTrue(equipped == true, "Idle helper should report successful Underlight equip")
+    assertTrue(equipCalls > 0, "Idle helper should call EquipItemByName for Underlight")
+end
+
+function tests.UnderlightIdleHelperFallsBackToUnslottedEquip()
+    DreamFisher._test.SetDB({
+        buffItems = {},
+        buffAuraByItem = {},
+        selectedUnderlightAngler = 133755,
+        underlightAnglerMode = "always_except_fishing",
+    })
+
+    DreamFisher.state.isFishing = false
+    DreamFisher.state.isBobberActive = false
+
+    local originalFind = DreamFisher.buff.FindItemInBags
+    DreamFisher.buff.FindItemInBags = function(itemID)
+        if itemID == 133755 then return 0, 1 end
+        return nil, nil
+    end
+
+    local originalEquip = _G.EquipItemByName
+    local originalGetInventoryItemID = _G.GetInventoryItemID
+    local equippedItemInMainHand = nil
+    local sawSlot28Attempt = false
+    local sawUnslottedAttempt = false
+
+    _G.EquipItemByName = function(itemRef, slot)
+        if tostring(itemRef) ~= "item:133755" then
+            return
+        end
+
+        if slot == 28 then
+            sawSlot28Attempt = true
+            return
+        end
+
+        sawUnslottedAttempt = true
+        equippedItemInMainHand = 133755
+    end
+
+    _G.GetInventoryItemID = function(_, slot)
+        if slot == 16 then
+            return equippedItemInMainHand
+        end
+        return nil
+    end
+
+    local equipped = DreamFisher.fishing.MaybeEquipConfiguredUnderlight("test-idle-fallback")
+
+    _G.EquipItemByName = originalEquip
+    _G.GetInventoryItemID = originalGetInventoryItemID
+    DreamFisher.buff.FindItemInBags = originalFind
+
+    assertTrue(equipped == true, "Idle helper should succeed via unslotted fallback")
+    assertTrue(sawSlot28Attempt, "Idle helper should try profession-slot equip first")
+    assertTrue(sawUnslottedAttempt, "Idle helper should fallback to unslotted equip")
+end
+
+function tests.ModeChangeDisabledEquipsPrimaryPole()
+    DreamFisher._test.SetDB({
+        buffItems = {},
+        buffAuraByItem = {},
+        selectedFishingPole = 555001,
+        selectedUnderlightAngler = 133755,
+        underlightAnglerMode = "disabled",
+    })
+
+    DreamFisher.state.isFishing = false
+    DreamFisher.state.isBobberActive = false
+
+    local originalFind = DreamFisher.buff.FindItemInBags
+    DreamFisher.buff.FindItemInBags = function(itemID)
+        if itemID == 133755 then return 0, 1 end
+        if itemID == 555001 then return 0, 2 end
+        return nil, nil
+    end
+
+    local originalEquip = _G.EquipItemByName
+    local originalGetInventoryItemID = _G.GetInventoryItemID
+    local equippedItemInMainHand = nil
+
+    _G.EquipItemByName = function(itemRef)
+        if tostring(itemRef) == "item:555001" then
+            equippedItemInMainHand = 555001
+        end
+    end
+
+    _G.GetInventoryItemID = function(_, slot)
+        if slot == 16 then
+            return equippedItemInMainHand
+        end
+        return nil
+    end
+
+    local equipped = DreamFisher.fishing.MaybeEquipConfiguredUnderlight("config-underlight-mode-change")
+
+    _G.EquipItemByName = originalEquip
+    _G.GetInventoryItemID = originalGetInventoryItemID
+    DreamFisher.buff.FindItemInBags = originalFind
+
+    assertTrue(equipped == true, "Mode-change should immediately equip primary pole for disabled mode")
 end
 
 function tests.PrecastSkipsBobberWhenAuraCoversCast()

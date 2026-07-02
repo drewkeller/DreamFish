@@ -165,6 +165,10 @@ frame:SetScript("OnEvent", function(self, event, name)
         addon.audio.ResumePersistedAudioDuckingState()
     end
 
+    if addon.fishing and addon.fishing.MaybeEquipConfiguredUnderlight then
+        addon.fishing.MaybeEquipConfiguredUnderlight("addon-loaded")
+    end
+
     -- Initialize buff config
     if addon.buff and addon.buff.NormalizeBuffConfig then
         addon.buff.NormalizeBuffConfig()
@@ -241,6 +245,9 @@ lootTracker:SetScript("OnEvent", function(_, event, ...)
             DebugBagMessage("Fishing loot in progress ended")
             addon.state.fishingLootInProgress = false
             if addon.audio then addon.audio.RestoreFishingAudioFocusAfterLinger() end
+            if addon.fishing and addon.fishing.MaybeEquipConfiguredUnderlight then
+                addon.fishing.MaybeEquipConfiguredUnderlight("loot-closed")
+            end
             local now = (type(GetTime) == "function") and GetTime() or 0
             fishingLootBagCheckPendingUntil = now + 2
             DebugBagMessage("Queued bag-threshold check for BAG_UPDATE_DELAYED")

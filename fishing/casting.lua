@@ -3,8 +3,12 @@
 local addon = _G["DreamFisher"]
 local PrintMessage = addon.PrintMessage
 local DebugMessage = addon.DebugMessage
+local DebugStateMessage = addon.DebugStateMessage or addon.DebugMessage
 local OVERSIZED_BOBBER_ITEM_ID = 202207
 local DUE_BUFF_CATEGORY_ORDER = { "food_drink", "lure", "bait", "bobber", "other_consumable" }
+local UNDERLIGHT_MODE_DISABLED = "disabled"
+local UNDERLIGHT_MODE_ALWAYS_EXCEPT_FISHING = "always_except_fishing"
+local UNDERLIGHT_MODE_LOCK = "lock_underlight"
 
 local ConfigureFishingClickAction
 local GetNextReadyDueBuffItem
@@ -434,6 +438,318 @@ local function IsFishingPoleEquippedInProfessionSlot()
     return itemID and itemID > 0 or false
 end
 
+local function GetEquippedProfessionItemID()
+    if type(GetInventoryItemID) ~= "function" then
+        return nil
+    end
+    local ok, rawItemID = pcall(GetInventoryItemID, "player", 28)
+    if not ok then
+        return nil
+    end
+    local itemID = tonumber(rawItemID)
+    if not itemID or itemID <= 0 then
+        return nil
+    end
+    return itemID
+end
+
+local function IsItemEquippedInAnyTrackedSlot(itemID)
+    local numeric = tonumber(itemID)
+    if not numeric or numeric <= 0 or type(GetInventoryItemID) ~= "function" then
+        return false
+    end
+
+    local maxSlot = (type(INVSLOT_LAST_EQUIPPED) == "number" and INVSLOT_LAST_EQUIPPED) or 19
+    if maxSlot < 40 then
+        maxSlot = 40
+    end
+    for slot = 1, maxSlot do
+        local ok, rawItemID = pcall(GetInventoryItemID, "player", slot)
+        if ok and tonumber(rawItemID) == numeric then
+            return true
+        end
+    end
+
+    return false
+end
+
+local function IsItemAvailableForEquip(itemID)
+    local numeric = tonumber(itemID)
+    if not numeric or numeric <= 0 then
+        return false
+    end
+
+    if IsItemEquippedInAnyTrackedSlot(numeric) then
+        return true
+    end
+
+    if addon.buff and addon.buff.FindItemInBags then
+        local bag, slot = addon.buff.FindItemInBags(numeric)
+        if bag and slot then
+            return true
+        end
+    end
+
+    return false
+end
+
+local function NormalizeUnderlightMode(mode)
+    local modeText = type(mode) == "string" and mode or ""
+    if modeText == UNDERLIGHT_MODE_DISABLED
+        or modeText == UNDERLIGHT_MODE_ALWAYS_EXCEPT_FISHING
+        or modeText == UNDERLIGHT_MODE_LOCK then
+        return modeText
+    end
+    return UNDERLIGHT_MODE_DISABLED
+end
+
+local function GetWaterContextDiagnostics()
+    local diagnostics = {
+        isSwimming = false,
+        isSubmerged = false,
+        secureOption = nil,
+        source = nil,
+        result = false,
+    }
+
+    if type(IsSwimming) == "function" and IsSwimming() then
+        diagnostics.isSwimming = true
+        diagnostics.source = "IsSwimming"
+        diagnostics.result = true
+        return diagnostics
+    end
+
+    if type(IsSubmerged) == "function" and IsSubmerged() then
+        diagnostics.isSubmerged = true
+        diagnostics.source = "IsSubmerged"
+        diagnostics.result = true
+        return diagnostics
+    end
+
+    return diagnostics
+end
+
+local function IsPlayerInWaterContext()
+    return GetWaterContextDiagnostics().result
+end
+
+local function GetSelectedFishingPoleDecision()
+    local poleItemID = addon.db and tonumber(addon.db.selectedFishingPole) or nil
+    local underlightMode = NormalizeUnderlightMode(addon.db and addon.db.underlightAnglerMode)
+    local hasItem = IsItemAvailableForEquip(poleItemID)
+    local mounted = (type(IsMounted) == "function" and IsMounted()) or false
+    local equippedItemID = GetEquippedProfessionItemID()
+    local alreadyEquipped = poleItemID and equippedItemID and (poleItemID == equippedItemID) or false
+    local shouldApply = hasItem
+        and (not mounted)
+        and (not alreadyEquipped)
+        and underlightMode ~= UNDERLIGHT_MODE_LOCK
+
+    return {
+        itemID = poleItemID,
+        hasItem = hasItem,
+        mounted = mounted,
+        alreadyEquipped = alreadyEquipped,
+        shouldApply = shouldApply,
+    }
+end
+
+local function TryEquipItemToProfessionSlot(itemID)
+    local numeric = tonumber(itemID)
+    if not numeric or numeric <= 0 then
+        DebugMessage("Pole equip skipped: invalid itemID=" .. tostring(itemID))
+        return false
+    end
+    if type(InCombatLockdown) == "function" and InCombatLockdown() then
+        return false
+    end
+
+    if IsItemEquippedInAnyTrackedSlot(numeric) then
+        DebugMessage("Pole equip skipped: item already equipped " .. GetDebugItemLabel(numeric))
+        return true
+    end
+
+    local itemRef = "item:" .. tostring(numeric)
+    local equipRequestDispatched = false
+    local lastDispatchedMethod = nil
+
+    local function IsNowEquipped()
+        return IsItemEquippedInAnyTrackedSlot(numeric)
+    end
+
+    local function TryEquipFromBagCursor(targetSlot)
+        if not (addon.buff and addon.buff.FindItemInBags) then
+            return false
+        end
+
+        local bag, slot = addon.buff.FindItemInBags(numeric)
+        if bag == nil or slot == nil then
+            return false
+        end
+
+        local pickupFn = nil
+        if C_Container and type(C_Container.PickupContainerItem) == "function" then
+            pickupFn = C_Container.PickupContainerItem
+        elseif type(PickupContainerItem) == "function" then
+            pickupFn = PickupContainerItem
+        end
+
+        if type(pickupFn) ~= "function" or type(EquipCursorItem) ~= "function" then
+            if type(EquipItemByName) == "function" then
+                local okFallback = pcall(EquipItemByName, itemRef, targetSlot)
+                equipRequestDispatched = equipRequestDispatched or okFallback
+                if okFallback then
+                    lastDispatchedMethod = "cursor-fallback:EquipItemByName:slot" .. tostring(targetSlot)
+                    if IsNowEquipped() then
+                        DebugMessage("Pole equip succeeded via " .. tostring(lastDispatchedMethod)
+                            .. " " .. GetDebugItemLabel(numeric))
+                        return true
+                    end
+                end
+            end
+            return false
+        end
+
+        local okPickup = pcall(pickupFn, bag, slot)
+        if not okPickup then
+            if type(ClearCursor) == "function" then
+                pcall(ClearCursor)
+            end
+            return false
+        end
+
+        local okEquip = pcall(EquipCursorItem, targetSlot)
+        if not okEquip then
+            if type(ClearCursor) == "function" then
+                pcall(ClearCursor)
+            end
+            return false
+        end
+        equipRequestDispatched = true
+        lastDispatchedMethod = "bag-cursor:slot" .. tostring(targetSlot)
+
+        if type(ClearCursor) == "function" then
+            pcall(ClearCursor)
+        end
+
+        if IsNowEquipped() then
+            DebugMessage("Pole equip succeeded via " .. tostring(lastDispatchedMethod)
+                .. " " .. GetDebugItemLabel(numeric))
+            return true
+        end
+
+        return false
+    end
+
+    if TryEquipFromBagCursor(28) then
+        return true
+    end
+
+    if TryEquipFromBagCursor(16) then
+        return true
+    end
+
+    if equipRequestDispatched then
+        if C_Timer and type(C_Timer.After) == "function" then
+            C_Timer.After(0.1, function()
+                if IsNowEquipped() then
+                    DebugMessage("Pole equip completed on delayed verify via "
+                        .. tostring(lastDispatchedMethod or "unknown") .. ": " .. GetDebugItemLabel(numeric))
+                    return
+                end
+
+                C_Timer.After(0.35, function()
+                    if IsNowEquipped() then
+                        DebugMessage("Pole equip completed on extended verify via "
+                            .. tostring(lastDispatchedMethod or "unknown") .. ": " .. GetDebugItemLabel(numeric))
+                    else
+                        DebugMessage("Failed to equip configured pole after delayed verify " .. GetDebugItemLabel(numeric))
+                    end
+                end)
+            end)
+            DebugMessage("Pole equip request dispatched via " .. tostring(lastDispatchedMethod or "unknown")
+                .. "; awaiting delayed verification: " .. GetDebugItemLabel(numeric))
+        else
+            DebugMessage("Pole equip request dispatched; timer unavailable for delayed verification: " .. GetDebugItemLabel(numeric))
+        end
+        return true
+    end
+
+    DebugMessage("Failed to equip configured pole " .. GetDebugItemLabel(numeric))
+    return false
+end
+
+local function GetDesiredConfiguredPoleItemID(mode, swimming, inFishingSession, forcePrimary)
+    local selectedPrimaryPoleID = addon.db and tonumber(addon.db.selectedFishingPole) or nil
+    local selectedUnderlightID = addon.db and tonumber(addon.db.selectedUnderlightAngler) or nil
+
+    if forcePrimary then
+        return selectedPrimaryPoleID
+    end
+
+    if mode == UNDERLIGHT_MODE_DISABLED then
+        return selectedPrimaryPoleID
+    elseif mode == UNDERLIGHT_MODE_LOCK then
+        return selectedUnderlightID
+    elseif mode == UNDERLIGHT_MODE_ALWAYS_EXCEPT_FISHING then
+        if inFishingSession then
+            return selectedPrimaryPoleID
+        end
+        return selectedUnderlightID
+    end
+
+    return selectedPrimaryPoleID
+end
+
+local function MaybeEquipConfiguredUnderlight(reason, forcePrimary)
+    if not addon.db then
+        return false
+    end
+
+    local mode = NormalizeUnderlightMode(addon.db.underlightAnglerMode)
+    local waterContext = GetWaterContextDiagnostics()
+    local swimming = waterContext.result
+    local isFishing = addon.state and addon.state.isFishing
+    local isBobberActive = addon.state and addon.state.isBobberActive
+    local inFishingSession = isFishing or isBobberActive
+
+    if addon.db.debugMode and addon.db.debugState then
+        DebugStateMessage("Water context check: result=" .. tostring(swimming)
+            .. " source=" .. tostring(waterContext.source or "none")
+            .. " isSwimming=" .. tostring(waterContext.isSwimming)
+            .. " isSubmerged=" .. tostring(waterContext.isSubmerged)
+            .. " secureOption=" .. tostring(waterContext.secureOption))
+    end
+
+    local desiredPoleItemID = GetDesiredConfiguredPoleItemID(mode, swimming, inFishingSession, forcePrimary)
+    if not desiredPoleItemID or desiredPoleItemID <= 0 then
+        return false
+    end
+    if not IsItemAvailableForEquip(desiredPoleItemID) then
+        return false
+    end
+    if type(InCombatLockdown) == "function" and InCombatLockdown() then
+        return false
+    end
+
+    DebugMessage("Syncing configured pole: reason=" .. tostring(reason or "unknown")
+        .. " mode=" .. tostring(mode)
+        .. " swimming=" .. tostring(swimming)
+        .. " inFishingSession=" .. tostring(inFishingSession)
+        .. " forcePrimary=" .. tostring(forcePrimary and true or false)
+        .. " waterSource=" .. tostring(waterContext.source or "none")
+        .. " isSwimmingSignal=" .. tostring(waterContext.isSwimming)
+        .. " isSubmergedSignal=" .. tostring(waterContext.isSubmerged)
+        .. " secureOption=" .. tostring(waterContext.secureOption)
+        .. " desired=" .. GetDebugItemLabel(desiredPoleItemID))
+    local equipped = TryEquipItemToProfessionSlot(desiredPoleItemID)
+    if equipped then
+        DebugMessage("Equipped configured pole: reason=" .. tostring(reason or "unknown")
+            .. " item=" .. GetDebugItemLabel(desiredPoleItemID))
+    end
+    return equipped
+end
+
 local function WarnMissingProfessionFishingPoleForLure()
     local now = (type(GetTime) == "function") and GetTime() or 0
     local cooldown = tonumber(addon.state and addon.state.buffMissingWarningCooldown) or 8
@@ -660,10 +976,23 @@ ConfigureFishingClickAction = function()
     end
 
     local raftDecision = GetRaftUseDecision()
+    local fishingPoleDecision = GetSelectedFishingPoleDecision()
     local bobberDecision = GetBobberUseDecision()
     local oversizedDecision = GetOversizedBobberDecision()
     local macroLines = {}
     local raftExclusiveWhileSwimming = false
+    local underlightMode = NormalizeUnderlightMode(addon.db and addon.db.underlightAnglerMode)
+    local underlightItemID = addon.db and tonumber(addon.db.selectedUnderlightAngler) or nil
+    local underlightMounted = (type(IsMounted) == "function" and IsMounted()) or false
+    local underlightEquippedItemID = GetEquippedProfessionItemID()
+    local underlightAlreadyEquipped = underlightItemID
+        and underlightEquippedItemID
+        and (underlightItemID == underlightEquippedItemID)
+        or false
+    local shouldEquipUnderlightInMacro = underlightMode == UNDERLIGHT_MODE_LOCK
+        and IsItemAvailableForEquip(underlightItemID)
+        and not underlightMounted
+        and not underlightAlreadyEquipped
 
     if raftDecision.shouldApply then
         table.insert(macroLines, "/use item:" .. tostring(raftDecision.toyID))
@@ -683,6 +1012,19 @@ ConfigureFishingClickAction = function()
         and (raftDecision.swimming or raftDecision.auraRemaining ~= nil) then
         DebugBuffMessage("Skipping raft toy on cooldown: "
             .. GetDebugItemLabel(raftDecision.toyID) .. " " .. GetDebugCooldownText(raftDecision.toyID))
+    end
+
+    if (not raftExclusiveWhileSwimming) and fishingPoleDecision.shouldApply then
+        table.insert(macroLines, "/equip item:" .. tostring(fishingPoleDecision.itemID))
+        DebugBuffMessage("Fishing click will equip configured fishing pole: "
+            .. GetDebugItemLabel(fishingPoleDecision.itemID))
+    end
+
+    if shouldEquipUnderlightInMacro then
+        table.insert(macroLines, "/equip item:" .. tostring(underlightItemID))
+        DebugBuffMessage("Fishing click will equip Underlight Angler: "
+            .. GetDebugItemLabel(underlightItemID)
+            .. " mode=" .. tostring(underlightMode))
     end
 
     if (not raftExclusiveWhileSwimming) and bobberDecision.shouldApply then
@@ -1433,6 +1775,10 @@ addon.fishing.HandleCastCommand = HandleCastCommand
 addon.fishing.HandleWorldRightClick = HandleWorldRightClick
 addon.fishing.IsFishingCast = IsFishingCast
 addon.fishing.ConfigureFishingClickAction = ConfigureFishingClickAction
+addon.fishing.IsPlayerInWaterContext = IsPlayerInWaterContext
+addon.fishing.GetWaterContextDiagnostics = GetWaterContextDiagnostics
+addon.fishing.SyncConfiguredPoleForCurrentState = MaybeEquipConfiguredUnderlight
+addon.fishing.MaybeEquipConfiguredUnderlight = MaybeEquipConfiguredUnderlight
 
 -- Test hooks
 addon._test.HandleWorldRightClick = function()

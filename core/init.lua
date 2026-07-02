@@ -21,6 +21,9 @@ addon.defaults = {
     },
     selectedBobberToy = nil,
     selectedRaftToy = nil,
+    selectedFishingPole = nil,
+    selectedUnderlightAngler = nil,
+    underlightAnglerMode = "disabled",
     useOversizedBobber = false,
     useUnderlightAngler = false,
     enableHookedLoot = false,
@@ -120,6 +123,12 @@ addon.const = {
     raftToyItemIDs = {
         85500, -- Angler's Fishing Raft
         198428, -- Tuskarr Dinghy
+    },
+    underlightAnglerItemID = 133755,
+    underlightAnglerModes = {
+        disabled = "Keep the fishing pole equipped",
+        always_except_fishing = "Auto-swap for fishing/not fishing",
+        lock_underlight = "Keep the Underlight Angler equipped",
     },
     -- These are items that provide fishing-related buffs (auras) that we can track
     -- Exception: "lure" category items are not auras and can't be tracked directly

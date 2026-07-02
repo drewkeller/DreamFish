@@ -5,6 +5,7 @@ local PrintMessage = addon.PrintMessage
 local DebugMessage = addon.DebugMessage
 local DebugStateMessage = addon.DebugStateMessage or function() end
 local ignoredFailureDebugAtBySpell = {}
+local WATER_EXIT_SWAP_DELAY_SECONDS = 5.0
 
 local function IsStrictFishingSpellID(spellID)
     local numeric = tonumber(spellID)
@@ -115,6 +116,12 @@ local function RestoreOriginalAutoLoot()
     end
 end
 
+local function MaybeEquipConfiguredUnderlight(reason)
+    if addon.fishing and addon.fishing.MaybeEquipConfiguredUnderlight then
+        addon.fishing.MaybeEquipConfiguredUnderlight(reason)
+    end
+end
+
 local function TryArmNativeInteractOverrideFromFishingState()
     if not addon.db or not addon.db.enableHookedLoot then
         return
@@ -150,6 +157,100 @@ local function TryArmNativeInteractOverrideFromFishingState()
             DebugStateMessage("Armed native interact override from fishing-state fallback")
         end
     end
+end
+
+local function CreateSwimmingStateMonitor()
+    if addon.frames.swimMonitor then
+        return addon.frames.swimMonitor
+    end
+
+    local frame = CreateFrame("Frame")
+    local elapsedSinceCheck = 0
+    local lastSwimmingState = nil
+    local pendingWaterExitSyncAt = nil
+
+    local function ShouldDelayWaterExitSync()
+        return false
+    end
+
+    frame:SetScript("OnUpdate", function(_, elapsed)
+        elapsedSinceCheck = elapsedSinceCheck + (tonumber(elapsed) or 0)
+        if elapsedSinceCheck < 0.25 then
+            return
+        end
+        elapsedSinceCheck = 0
+        local now = (type(GetTime) == "function") and GetTime() or 0
+
+        local waterContext = nil
+        local swimming = false
+        if addon.fishing and addon.fishing.GetWaterContextDiagnostics then
+            waterContext = addon.fishing.GetWaterContextDiagnostics()
+            swimming = waterContext and waterContext.result and true or false
+        elseif addon.fishing and addon.fishing.IsPlayerInWaterContext then
+            swimming = addon.fishing.IsPlayerInWaterContext() and true or false
+        elseif type(IsSwimming) == "function" then
+            swimming = IsSwimming() and true or false
+        end
+
+        if pendingWaterExitSyncAt then
+            local isFishingSession = addon.state and (addon.state.isFishing or addon.state.isBobberActive)
+            if isFishingSession then
+                pendingWaterExitSyncAt = nil
+                if addon.db and addon.db.debugMode and addon.db.debugState then
+                    DebugStateMessage("Water exit swap canceled: fishing session active")
+                end
+            elseif swimming then
+                pendingWaterExitSyncAt = nil
+                if addon.db and addon.db.debugMode and addon.db.debugState then
+                    DebugStateMessage("Water exit swap canceled: player still in water context")
+                end
+            elseif now >= pendingWaterExitSyncAt then
+                pendingWaterExitSyncAt = nil
+                MaybeEquipConfiguredUnderlight("state-left-water-delayed")
+            end
+        end
+
+        if lastSwimmingState == nil then
+            lastSwimmingState = swimming
+            return
+        end
+
+        if swimming == lastSwimmingState then
+            return
+        end
+
+        lastSwimmingState = swimming
+
+        if addon.db and addon.db.debugMode and addon.db.debugState then
+            DebugStateMessage("Water state changed: inWater=" .. tostring(swimming))
+            if waterContext then
+                DebugStateMessage("Water state details: source=" .. tostring(waterContext.source or "none")
+                    .. " isSwimming=" .. tostring(waterContext.isSwimming)
+                    .. " isSubmerged=" .. tostring(waterContext.isSubmerged)
+                    .. " secureOption=" .. tostring(waterContext.secureOption))
+            else
+                DebugStateMessage("Water state details: source=none isSwimming=false isSubmerged=false secureOption=nil")
+            end
+        end
+
+        if swimming then
+            pendingWaterExitSyncAt = nil
+            MaybeEquipConfiguredUnderlight("state-entered-water")
+        else
+            if ShouldDelayWaterExitSync() then
+                pendingWaterExitSyncAt = now + WATER_EXIT_SWAP_DELAY_SECONDS
+                if addon.db and addon.db.debugMode and addon.db.debugState then
+                    DebugStateMessage("Delaying left-water pole sync by "
+                        .. tostring(WATER_EXIT_SWAP_DELAY_SECONDS) .. "s")
+                end
+            else
+                MaybeEquipConfiguredUnderlight("state-left-water")
+            end
+        end
+    end)
+
+    addon.frames.swimMonitor = frame
+    return addon.frames.swimMonitor
 end
 
 local function CreateFishingStateFrame()
@@ -210,6 +311,7 @@ local function CreateFishingStateFrame()
                             addon.frames.audioRestore:Hide()
                         end
                         addon.audio.RestoreFishingAudioFocus()
+                        MaybeEquipConfiguredUnderlight("state-onupdate-expired-while-bobber")
                         frame:SetScript("OnUpdate", nil)
                     end
                 end)
@@ -225,6 +327,7 @@ local function CreateFishingStateFrame()
                     addon.frames.audioRestore:Hide()
                 end
                 addon.audio.RestoreFishingAudioFocus()
+                MaybeEquipConfiguredUnderlight("state-cast-start-nonfishing", true)
                 frame:SetScript("OnUpdate", nil)
             end
         elseif event == "UNIT_SPELLCAST_STOP" or event == "UNIT_SPELLCAST_CHANNEL_STOP" then
@@ -241,6 +344,7 @@ local function CreateFishingStateFrame()
                     addon.state.fishingLootInProgress = false
                     addon.state.lastFishingCastStopAt = 0
                     addon.audio.RestoreFishingAudioFocus()
+                    MaybeEquipConfiguredUnderlight("state-cast-stop-linger-zero", true)
                     frame:SetScript("OnUpdate", nil)
                 elseif elapsed >= addon.state.fishingExpireSeconds and not addon.state.fishingLootInProgress then
                     LogStateTransition("cast-stop-restore-linger-after-expire", event, spellID, isFishingSpell)
@@ -250,6 +354,7 @@ local function CreateFishingStateFrame()
                     addon.state.fishingLootInProgress = false
                     addon.state.lastFishingCastStopAt = 0
                     addon.audio.RestoreFishingAudioFocusAfterLinger()
+                    MaybeEquipConfiguredUnderlight("state-cast-stop-after-expire", true)
                     frame:SetScript("OnUpdate", nil)
                 else
                     LogStateTransition("cast-stop-enter-bobber-window", event, spellID, isFishingSpell)
@@ -290,6 +395,7 @@ local function CreateFishingStateFrame()
                                     addon.frames.audioRestore:Hide()
                                 end
                                 addon.audio.RestoreFishingAudioFocus()
+                                MaybeEquipConfiguredUnderlight("state-post-stop-no-hooked-evidence", true)
                                 frame:SetScript("OnUpdate", nil)
                                 return
                             end
@@ -302,6 +408,7 @@ local function CreateFishingStateFrame()
                             addon.state.fishingLootInProgress = false
                             addon.state.lastFishingCastStopAt = 0
                             addon.audio.RestoreFishingAudioFocusAfterLinger()
+                            MaybeEquipConfiguredUnderlight("state-onupdate-expired-after-stop", true)
                             frame:SetScript("OnUpdate", nil)
                         end
                     end)
@@ -337,6 +444,7 @@ local function CreateFishingStateFrame()
                     addon.frames.audioRestore:Hide()
                 end
                 addon.audio.RestoreFishingAudioFocus()
+                MaybeEquipConfiguredUnderlight("state-cast-failed", true)
                 frame:SetScript("OnUpdate", nil)
             elseif addon.db and addon.db.debugMode and addon.db.debugState and addon.state.savedFishingAudioCVars ~= nil and ShouldLogIgnoredFailure(spellID) then
                 DebugStateMessage("Ignoring non-fishing cast failure event while fishing session active:"
@@ -372,6 +480,7 @@ local function CreateFishingStateFrame()
                     addon.frames.audioRestore:Hide()
                 end
                 addon.audio.RestoreFishingAudioFocus()
+                MaybeEquipConfiguredUnderlight("state-player-moving", true)
                 frame:SetScript("OnUpdate", nil)
             end
         elseif event == "PLAYER_REGEN_DISABLED" then
@@ -392,12 +501,14 @@ local function CreateFishingStateFrame()
                     addon.frames.audioRestore:Hide()
                 end
                 addon.audio.RestoreFishingAudioFocus()
+                MaybeEquipConfiguredUnderlight("state-combat-start")
                 frame:SetScript("OnUpdate", nil)
             end
         end
     end)
 
     addon.frames.state = frame
+    CreateSwimmingStateMonitor()
     return addon.frames.state
 end
 
