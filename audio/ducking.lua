@@ -33,14 +33,81 @@ local function NearlyEqual(a, b)
     return math.abs(na - nb) <= 0.0001
 end
 
+local function CloneAudioTriplet(values)
+    if type(values) ~= "table" then
+        return nil
+    end
+    return {
+        ambience = values.ambience,
+        music = values.music,
+        dialog = values.dialog,
+    }
+end
+
+local function PersistAudioDuckingRuntimeState()
+    if not addon.db then
+        return
+    end
+
+    if type(addon.state.savedFishingAudioCVars) == "table" then
+        addon.db.runtimeAudioDucking = {
+            saved = CloneAudioTriplet(addon.state.savedFishingAudioCVars),
+            lastDucked = CloneAudioTriplet(addon.state.lastFishingDuckedAudioCVars),
+        }
+    else
+        addon.db.runtimeAudioDucking = nil
+    end
+end
+
+local function ResumePersistedAudioDuckingState()
+    if not addon.db or addon.state.savedFishingAudioCVars ~= nil then
+        return
+    end
+
+    local persisted = addon.db.runtimeAudioDucking
+    if type(persisted) ~= "table" or type(persisted.saved) ~= "table" then
+        return
+    end
+
+    if type(GetCVar) == "function" and type(persisted.lastDucked) == "table" then
+        local currentAmbience = GetCVar("Sound_AmbienceVolume")
+        local currentMusic = GetCVar("Sound_MusicVolume")
+        local currentDialog = GetCVar("Sound_DialogVolume")
+        if not (NearlyEqual(currentAmbience, persisted.lastDucked.ambience)
+            and NearlyEqual(currentMusic, persisted.lastDucked.music)
+            and NearlyEqual(currentDialog, persisted.lastDucked.dialog)) then
+            if addon.db.debugMode and DebugMessage then
+                DebugMessage("Audio duck resume skipped: persisted baseline does not match current CVars")
+            end
+            addon.db.runtimeAudioDucking = nil
+            return
+        end
+    end
+
+    addon.state.savedFishingAudioCVars = CloneAudioTriplet(persisted.saved)
+    addon.state.lastFishingDuckedAudioCVars = CloneAudioTriplet(persisted.lastDucked)
+    if addon.db.debugMode and DebugMessage then
+        DebugMessage("Audio duck resume: restored active ducking state after reload")
+    end
+end
+
 local function EnableFishingAudioFocus(force)
     if not force and (not addon.db or not addon.db.enhancedSounds) then
+        if addon.db and addon.db.debugMode and DebugMessage then
+            DebugMessage("Audio duck skip: enhancedSounds disabled")
+        end
         return
     end
     if addon.state.savedFishingAudioCVars ~= nil then
+        if addon.db and addon.db.debugMode and DebugMessage then
+            DebugMessage("Audio duck skip: already tracking saved CVars")
+        end
         return
     end
     if type(GetCVar) ~= "function" or type(SetCVar) ~= "function" then
+        if addon.db and addon.db.debugMode and DebugMessage then
+            DebugMessage("Audio duck skip: CVar API unavailable")
+        end
         return
     end
 
@@ -49,6 +116,21 @@ local function EnableFishingAudioFocus(force)
     local currentDialog = GetCVar("Sound_DialogVolume")
 
     local lastDucked = addon.state.lastFishingDuckedAudioCVars
+    if addon.db and addon.db.debugMode and DebugMessage then
+        DebugMessage("Audio duck eval: force=" .. tostring(force)
+            .. " current={amb=" .. tostring(currentAmbience)
+            .. ", mus=" .. tostring(currentMusic)
+            .. ", dlg=" .. tostring(currentDialog) .. "}"
+            .. " hasLastDucked=" .. tostring(type(lastDucked) == "table"))
+        if type(lastDucked) == "table" then
+            DebugMessage("Audio duck baseline: lastDucked={amb=" .. tostring(lastDucked.ambience)
+                .. ", mus=" .. tostring(lastDucked.music)
+                .. ", dlg=" .. tostring(lastDucked.dialog) .. "}")
+        else
+            DebugMessage("Audio duck note: no in-session duck baseline (possible UI reload before this cast)")
+        end
+    end
+
     if type(lastDucked) == "table"
         and NearlyEqual(currentAmbience, lastDucked.ambience)
         and NearlyEqual(currentMusic, lastDucked.music)
@@ -58,6 +140,10 @@ local function EnableFishingAudioFocus(force)
             music = currentMusic,
             dialog = currentDialog,
         }
+        PersistAudioDuckingRuntimeState()
+        if addon.db and addon.db.debugMode and DebugMessage then
+            DebugMessage("Audio duck skip: current levels already ducked or lower than prior duck target")
+        end
         return
     end
 
@@ -87,6 +173,12 @@ local function EnableFishingAudioFocus(force)
         music = GetCVar("Sound_MusicVolume"),
         dialog = GetCVar("Sound_DialogVolume"),
     }
+    PersistAudioDuckingRuntimeState()
+    if addon.db and addon.db.debugMode and DebugMessage then
+        DebugMessage("Audio duck apply: new={amb=" .. tostring(addon.state.lastFishingDuckedAudioCVars.ambience)
+            .. ", mus=" .. tostring(addon.state.lastFishingDuckedAudioCVars.music)
+            .. ", dlg=" .. tostring(addon.state.lastFishingDuckedAudioCVars.dialog) .. "}")
+    end
 end
 
 local function RestoreFishingAudioFocus()
@@ -120,6 +212,7 @@ local function RestoreFishingAudioFocus()
 
     addon.state.savedFishingAudioCVars = nil
     addon.state.audioRestoreAt = nil
+    PersistAudioDuckingRuntimeState()
     if addon.frames.audioRestore then
         addon.frames.audioRestore:Hide()
     end
@@ -190,6 +283,7 @@ addon.audio.RestoreFishingAudioFocus = RestoreFishingAudioFocus
 addon.audio.RestoreFishingAudioFocusAfterLinger = RestoreFishingAudioFocusAfterLinger
 addon.audio.StartFishingAudioFocus = StartFishingAudioFocus
 addon.audio.PlayWarningCue = PlayWarningCue
+addon.audio.ResumePersistedAudioDuckingState = ResumePersistedAudioDuckingState
 
 -- Test hooks
 addon._test.EnableFishingAudioFocus = function(force)
@@ -206,4 +300,7 @@ addon._test.GetAudioDucked = function()
 end
 addon._test.GetAudioRestoreAt = function()
     return addon.state.audioRestoreAt
+end
+addon._test.ResumePersistedAudioDuckingState = function()
+    ResumePersistedAudioDuckingState()
 end

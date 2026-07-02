@@ -220,6 +220,22 @@ assertEquals(cvars.Sound_MusicVolume, tostring(0.3 * 0.2), "Already-ducked music
 assertEquals(cvars.Sound_DialogVolume, tostring(0.8 * 0.5), "Already-ducked dialog should not be ducked again")
 addon._test.RestoreFishingAudioFocus()
 
+-- Case 2c: Reload while already ducked should resume runtime state and avoid re-ducking.
+resetState()
+addon._test.EnableFishingAudioFocus(true)
+local duckedAmbience = cvars.Sound_AmbienceVolume
+local duckedMusic = cvars.Sound_MusicVolume
+local duckedDialog = cvars.Sound_DialogVolume
+addon.state.savedFishingAudioCVars = nil
+addon.state.lastFishingDuckedAudioCVars = nil
+addon._test.ResumePersistedAudioDuckingState()
+assertTrue(addon._test.GetAudioDucked(), "Audio ducking state should resume after simulated reload")
+addon._test.EnableFishingAudioFocus(true)
+assertEquals(cvars.Sound_AmbienceVolume, duckedAmbience, "Reload-resumed ambience should not be ducked again")
+assertEquals(cvars.Sound_MusicVolume, duckedMusic, "Reload-resumed music should not be ducked again")
+assertEquals(cvars.Sound_DialogVolume, duckedDialog, "Reload-resumed dialog should not be ducked again")
+addon._test.RestoreFishingAudioFocus()
+
 -- Case 3: Manual cast start via spell-name fallback ducks audio and starts session.
 resetState()
 now = 300

@@ -161,6 +161,10 @@ frame:SetScript("OnEvent", function(self, event, name)
     addon.db = _G[addonName .. "DB"]
     addon.CopyDefaults(addon.defaults, addon.db)
 
+    if addon.audio and addon.audio.ResumePersistedAudioDuckingState then
+        addon.audio.ResumePersistedAudioDuckingState()
+    end
+
     -- Initialize buff config
     if addon.buff and addon.buff.NormalizeBuffConfig then
         addon.buff.NormalizeBuffConfig()
