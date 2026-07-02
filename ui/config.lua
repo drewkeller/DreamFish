@@ -477,101 +477,90 @@ local function BuildTabs(panel, aceGUIInstance)
     }
 end
 
-local function CreateSecureToyActionButton(parent, x, y, width, text)
-    local button = CreateFrame("Button", nil, parent, "UIPanelButtonTemplate,SecureActionButtonTemplate")
-    button:SetSize(width, 22)
-    button:SetPoint("TOPLEFT", x, y)
-    button:SetText(text)
-    button:RegisterForClicks("AnyDown", "AnyUp")
-    button:SetAttribute("type", "toy")
-    button:SetAttribute("toy", nil)
-    return button
-end
-
-local function CreateBuffsHost(parent)
-    local host = CreateFrame("Frame", nil, parent)
-    host:SetPoint("TOPLEFT", parent, "TOPLEFT", 12, -12)
-    host:SetPoint("BOTTOMRIGHT", parent, "BOTTOMRIGHT", -12, 12)
-    return host
-end
-
 local function BuildFocusTab(focusPage, ui, onLiveChange)
-    local layout = {
-        treasureY = -50,
-        bagY = -80,
-        thresholdY = -120,
-        thresholdWidth = 140,
-        audioTitleY = -200,
-        audioCheckboxY = -230,
-        audioLingerY = -270,
-        audioLingerWidth = 180,
-    }
+    local root = ui.FlowRoot(focusPage, 12)
 
-    addon.autoLootCheckbox = ui.Checkbox(focusPage, 20, -20, "Temporary Auto-Loot", onLiveChange)
-    addon.treasureAlertsCheckbox = ui.Checkbox(focusPage, 20, layout.treasureY, "Patient Treasure Notification", onLiveChange)
-    addon.bagAlertsCheckbox = ui.Checkbox(focusPage, 20, layout.bagY, "Bag Monitor / Alert", onLiveChange)
-    addon.lowBagBox = ui.EditBox(focusPage, 60, layout.thresholdY, layout.thresholdWidth, "Low Bag Threshold:", onLiveChange)
+    local focusSection = ui.FlowSection(root, "Focus")
+    addon.autoLootCheckbox = ui.FlowCheckbox(focusSection, "Temporary Auto-Loot", onLiveChange)
+    addon.treasureAlertsCheckbox = ui.FlowCheckbox(focusSection, "Patient Treasure Notification", onLiveChange)
+    addon.bagAlertsCheckbox = ui.FlowCheckbox(focusSection, "Bag Monitor / Alert", onLiveChange)
+    addon.lowBagBox = ui.FlowEditBox(focusSection, "Low Bag Threshold:", 190, onLiveChange)
 
-    ui.Title(focusPage, 20, layout.audioTitleY, "Audio:")
-    addon.enhancedSoundsCheckbox = ui.Checkbox(focusPage, 20, layout.audioCheckboxY, "Fishing Focused Audio", onLiveChange)
-    addon.audioLingerBox = ui.EditBox(focusPage, 60, layout.audioLingerY, layout.audioLingerWidth, "Audio Linger After Catch (s):", onLiveChange)
+    local audioSection = ui.FlowSection(root, "Audio")
+    addon.enhancedSoundsCheckbox = ui.FlowCheckbox(audioSection, "Fishing Focused Audio", onLiveChange)
+    addon.audioLingerBox = ui.FlowEditBox(audioSection, "Audio Linger After Catch (s):", 260, onLiveChange)
 end
 
 local function BuildTackleTab(tacklePage, ui, onLiveChange)
-    local layout = {
-        selectorWidth = 280,
-        oversizedY = -82,
-        bobberApplyY = -116,
-        raftApplyY = -236,
-    }
+    local root = ui.FlowRoot(tacklePage, 12)
 
-    addon.bobberSelector = ui.ToySelector(tacklePage, 20, -20, layout.selectorWidth, "Selected Bobber:", function()
+    local bobberSection = ui.FlowSection(root, "Bobber")
+    addon.bobberSelector = ui.FlowToySelector(bobberSection, "Selected Bobber:", 320, function()
         return BuildOwnedToyOptions(addon.const.bobberToyItemIDs, "Standard Bobber")
     end, onLiveChange)
-    addon.oversizedBobberCheckbox = ui.Checkbox(tacklePage, 20, layout.oversizedY, "Use oversized bobber", onLiveChange)
-    addon.bobberApplyButton = CreateSecureToyActionButton(tacklePage, 20, layout.bobberApplyY, 160, "Apply Bobber")
+    addon.oversizedBobberCheckbox = ui.FlowCheckbox(bobberSection, "Use oversized bobber", onLiveChange)
+    addon.bobberApplyButton = ui.FlowSecureToyActionButton(bobberSection, 160, "Apply Bobber")
 
-    addon.raftSelector = ui.ToySelector(tacklePage, 20, -170, layout.selectorWidth, "Selected Raft:", function()
+    local raftSection = ui.FlowSection(root, "Raft")
+    addon.raftSelector = ui.FlowToySelector(raftSection, "Selected Raft:", 320, function()
         return BuildOwnedToyOptions(addon.const.raftToyItemIDs, "No Raft")
     end, onLiveChange)
-    addon.raftApplyButton = CreateSecureToyActionButton(tacklePage, 20, layout.raftApplyY, 160, "Apply Raft")
+    addon.raftApplyButton = ui.FlowSecureToyActionButton(raftSection, 160, "Apply Raft")
 end
 
 local function BuildModesTab(modesPage, ui, onLiveChange)
-    ui.Title(modesPage, 20, -20, "Casting Triggers:")
-    addon.modeDoubleRightClickCheckbox = ui.Checkbox(modesPage, 20, -45, "Right double click", onLiveChange)
-    addon.modeSingleRightClickConfigCheckbox = ui.Checkbox(modesPage, 20, -75, "Single right click (when this window is open)", onLiveChange)
-    addon.modeHotkeyCheckbox = ui.Checkbox(modesPage, 20, -105, "Keybinding (set the key in Keybindings > DreamFisher)", onLiveChange)
-    addon.enableHookedLootCheckbox = ui.Checkbox(modesPage, 20, -135, "Use right click and/or hotkey to reel in the fish", onLiveChange)
+    local root = ui.FlowRoot(modesPage, 12)
 
-    ui.Note(modesPage, 40, -170, 480,
+    local castingSection = ui.FlowSection(root, "Casting Triggers")
+    addon.modeDoubleRightClickCheckbox = ui.FlowCheckbox(castingSection, "Right double click", onLiveChange)
+    addon.modeSingleRightClickConfigCheckbox = ui.FlowCheckbox(castingSection, "Single right click (when this window is open)", onLiveChange)
+    addon.modeHotkeyCheckbox = ui.FlowCheckboxWithNote(
+        castingSection,
+        "Keybinding",
+        "Set the key in Keybindings > DreamFisher.",
+        onLiveChange)
+
+    addon.enableHookedLootCheckbox = ui.FlowCheckboxWithNote(
+        castingSection,
+        "Use right click and/or hotkey to reel in the fish",
         "Requires some setup in Game Menu > Options: \n"
         .. "1. Turn on \"Enable Interact Key\" (Options > Controls).\n"
         .. "2. Set a keybinding (Keybindings > DreamFisher).\n"
-        .. "3. Ensure another addon does not try to control interactions while fishing.")
+        .. "3. Ensure another addon does not try to control interactions while fishing.",
+        onLiveChange)
 
-    addon.escapeCloseCheckbox = ui.Checkbox(modesPage, 20, -235, "Escape closes this window", onLiveChange)
+    addon.escapeCloseCheckbox = ui.FlowCheckbox(root, "Escape closes this window", onLiveChange)
+    ui.FlowRowHost(root, 10)
 
-    ui.Title(modesPage, 20, -295, "Underlight Angler:")
-    addon.underlightAnglerCheckbox = ui.Checkbox(modesPage, 20, -315, "Equip Underlight Angler while swimming", onLiveChange)
+    local underlightSection = ui.FlowSection(root, "Underlight Angler")
+    addon.underlightAnglerCheckbox = ui.FlowCheckbox(underlightSection, "Equip Underlight Angler while swimming", onLiveChange)
 end
 
 local function BuildBuffsTab(buffsPage, ui, createBuffItemDropBox, onLiveChange, refreshSeconds)
-    local buffsHost = CreateBuffsHost(buffsPage)
-    ui.StaticTitle(buffsHost, 20, -20, "Buff Items")
+    local root = ui.FlowRoot(buffsPage, 12)
+    local buffsSection = ui.FlowSection(root, "Buff Items")
 
     addon.buffItemControls = {}
-    for i = 1, maxBuffSlots do
-        local row = math.floor((i - 1) / 2)
-        local col = (i - 1) % 2
-        local baseX = 20 + (col * 220)
-        local baseY = -56 - (row * 95)
-        local itemBox = createBuffItemDropBox(buffsHost, baseX, baseY, "Buff " .. i, onLiveChange)
-        itemBox:SetExpectedDuration(refreshSeconds)
-        itemBox.slotIndex = i
-        addon.buffItemControls[i] = {
-            itemBox = itemBox,
-        }
+    local slotsPerRow = 2
+    local rowHeight = 96
+    local columnWidth = 220
+    local columnStartX = 12
+    local rowCount = math.ceil(maxBuffSlots / slotsPerRow)
+
+    for row = 1, rowCount do
+        local rowHost = ui.FlowRowHost(buffsSection, rowHeight)
+        for col = 1, slotsPerRow do
+            local index = ((row - 1) * slotsPerRow) + col
+            if index <= maxBuffSlots then
+                local baseX = columnStartX + ((col - 1) * columnWidth)
+                local itemBox = createBuffItemDropBox(rowHost, baseX, -8, "Buff " .. index, onLiveChange)
+                itemBox:SetExpectedDuration(refreshSeconds)
+                itemBox.slotIndex = index
+                addon.buffItemControls[index] = {
+                    itemBox = itemBox,
+                }
+            end
+        end
     end
 end
 
