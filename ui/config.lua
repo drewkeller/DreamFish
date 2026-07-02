@@ -17,6 +17,8 @@ local buffItemLastKnownCount = {}
 local suppressLiveSave = false
 local SaveLive
 local aceGUI = nil
+local UpdateToyApplyButtons
+local SyncEscapeCloseRegistration
 
 local function TryGetAceGUI()
     if aceGUI then
@@ -257,7 +259,7 @@ local function SaveConfigBindings()
     return previouslyActiveBuffItems
 end
 
-local function UpdateToyApplyButtons()
+UpdateToyApplyButtons = function()
     local function SyncButton(button, selector, baseLabel)
         if not button then
             return
@@ -279,13 +281,13 @@ local function UpdateToyApplyButtons()
     SyncButton(addon.raftApplyButton, addon.raftSelector, "Apply Raft")
 end
 
-local function SyncEscapeCloseRegistration()
+SyncEscapeCloseRegistration = function()
     if type(UISpecialFrames) ~= "table" then
         return
     end
 
     local panel = addon.frames and addon.frames.config
-    local frameName = panel and panel:GetName() or nil
+    local frameName = panel and (panel:GetName() or panel.escapeFrameAlias) or nil
     if not frameName or frameName == "" then
         return
     end
@@ -370,6 +372,8 @@ local function BuildPanelShell(aceGUIInstance)
 
     local panel = aceWindow.frame
     panel.aceWindow = aceWindow
+    panel.escapeFrameAlias = panel.escapeFrameAlias or (addonName .. "ConfigPanel")
+    _G[panel.escapeFrameAlias] = panel
     panel:Hide()
 
     local function SavePanelPosition(self)
