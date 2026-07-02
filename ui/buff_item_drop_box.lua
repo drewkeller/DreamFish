@@ -28,9 +28,9 @@ function addon.ui.CreateBuffItemDropBox(deps, parent, x, y, label, onLiveChange)
         insets = { left = 2, right = 2, top = 2, bottom = 2 },
     })
     box:SetBackdropColor(0.08, 0.08, 0.08, 0.95)
-    box:SetBackdropBorderColor(0.9, 0.8, 0.2, 1)
-    box.defaultBorderColor = { 0.9, 0.8, 0.2, 1 }
-    box.emptyBorderColor = { 0.67, 0.62, 0.36, 0.85 }
+    box:SetBackdropBorderColor(0.42, 0.42, 0.42, 0.9)
+    box.defaultBorderColor = { 0.42, 0.42, 0.42, 0.9 }
+    box.emptyBorderColor = { 0.36, 0.36, 0.36, 0.8 }
     box.dragHoverBorderColor = { 0.2, 1.0, 0.35, 1 }
     box.mismatchBorderColor = { 1.0, 0.25, 0.25, 1 }
     box.dimIconAlpha = 0.35

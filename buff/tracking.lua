@@ -58,7 +58,7 @@ local function UpdatePendingBuffObservation()
     local hasConfiguredBuffItems = false
     for _, entry in ipairs(addon.db.buffItems) do
         local itemID = type(entry) == "table" and tonumber(entry.itemID) or nil
-        if itemID and itemID > 0 then
+        if itemID and itemID > 0 and not (type(entry) == "table" and entry.enabled == false) then
             hasConfiguredBuffItems = true
             break
         end

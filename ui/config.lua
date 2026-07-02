@@ -279,6 +279,27 @@ local function RefreshUnderlightConfigControls()
     end
 end
 
+local function RefreshTackleEquippedPoleHighlights()
+    if not addon.fishingPoleBox and not addon.underlightAnglerBox then
+        return
+    end
+
+    local equippedItemIDs = GetEquippedItemIDs()
+
+    local selectedPole = addon.fishingPoleBox and tonumber(addon.fishingPoleBox:GetText()) or nil
+    local selectedUnderlight = addon.underlightAnglerBox and tonumber(addon.underlightAnglerBox:GetText()) or nil
+
+    local poleMatch = selectedPole and selectedPole > 0 and equippedItemIDs[selectedPole] and true or false
+    local underlightMatch = selectedUnderlight and selectedUnderlight > 0 and equippedItemIDs[selectedUnderlight] and true or false
+
+    if addon.fishingPoleBox and addon.fishingPoleBox.SetHighlightedAsEquipped then
+        addon.fishingPoleBox:SetHighlightedAsEquipped(poleMatch)
+    end
+    if addon.underlightAnglerBox and addon.underlightAnglerBox.SetHighlightedAsEquipped then
+        addon.underlightAnglerBox:SetHighlightedAsEquipped(underlightMatch)
+    end
+end
+
 local function TryGetAceGUI()
     if aceGUI then
         return aceGUI
@@ -545,6 +566,7 @@ local function LoadConfigBindings()
 
     if isTackleActive then
         RefreshUnderlightConfigControls()
+        RefreshTackleEquippedPoleHighlights()
     end
 
     UpdateToyApplyButtons()
@@ -935,20 +957,28 @@ local function BuildTackleTab(tacklePage, ui, createTackleItemDropBox, onLiveCha
     local leftColumn = columns[1]
     local rightColumn = columns[2]
 
-    ui.FlowTitle(leftColumn, "Fishing Pole:")
+    local poleLabelHost = ui.FlowRowHost(leftColumn, 20)
+    local poleLabel = poleLabelHost:CreateFontString(nil, "OVERLAY", "GameFontNormal")
+    poleLabel:SetPoint("TOPLEFT", poleLabelHost, "TOPLEFT", 0, -2)
+    poleLabel:SetText("Fishing Pole:")
     local poleBoxHost = ui.FlowRowHost(leftColumn, 56)
     addon.fishingPoleBox = createTackleItemDropBox(poleBoxHost, 0, -2, nil, function()
         RefreshUnderlightConfigControls()
+        RefreshTackleEquippedPoleHighlights()
         if onLiveChange then
             onLiveChange()
         end
     end)
     ui.FlowNote(leftColumn, "Drag a fishing pole from your bags into this box.")
 
-    ui.FlowTitle(rightColumn, "Underlight Angler:")
+    local underlightLabelHost = ui.FlowRowHost(rightColumn, 20)
+    local underlightLabel = underlightLabelHost:CreateFontString(nil, "OVERLAY", "GameFontNormal")
+    underlightLabel:SetPoint("TOPLEFT", underlightLabelHost, "TOPLEFT", 0, -2)
+    underlightLabel:SetText("Underlight Angler:")
     local underlightBoxHost = ui.FlowRowHost(rightColumn, 56)
     addon.underlightAnglerBox = createTackleItemDropBox(underlightBoxHost, 0, -2, nil, function()
         RefreshUnderlightConfigControls()
+        RefreshTackleEquippedPoleHighlights()
         if onLiveChange then
             onLiveChange()
         end
@@ -981,6 +1011,7 @@ local function BuildTackleTab(tacklePage, ui, createTackleItemDropBox, onLiveCha
     end)
 
     RefreshUnderlightConfigControls()
+    RefreshTackleEquippedPoleHighlights()
 end
 
 local function BuildModesTab(modesPage, ui, onLiveChange)
@@ -1182,7 +1213,7 @@ function config.CreateConfigPanel()
         local border = box:CreateTexture(nil, "BORDER")
         border:SetPoint("TOPLEFT", box, "TOPLEFT", 0, 0)
         border:SetPoint("BOTTOMRIGHT", box, "BOTTOMRIGHT", 0, 0)
-        border:SetColorTexture(0.9, 0.8, 0.2, 0.95)
+        border:SetColorTexture(0.42, 0.42, 0.42, 0.9)
 
         local inner = box:CreateTexture(nil, "ARTWORK")
         inner:SetPoint("TOPLEFT", box, "TOPLEFT", 1, -1)
@@ -1196,6 +1227,16 @@ function config.CreateConfigPanel()
 
         box.itemID = nil
         box.textValue = ""
+        box.isEquippedHighlight = false
+
+        function box:SetHighlightedAsEquipped(active)
+            self.isEquippedHighlight = active and true or false
+            if self.isEquippedHighlight then
+                border:SetColorTexture(0.9, 0.8, 0.2, 0.95)
+            else
+                border:SetColorTexture(0.42, 0.42, 0.42, 0.9)
+            end
+        end
 
         local function IsCursorHoldingItem()
             if type(GetCursorInfo) ~= "function" then

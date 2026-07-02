@@ -185,7 +185,10 @@ local function GetNextDueBuffItem(requireAuraForCast, excludedItemIDs, requested
 
     local hasConfiguredBuffItems = false
     for _, entry in ipairs(addon.db.buffItems) do
-        if type(entry) == "table" and tonumber(entry.itemID) and tonumber(entry.itemID) > 0 then
+        if type(entry) == "table"
+            and entry.enabled ~= false
+            and tonumber(entry.itemID)
+            and tonumber(entry.itemID) > 0 then
             hasConfiguredBuffItems = true
             break
         end
