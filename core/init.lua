@@ -85,6 +85,7 @@ addon.state = {
     buffMissingWarningCooldown = 8,
     buffItemLastMissingWarningAt = {},
     buffItemTransientUntil = {},
+    buffUnknownDurationSuppressed = {},
     lureMissingPoleWarningAt = 0,
     buffCastBlockWarningAt = 0,
     foodDrinkCastBlockWarningAt = 0,
@@ -94,7 +95,7 @@ addon.state = {
 
 -- Constants
 addon.const = {
-    maxBuffSlots = 6,
+    maxBuffSlots = 25,
     maxFishingCastSeconds = 20,
     buffPreRefreshSafetySeconds = 2,
     patientlyRewardedSpellID = 1235378,

@@ -4,7 +4,7 @@ local addon = _G["DreamFisher"]
 local PrintMessage = addon.PrintMessage
 local DebugMessage = addon.DebugMessage
 local OVERSIZED_BOBBER_ITEM_ID = 202207
-local DUE_BUFF_CATEGORY_ORDER = { "lure", "bait", "food_drink", "bobber", "other_consumable" }
+local DUE_BUFF_CATEGORY_ORDER = { "food_drink", "lure", "bait", "bobber", "other_consumable" }
 
 local ConfigureFishingClickAction
 local GetNextReadyDueBuffItem

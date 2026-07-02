@@ -45,30 +45,6 @@ local function BuildHelpfulAuraSnapshot()
     return snapshot
 end
 
-local function GetConfiguredExpectedDuration(itemID)
-    if not addon.db or type(addon.db.buffItems) ~= "table" then
-        return nil
-    end
-
-    local numeric = tonumber(itemID)
-    if not numeric or numeric <= 0 then
-        return nil
-    end
-
-    for _, entry in ipairs(addon.db.buffItems) do
-        local entryItemID = type(entry) == "table" and tonumber(entry.itemID) or nil
-        if entryItemID and entryItemID == numeric then
-            local expectedDuration = type(entry) == "table" and tonumber(entry.expectedDuration) or nil
-            if not expectedDuration then
-                expectedDuration = type(entry) == "table" and tonumber(entry.refreshSeconds) or nil
-            end
-            return expectedDuration
-        end
-    end
-
-    return nil
-end
-
 local function UpdatePendingBuffObservation()
     if not addon.state.pendingBuffObservation or not addon.db then
         return
@@ -93,6 +69,11 @@ local function UpdatePendingBuffObservation()
     end
 
     if GetTime() > addon.state.pendingBuffObservation.expiresAt then
+        local unresolvedItemID = tonumber(addon.state.pendingBuffObservation.itemID)
+        if unresolvedItemID and unresolvedItemID > 0 and addon.state then
+            addon.state.buffUnknownDurationSuppressed = addon.state.buffUnknownDurationSuppressed or {}
+            addon.state.buffUnknownDurationSuppressed[unresolvedItemID] = true
+        end
         addon.state.pendingBuffObservation = nil
         return
     end
@@ -132,13 +113,25 @@ local function UpdatePendingBuffObservation()
             category = addon.buff.GetBuffItemCategory(itemID)
         end
 
-        local configuredExpectedDuration = tonumber(GetConfiguredExpectedDuration(itemID)) or 0
         local floorDuration = math.max(existingDuration or 0, knownDuration or 0)
         if category == "food_drink" then
-            local foodDrinkExpected = math.max(configuredExpectedDuration, knownDuration or 0, existingDuration or 0)
+            local foodDrinkExpected = math.max(knownDuration or 0, existingDuration or 0)
             if foodDrinkExpected > 0 then
                 floorDuration = math.max(floorDuration, foodDrinkExpected * 0.5)
             end
+        end
+
+        if category == "food_drink" and floorDuration <= 0 and bestDuration > 0 and bestDuration < 60 then
+            if addon.state then
+                addon.state.buffItemTransientUntil = addon.state.buffItemTransientUntil or {}
+                local now = GetTime()
+                local transientUntil = (bestExpirationTime and bestExpirationTime > now)
+                    and bestExpirationTime
+                    or (now + bestDuration)
+                addon.state.buffItemTransientUntil[itemID] = transientUntil
+            end
+            addon.state.pendingBuffObservation = nil
+            return
         end
 
         -- Do not overwrite a known/learned long-duration mapping with a shorter
@@ -161,6 +154,9 @@ local function UpdatePendingBuffObservation()
             spellID = bestSpellID,
             duration = bestDuration,
         }
+        if addon.state and addon.state.buffUnknownDurationSuppressed then
+            addon.state.buffUnknownDurationSuppressed[itemID] = nil
+        end
         if addon.state and addon.state.buffItemTransientUntil then
             addon.state.buffItemTransientUntil[itemID] = nil
         end

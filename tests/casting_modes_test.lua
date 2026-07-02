@@ -1269,10 +1269,10 @@ function tests.PrecastPrioritizesBaitAfterLureBeforeFoodDrink()
     DreamFisher.buff.FindItemInBags = originalFind
 
     local macrotext = capturedAttrs["macrotext"] or ""
-    assertTrue(macrotext:find("/use item:198401", 1, true) ~= nil,
-        "Bait item should be selected immediately after lure pass")
-    assertTrue(macrotext:find("/use item:242299", 1, true) == nil,
-        "Food/drink should not be selected when bait is due and available")
+    assertTrue(macrotext:find("/use item:242299", 1, true) ~= nil,
+        "Food/drink item should be selected before bait after lure pass")
+    assertTrue(macrotext:find("/use item:198401", 1, true) == nil,
+        "Bait should not be selected when food/drink is due and available")
 end
 
 function tests.PrecastSkipsBaitCategoryWhenAnyBaitAuraIsActive()

@@ -295,7 +295,7 @@ function tests.KnownAuraFallbackPreventsStaleTrackedRecast()
 end
 
 function tests.BuffDueUntrackedWithTimerNotExpired()
-    -- Untracked buff: use timer; not due if within refresh window
+    -- Untracked buff without known duration: do not reapply outside cast probing.
     DreamFisher._test.SetDB({
         buffItems = { { itemID = 222, refreshSeconds = 60 } },
         buffAuraByItem = {},  -- Untracked
@@ -306,11 +306,11 @@ function tests.BuffDueUntrackedWithTimerNotExpired()
 
     local isDue, remaining, reason = DreamFisher._test.IsBuffItemDue(222, 60, false)
     assertEquals(isDue, false, "Buff within timer should not be due")
-    assertTrue(reason:find("timer_elapsed"), "Should cite timer_elapsed reason")
+    assertEquals(reason, "unknown_duration_no_reapply", "Should cite unknown-duration suppression reason")
 end
 
 function tests.BuffDueUntrackedWithTimerExpired()
-    -- Untracked buff: use timer; due if refresh window expired
+    -- Untracked buff without known duration stays suppressed outside cast probing.
     DreamFisher._test.SetDB({
         buffItems = { { itemID = 222, refreshSeconds = 60 } },
         buffAuraByItem = {},  -- Untracked
@@ -320,22 +320,23 @@ function tests.BuffDueUntrackedWithTimerExpired()
     DreamFisher._test.SetBuffLastUseTime(222, mockTime - 70)
 
     local isDue, remaining, reason = DreamFisher._test.IsBuffItemDue(222, 60, false)
-    assertEquals(isDue, true, "Buff past timer should be due")
+    assertEquals(isDue, false, "Unknown-duration untracked buff should not be auto-due")
+    assertEquals(reason, "unknown_duration_no_reapply", "Should remain on unknown-duration no-reapply path")
 end
 
 function tests.BuffDueUntrackedForCastIsAlwaysDue()
-    -- Untracked buff for cast keeps its timer-based behavior.
+    -- Untracked buff for cast is probed so it can be observed.
     DreamFisher._test.SetDB({
         buffItems = { { itemID = 333, refreshSeconds = 60 } },
         buffAuraByItem = {},  -- Untracked
     })
 
-    -- Even if recently used, it should not be treated as due yet.
+    -- Even if recently used, cast path allows a probe until explicitly suppressed.
     DreamFisher._test.SetBuffLastUseTime(333, mockTime - 5)
 
     local isDue, remaining, reason = DreamFisher._test.IsBuffItemDue(333, 60, true)
-    assertEquals(isDue, false, "Untracked buff for cast should still respect timer when recently used")
-    assertTrue(reason:find("timer_elapsed") ~= nil or reason == "untracked_no_history_due_cast", "Should cite the timer path or cast first-use reason")
+    assertEquals(isDue, true, "Untracked buff for cast should be probe-due")
+    assertTrue(reason == "unknown_duration_probe" or reason == "untracked_no_history_due_cast", "Should cite unknown probe or first-use cast reason")
 end
 
 function tests.BuffDueUntrackedNoHistoryForCast()
@@ -512,7 +513,7 @@ function tests.GetNextDueBuffReturnsFirst()
         return nil, nil
     end
 
-    local nextItem = DreamFisher._test.GetNextDueBuffItem(false)
+    local nextItem = DreamFisher._test.GetNextDueBuffItem(true)
     assertEquals(nextItem, 111, "Should return first due buff")
 
     _G.FindItemInBags = originalFindItemInBags
@@ -532,7 +533,7 @@ function tests.GetNextDueBuffSkipsUnavailable()
     DreamFisher._test.SetBuffLastUseTime(111, mockTime - 100)
     DreamFisher._test.SetBuffLastUseTime(222, mockTime - 100)
 
-    local nextItem = DreamFisher._test.GetNextDueBuffItem(false, { [111] = true })
+    local nextItem = DreamFisher._test.GetNextDueBuffItem(true, { [111] = true })
     assertTrue(nextItem ~= nil, "Should return some due buff item")
 end
 

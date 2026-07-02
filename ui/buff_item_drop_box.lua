@@ -4,19 +4,22 @@ local addon = _G["DreamFisher"]
 addon.ui = addon.ui or {}
 
 function addon.ui.CreateBuffItemDropBox(deps, parent, x, y, label, onLiveChange)
-    local ResolveExpectedDurationForItem = deps.ResolveExpectedDurationForItem
     local buffItemLastKnownCount = deps.buffItemLastKnownCount
     local buffItemLastUseAt = deps.buffItemLastUseAt
     local getDragState = deps.getDragState
     local setDragState = deps.setDragState
+    local getCachedItemCount = deps.getCachedItemCount
 
-    local lbl = parent:CreateFontString(nil, "OVERLAY", "GameFontNormal")
-    lbl:SetPoint("TOPLEFT", x, y)
-    lbl:SetText(label)
+    local hasLabel = type(label) == "string" and label ~= ""
+    if type(label) == "string" and label ~= "" then
+        local lbl = parent:CreateFontString(nil, "OVERLAY", "GameFontNormal")
+        lbl:SetPoint("TOPLEFT", x, y)
+        lbl:SetText(label)
+    end
 
     local box = CreateFrame("Button", nil, parent, "SecureActionButtonTemplate,BackdropTemplate")
     box:SetSize(48, 48)
-    box:SetPoint("TOPLEFT", x, y - 18)
+    box:SetPoint("TOPLEFT", x, y + (hasLabel and -18 or 0))
     box:SetBackdrop({
         bgFile = "Interface\\Buttons\\WHITE8x8",
         edgeFile = "Interface\\Tooltips\\UI-Tooltip-Border",
@@ -27,14 +30,29 @@ function addon.ui.CreateBuffItemDropBox(deps, parent, x, y, label, onLiveChange)
     box:SetBackdropColor(0.08, 0.08, 0.08, 0.95)
     box:SetBackdropBorderColor(0.9, 0.8, 0.2, 1)
     box.defaultBorderColor = { 0.9, 0.8, 0.2, 1 }
+    box.emptyBorderColor = { 0.67, 0.62, 0.36, 0.85 }
     box.dragHoverBorderColor = { 0.2, 1.0, 0.35, 1 }
+    box.mismatchBorderColor = { 1.0, 0.25, 0.25, 1 }
+    box.dimIconAlpha = 0.35
+    box.fullIconAlpha = 1.0
 
     box.icon = box:CreateTexture(nil, "ARTWORK")
     box.icon:SetAllPoints(box)
     box.icon:SetTexture(nil)
 
+    box.mismatchOverlay = box:CreateTexture(nil, "OVERLAY")
+    box.mismatchOverlay:SetAllPoints(box)
+    box.mismatchOverlay:SetColorTexture(1, 0.15, 0.15, 0.22)
+    box.mismatchOverlay:Hide()
+
     box.itemID = nil
     box.textValue = ""
+    box.preCastEnabled = true
+    box.expectedCategory = nil
+    box.recognizedCategory = nil
+    box.isCategoryRecognized = false
+    box.hasCategoryMismatch = false
+    box.isDragHighlighted = false
 
     function box:SetItemID(itemID)
         local numeric = tonumber(itemID)
@@ -75,15 +93,6 @@ function addon.ui.CreateBuffItemDropBox(deps, parent, x, y, label, onLiveChange)
         return self.textValue or ""
     end
 
-    function box:SetExpectedDuration(seconds)
-        local resolved = ResolveExpectedDurationForItem(self.itemID, seconds)
-        self.expectedDuration = resolved
-    end
-
-    function box:GetExpectedDuration()
-        return tonumber(self.expectedDuration) or ResolveExpectedDurationForItem(self.itemID, nil)
-    end
-
     local function IsCursorHoldingItem()
         if type(GetCursorInfo) ~= "function" then
             return false
@@ -93,6 +102,89 @@ function addon.ui.CreateBuffItemDropBox(deps, parent, x, y, label, onLiveChange)
     end
 
     local SetDragHighlight
+
+    local function ResolveRecognizedCategory(itemID)
+        local numeric = tonumber(itemID)
+        if not numeric or numeric <= 0 then
+            return nil, false
+        end
+
+        local known = addon.const
+            and type(addon.const.knownBuffItems) == "table"
+            and addon.const.knownBuffItems[numeric]
+            or nil
+        if type(known) == "table" and type(known.category) == "string" and known.category ~= "" then
+            return known.category, true
+        end
+
+        if addon.buff and type(addon.buff.GetBuffItemCategory) == "function" then
+            local category = addon.buff.GetBuffItemCategory(numeric)
+            if category and category ~= "" and category ~= "other_consumable" then
+                return category, true
+            end
+        end
+
+        return nil, false
+    end
+
+    local function RefreshBorderState(self)
+        local hasItem = self.itemID and self.itemID > 0
+        local color = hasItem and self.defaultBorderColor or self.emptyBorderColor
+        if self.isDragHighlighted then
+            color = self.dragHoverBorderColor
+        elseif self.hasCategoryMismatch then
+            color = self.mismatchBorderColor
+        end
+        self:SetBackdropBorderColor(color[1], color[2], color[3], color[4])
+    end
+
+    local function RefreshCategoryState(self)
+        if not self.itemID or self.itemID <= 0 then
+            self.recognizedCategory = nil
+            self.isCategoryRecognized = false
+            self.hasCategoryMismatch = false
+            self.mismatchOverlay:Hide()
+            RefreshBorderState(self)
+            return
+        end
+
+        local category, recognized = ResolveRecognizedCategory(self.itemID)
+        self.recognizedCategory = category
+        self.isCategoryRecognized = recognized
+        self.hasCategoryMismatch = recognized
+            and type(self.expectedCategory) == "string"
+            and self.expectedCategory ~= ""
+            and category ~= self.expectedCategory
+
+        if self.hasCategoryMismatch then
+            self.mismatchOverlay:Show()
+        else
+            self.mismatchOverlay:Hide()
+        end
+
+        RefreshBorderState(self)
+    end
+
+    local function RefreshVisualState(self)
+        local count = tonumber(self.countText and self.countText:GetText()) or 0
+        local hasItem = self.itemID and self.itemID > 0
+
+        local shouldDim = (not self.preCastEnabled) or (hasItem and count <= 0)
+        local alpha = shouldDim and self.dimIconAlpha or self.fullIconAlpha
+        self.icon:SetAlpha(alpha)
+        self.countText:SetAlpha(1)
+        self.mismatchOverlay:SetAlpha(shouldDim and 0.16 or 0.22)
+    end
+
+    function box:SetExpectedCategory(category)
+        self.expectedCategory = category
+        RefreshCategoryState(self)
+    end
+
+    function box:SetEnabledForPreCast(enabled)
+        self.preCastEnabled = enabled and true or false
+        RefreshVisualState(self)
+    end
 
     local function TryAssignFromCursor(self)
         if type(GetCursorInfo) ~= "function" then
@@ -104,10 +196,8 @@ function addon.ui.CreateBuffItemDropBox(deps, parent, x, y, label, onLiveChange)
         end
 
         local targetItemID = self.itemID
-        local targetExpectedDuration = self:GetExpectedDuration()
 
         self:SetItemID(itemID)
-        self:SetExpectedDuration(ResolveExpectedDurationForItem(itemID, targetExpectedDuration))
         if type(ClearCursor) == "function" then
             ClearCursor()
         end
@@ -122,7 +212,6 @@ function addon.ui.CreateBuffItemDropBox(deps, parent, x, y, label, onLiveChange)
                     setDragState({
                         source = self,
                         sourceItemID = targetItemID,
-                        sourceExpectedDuration = targetExpectedDuration,
                     })
                     SetDragHighlight(self, true)
                 else
@@ -137,11 +226,8 @@ function addon.ui.CreateBuffItemDropBox(deps, parent, x, y, label, onLiveChange)
     end
 
     SetDragHighlight = function(self, active)
-        if active then
-            self:SetBackdropBorderColor(self.dragHoverBorderColor[1], self.dragHoverBorderColor[2], self.dragHoverBorderColor[3], self.dragHoverBorderColor[4])
-        else
-            self:SetBackdropBorderColor(self.defaultBorderColor[1], self.defaultBorderColor[2], self.defaultBorderColor[3], self.defaultBorderColor[4])
-        end
+        self.isDragHighlighted = active and true or false
+        RefreshBorderState(self)
     end
 
     local function TryDropCursorItemToSlot(self)
@@ -156,22 +242,13 @@ function addon.ui.CreateBuffItemDropBox(deps, parent, x, y, label, onLiveChange)
 
         local sourceState = getDragState()
         local source = sourceState and sourceState.source or nil
-        local sourceExpectedDuration = sourceState and sourceState.sourceExpectedDuration or nil
-
         local targetItemID = self.itemID
-        local targetExpectedDuration = self:GetExpectedDuration()
 
         self:SetItemID(cursorItemID)
-        self:SetExpectedDuration(sourceExpectedDuration or ResolveExpectedDurationForItem(cursorItemID, targetExpectedDuration))
 
         if source and source ~= self then
             source:SetItemID(targetItemID)
-            source:SetExpectedDuration(targetExpectedDuration)
             SetDragHighlight(source, false)
-        end
-
-        if source and source == self and sourceExpectedDuration then
-            self:SetExpectedDuration(sourceExpectedDuration)
         end
 
         local shouldClearCursor = true
@@ -200,7 +277,6 @@ function addon.ui.CreateBuffItemDropBox(deps, parent, x, y, label, onLiveChange)
     box:SetScript("OnDragStart", function(self)
         if self.itemID and self.itemID > 0 then
             local sourceItemID = self.itemID
-            local sourceExpectedDuration = self:GetExpectedDuration()
 
             if type(PickupItem) == "function" then
                 PickupItem(sourceItemID)
@@ -214,7 +290,6 @@ function addon.ui.CreateBuffItemDropBox(deps, parent, x, y, label, onLiveChange)
                     setDragState({
                         source = self,
                         sourceItemID = sourceItemID,
-                        sourceExpectedDuration = sourceExpectedDuration,
                     })
                     SetDragHighlight(self, true)
                 else
@@ -300,9 +375,15 @@ function addon.ui.CreateBuffItemDropBox(deps, parent, x, y, label, onLiveChange)
 
     local function UpdateCountDisplay()
         if box.itemID and box.itemID > 0 then
-            local count = 0
-            if addon.utils and addon.utils.CountItemInBags then
-                count = addon.utils.CountItemInBags(box.itemID)
+            local count = nil
+            if type(getCachedItemCount) == "function" then
+                count = tonumber(getCachedItemCount(box.itemID))
+            end
+            if count == nil then
+                count = 0
+                if addon.utils and addon.utils.CountItemInBags then
+                    count = addon.utils.CountItemInBags(box.itemID)
+                end
             end
             box.countText:SetText(tostring(math.max(0, count)))
             if buffItemLastKnownCount[box.itemID] == nil then
@@ -311,6 +392,8 @@ function addon.ui.CreateBuffItemDropBox(deps, parent, x, y, label, onLiveChange)
         else
             box.countText:SetText("")
         end
+
+        RefreshVisualState(box)
     end
     box.UpdateCountDisplay = UpdateCountDisplay
 
@@ -318,6 +401,10 @@ function addon.ui.CreateBuffItemDropBox(deps, parent, x, y, label, onLiveChange)
     function box:SetItemID(itemID)
         originalSetItemID(self, itemID)
         UpdateCountDisplay()
+        RefreshCategoryState(self)
+        if type(self.onItemPresenceChanged) == "function" then
+            self:onItemPresenceChanged(self.itemID and self.itemID > 0)
+        end
     end
 
     box:HookScript("OnClick", function(self, button)
@@ -338,6 +425,12 @@ function addon.ui.CreateBuffItemDropBox(deps, parent, x, y, label, onLiveChange)
         end
         self:UpdateCountDisplay()
     end)
+
+    RefreshCategoryState(box)
+    RefreshVisualState(box)
+    if type(box.onItemPresenceChanged) == "function" then
+        box:onItemPresenceChanged(box.itemID and box.itemID > 0)
+    end
 
     return box
 end

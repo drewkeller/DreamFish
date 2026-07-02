@@ -14,6 +14,7 @@ local defaults = addon.defaults
 local uiBuffCursorDragState = nil
 local buffItemLastUseAt = {}
 local buffItemLastKnownCount = {}
+local buffBagCountSnapshot = nil
 local suppressLiveSave = false
 local SaveLive
 local aceGUI = nil
@@ -86,36 +87,6 @@ local function CollectActiveBuffItemIDs(buffItems)
     return active
 end
 
-local function ResolveExpectedDurationForItem(itemID, fallbackSeconds)
-    local numeric = tonumber(itemID)
-    local fallback = tonumber(fallbackSeconds) or (addon.db and addon.db.refreshSeconds) or defaults.refreshSeconds
-    if not numeric or numeric <= 0 then
-        return addon.Clamp(fallback, 30, 3600)
-    end
-
-    if addon.db and type(addon.db.buffAuraByItem) == "table" then
-        local tracked = addon.db.buffAuraByItem[tostring(numeric)]
-        if type(tracked) == "table" and tonumber(tracked.duration) and tonumber(tracked.duration) > 0 then
-            return addon.Clamp(tonumber(tracked.duration), 30, 3600)
-        end
-    end
-
-    if addon.db and type(addon.db.buffItems) == "table" then
-        for _, entry in ipairs(addon.db.buffItems) do
-            local entryItemID = type(entry) == "table" and tonumber(entry.itemID) or nil
-            if entryItemID == numeric then
-                local expected = tonumber(entry.expectedDuration) or tonumber(entry.refreshSeconds)
-                if expected and expected > 0 then
-                    return addon.Clamp(expected, 30, 3600)
-                end
-                break
-            end
-        end
-    end
-
-    return addon.Clamp(fallback, 30, 3600)
-end
-
 local function ResolveBool(value, defaultValue)
     if value == nil then
         return not not defaultValue
@@ -140,6 +111,43 @@ local function LoadConfigBindings()
         return
     end
 
+    local function BuildBuffBagCountSnapshot()
+        local counts = {}
+        local bagCount = NUM_BAG_SLOTS or 4
+        for bag = 0, bagCount do
+            local slots = addon.utils and addon.utils.ContainerNumSlots and addon.utils.ContainerNumSlots(bag) or 0
+            for slot = 1, slots do
+                local itemID = addon.utils and addon.utils.ContainerItemID and addon.utils.ContainerItemID(bag, slot) or nil
+                if itemID then
+                    counts[itemID] = (counts[itemID] or 0) + 1
+                end
+            end
+        end
+
+        local reagentSlots = addon.utils and addon.utils.ContainerNumSlots and addon.utils.ContainerNumSlots(5) or 0
+        if reagentSlots and reagentSlots > 0 then
+            for slot = 1, reagentSlots do
+                local itemID = addon.utils and addon.utils.ContainerItemID and addon.utils.ContainerItemID(5, slot) or nil
+                if itemID then
+                    counts[itemID] = (counts[itemID] or 0) + 1
+                end
+            end
+        end
+
+        return counts
+    end
+
+    local shouldBuildBuffSnapshot = addon.buffItemControls
+        and #addon.buffItemControls > 0
+        and addon.frames
+        and addon.frames.config
+        and addon.frames.config.activeTab == "buffs"
+    if shouldBuildBuffSnapshot then
+        buffBagCountSnapshot = BuildBuffBagCountSnapshot()
+    else
+        buffBagCountSnapshot = nil
+    end
+
     if addon.autoLootCheckbox then
         addon.autoLootCheckbox:SetChecked(addon.db.autoLoot)
     end
@@ -162,13 +170,15 @@ local function LoadConfigBindings()
         for i, control in ipairs(addon.buffItemControls) do
             local entry = addon.db.buffItems and addon.db.buffItems[i] or nil
             local itemID = entry and entry.itemID or nil
-            local expectedDuration = ResolveExpectedDurationForItem(itemID, entry and (entry.expectedDuration or entry.refreshSeconds))
-            control.itemBox:SetText(tostring(itemID or ""))
-            if control.itemBox.SetExpectedDuration then
-                control.itemBox:SetExpectedDuration(expectedDuration)
+            local isEnabled = (type(entry) == "table") and (entry.enabled ~= false) or true
+            control.desiredEnabled = isEnabled
+            if control.enabledCheckbox then
+                control.enabledCheckbox:SetChecked(isEnabled)
             end
+            control.itemBox:SetText(tostring(itemID or ""))
         end
     end
+    buffBagCountSnapshot = nil
     if addon.audioLingerBox then
         addon.audioLingerBox:SetText(tostring(addon.db.audioFocusLinger or defaults.audioFocusLinger))
     end
@@ -233,14 +243,10 @@ local function SaveConfigBindings()
         for i, control in ipairs(addon.buffItemControls) do
             local itemID = tonumber(control.itemBox:GetText())
             local previous = previousBuffItems[i]
-            local previousExpected = type(previous) == "table" and (tonumber(previous.expectedDuration) or tonumber(previous.refreshSeconds)) or nil
-            local expectedDuration = ResolveExpectedDurationForItem(itemID, previousExpected)
-            if control.itemBox.GetExpectedDuration then
-                expectedDuration = addon.Clamp(tonumber(control.itemBox:GetExpectedDuration()) or expectedDuration, 30, 3600)
-            end
             addon.db.buffItems[i] = {
                 itemID = (itemID and itemID > 0) and itemID or nil,
-                expectedDuration = expectedDuration,
+                enabled = (control.enabledCheckbox and control.enabledCheckbox:GetChecked())
+                    or ((type(previous) == "table") and (previous.enabled ~= false) or true),
             }
         end
     end
@@ -337,6 +343,9 @@ function config.SaveConfig(skipRefresh)
                 end
                 addon.state.buffItemLastMissingWarningAt[removedItemID] = nil
                 addon.state.buffItemLastKnownCount[removedItemID] = nil
+                if addon.state.buffUnknownDurationSuppressed then
+                    addon.state.buffUnknownDurationSuppressed[removedItemID] = nil
+                end
             end
             if addon.db.buffAuraByItem then
                 addon.db.buffAuraByItem[tostring(removedItemID)] = nil
@@ -442,6 +451,9 @@ local function BuildTabs(panel, aceGUIInstance)
         { text = tabLabels.modes, value = "modes" },
     })
     aceTabGroup:SetCallback("OnGroupSelected", function(_, _, group)
+        if panel.HandleTabSelected then
+            panel.HandleTabSelected(group)
+        end
         ShowTab(group)
     end)
     panel.aceTabGroup = aceTabGroup
@@ -494,18 +506,22 @@ end
 local function BuildTackleTab(tacklePage, ui, onLiveChange)
     local root = ui.FlowRoot(tacklePage, 12)
 
-    local bobberSection = ui.FlowSection(root, "Bobber")
-    addon.bobberSelector = ui.FlowToySelector(bobberSection, "Selected Bobber:", 320, function()
-        return BuildOwnedToyOptions(addon.const.bobberToyItemIDs, "Standard Bobber")
-    end, onLiveChange)
-    addon.oversizedBobberCheckbox = ui.FlowCheckbox(bobberSection, "Use oversized bobber", onLiveChange)
-    addon.bobberApplyButton = ui.FlowSecureToyActionButton(bobberSection, 160, "Apply Bobber")
+    ui.FlowNote(root, "Tackle is automatically applied during pre-casting in this order, "
+        .. "if selected/enabled: raft (if swimming), bobber, oversized bobber.")
+    ui.FlowRowHost(root, 5)
 
     local raftSection = ui.FlowSection(root, "Raft")
     addon.raftSelector = ui.FlowToySelector(raftSection, "Selected Raft:", 320, function()
         return BuildOwnedToyOptions(addon.const.raftToyItemIDs, "No Raft")
     end, onLiveChange)
     addon.raftApplyButton = ui.FlowSecureToyActionButton(raftSection, 160, "Apply Raft")
+
+    local bobberSection = ui.FlowSection(root, "Bobber")
+    addon.bobberSelector = ui.FlowToySelector(bobberSection, "Selected Bobber:", 320, function()
+        return BuildOwnedToyOptions(addon.const.bobberToyItemIDs, "Standard Bobber")
+    end, onLiveChange)
+    addon.oversizedBobberCheckbox = ui.FlowCheckbox(bobberSection, "Use oversized bobber", onLiveChange)
+    addon.bobberApplyButton = ui.FlowSecureToyActionButton(bobberSection, 160, "Apply Bobber")
 end
 
 local function BuildModesTab(modesPage, ui, onLiveChange)
@@ -536,30 +552,123 @@ local function BuildModesTab(modesPage, ui, onLiveChange)
     addon.underlightAnglerCheckbox = ui.FlowCheckbox(underlightSection, "Equip Underlight Angler while swimming", onLiveChange)
 end
 
-local function BuildBuffsTab(buffsPage, ui, createBuffItemDropBox, onLiveChange, refreshSeconds)
+local function BuildBuffsTab(buffsPage, ui, createBuffItemDropBox, onLiveChange)
     local root = ui.FlowRoot(buffsPage, 12)
-    local buffsSection = ui.FlowSection(root, "Buff Items")
+    ui.FlowNote(root, "Drag items from your bags into the slots below.\n\n"
+        .. "Buffs are automatically applied during pre-casting.\n"
+        .. "Each category is processed in the order below.\n"
+        .. "Items within a category are prioritized in the order of the slots.")
+    ui.FlowRowHost(root, 15)
+    local buffRoot = root
 
     addon.buffItemControls = {}
-    local slotsPerRow = 2
-    local rowHeight = 96
-    local columnWidth = 220
-    local columnStartX = 12
-    local rowCount = math.ceil(maxBuffSlots / slotsPerRow)
+    local slotsPerRow = 5
+    local rowHeight = 54
+    local columnWidth = 92
+    local boxStartX = 36
+    local rowSpecs = {
+        { title = "Food/Drink", expectedCategory = "food_drink" },
+        { title = "Lure", expectedCategory = "lure" },
+        { title = "Bait", expectedCategory = "bait" },
+        { title = "Other", expectedCategory = "other_consumable" },
+        { title = "Other", expectedCategory = "other_consumable" },
+    }
 
-    for row = 1, rowCount do
-        local rowHost = ui.FlowRowHost(buffsSection, rowHeight)
+    local function CreateEnabledCheckbox(parent, x, y, onToggle)
+        local checkbox = CreateFrame("CheckButton", nil, parent, "UICheckButtonTemplate")
+        checkbox:SetSize(24, 24)
+        checkbox:SetPoint("TOPLEFT", parent, "TOPLEFT", x, y)
+        checkbox:SetChecked(true)
+        checkbox:SetScript("OnClick", function(self)
+            onToggle(self:GetChecked() and true or false)
+        end)
+
+        return {
+            SetChecked = function(_, value)
+                checkbox:SetChecked(value and true or false)
+            end,
+            GetChecked = function()
+                return checkbox:GetChecked() and true or false
+            end,
+            SetEnabled = function(_, enabled)
+                if enabled then
+                    checkbox:Enable()
+                    checkbox:SetAlpha(1)
+                else
+                    checkbox:Disable()
+                    checkbox:SetAlpha(0.45)
+                end
+            end,
+        }
+    end
+
+    local maxRows = math.min(#rowSpecs, math.ceil(maxBuffSlots / slotsPerRow))
+    for row = 1, maxRows do
+        local rowSpec = rowSpecs[row]
+        if row < maxRows then
+            ui.FlowTitle(buffRoot, rowSpec.title)
+        end
+        local rowHost = ui.FlowRowHost(buffRoot, rowHeight)
+
         for col = 1, slotsPerRow do
             local index = ((row - 1) * slotsPerRow) + col
             if index <= maxBuffSlots then
-                local baseX = columnStartX + ((col - 1) * columnWidth)
-                local itemBox = createBuffItemDropBox(rowHost, baseX, -8, "Buff " .. index, onLiveChange)
-                itemBox:SetExpectedDuration(refreshSeconds)
+                local baseX = boxStartX + ((col - 1) * columnWidth)
+                local itemBox = createBuffItemDropBox(rowHost, baseX, -8, nil, onLiveChange)
                 itemBox.slotIndex = index
+                if itemBox.SetExpectedCategory then
+                    itemBox:SetExpectedCategory(rowSpec.expectedCategory)
+                end
+
+                local enabledCheckbox = CreateEnabledCheckbox(rowHost, baseX - 26, -20, function(isChecked)
+                    local control = addon.buffItemControls[index]
+                    if control then
+                        control.desiredEnabled = isChecked and true or false
+                    end
+                    if itemBox.SetEnabledForPreCast then
+                        itemBox:SetEnabledForPreCast(isChecked)
+                    end
+                    if onLiveChange then
+                        onLiveChange()
+                    end
+                end)
+
                 addon.buffItemControls[index] = {
                     itemBox = itemBox,
+                    enabledCheckbox = enabledCheckbox,
+                    expectedCategory = rowSpec.expectedCategory,
+                    desiredEnabled = true,
                 }
+
+                itemBox.onItemPresenceChanged = function(_, hasItem)
+                    local control = addon.buffItemControls[index]
+                    if not control then
+                        return
+                    end
+
+                    if control.enabledCheckbox and control.enabledCheckbox.SetEnabled then
+                        control.enabledCheckbox:SetEnabled(hasItem)
+                    end
+
+                    if not hasItem then
+                        if itemBox.SetEnabledForPreCast then
+                            itemBox:SetEnabledForPreCast(false)
+                        end
+                    else
+                        local useEnabled = control.desiredEnabled ~= false
+                        if control.enabledCheckbox then
+                            control.enabledCheckbox:SetChecked(useEnabled)
+                        end
+                        if itemBox.SetEnabledForPreCast then
+                            itemBox:SetEnabledForPreCast(useEnabled)
+                        end
+                    end
+                end
             end
+        end
+
+        if row < (maxRows - 1) then
+            ui.FlowRowHost(buffRoot, 20)
         end
     end
 end
@@ -584,9 +693,14 @@ function config.CreateConfigPanel()
 
     local function CreateBuffItemDropBox(parent, x, y, label, onLiveChange)
         return addon.ui.CreateBuffItemDropBox({
-            ResolveExpectedDurationForItem = ResolveExpectedDurationForItem,
             buffItemLastKnownCount = buffItemLastKnownCount,
             buffItemLastUseAt = buffItemLastUseAt,
+            getCachedItemCount = function(itemID)
+                if not buffBagCountSnapshot then
+                    return nil
+                end
+                return buffBagCountSnapshot[itemID] or 0
+            end,
             getDragState = function()
                 return uiBuffCursorDragState
             end,
@@ -607,18 +721,54 @@ function config.CreateConfigPanel()
     if not ui then
         return nil
     end
+
+    local builtTabs = {
+        focus = false,
+        tackle = false,
+        buffs = false,
+        modes = false,
+    }
+
+    local function EnsureTabBuilt(tabName)
+        if builtTabs[tabName] then
+            return
+        end
+
+        suppressLiveSave = true
+        if tabName == "focus" then
+            BuildFocusTab(tabs.pages.focus, ui, SaveLive)
+        elseif tabName == "tackle" then
+            BuildTackleTab(tabs.pages.tackle, ui, SaveLive)
+        elseif tabName == "modes" then
+            BuildModesTab(tabs.pages.modes, ui, SaveLive)
+        elseif tabName == "buffs" then
+            BuildBuffsTab(tabs.pages.buffs, ui, CreateBuffItemDropBox, SaveLive)
+            panel.buffItemControls = addon.buffItemControls
+        end
+        suppressLiveSave = false
+
+        builtTabs[tabName] = true
+
+        if panel:IsShown() then
+            suppressLiveSave = true
+            LoadConfigBindings()
+            suppressLiveSave = false
+        end
+    end
+
+    panel.HandleTabSelected = EnsureTabBuilt
+
     suppressLiveSave = true
-    BuildFocusTab(tabs.pages.focus, ui, SaveLive)
-    BuildTackleTab(tabs.pages.tackle, ui, SaveLive)
-    BuildModesTab(tabs.pages.modes, ui, SaveLive)
-    BuildBuffsTab(tabs.pages.buffs, ui, CreateBuffItemDropBox, SaveLive, addon.db and addon.db.refreshSeconds or defaults.refreshSeconds)
+    EnsureTabBuilt("focus")
+    EnsureTabBuilt("tackle")
+    EnsureTabBuilt("modes")
     suppressLiveSave = false
 
-    panel.buffItemControls = addon.buffItemControls
     UpdateToyApplyButtons()
 
     local function ShowCurrentActiveTab()
         local selectedTab = panel.activeTab or "focus"
+        EnsureTabBuilt(selectedTab)
         tabs.SelectTab(selectedTab)
         tabs.ShowTab(selectedTab)
     end
