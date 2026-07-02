@@ -133,62 +133,10 @@ local function GetCastingModesForConfig()
     return modes
 end
 
-local function UpdateToyApplyButtons()
-    local function SyncButton(button, selector, baseLabel)
-        if not button then
-            return
-        end
-        local toyID = selector and tonumber(selector:GetText()) or nil
-        if toyID and toyID > 0 then
-            button:SetAttribute("type", "toy")
-            button:SetAttribute("toy", toyID)
-            button:SetText(baseLabel)
-            button:Enable()
-        else
-            button:SetAttribute("toy", nil)
-            button:SetText(baseLabel .. " (none)")
-            button:Disable()
-        end
-    end
-
-    SyncButton(addon.bobberApplyButton, addon.bobberSelector, "Apply Bobber")
-    SyncButton(addon.raftApplyButton, addon.raftSelector, "Apply Raft")
-end
-
-local function SyncEscapeCloseRegistration()
-    if type(UISpecialFrames) ~= "table" then
+local function LoadConfigBindings()
+    if not addon.db then
         return
     end
-
-    local panel = addon.frames and addon.frames.config
-    local frameName = panel and panel:GetName() or nil
-    if not frameName or frameName == "" then
-        return
-    end
-
-    local shouldRegister = addon.db and addon.db.configCloseOnEscape
-    local existingIndex = nil
-    for i, name in ipairs(UISpecialFrames) do
-        if name == frameName then
-            existingIndex = i
-            break
-        end
-    end
-
-    if shouldRegister and not existingIndex then
-        table.insert(UISpecialFrames, frameName)
-    elseif not shouldRegister and existingIndex then
-        table.remove(UISpecialFrames, existingIndex)
-    end
-end
-
--- Helper: Update all config UI elements from saved data
-local function UpdateConfigUI()
-    if not addon.frames.config or not addon.db then
-        return
-    end
-
-    suppressLiveSave = true
 
     if addon.autoLootCheckbox then
         addon.autoLootCheckbox:SetChecked(addon.db.autoLoot)
@@ -247,14 +195,11 @@ local function UpdateConfigUI()
     end
 
     UpdateToyApplyButtons()
-
-    suppressLiveSave = false
 end
 
--- Save config from UI back to database
-function config.SaveConfig(skipRefresh)
+local function SaveConfigBindings()
     if not addon.db then
-        return
+        return nil
     end
 
     local previouslyActiveBuffItems = CollectActiveBuffItemIDs(addon.db.buffItems)
@@ -298,6 +243,87 @@ function config.SaveConfig(skipRefresh)
         end
     end
 
+    if addon.bobberSelector then
+        local selectedBobberToy = tonumber(addon.bobberSelector:GetText())
+        addon.db.selectedBobberToy = (selectedBobberToy and selectedBobberToy > 0) and selectedBobberToy or nil
+    end
+    if addon.raftSelector then
+        local selectedRaftToy = tonumber(addon.raftSelector:GetText())
+        addon.db.selectedRaftToy = (selectedRaftToy and selectedRaftToy > 0) and selectedRaftToy or nil
+    end
+
+    UpdateToyApplyButtons()
+
+    return previouslyActiveBuffItems
+end
+
+local function UpdateToyApplyButtons()
+    local function SyncButton(button, selector, baseLabel)
+        if not button then
+            return
+        end
+        local toyID = selector and tonumber(selector:GetText()) or nil
+        if toyID and toyID > 0 then
+            button:SetAttribute("type", "toy")
+            button:SetAttribute("toy", toyID)
+            button:SetText(baseLabel)
+            button:Enable()
+        else
+            button:SetAttribute("toy", nil)
+            button:SetText(baseLabel .. " (none)")
+            button:Disable()
+        end
+    end
+
+    SyncButton(addon.bobberApplyButton, addon.bobberSelector, "Apply Bobber")
+    SyncButton(addon.raftApplyButton, addon.raftSelector, "Apply Raft")
+end
+
+local function SyncEscapeCloseRegistration()
+    if type(UISpecialFrames) ~= "table" then
+        return
+    end
+
+    local panel = addon.frames and addon.frames.config
+    local frameName = panel and panel:GetName() or nil
+    if not frameName or frameName == "" then
+        return
+    end
+
+    local shouldRegister = addon.db and addon.db.configCloseOnEscape
+    local existingIndex = nil
+    for i, name in ipairs(UISpecialFrames) do
+        if name == frameName then
+            existingIndex = i
+            break
+        end
+    end
+
+    if shouldRegister and not existingIndex then
+        table.insert(UISpecialFrames, frameName)
+    elseif not shouldRegister and existingIndex then
+        table.remove(UISpecialFrames, existingIndex)
+    end
+end
+
+-- Helper: Update all config UI elements from saved data
+local function UpdateConfigUI()
+    if not addon.frames.config or not addon.db then
+        return
+    end
+
+    suppressLiveSave = true
+    LoadConfigBindings()
+    suppressLiveSave = false
+end
+
+-- Save config from UI back to database
+function config.SaveConfig(skipRefresh)
+    if not addon.db then
+        return
+    end
+
+    local previouslyActiveBuffItems = SaveConfigBindings()
     local currentlyActiveBuffItems = CollectActiveBuffItemIDs(addon.db.buffItems)
     for removedItemID, _ in pairs(previouslyActiveBuffItems) do
         if not currentlyActiveBuffItems[removedItemID] then
@@ -315,17 +341,6 @@ function config.SaveConfig(skipRefresh)
             end
         end
     end
-
-    if addon.bobberSelector then
-        local selectedBobberToy = tonumber(addon.bobberSelector:GetText())
-        addon.db.selectedBobberToy = (selectedBobberToy and selectedBobberToy > 0) and selectedBobberToy or nil
-    end
-    if addon.raftSelector then
-        local selectedRaftToy = tonumber(addon.raftSelector:GetText())
-        addon.db.selectedRaftToy = (selectedRaftToy and selectedRaftToy > 0) and selectedRaftToy or nil
-    end
-
-    UpdateToyApplyButtons()
 
     if addon.buff and addon.buff.NormalizeBuffConfig then
         addon.buff.NormalizeBuffConfig()
