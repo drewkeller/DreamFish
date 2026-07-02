@@ -618,10 +618,12 @@ function config.CreateConfigPanel()
     if not ui then
         return nil
     end
+    suppressLiveSave = true
     BuildFocusTab(tabs.pages.focus, ui, SaveLive)
     BuildTackleTab(tabs.pages.tackle, ui, SaveLive)
     BuildModesTab(tabs.pages.modes, ui, SaveLive)
     BuildBuffsTab(tabs.pages.buffs, ui, CreateBuffItemDropBox, SaveLive, addon.db and addon.db.refreshSeconds or defaults.refreshSeconds)
+    suppressLiveSave = false
 
     panel.buffItemControls = addon.buffItemControls
     UpdateToyApplyButtons()
