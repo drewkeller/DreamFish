@@ -198,12 +198,21 @@ end)
     end
 
 -- World right-click handler
+local lastRightClickDisabledDebugAt = 0
 if WorldFrame then
     WorldFrame:HookScript("OnMouseDown", function(_, button)
         if button == "RightButton" and not InCombatLockdown() then
             if addon.fishing and addon.fishing.IsWorldRightClickActivationPressed then
                 if addon.fishing.IsWorldRightClickActivationPressed() then
                     addon.fishing.HandleWorldRightClick()
+                elseif addon.db and addon.db.debugMode and addon.db.debugState then
+                    local now = (type(GetTime) == "function") and GetTime() or 0
+                    if (now - lastRightClickDisabledDebugAt) >= 1.0 then
+                        lastRightClickDisabledDebugAt = now
+                        if DebugStateMessage then
+                            DebugStateMessage("World right click detected but ignored: right-click trigger modes are disabled")
+                        end
+                    end
                 end
             end
         end
