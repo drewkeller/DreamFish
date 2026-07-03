@@ -279,24 +279,112 @@ local function RefreshUnderlightConfigControls()
     end
 end
 
+local function GetMainHandItemID()
+    if type(GetInventoryItemID) ~= "function" then
+        return nil
+    end
+    local rawItemID = GetInventoryItemID("player", 16)
+    local itemID = tonumber(rawItemID)
+    if not itemID or itemID <= 0 then
+        return nil
+    end
+    return itemID
+end
+
+local function GetActiveEquippedTacklePoleItemID()
+    local underlightID = GetUnderlightItemID()
+    if IsItemEquipped(underlightID) then
+        return underlightID
+    end
+
+    local professionItemID = GetProfessionSlotItemID()
+    if professionItemID and professionItemID > 0 then
+        return professionItemID
+    end
+
+    local mainHandItemID = GetMainHandItemID()
+    if mainHandItemID and mainHandItemID > 0 then
+        return mainHandItemID
+    end
+
+    return nil
+end
+
 local function RefreshTackleEquippedPoleHighlights()
     if not addon.fishingPoleBox and not addon.underlightAnglerBox then
         return
     end
 
-    local equippedItemIDs = GetEquippedItemIDs()
+    local activeEquippedPoleItemID = GetActiveEquippedTacklePoleItemID()
 
     local selectedPole = addon.fishingPoleBox and tonumber(addon.fishingPoleBox:GetText()) or nil
     local selectedUnderlight = addon.underlightAnglerBox and tonumber(addon.underlightAnglerBox:GetText()) or nil
 
-    local poleMatch = selectedPole and selectedPole > 0 and equippedItemIDs[selectedPole] and true or false
-    local underlightMatch = selectedUnderlight and selectedUnderlight > 0 and equippedItemIDs[selectedUnderlight] and true or false
+    local poleMatch = selectedPole
+        and selectedPole > 0
+        and activeEquippedPoleItemID
+        and selectedPole == activeEquippedPoleItemID
+        and true
+        or false
+    local underlightMatch = selectedUnderlight
+        and selectedUnderlight > 0
+        and activeEquippedPoleItemID
+        and selectedUnderlight == activeEquippedPoleItemID
+        and true
+        or false
 
     if addon.fishingPoleBox and addon.fishingPoleBox.SetHighlightedAsEquipped then
         addon.fishingPoleBox:SetHighlightedAsEquipped(poleMatch)
     end
     if addon.underlightAnglerBox and addon.underlightAnglerBox.SetHighlightedAsEquipped then
         addon.underlightAnglerBox:SetHighlightedAsEquipped(underlightMatch)
+    end
+end
+
+local tackleHighlightEventFrame = nil
+local tackleHighlightRefreshActive = false
+
+local function SetTackleHighlightAutoRefreshEnabled(enabled)
+    if enabled then
+        if tackleHighlightRefreshActive then
+            return
+        end
+        if type(CreateFrame) ~= "function" then
+            return
+        end
+        if not tackleHighlightEventFrame then
+            tackleHighlightEventFrame = CreateFrame("Frame")
+            if tackleHighlightEventFrame and tackleHighlightEventFrame.SetScript then
+                tackleHighlightEventFrame:SetScript("OnEvent", function(_, event, arg1)
+                    if event == "UNIT_INVENTORY_CHANGED" and arg1 ~= "player" then
+                        return
+                    end
+                    local panel = addon.frames and addon.frames.config
+                    if panel and panel:IsShown() then
+                        RefreshTackleEquippedPoleHighlights()
+                    end
+                end)
+            end
+        end
+        if not tackleHighlightEventFrame then
+            return
+        end
+        if tackleHighlightEventFrame.RegisterEvent then
+            tackleHighlightEventFrame:RegisterEvent("PLAYER_EQUIPMENT_CHANGED")
+            tackleHighlightEventFrame:RegisterEvent("UNIT_INVENTORY_CHANGED")
+            tackleHighlightEventFrame:RegisterEvent("BAG_UPDATE_DELAYED")
+        end
+        tackleHighlightRefreshActive = true
+    else
+        if not tackleHighlightRefreshActive or not tackleHighlightEventFrame then
+            return
+        end
+        if tackleHighlightEventFrame.UnregisterEvent then
+            tackleHighlightEventFrame:UnregisterEvent("PLAYER_EQUIPMENT_CHANGED")
+            tackleHighlightEventFrame:UnregisterEvent("UNIT_INVENTORY_CHANGED")
+            tackleHighlightEventFrame:UnregisterEvent("BAG_UPDATE_DELAYED")
+        end
+        tackleHighlightRefreshActive = false
     end
 end
 
@@ -396,6 +484,18 @@ local function CollectActiveBuffItemIDs(buffItems)
     return active
 end
 
+local function ApplyBuffSlotEnabledState(control, isEnabled)
+    if not control then
+        return
+    end
+    control.desiredEnabled = isEnabled and true or false
+    if control.enabledCheckbox and control.enabledCheckbox.GetChecked then
+        if control.enabledCheckbox:GetChecked() ~= control.desiredEnabled then
+            control.enabledCheckbox:SetChecked(control.desiredEnabled)
+        end
+    end
+end
+
 local function ResolveBool(value, defaultValue)
     if value == nil then
         return not not defaultValue
@@ -488,17 +588,30 @@ local function LoadConfigBindings()
         for i, control in ipairs(addon.buffItemControls) do
             local entry = addon.db.buffItems and addon.db.buffItems[i] or nil
             local itemID = entry and entry.itemID or nil
-            local isEnabled = (type(entry) == "table") and (entry.enabled ~= false) or true
-            control.desiredEnabled = isEnabled
-            if control.enabledCheckbox then
-                if control.enabledCheckbox:GetChecked() ~= isEnabled then
-                    control.enabledCheckbox:SetChecked(isEnabled)
-                end
+            local isEnabled = nil
+            if type(entry) == "table" and entry.enabled ~= nil then
+                isEnabled = (entry.enabled ~= false)
+            elseif control and control.desiredEnabled ~= nil then
+                isEnabled = (control.desiredEnabled ~= false)
+            else
+                isEnabled = true
             end
             local desiredText = tostring(itemID or "")
             if control.itemBox:GetText() ~= desiredText then
                 control.itemBox:SetText(desiredText)
             end
+
+            -- Refresh presence-driven checkbox dim/enable state even when text
+            -- does not change, so reopened windows correctly dim empty slots.
+            local hasItem = itemID and tonumber(itemID) and tonumber(itemID) > 0
+            if control.enabledCheckbox and control.enabledCheckbox.SetEnabled then
+                control.enabledCheckbox:SetEnabled(hasItem and true or false)
+            end
+            if control.itemBox and control.itemBox.SetEnabledForPreCast then
+                control.itemBox:SetEnabledForPreCast((hasItem and true or false) and (isEnabled ~= false))
+            end
+
+            ApplyBuffSlotEnabledState(control, isEnabled)
         end
     end
     buffBagCountSnapshot = nil
@@ -642,10 +755,19 @@ local function SaveConfigBindings()
         for i, control in ipairs(addon.buffItemControls) do
             local itemID = tonumber(control.itemBox:GetText())
             local previous = previousBuffItems[i]
+            local enabledState = nil
+            if control and control.desiredEnabled ~= nil then
+                enabledState = (control.desiredEnabled ~= false)
+            end
+            if enabledState == nil and control.enabledCheckbox and control.enabledCheckbox.GetChecked then
+                enabledState = control.enabledCheckbox:GetChecked()
+            end
+            if enabledState == nil then
+                enabledState = (((type(previous) == "table") and (previous.enabled ~= false)) or true)
+            end
             addon.db.buffItems[i] = {
                 itemID = (itemID and itemID > 0) and itemID or nil,
-                enabled = (control.enabledCheckbox and control.enabledCheckbox:GetChecked())
-                    or ((type(previous) == "table") and (previous.enabled ~= false) or true),
+                enabled = enabledState,
             }
         end
     end
@@ -985,6 +1107,11 @@ local function BuildTackleTab(tacklePage, ui, createTackleItemDropBox, onLiveCha
     end, {
         validateItemID = IsUnderlightAnglerItemID,
     })
+    -- This acts as a spacer (text alpha is set to transparent) to keep layout the same as the left column
+    local hiddenUnderlightNote = ui.FlowNote(rightColumn, "Drag a fishing pole from your bags into this box.")
+    if hiddenUnderlightNote.label then
+        hiddenUnderlightNote.label:SetAlpha(0)
+    end
 
     ui.FlowRowHost(root, 6)
     addon.underlightAnglerModeSelector = ui.FlowDropdown(root, "Underlight Angler Mode:", 320, BuildUnderlightModeOptions, function()
@@ -1110,6 +1237,18 @@ local function BuildBuffsTab(buffsPage, ui, createBuffItemDropBox, onLiveChange)
                     local control = addon.buffItemControls[index]
                     if control then
                         control.desiredEnabled = isChecked and true or false
+
+                        if addon.db then
+                            if type(addon.db.buffItems) ~= "table" then
+                                addon.db.buffItems = {}
+                            end
+                            local persisted = addon.db.buffItems[index]
+                            if type(persisted) ~= "table" then
+                                persisted = {}
+                                addon.db.buffItems[index] = persisted
+                            end
+                            persisted.enabled = control.desiredEnabled
+                        end
                     end
                     if itemBox.SetEnabledForPreCast then
                         itemBox:SetEnabledForPreCast(isChecked)
@@ -1123,7 +1262,11 @@ local function BuildBuffsTab(buffsPage, ui, createBuffItemDropBox, onLiveChange)
                     itemBox = itemBox,
                     enabledCheckbox = enabledCheckbox,
                     expectedCategory = rowSpec.expectedCategory,
-                    desiredEnabled = true,
+                    desiredEnabled = (type(addon.db) == "table"
+                        and type(addon.db.buffItems) == "table"
+                        and type(addon.db.buffItems[index]) == "table")
+                        and (addon.db.buffItems[index].enabled ~= false)
+                        or true,
                 }
 
                 itemBox.onItemPresenceChanged = function(_, hasItem)
@@ -1141,12 +1284,8 @@ local function BuildBuffsTab(buffsPage, ui, createBuffItemDropBox, onLiveChange)
                             itemBox:SetEnabledForPreCast(false)
                         end
                     else
-                        local useEnabled = control.desiredEnabled ~= false
-                        if control.enabledCheckbox then
-                            control.enabledCheckbox:SetChecked(useEnabled)
-                        end
                         if itemBox.SetEnabledForPreCast then
-                            itemBox:SetEnabledForPreCast(useEnabled)
+                            itemBox:SetEnabledForPreCast(control.desiredEnabled ~= false)
                         end
                     end
                 end
@@ -1213,7 +1352,7 @@ function config.CreateConfigPanel()
         local border = box:CreateTexture(nil, "BORDER")
         border:SetPoint("TOPLEFT", box, "TOPLEFT", 0, 0)
         border:SetPoint("BOTTOMRIGHT", box, "BOTTOMRIGHT", 0, 0)
-        border:SetColorTexture(0.42, 0.42, 0.42, 0.9)
+        border:SetColorTexture(0.42, 0.42, 0.42, 0)
 
         local inner = box:CreateTexture(nil, "ARTWORK")
         inner:SetPoint("TOPLEFT", box, "TOPLEFT", 1, -1)
@@ -1234,7 +1373,7 @@ function config.CreateConfigPanel()
             if self.isEquippedHighlight then
                 border:SetColorTexture(0.9, 0.8, 0.2, 0.95)
             else
-                border:SetColorTexture(0.42, 0.42, 0.42, 0.9)
+                border:SetColorTexture(0.42, 0.42, 0.42, 0)
             end
         end
 
@@ -1437,9 +1576,12 @@ function config.CreateConfigPanel()
         UpdateConfigUI()
         SyncEscapeCloseRegistration()
         ShowCurrentActiveTab()
+        RefreshTackleEquippedPoleHighlights()
+        SetTackleHighlightAutoRefreshEnabled(true)
     end
 
     local function HandlePanelHide()
+        SetTackleHighlightAutoRefreshEnabled(false)
         if not suppressLiveSave then
             config.SaveConfig(true)
         end

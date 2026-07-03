@@ -42,7 +42,7 @@ function addon.ui.CreateBuffItemDropBox(deps, parent, x, y, label, onLiveChange)
 
     box.mismatchOverlay = box:CreateTexture(nil, "OVERLAY")
     box.mismatchOverlay:SetAllPoints(box)
-    box.mismatchOverlay:SetColorTexture(1, 0.15, 0.15, 0.22)
+    box.mismatchOverlay:SetColorTexture(1, 0.0, 0.0, 0.9)
     box.mismatchOverlay:Hide()
 
     box.itemID = nil
@@ -119,7 +119,7 @@ function addon.ui.CreateBuffItemDropBox(deps, parent, x, y, label, onLiveChange)
 
         if addon.buff and type(addon.buff.GetBuffItemCategory) == "function" then
             local category = addon.buff.GetBuffItemCategory(numeric)
-            if category and category ~= "" and category ~= "other_consumable" then
+            if category and category ~= "" then
                 return category, true
             end
         end
@@ -133,7 +133,7 @@ function addon.ui.CreateBuffItemDropBox(deps, parent, x, y, label, onLiveChange)
         if self.isDragHighlighted then
             color = self.dragHoverBorderColor
         elseif self.hasCategoryMismatch then
-            color = self.mismatchBorderColor
+            color = { 1.0, 0.0, 0.0, 1 }
         end
         self:SetBackdropBorderColor(color[1], color[2], color[3], color[4])
     end

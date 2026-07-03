@@ -346,7 +346,11 @@ local function NormalizeBuffConfig()
             entry.itemID = nil
         end
 
-        entry.enabled = (entry.enabled ~= false)
+        if entry.enabled == nil then
+            entry.enabled = true
+        else
+            entry.enabled = entry.enabled and true or false
+        end
         addon.db.buffItems[i] = entry
     end
 end

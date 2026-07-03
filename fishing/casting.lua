@@ -231,7 +231,7 @@ local function HasConfiguredBuffItems()
     end
     for _, entry in ipairs(addon.db.buffItems) do
         local itemID = type(entry) == "table" and tonumber(entry.itemID) or nil
-        if itemID and itemID > 0 then
+        if itemID and itemID > 0 and not (type(entry) == "table" and entry.enabled == false) then
             return true
         end
     end
@@ -787,7 +787,7 @@ local function GetTransientCastBlocker()
 
     for _, entry in ipairs(addon.db.buffItems) do
         local itemID = type(entry) == "table" and tonumber(entry.itemID) or nil
-        if itemID and itemID > 0 then
+        if itemID and itemID > 0 and not (type(entry) == "table" and entry.enabled == false) then
             local transientUntil = tonumber(addon.state.buffItemTransientUntil[itemID]) or 0
             if transientUntil > now then
                 local lastingAuraActive = false
