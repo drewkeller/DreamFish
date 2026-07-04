@@ -92,9 +92,9 @@ local function ResumePersistedAudioDuckingState()
 end
 
 local function EnableFishingAudioFocus(force)
-    if not force and (not addon.db or not addon.db.enhancedSounds) then
+    if not force and (not addon.db or not addon.db.focusedAudio) then
         if addon.db and addon.db.debugMode and DebugMessage then
-            DebugMessage("Audio duck skip: enhancedSounds disabled")
+            DebugMessage("Audio duck skip: focusedAudio disabled")
         end
         return
     end
@@ -219,7 +219,7 @@ local function RestoreFishingAudioFocus()
 end
 
 local function RestoreFishingAudioFocusAfterLinger()
-    local linger = (addon.db and addon.db.audioFocusLinger) or addon.defaults.audioFocusLinger
+    local linger = (addon.db and addon.db.focusedAudioLinger) or addon.defaults.focusedAudioLinger
     if linger <= 0 then
         if addon.db and addon.db.debugMode and DebugMessage then
             DebugMessage("Audio restore linger skipped (linger<=0)")

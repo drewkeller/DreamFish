@@ -183,7 +183,7 @@ local function FormatInteractDiagnostics(diag)
 end
 
 local function IsHookedLootMode()
-    if not addon.db or not addon.db.enableHookedLoot or not addon.state then
+    if not addon.db or not addon.db.easyStrike or not addon.state then
         return false
     end
 

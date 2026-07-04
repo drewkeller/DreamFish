@@ -85,7 +85,6 @@ function RunTest(name, testFn)
         DreamFisher._test.SetDB({
             buffItems = {},
             buffAuraByItem = {},
-            refreshSeconds = 180,
         })
         DreamFisher.state.buffItemLastUseAt = {}
         DreamFisher.state.buffItemLastReminderAt = {}
@@ -143,7 +142,7 @@ function tests.BuffDueWithTrackedAuraActive()
     local originalCUnitAuras = _G.C_UnitAuras
     local originalAuraUtil = _G.AuraUtil
     DreamFisher._test.SetDB({
-        buffItems = { { itemID = 111, refreshSeconds = 180 } },
+        buffItems = { { itemID = 111 } },
         buffAuraByItem = { ["111"] = { spellID = 999, duration = 30 } },
     })
 
@@ -184,7 +183,7 @@ function tests.BuffDueWithTrackedAuraMissing()
     local originalCUnitAuras = _G.C_UnitAuras
     local originalAuraUtil = _G.AuraUtil
     DreamFisher._test.SetDB({
-        buffItems = { { itemID = 111, refreshSeconds = 180 } },
+        buffItems = { { itemID = 111 } },
         buffAuraByItem = { ["111"] = { spellID = 999, duration = 30 } },
     })
 
@@ -209,7 +208,7 @@ function tests.BuffDueWithTrackedAuraMissingRespectsRecentUse()
     local originalCUnitAuras = _G.C_UnitAuras
     local originalAuraUtil = _G.AuraUtil
     DreamFisher._test.SetDB({
-        buffItems = { { itemID = 111, refreshSeconds = 180 } },
+        buffItems = { { itemID = 111 } },
         buffAuraByItem = { ["111"] = { spellID = 999, duration = 30 } },
     })
 
@@ -234,7 +233,7 @@ function tests.BuffDueWithTrackedAuraMissingAfterDuration()
     local originalCUnitAuras = _G.C_UnitAuras
     local originalAuraUtil = _G.AuraUtil
     DreamFisher._test.SetDB({
-        buffItems = { { itemID = 111, refreshSeconds = 180 } },
+        buffItems = { { itemID = 111 } },
         buffAuraByItem = { ["111"] = { spellID = 999, duration = 30 } },
     })
 
@@ -297,7 +296,7 @@ end
 function tests.BuffDueUntrackedWithTimerNotExpired()
     -- Untracked buff without known duration: do not reapply outside cast probing.
     DreamFisher._test.SetDB({
-        buffItems = { { itemID = 222, refreshSeconds = 60 } },
+        buffItems = { { itemID = 222 } },
         buffAuraByItem = {},  -- Untracked
     })
 
@@ -312,7 +311,7 @@ end
 function tests.BuffDueUntrackedWithTimerExpired()
     -- Untracked buff without known duration stays suppressed outside cast probing.
     DreamFisher._test.SetDB({
-        buffItems = { { itemID = 222, refreshSeconds = 60 } },
+        buffItems = { { itemID = 222 } },
         buffAuraByItem = {},  -- Untracked
     })
 
@@ -327,7 +326,7 @@ end
 function tests.BuffDueUntrackedForCastIsAlwaysDue()
     -- Untracked buff for cast is probed so it can be observed.
     DreamFisher._test.SetDB({
-        buffItems = { { itemID = 333, refreshSeconds = 60 } },
+        buffItems = { { itemID = 333 } },
         buffAuraByItem = {},  -- Untracked
     })
 
@@ -495,8 +494,8 @@ function tests.GetNextDueBuffReturnsFirst()
     -- When multiple buffs are due, return first one
     DreamFisher._test.SetDB({
         buffItems = {
-            { itemID = 111, refreshSeconds = 60 },
-            { itemID = 222, refreshSeconds = 60 },
+            { itemID = 111 },
+            { itemID = 222 },
         },
         buffAuraByItem = {},
     })
@@ -523,8 +522,8 @@ function tests.GetNextDueBuffSkipsUnavailable()
     -- When first buff is excluded, the helper should still return a due item.
     DreamFisher._test.SetDB({
         buffItems = {
-            { itemID = 111, refreshSeconds = 60 },
-            { itemID = 222, refreshSeconds = 60 },
+            { itemID = 111 },
+            { itemID = 222 },
         },
         buffAuraByItem = {},
     })
@@ -541,7 +540,7 @@ function tests.GetNextDueBuffReturnsNilWhenNoneDue()
     -- When no buffs are due, return nil
     DreamFisher._test.SetDB({
         buffItems = {
-            { itemID = 111, refreshSeconds = 60 },
+            { itemID = 111 },
         },
         buffAuraByItem = {},
     })

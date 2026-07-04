@@ -966,7 +966,7 @@ ConfigureFishingClickAction = function()
             addon.fishing.ConfigureInteractLootAction(fishingFrame)
             return
         end
-    elseif addon.db and addon.db.enableHookedLoot then
+    elseif addon.db and addon.db.easyStrike then
         local now = (type(GetTime) == "function") and GetTime() or 0
         local graceUntil = tonumber(addon.state and addon.state.fishingStartGraceUntil) or 0
         DebugMessage("Hooked interact not armed: isFishing=" .. tostring(addon.state and addon.state.isFishing)
@@ -1134,9 +1134,8 @@ local function GetCastingModes()
 
     local modes = {
         doubleRightClick = ResolveBool(dbModes.doubleRightClick, defaultsModes.doubleRightClick),
-        singleRightClickConfig = ResolveBool(dbModes.singleRightClickConfig, defaultsModes.singleRightClickConfig),
-        singleRightClickDoubleStart = ResolveBool(dbModes.singleRightClickDoubleStart, defaultsModes.singleRightClickDoubleStart),
-        hotkey = ResolveBool(dbModes.hotkey, defaultsModes.hotkey),
+        singleRightClick = ResolveBool(dbModes.singleRightClick, defaultsModes.singleRightClick),
+        castHotkey = ResolveBool(dbModes.castHotkey, defaultsModes.castHotkey),
     }
 
     if addon.db then
@@ -1148,10 +1147,10 @@ end
 
 local function IsWorldRightClickActivationPressed()
     local modes = GetCastingModes()
-    if modes.singleRightClickConfig and addon.frames.config and addon.frames.config:IsShown() then
+    if modes.singleRightClick and addon.frames.config and addon.frames.config:IsShown() then
         return true
     end
-    if modes.doubleRightClick or modes.singleRightClickDoubleStart then
+    if modes.doubleRightClick then
         return true
     end
     return false
@@ -1159,7 +1158,7 @@ end
 
 local function IsHotkeyActivationPressed()
     local modes = GetCastingModes()
-    return modes.hotkey
+    return modes.castHotkey
 end
 
 local function TryUseItemDirect(itemID)
@@ -1547,7 +1546,7 @@ local function HandleWorldRightClick(forceImmediate)
         return
     end
 
-    if addon.db and addon.db.enableHookedLoot
+    if addon.db and addon.db.easyStrike
         and addon.state and addon.state.interactOverrideActive
         and addon.fishing and addon.fishing.IsHookedLootMode
         and addon.fishing.IsHookedLootMode() then
@@ -1573,24 +1572,24 @@ local function HandleWorldRightClick(forceImmediate)
     local now = GetTime()
     DebugMessage("World right click: dt=" .. string.format("%.3f", now - addon.state.lastRightClickTime))
     local modes = GetCastingModes()
-    local allowSingleClick = modes.singleRightClickConfig and addon.frames.config and addon.frames.config:IsShown() or false
+    local allowSingleClick = modes.singleRightClick and addon.frames.config and addon.frames.config:IsShown() or false
     local hasConfiguredBuffItems = HasConfiguredBuffItems()
-    local enableHookedLoot = addon.db and addon.db.enableHookedLoot
+    local easyStrike = addon.db and addon.db.easyStrike
 
     local hasAnyInteractUnit = false
     local hasSoftInteractNameOnly = false
     local inAcquireWindow = false
-    if enableHookedLoot then
+    if easyStrike then
         hasAnyInteractUnit, hasSoftInteractNameOnly = GetInteractPresenceDiagnostics()
         local acquireExpiresAt = tonumber(addon.state and addon.state.interactAcquireExpiresAt) or 0
         inAcquireWindow = acquireExpiresAt > now
     end
 
-    local hookedModeActive = enableHookedLoot
+    local hookedModeActive = easyStrike
         and addon.fishing and addon.fishing.IsHookedLootMode
         and addon.fishing.IsHookedLootMode()
-    local shouldRouteHookedInteract = enableHookedLoot and hookedModeActive
-    local noHookedEvidence = enableHookedLoot
+    local shouldRouteHookedInteract = easyStrike and hookedModeActive
+    local noHookedEvidence = easyStrike
         and (not hasAnyInteractUnit)
         and (not hasSoftInteractNameOnly)
         and (not inAcquireWindow)

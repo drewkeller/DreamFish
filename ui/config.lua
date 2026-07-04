@@ -508,9 +508,8 @@ local function GetCastingModesForConfig()
     local dbModes = (addon.db and addon.db.castingModes) or {}
     local modes = {
         doubleRightClick = ResolveBool(dbModes.doubleRightClick, defaultsModes.doubleRightClick),
-        singleRightClickConfig = ResolveBool(dbModes.singleRightClickConfig, defaultsModes.singleRightClickConfig),
-        singleRightClickDoubleStart = ResolveBool(dbModes.singleRightClickDoubleStart, defaultsModes.singleRightClickDoubleStart),
-        hotkey = ResolveBool(dbModes.hotkey, defaultsModes.hotkey),
+        singleRightClick = ResolveBool(dbModes.singleRightClick, defaultsModes.singleRightClick),
+        castHotkey = ResolveBool(dbModes.castHotkey, defaultsModes.castHotkey),
     }
     return modes
 end
@@ -569,8 +568,8 @@ local function LoadConfigBindings()
     if isFocusActive and addon.autoLootCheckbox then
         addon.autoLootCheckbox:SetChecked(addon.db.autoLoot)
     end
-    if isFocusActive and addon.enhancedSoundsCheckbox then
-        addon.enhancedSoundsCheckbox:SetChecked(addon.db.enhancedSounds)
+    if isFocusActive and addon.focusedAudioCheckbox then
+        addon.focusedAudioCheckbox:SetChecked(addon.db.focusedAudio)
     end
     if isFocusActive and addon.treasureAlertsCheckbox then
         addon.treasureAlertsCheckbox:SetChecked(addon.db.treasureAlerts)
@@ -579,7 +578,7 @@ local function LoadConfigBindings()
         addon.bagAlertsCheckbox:SetChecked(addon.db.bagAlerts)
     end
     if isModesActive and addon.escapeCloseCheckbox then
-        addon.escapeCloseCheckbox:SetChecked(addon.db.configCloseOnEscape)
+        addon.escapeCloseCheckbox:SetChecked(addon.db.closeWindowOnEscape)
     end
     if isFocusActive and addon.lowBagBox then
         addon.lowBagBox:SetText(tostring(addon.db.lowBagThreshold or defaults.lowBagThreshold))
@@ -616,16 +615,16 @@ local function LoadConfigBindings()
     end
     buffBagCountSnapshot = nil
     if isFocusActive and addon.audioLingerBox then
-        addon.audioLingerBox:SetText(tostring(addon.db.audioFocusLinger or defaults.audioFocusLinger))
+        addon.audioLingerBox:SetText(tostring(addon.db.focusedAudioLinger or defaults.focusedAudioLinger))
     end
     if isModesActive and addon.modeDoubleRightClickCheckbox then
         local modes = GetCastingModesForConfig()
         addon.modeDoubleRightClickCheckbox:SetChecked(modes.doubleRightClick)
-        addon.modeSingleRightClickConfigCheckbox:SetChecked(modes.singleRightClickConfig)
-        addon.modeHotkeyCheckbox:SetChecked(modes.hotkey)
+        addon.modeSingleRightClickConfigCheckbox:SetChecked(modes.singleRightClick)
+        addon.modeHotkeyCheckbox:SetChecked(modes.castHotkey)
     end
     if isModesActive and addon.enableHookedLootCheckbox then
-        addon.enableHookedLootCheckbox:SetChecked(addon.db.enableHookedLoot)
+        addon.enableHookedLootCheckbox:SetChecked(addon.db.easyStrike)
     end
 
     if addon._lastAppliedTackleBindings == nil then
@@ -692,8 +691,6 @@ local function SaveConfigBindings()
 
     local previouslyActiveBuffItems = CollectActiveBuffItemIDs(addon.db.buffItems)
 
-    addon.db.refreshSeconds = addon.Clamp(tonumber(addon.db.refreshSeconds) or defaults.refreshSeconds, 30, 600)
-
     if addon.lowBagBox then
         addon.db.lowBagThreshold = addon.Clamp(tonumber(addon.lowBagBox:GetText()) or defaults.lowBagThreshold, 0, 20)
     else
@@ -701,16 +698,16 @@ local function SaveConfigBindings()
     end
 
     if addon.audioLingerBox then
-        addon.db.audioFocusLinger = addon.Clamp(tonumber(addon.audioLingerBox:GetText()) or defaults.audioFocusLinger, 0, 60)
+        addon.db.focusedAudioLinger = addon.Clamp(tonumber(addon.audioLingerBox:GetText()) or defaults.focusedAudioLinger, 0, 60)
     else
-        addon.db.audioFocusLinger = addon.Clamp(tonumber(addon.db.audioFocusLinger) or defaults.audioFocusLinger, 0, 60)
+        addon.db.focusedAudioLinger = addon.Clamp(tonumber(addon.db.focusedAudioLinger) or defaults.focusedAudioLinger, 0, 60)
     end
 
     if addon.autoLootCheckbox then
         addon.db.autoLoot = addon.autoLootCheckbox:GetChecked()
     end
-    if addon.enhancedSoundsCheckbox then
-        addon.db.enhancedSounds = addon.enhancedSoundsCheckbox:GetChecked()
+    if addon.focusedAudioCheckbox then
+        addon.db.focusedAudio = addon.focusedAudioCheckbox:GetChecked()
     end
     if addon.treasureAlertsCheckbox then
         addon.db.treasureAlerts = addon.treasureAlertsCheckbox:GetChecked()
@@ -725,27 +722,26 @@ local function SaveConfigBindings()
         doubleRightClick = addon.modeDoubleRightClickCheckbox
             and addon.modeDoubleRightClickCheckbox:GetChecked()
             or ResolveBool(existingModes.doubleRightClick, defaultModes.doubleRightClick),
-        singleRightClickConfig = addon.modeSingleRightClickConfigCheckbox
+        singleRightClick = addon.modeSingleRightClickConfigCheckbox
             and addon.modeSingleRightClickConfigCheckbox:GetChecked()
-            or ResolveBool(existingModes.singleRightClickConfig, defaultModes.singleRightClickConfig),
-        singleRightClickDoubleStart = ResolveBool(existingModes.singleRightClickDoubleStart, defaultModes.singleRightClickDoubleStart),
-        hotkey = addon.modeHotkeyCheckbox
+            or ResolveBool(existingModes.singleRightClick, defaultModes.singleRightClick),
+        castHotkey = addon.modeHotkeyCheckbox
             and addon.modeHotkeyCheckbox:GetChecked()
-            or ResolveBool(existingModes.hotkey, defaultModes.hotkey),
+            or ResolveBool(existingModes.castHotkey, defaultModes.castHotkey),
     }
     addon.db.castingModes = modeFlags
 
     if addon.enableHookedLootCheckbox then
-        addon.db.enableHookedLoot = addon.enableHookedLootCheckbox:GetChecked() or false
+        addon.db.easyStrike = addon.enableHookedLootCheckbox:GetChecked() or false
     else
-        addon.db.enableHookedLoot = addon.db.enableHookedLoot and true or false
+        addon.db.easyStrike = addon.db.easyStrike and true or false
     end
 
     if addon.oversizedBobberCheckbox then
         addon.db.useOversizedBobber = addon.oversizedBobberCheckbox:GetChecked()
     end
     if addon.escapeCloseCheckbox then
-        addon.db.configCloseOnEscape = addon.escapeCloseCheckbox:GetChecked()
+        addon.db.closeWindowOnEscape = addon.escapeCloseCheckbox:GetChecked()
     end
     SyncEscapeCloseRegistration()
 
@@ -847,7 +843,7 @@ SyncEscapeCloseRegistration = function()
         return
     end
 
-    local shouldRegister = addon.db and addon.db.configCloseOnEscape
+    local shouldRegister = addon.db and addon.db.closeWindowOnEscape
     local existingIndex = nil
     for i, name in ipairs(UISpecialFrames) do
         if name == frameName then
@@ -1048,7 +1044,7 @@ local function BuildFocusTab(focusPage, ui, onLiveChange)
     addon.lowBagBox = ui.FlowEditBox(focusSection, "Low Bag Threshold:", 190, onLiveChange)
 
     local audioSection = ui.FlowSection(root, "Audio")
-    addon.enhancedSoundsCheckbox = ui.FlowCheckbox(audioSection, "Fishing Focused Audio", onLiveChange)
+    addon.focusedAudioCheckbox = ui.FlowCheckbox(audioSection, "Fishing Focused Audio", onLiveChange)
     addon.audioLingerBox = ui.FlowEditBox(audioSection, "Audio Linger After Catch (s):", 260, onLiveChange)
 end
 

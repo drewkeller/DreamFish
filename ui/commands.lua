@@ -65,7 +65,7 @@ local function RegisterSlashCommands()
         end
         if command == "duckaudio" or command == "da" then
             addon.audio.EnableFishingAudioFocus(true)
-            addon.state.audioRestoreAt = GetTime() + (addon.db.audioFocusLinger or addon.defaults.audioFocusLinger or 10)
+            addon.state.audioRestoreAt = GetTime() + (addon.db.focusedAudioLinger or addon.defaults.focusedAudioLinger or 10)
             local amb = GetCVar("Sound_AmbienceVolume")
             local mus = GetCVar("Sound_MusicVolume")
             local dia = GetCVar("Sound_DialogVolume")

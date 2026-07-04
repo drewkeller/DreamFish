@@ -123,7 +123,7 @@ local function MaybeEquipConfiguredUnderlight(reason)
 end
 
 local function TryArmNativeInteractOverrideFromFishingState()
-    if not addon.db or not addon.db.enableHookedLoot then
+    if not addon.db or not addon.db.easyStrike then
         return
     end
     if not addon.state or not addon.state.isFishing or addon.state.fishingLootInProgress then
@@ -333,7 +333,7 @@ local function CreateFishingStateFrame()
         elseif event == "UNIT_SPELLCAST_STOP" or event == "UNIT_SPELLCAST_CHANNEL_STOP" then
             if stopLooksFishing and addon.state.isFishing and addon.state.savedFishingAudioCVars ~= nil then
                 addon.state.fishingCastActive = false
-                local linger = (addon.db and addon.db.audioFocusLinger) or addon.defaults.audioFocusLinger
+                local linger = (addon.db and addon.db.focusedAudioLinger) or addon.defaults.focusedAudioLinger
                 local elapsed = (addon.state.fishingStartTime > 0) and (GetTime() - addon.state.fishingStartTime) or 0
                 LogStateTransition("cast-stop-evaluating", event, spellID, isFishingSpell)
                 if linger <= 0 then

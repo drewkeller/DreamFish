@@ -134,7 +134,6 @@ function RunTest(name, testFn)
         DreamFisher._test.SetDB({
             buffItems = {},
             buffAuraByItem = {},
-            refreshSeconds = 180,
         })
     end)
 
@@ -179,7 +178,7 @@ end
 function TestBuffItemDueWithTrackedAuraPresent()
     -- When aura is actively tracked and present, buff is due when remaining <= lead
     DreamFisher._test.SetDB({
-        buffItems = { { itemID = 12345, refreshSeconds = 180 } },
+        buffItems = { { itemID = 12345 } },
         buffAuraByItem = { ["12345"] = { spellID = 99999, duration = 30 } },
     })
 
@@ -198,7 +197,7 @@ end
 function TestBuffItemDueWithTrackedAuraMissing()
     -- When aura is tracked but missing (not active), buff is due immediately
     DreamFisher._test.SetDB({
-        buffItems = { { itemID = 12345, refreshSeconds = 180 } },
+        buffItems = { { itemID = 12345 } },
         buffAuraByItem = { ["12345"] = { spellID = 99999, duration = 30 } },
     })
 
@@ -212,7 +211,7 @@ end
 function TestBuffItemDueUntrackedWithoutCastRequirement()
     -- When buff is untracked and not casting, fall back to timer
     DreamFisher._test.SetDB({
-        buffItems = { { itemID = 12345, refreshSeconds = 60 } },
+        buffItems = { { itemID = 12345 } },
         buffAuraByItem = {},  -- No tracking
     })
 
@@ -227,7 +226,7 @@ end
 function TestBuffItemDueUntrackedForCast()
     -- When buff is untracked and we're about to cast, treat as due
     DreamFisher._test.SetDB({
-        buffItems = { { itemID = 12345, refreshSeconds = 60 } },
+        buffItems = { { itemID = 12345 } },
         buffAuraByItem = {},  -- No tracking
     })
 
@@ -243,8 +242,8 @@ function TestGetNextDueBuffItemSelectsFirst()
 
     DreamFisher._test.SetDB({
         buffItems = {
-            { itemID = item1, refreshSeconds = 60 },
-            { itemID = item2, refreshSeconds = 60 },
+            { itemID = item1 },
+            { itemID = item2 },
         },
         buffAuraByItem = {},
     })
@@ -267,8 +266,8 @@ function TestGetNextDueBuffItemSkipsUnavailable()
 
     DreamFisher._test.SetDB({
         buffItems = {
-            { itemID = item1, refreshSeconds = 60 },
-            { itemID = item2, refreshSeconds = 60 },
+            { itemID = item1 },
+            { itemID = item2 },
         },
         buffAuraByItem = {},
     })
@@ -306,7 +305,7 @@ end
 function TestDoubleClickWithDueBuffUsesBuff()
     -- Double-click within window + due buff should use the buff
     DreamFisher._test.SetDB({
-        buffItems = { { itemID = 12345, refreshSeconds = 60 } },
+        buffItems = { { itemID = 12345 } },
         buffAuraByItem = {},
     })
 
@@ -332,7 +331,7 @@ end
 function TestDoubleClickWithoutDueBuffStartsFishing()
     -- Double-click without due buff should start fishing cast
     DreamFisher._test.SetDB({
-        buffItems = { { itemID = 12345, refreshSeconds = 60 } },
+        buffItems = { { itemID = 12345 } },
         buffAuraByItem = {},
     })
 
@@ -381,7 +380,7 @@ end
 function TestCombatLockdownPreventsAction()
     -- Right-click in combat should be ignored
     DreamFisher._test.SetDB({
-        buffItems = { { itemID = 12345, refreshSeconds = 60 } },
+        buffItems = { { itemID = 12345, } },
         buffAuraByItem = {},
     })
 

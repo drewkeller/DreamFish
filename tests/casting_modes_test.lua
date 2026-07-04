@@ -113,7 +113,6 @@ function RunTest(name, testFn)
         DreamFisher._test.SetDB({
             buffItems = {},
             buffAuraByItem = {},
-            refreshSeconds = 180,
         })
         DreamFisher.state.buffItemTransientUntil = {}
         DreamFisher.state.buffCastBlockWarningAt = 0
@@ -158,7 +157,7 @@ function tests.SingleClickClearsBindings()
     -- Single right-click should clear override bindings (awaiting double-click)
     -- This is tested indirectly: if second click is within window, it processes double-click
     DreamFisher._test.SetDB({
-        buffItems = { { itemID = 111, refreshSeconds = 60 } },
+        buffItems = { { itemID = 111 } },
         buffAuraByItem = {},
     })
 
@@ -240,7 +239,7 @@ end
 function tests.DoubleClickDueBuff()
     -- Double-click with due buff should use the buff
     DreamFisher._test.SetDB({
-        buffItems = { { itemID = 111, refreshSeconds = 60 } },
+        buffItems = { { itemID = 111 } },
         buffAuraByItem = {},
     })
 
@@ -271,7 +270,7 @@ end
 
 function tests.DoubleClickDueBuffArmsProfessionSlotMacro()
     DreamFisher._test.SetDB({
-        buffItems = { { itemID = 111, expectedDuration = 60 } },
+        buffItems = { { itemID = 111 } },
         buffAuraByItem = {},
     })
 
@@ -312,8 +311,8 @@ function tests.DoubleClickSelectsFirstDueBuff()
     -- When multiple buffs are due, double-click uses first one
     DreamFisher._test.SetDB({
         buffItems = {
-            { itemID = 111, refreshSeconds = 60 },
-            { itemID = 222, refreshSeconds = 60 },
+            { itemID = 111 },
+            { itemID = 222 },
         },
         buffAuraByItem = {},
     })
@@ -353,7 +352,7 @@ end
 function tests.DoubleClickNoDueBuff()
     -- Double-click without due buff should start fishing
     DreamFisher._test.SetDB({
-        buffItems = { { itemID = 111, refreshSeconds = 60 } },
+        buffItems = { { itemID = 111 } },
         buffAuraByItem = {},
     })
 
@@ -389,7 +388,7 @@ function tests.DoubleClickWindowWithinTimeframe()
     assertEquals(window, 0.33, "Double-click window should be 0.33s")
 
     DreamFisher._test.SetDB({
-        buffItems = { { itemID = 111, refreshSeconds = 60 } },
+        buffItems = { { itemID = 111 } },
         buffAuraByItem = {},
     })
 
@@ -444,7 +443,7 @@ function tests.CombatLockdownPreventsAction()
     mockInCombat = true
 
     DreamFisher._test.SetDB({
-        buffItems = { { itemID = 111, refreshSeconds = 60 } },
+        buffItems = { { itemID = 111 } },
         buffAuraByItem = {},
     })
 
@@ -480,9 +479,8 @@ function tests.HotkeyModeDoesNotActivateWorldClick()
     DreamFisher._test.SetDB({
         castingModes = {
             doubleRightClick = false,
-            singleRightClickConfig = false,
-            singleRightClickDoubleStart = false,
-            hotkey = true,
+            singleRightClick = false,
+            castHotkey = true,
         },
         buffItems = {},
         buffAuraByItem = {},
@@ -496,9 +494,8 @@ function tests.HotkeyModeCanBeActivated()
     DreamFisher._test.SetDB({
         castingModes = {
             doubleRightClick = false,
-            singleRightClickConfig = false,
-            singleRightClickDoubleStart = false,
-            hotkey = true,
+            singleRightClick = false,
+            castHotkey = true,
         },
         buffItems = {},
         buffAuraByItem = {},
@@ -511,9 +508,8 @@ function tests.HotkeyModeDisabledReturnsFalse()
     DreamFisher._test.SetDB({
         castingModes = {
             doubleRightClick = true,
-            singleRightClickConfig = false,
-            singleRightClickDoubleStart = false,
-            hotkey = false,
+            singleRightClick = false,
+            castHotkey = false,
         },
         buffItems = {},
         buffAuraByItem = {},
@@ -563,7 +559,7 @@ function tests.HotkeyConfiguresFishingSpellWhenNoBuffItems()
     end
 
     DreamFisher._test.SetDB({
-        castingModes = { hotkey = true },
+        castingModes = { castHotkey = true },
         buffItems = {},
         buffAuraByItem = {},
         useOversizedBobber = false,
@@ -591,8 +587,8 @@ function tests.HotkeyConfiguresMacroWhenDueBuffReady()
     end
 
     DreamFisher._test.SetDB({
-        castingModes = { hotkey = true },
-        buffItems = { { itemID = 111, refreshSeconds = 60 } },
+        castingModes = { castHotkey = true },
+        buffItems = { { itemID = 111 } },
         buffAuraByItem = {},
         useOversizedBobber = false,
         selectedBobberToy = nil,
@@ -632,8 +628,8 @@ function tests.HotkeyLureDueBuffAppliesProfessionSlot()
     end
 
     DreamFisher._test.SetDB({
-        castingModes = { hotkey = true },
-        buffItems = { { itemID = 333, refreshSeconds = 60 } },
+        castingModes = { castHotkey = true },
+        buffItems = { { itemID = 333 } },
         buffAuraByItem = {},
         useOversizedBobber = false,
         selectedBobberToy = nil,
@@ -675,8 +671,8 @@ function tests.HotkeyLureDueBuffWarnsWhenNoFishingPoleEquipped()
     end
 
     DreamFisher._test.SetDB({
-        castingModes = { hotkey = true },
-        buffItems = { { itemID = 333, refreshSeconds = 60 } },
+        castingModes = { castHotkey = true },
+        buffItems = { { itemID = 333 } },
         buffAuraByItem = {},
         useOversizedBobber = false,
         selectedBobberToy = nil,
@@ -731,10 +727,10 @@ function tests.HotkeyFallsBackToOtherConsumableWhenLureBlockedByMissingPole()
     end
 
     DreamFisher._test.SetDB({
-        castingModes = { hotkey = true },
+        castingModes = { castHotkey = true },
         buffItems = {
-            { itemID = 333, refreshSeconds = 60 },
-            { itemID = 444, refreshSeconds = 60 },
+            { itemID = 333 },
+            { itemID = 444 },
         },
         buffAuraByItem = {},
         useOversizedBobber = false,
@@ -798,7 +794,7 @@ function tests.HotkeyAbortsWhenFoodDrinkTransientActiveWithoutLastingAura()
     end
 
     DreamFisher._test.SetDB({
-        castingModes = { hotkey = true },
+        castingModes = { castHotkey = true },
         buffItems = { { itemID = 242299, expectedDuration = 3600 } },
         buffAuraByItem = { ["242299"] = { spellID = 1269152, duration = 3600 } },
         useOversizedBobber = false,
@@ -844,7 +840,7 @@ function tests.HotkeyTransientActiveDoesNotFallbackToOtherBuffItems()
     end
 
     DreamFisher._test.SetDB({
-        castingModes = { hotkey = true },
+        castingModes = { castHotkey = true },
         buffItems = {
             { itemID = 242299, expectedDuration = 3600 },
             { itemID = 238367, expectedDuration = 30 },
@@ -905,7 +901,7 @@ function tests.HotkeyTeaTransientBlocksFallbackEvenIfTrackedAuraLooksActive()
     end
 
     DreamFisher._test.SetDB({
-        castingModes = { hotkey = true },
+        castingModes = { castHotkey = true },
         buffItems = {
             { itemID = 242299, expectedDuration = 3600 },
             { itemID = 238381, expectedDuration = 30 },
@@ -978,10 +974,10 @@ function tests.PrecastAppliesRaftBeforeDueBuff()
     end
 
     DreamFisher._test.SetDB({
-        castingModes = { hotkey = true },
+        castingModes = { castHotkey = true },
         buffItems = { { itemID = 111, expectedDuration = 60 } },
         buffAuraByItem = {},
-        enableHookedLoot = false,
+        easyStrike = false,
         selectedRaftToy = 85500,
         selectedBobberToy = nil,
         useOversizedBobber = false,
@@ -1046,10 +1042,10 @@ function tests.PrecastAppliesBobberBeforeDueBuff()
     end
 
     DreamFisher._test.SetDB({
-        castingModes = { hotkey = true },
+        castingModes = { castHotkey = true },
         buffItems = { { itemID = 111, expectedDuration = 60 } },
         buffAuraByItem = {},
-        enableHookedLoot = false,
+        easyStrike = false,
         selectedRaftToy = nil,
         selectedBobberToy = 142531,
         useOversizedBobber = false,
@@ -1085,10 +1081,10 @@ function tests.PrecastEquipsSelectedFishingPoleBeforeBobber()
     end
 
     DreamFisher._test.SetDB({
-        castingModes = { hotkey = true },
+        castingModes = { castHotkey = true },
         buffItems = {},
         buffAuraByItem = {},
-        enableHookedLoot = false,
+        easyStrike = false,
         selectedRaftToy = nil,
         selectedFishingPole = 555001,
         selectedUnderlightAngler = nil,
@@ -1125,10 +1121,10 @@ function tests.PrecastLockUnderlightSkipsPrimaryPoleSwap()
     end
 
     DreamFisher._test.SetDB({
-        castingModes = { hotkey = true },
+        castingModes = { castHotkey = true },
         buffItems = {},
         buffAuraByItem = {},
-        enableHookedLoot = false,
+        easyStrike = false,
         selectedRaftToy = nil,
         selectedFishingPole = 555001,
         selectedUnderlightAngler = 133755,
@@ -1309,10 +1305,10 @@ function tests.PrecastSkipsBobberWhenAuraCoversCast()
     end
 
     DreamFisher._test.SetDB({
-        castingModes = { hotkey = true },
+        castingModes = { castHotkey = true },
         buffItems = { { itemID = 111, expectedDuration = 60 } },
         buffAuraByItem = {},
-        enableHookedLoot = false,
+        easyStrike = false,
         selectedRaftToy = nil,
         selectedBobberToy = 142529,
         useOversizedBobber = false,
@@ -1363,10 +1359,10 @@ function tests.PrecastAppliesBobberWhenAuraExpiring()
     end
 
     DreamFisher._test.SetDB({
-        castingModes = { hotkey = true },
+        castingModes = { castHotkey = true },
         buffItems = { { itemID = 111, expectedDuration = 60 } },
         buffAuraByItem = {},
-        enableHookedLoot = false,
+        easyStrike = false,
         selectedRaftToy = nil,
         selectedBobberToy = 142529,
         useOversizedBobber = false,
@@ -1418,10 +1414,10 @@ function tests.PrecastBobberFallsBackToCooldownWhenAuraUnavailable()
     end
 
     DreamFisher._test.SetDB({
-        castingModes = { hotkey = true },
+        castingModes = { castHotkey = true },
         buffItems = { { itemID = 111, expectedDuration = 60 } },
         buffAuraByItem = {},
-        enableHookedLoot = false,
+        easyStrike = false,
         selectedRaftToy = nil,
         selectedBobberToy = 142529,
         useOversizedBobber = false,
@@ -1464,14 +1460,14 @@ function tests.PrecastPrioritizesBaitAfterLureBeforeFoodDrink()
     end
 
     DreamFisher._test.SetDB({
-        castingModes = { hotkey = true },
+        castingModes = { castHotkey = true },
         buffItems = {
             { itemID = 262651, expectedDuration = 600 }, -- lure
             { itemID = 198401, expectedDuration = 1800 }, -- bait
             { itemID = 242299, expectedDuration = 3600 }, -- food/drink
         },
         buffAuraByItem = {},
-        enableHookedLoot = false,
+        easyStrike = false,
         selectedRaftToy = nil,
         selectedBobberToy = nil,
         useOversizedBobber = false,
@@ -1517,13 +1513,13 @@ function tests.PrecastSkipsBaitCategoryWhenAnyBaitAuraIsActive()
     end
 
     DreamFisher._test.SetDB({
-        castingModes = { hotkey = true },
+        castingModes = { castHotkey = true },
         buffItems = {
             { itemID = 198401, expectedDuration = 1800 }, -- bait
             { itemID = 241316, expectedDuration = 3600 }, -- other consumable
         },
         buffAuraByItem = {},
-        enableHookedLoot = false,
+        easyStrike = false,
         selectedRaftToy = nil,
         selectedBobberToy = nil,
         useOversizedBobber = false,
@@ -1576,13 +1572,13 @@ function tests.PrecastPrioritizesFoodDrinkBeforeOtherConsumable()
     end
 
     DreamFisher._test.SetDB({
-        castingModes = { hotkey = true },
+        castingModes = { castHotkey = true },
         buffItems = {
             { itemID = 241316, expectedDuration = 3600 },
             { itemID = 242299, expectedDuration = 3600 },
         },
         buffAuraByItem = {},
-        enableHookedLoot = false,
+        easyStrike = false,
         selectedRaftToy = nil,
         selectedBobberToy = nil,
         useOversizedBobber = false,
@@ -1622,8 +1618,8 @@ function tests.HotkeyConfiguresFishingWhenBuffNotDue()
     end
 
     DreamFisher._test.SetDB({
-        castingModes = { hotkey = true },
-        buffItems = { { itemID = 111, refreshSeconds = 60 } },
+        castingModes = { castHotkey = true },
+        buffItems = { { itemID = 111 } },
         buffAuraByItem = {},
         useOversizedBobber = false,
         selectedBobberToy = nil,
@@ -1661,10 +1657,10 @@ function tests.HookedLootModeConfiguresInteractAction()
     end
 
     DreamFisher._test.SetDB({
-        castingModes = { hotkey = true },
+        castingModes = { castHotkey = true },
         buffItems = {},
         buffAuraByItem = {},
-        enableHookedLoot = true,
+        easyStrike = true,
     })
 
     DreamFisher.state.isBobberActive = true
@@ -1686,10 +1682,10 @@ function tests.HookedLootModeDisabledKeepsFishingCastAction()
     end
 
     DreamFisher._test.SetDB({
-        castingModes = { hotkey = true },
+        castingModes = { castHotkey = true },
         buffItems = {},
         buffAuraByItem = {},
-        enableHookedLoot = false,
+        easyStrike = false,
     })
 
     DreamFisher.state.isBobberActive = true
@@ -1709,10 +1705,10 @@ function tests.HookedLootFallbackWindowConfiguresInteractAction()
     end
 
     DreamFisher._test.SetDB({
-        castingModes = { hotkey = true },
+        castingModes = { castHotkey = true },
         buffItems = {},
         buffAuraByItem = {},
-        enableHookedLoot = true,
+        easyStrike = true,
     })
 
     DreamFisher.state.isFishing = true
@@ -1737,10 +1733,10 @@ function tests.PrecastIncludesRaftWhenSwimming()
     end
 
     DreamFisher._test.SetDB({
-        castingModes = { hotkey = true },
+        castingModes = { castHotkey = true },
         buffItems = {},
         buffAuraByItem = {},
-        enableHookedLoot = false,
+        easyStrike = false,
         selectedRaftToy = 85500,
         selectedBobberToy = nil,
         useOversizedBobber = false,
@@ -1769,10 +1765,10 @@ function tests.PrecastSkipsBobberAndOversizedWhileSwimming()
     end
 
     DreamFisher._test.SetDB({
-        castingModes = { hotkey = true },
+        castingModes = { castHotkey = true },
         buffItems = {},
         buffAuraByItem = {},
-        enableHookedLoot = false,
+        easyStrike = false,
         selectedRaftToy = 85500,
         selectedBobberToy = 147307,
         useOversizedBobber = true,
@@ -1820,10 +1816,10 @@ function tests.PrecastSkipsOversizedWhenAuraCoversCast()
     end
 
     DreamFisher._test.SetDB({
-        castingModes = { hotkey = true },
+        castingModes = { castHotkey = true },
         buffItems = {},
         buffAuraByItem = {},
-        enableHookedLoot = false,
+        easyStrike = false,
         selectedRaftToy = nil,
         selectedBobberToy = nil,
         useOversizedBobber = true,
@@ -1863,10 +1859,10 @@ function tests.PrecastAppliesOversizedWhenAuraExpiring()
     end
 
     DreamFisher._test.SetDB({
-        castingModes = { hotkey = true },
+        castingModes = { castHotkey = true },
         buffItems = {},
         buffAuraByItem = {},
-        enableHookedLoot = false,
+        easyStrike = false,
         selectedRaftToy = nil,
         selectedBobberToy = nil,
         useOversizedBobber = true,
@@ -1906,10 +1902,10 @@ function tests.PrecastUsesOnlyRaftItemWhenSwimmingAndNeeded()
     end
 
     DreamFisher._test.SetDB({
-        castingModes = { hotkey = true },
+        castingModes = { castHotkey = true },
         buffItems = { { itemID = 241316, expectedDuration = 3600 } },
         buffAuraByItem = {},
-        enableHookedLoot = false,
+        easyStrike = false,
         selectedRaftToy = 85500,
         selectedBobberToy = 147307,
         useOversizedBobber = true,
@@ -1978,10 +1974,10 @@ function tests.ClickCastUsesRaftOnlyWhenSwimmingEvenIfBuffDue()
     end
 
     DreamFisher._test.SetDB({
-        castingModes = { hotkey = false, doubleRightClick = true },
+        castingModes = { castHotkey = false, doubleRightClick = true },
         buffItems = { { itemID = 241316, expectedDuration = 3600 } },
         buffAuraByItem = {},
-        enableHookedLoot = false,
+        easyStrike = false,
         selectedRaftToy = 85500,
         selectedBobberToy = nil,
         useOversizedBobber = false,
@@ -2043,10 +2039,10 @@ function tests.PrecastSkipsRaftWhenAuraCoversCast()
     end
 
     DreamFisher._test.SetDB({
-        castingModes = { hotkey = true },
+        castingModes = { castHotkey = true },
         buffItems = {},
         buffAuraByItem = {},
-        enableHookedLoot = false,
+        easyStrike = false,
         selectedRaftToy = 85500,
         selectedBobberToy = nil,
         useOversizedBobber = false,
@@ -2099,10 +2095,10 @@ function tests.PrecastReappliesRaftWhenAuraExpiringEvenIfNotSwimming()
     end
 
     DreamFisher._test.SetDB({
-        castingModes = { hotkey = true },
+        castingModes = { castHotkey = true },
         buffItems = {},
         buffAuraByItem = {},
-        enableHookedLoot = false,
+        easyStrike = false,
         selectedRaftToy = 85500,
         selectedBobberToy = nil,
         useOversizedBobber = false,
@@ -2167,13 +2163,12 @@ function tests.HookedRightClickRoutesToInteractWhenHooked()
     DreamFisher._test.SetDB({
         castingModes = {
             doubleRightClick = true,
-            singleRightClickConfig = false,
-            singleRightClickDoubleStart = false,
-            hotkey = false,
+            singleRightClick = false,
+            castHotkey = false,
         },
         buffItems = {},
         buffAuraByItem = {},
-        enableHookedLoot = true,
+        easyStrike = true,
     })
 
     DreamFisher.state.isFishing = true
@@ -2205,13 +2200,12 @@ function tests.StaleHookedOverrideFallsBackToCastFlow()
     DreamFisher._test.SetDB({
         castingModes = {
             doubleRightClick = true,
-            singleRightClickConfig = false,
-            singleRightClickDoubleStart = false,
-            hotkey = false,
+            singleRightClick = false,
+            castHotkey = false,
         },
         buffItems = {},
         buffAuraByItem = {},
-        enableHookedLoot = true,
+        easyStrike = true,
     })
 
     DreamFisher.state.isFishing = false
@@ -2254,13 +2248,12 @@ function tests.RecentFishingWithInteractTargetRoutesHookedFallback()
     DreamFisher._test.SetDB({
         castingModes = {
             doubleRightClick = true,
-            singleRightClickConfig = false,
-            singleRightClickDoubleStart = false,
-            hotkey = false,
+            singleRightClick = false,
+            castHotkey = false,
         },
         buffItems = {},
         buffAuraByItem = {},
-        enableHookedLoot = true,
+        easyStrike = true,
     })
 
     DreamFisher.state.isFishing = false
@@ -2305,13 +2298,12 @@ function tests.PostCastHookWindowRoutesHookedFallbackWithoutUnits()
     DreamFisher._test.SetDB({
         castingModes = {
             doubleRightClick = true,
-            singleRightClickConfig = false,
-            singleRightClickDoubleStart = false,
-            hotkey = false,
+            singleRightClick = false,
+            castHotkey = false,
         },
         buffItems = {},
         buffAuraByItem = {},
-        enableHookedLoot = true,
+        easyStrike = true,
     })
 
     DreamFisher.state.isFishing = true
@@ -2347,10 +2339,10 @@ function tests.HookedAcquireWindowKeepsTargetMacroWithoutSoftName()
     end
 
     DreamFisher._test.SetDB({
-        castingModes = { hotkey = true },
+        castingModes = { castHotkey = true },
         buffItems = {},
         buffAuraByItem = {},
-        enableHookedLoot = true,
+        easyStrike = true,
     })
 
     DreamFisher.state.isFishing = true
@@ -2393,10 +2385,10 @@ function tests.HookedSoftNameUsesAcquirePlusInteractMacro()
     end
 
     DreamFisher._test.SetDB({
-        castingModes = { hotkey = true },
+        castingModes = { castHotkey = true },
         buffItems = {},
         buffAuraByItem = {},
-        enableHookedLoot = true,
+        easyStrike = true,
     })
 
     DreamFisher.state.isFishing = true
@@ -2429,7 +2421,7 @@ end
 function tests.HotkeyPressInCombatReturnsTrue()
     -- HandleHotkeyPress returns true (consumed) even in combat
     DreamFisher._test.SetDB({
-        castingModes = { hotkey = true },
+        castingModes = { castHotkey = true },
         buffItems = {},
         buffAuraByItem = {},
     })
@@ -2444,9 +2436,8 @@ function tests.HotkeyPressWhenDisabledReturnsFalse()
     DreamFisher._test.SetDB({
         castingModes = {
             doubleRightClick = true,
-            singleRightClickConfig = false,
-            singleRightClickDoubleStart = false,
-            hotkey = false,
+            singleRightClick = false,
+            castHotkey = false,
         },
         buffItems = {},
         buffAuraByItem = {},
@@ -2462,9 +2453,8 @@ function tests.HotkeyPressWhenEnabledOutOfCombatReturnsTrue()
     DreamFisher._test.SetDB({
         castingModes = {
             doubleRightClick = false,
-            singleRightClickConfig = false,
-            singleRightClickDoubleStart = false,
-            hotkey = true,
+            singleRightClick = false,
+            castHotkey = true,
         },
         buffItems = {},
         buffAuraByItem = {},
@@ -2482,7 +2472,7 @@ end
 function tests.DoubleClickAdaptsToDueBuff()
     -- If first click happens with no due buff, but buff becomes due by second click
     DreamFisher._test.SetDB({
-        buffItems = { { itemID = 111, refreshSeconds = 60 } },
+        buffItems = { { itemID = 111 } },
         buffAuraByItem = {},
     })
 

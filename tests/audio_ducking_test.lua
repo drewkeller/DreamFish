@@ -184,7 +184,7 @@ local function driveOnUpdateUntil(targetTime)
 end
 
 -- Initialize addon state.
-addon._test.SetDB({ enhancedSounds = true, audioFocusLinger = 10, autoLoot = true, bagAlerts = true, treasureAlerts = true, lowBagThreshold = 2 })
+addon._test.SetDB({ focusedAudio = true, focusedAudioLinger = 10, autoLoot = true, bagAlerts = true, treasureAlerts = true, lowBagThreshold = 2 })
 local fishingStateFrame = addon._test.GetFishingStateFrame()
 local onEvent = fishingStateFrame and fishingStateFrame:GetScript("OnEvent")
 assertTrue(type(onEvent) == "function", "Fishing state frame OnEvent should exist")
@@ -259,7 +259,7 @@ addon._test.RestoreFishingAudioFocusAfterLinger()
 assertTrue(addon._test.GetAudioRestoreAt() ~= nil, "Linger restore time should be scheduled")
 assertEquals(addon._test.GetAudioRestoreAt(), 110, "Default linger should schedule a 10 second restore")
 
-addon.db.audioFocusLinger = 3
+addon.db.focusedAudioLinger = 3
 addon._test.RestoreFishingAudioFocusAfterLinger()
 assertEquals(addon._test.GetAudioRestoreAt(), 103, "Saving the config should reschedule the active linger timer from the UI value")
 
@@ -306,7 +306,7 @@ assertTrue(not addon._test.GetAudioDucked(), "Audio should restore when a differ
 
 -- Case 10: Zero linger restores audio immediately when the double-click cast bar ends.
 resetState()
-addon.db.audioFocusLinger = 0
+addon.db.focusedAudioLinger = 0
 now = 500
 addon._test.HandleWorldRightClick()
 now = 500.1
@@ -329,7 +329,7 @@ assertEquals(addon.state.interactOverrideActive, true, "Non-fishing failed/quiet
 
 -- Case 12: Post-stop bobber mode with no hooked evidence should self-clear after confirmation window.
 resetState()
-addon.db.audioFocusLinger = 10
+addon.db.focusedAudioLinger = 10
 now = 800
 currentCastName = "Fishing"
 onEvent(fishingStateFrame, "UNIT_SPELLCAST_START", "player", "cast-guid", addon.const.fishingSpellID)
