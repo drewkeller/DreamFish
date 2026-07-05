@@ -23,6 +23,7 @@ local SyncEscapeCloseRegistration
 local ownedToyOptionsCache = {}
 local ownedToyItemCache = {}
 local IsLikelyFishingPoleItem
+local OVERSIZED_BOBBER_ITEM_ID = 202207
 
 local function IsPositiveItemID(value)
     local numeric = tonumber(value)
@@ -478,6 +479,48 @@ local function IsToyOwned(itemID)
     return ownedToyItemCache[numeric]
 end
 
+local function IsItemReadyForUse(itemID)
+    local numeric = tonumber(itemID)
+    if not numeric or numeric <= 0 or type(GetItemCooldown) ~= "function" then
+        return true
+    end
+
+    local start, duration, enabled = GetItemCooldown(numeric)
+    if enabled == 0 then
+        return false
+    end
+
+    start = tonumber(start) or 0
+    duration = tonumber(duration) or 0
+    if start <= 0 or duration <= 0 then
+        return true
+    end
+
+    local now = (type(GetTime) == "function") and GetTime() or 0
+    return (start + duration) <= (now + 0.05)
+end
+
+local function ResolveBobberApplyAction()
+    local selectedToyID = addon.bobberSelector and tonumber(addon.bobberSelector:GetText()) or nil
+    if not selectedToyID or selectedToyID <= 0 then
+        return nil, "Apply Bobber (none)", false
+    end
+
+    if IsItemReadyForUse(selectedToyID) then
+        return selectedToyID, "Apply Bobber", true
+    end
+
+    local oversizedEnabled = addon.db and addon.db.useOversizedBobber
+    if oversizedEnabled
+        and selectedToyID ~= OVERSIZED_BOBBER_ITEM_ID
+        and IsToyOwned(OVERSIZED_BOBBER_ITEM_ID)
+        and IsItemReadyForUse(OVERSIZED_BOBBER_ITEM_ID) then
+        return OVERSIZED_BOBBER_ITEM_ID, "Oversize Bobber", true
+    end
+
+    return selectedToyID, "Apply Bobber", false
+end
+
 local function BuildOwnedToyOptions(candidateIDs, includeDefaultLabel)
     local defaultKey = tostring(includeDefaultLabel or "")
     local candidateKey = (type(candidateIDs) == "table") and candidateIDs or "__non_table__"
@@ -880,7 +923,7 @@ local function SaveConfigBindings()
 end
 
 UpdateToyApplyButtons = function()
-    local function SyncButton(button, selector, baseLabel)
+    local function SyncButton(button, selector, baseLabel, respectCooldown)
         if not button then
             return
         end
@@ -889,7 +932,11 @@ UpdateToyApplyButtons = function()
             button:SetAttribute("type", "toy")
             button:SetAttribute("toy", toyID)
             button:SetText(baseLabel)
-            button:Enable()
+            if (not respectCooldown) or IsItemReadyForUse(toyID) then
+                button:Enable()
+            else
+                button:Disable()
+            end
         else
             button:SetAttribute("toy", nil)
             button:SetText(baseLabel .. " (none)")
@@ -897,8 +944,19 @@ UpdateToyApplyButtons = function()
         end
     end
 
-    SyncButton(addon.bobberApplyButton, addon.bobberSelector, "Apply Bobber")
-    SyncButton(addon.raftApplyButton, addon.raftSelector, "Apply Raft")
+    if addon.bobberApplyButton then
+        local bobberToyID, bobberLabel, bobberEnabled = ResolveBobberApplyAction()
+        addon.bobberApplyButton:SetAttribute("type", "toy")
+        addon.bobberApplyButton:SetAttribute("toy", bobberToyID)
+        addon.bobberApplyButton:SetText(bobberLabel)
+        if bobberEnabled then
+            addon.bobberApplyButton:Enable()
+        else
+            addon.bobberApplyButton:Disable()
+        end
+    end
+
+    SyncButton(addon.raftApplyButton, addon.raftSelector, "Apply Raft", false)
 end
 
 SyncEscapeCloseRegistration = function()
@@ -999,6 +1057,13 @@ local function BuildPanelShell(aceGUIInstance)
     _G[panel.escapeFrameAlias] = panel
     panel:Hide()
 
+    -- Force the invisible background drag frame to stretch across the whole window
+    -- Now we can grab it for moving the window
+    if aceWindow and aceWindow.titlebg then
+        aceWindow.titlebg:SetWidth(aceWindow.frame:GetWidth())
+        aceWindow.titlebg:SetHeight(aceWindow.frame:GetHeight())
+    end
+
     local function SavePanelPosition(self)
         if addon.db then
             local point, _, relativePoint, x, y = self:GetPoint(1)
@@ -1053,6 +1118,10 @@ local function BuildTabs(panel, aceGUIInstance)
             else
                 button:Enable()
             end
+        end
+
+        if tabName == "tackle" and UpdateToyApplyButtons then
+            UpdateToyApplyButtons()
         end
     end
 
@@ -1120,6 +1189,29 @@ end
 local function BuildTackleTab(tacklePage, ui, createTackleItemDropBox, onLiveChange)
     local root = ui.FlowRoot(tacklePage, 12)
 
+    local function AttachToyApplyButtonRefresh(button)
+        if not button or type(button.HookScript) ~= "function" then
+            return
+        end
+
+        local function RefreshApplyButtonsSoon()
+            if not UpdateToyApplyButtons then
+                return
+            end
+
+            UpdateToyApplyButtons()
+
+            if C_Timer and type(C_Timer.After) == "function" then
+                local refreshDelays = { 0.12, 0.30, 0.60, 1.00 }
+                for _, delaySeconds in ipairs(refreshDelays) do
+                    C_Timer.After(delaySeconds, UpdateToyApplyButtons)
+                end
+            end
+        end
+
+        button:HookScript("OnMouseUp", RefreshApplyButtonsSoon)
+    end
+
     local function CreateTackleEnabledCheckbox(parent, x, y, onToggle)
         local checkbox = CreateFrame("CheckButton", nil, parent, "UICheckButtonTemplate")
         checkbox:SetSize(24, 24)
@@ -1158,6 +1250,7 @@ local function BuildTackleTab(tacklePage, ui, createTackleItemDropBox, onLiveCha
         return BuildOwnedToyOptions(addon.const.raftToyItemIDs, "No Raft")
     end, onLiveChange)
     addon.raftApplyButton = ui.FlowSecureToyActionButton(root, 160, "Apply Raft")
+    AttachToyApplyButtonRefresh(addon.raftApplyButton)
 
     -- Bobber section
     ui.FlowRowHost(root, 20)
@@ -1167,6 +1260,7 @@ local function BuildTackleTab(tacklePage, ui, createTackleItemDropBox, onLiveCha
     end, onLiveChange)
     addon.oversizedBobberCheckbox = ui.FlowCheckbox(root, "Use oversized bobber", onLiveChange)
     addon.bobberApplyButton = ui.FlowSecureToyActionButton(root, 160, "Apply Bobber")
+    AttachToyApplyButtonRefresh(addon.bobberApplyButton)
 
     -- Rods & Poles section
     ui.FlowRowHost(root, 20)
@@ -1228,7 +1322,7 @@ local function BuildTackleTab(tacklePage, ui, createTackleItemDropBox, onLiveCha
             addon.underlightAnglerEquipCheckbox:SetChecked(false)
         end
     end
-    ui.FlowNote(root, "Drag a fishing pole from your bags into the first slot to equip it.\n\n"
+    ui.FlowNote(root, "Drag a pole from your bags into the first slot to equip it.\n\n"
         .. "Modes:\n"
         .. "* Auto-swap: Check both boxes\n    (swap occurs when starting/stopping fishing)\n"
         .. "* Single-pole: Only check one box.\n"
