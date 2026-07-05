@@ -122,6 +122,12 @@ local function MaybeEquipConfiguredUnderlight(reason)
     end
 end
 
+local function RestoreFishingFocusVisuals()
+    if addon.uiFocus and addon.uiFocus.FadeInUI then
+        addon.uiFocus.FadeInUI()
+    end
+end
+
 local function TryArmNativeInteractOverrideFromFishingState()
     if not addon.db or not addon.db.easyStrike then
         return
@@ -311,6 +317,7 @@ local function CreateFishingStateFrame()
                             addon.frames.audioRestore:Hide()
                         end
                         addon.audio.RestoreFishingAudioFocus()
+                        RestoreFishingFocusVisuals()
                         MaybeEquipConfiguredUnderlight("state-onupdate-expired-while-bobber")
                         frame:SetScript("OnUpdate", nil)
                     end
@@ -327,6 +334,7 @@ local function CreateFishingStateFrame()
                     addon.frames.audioRestore:Hide()
                 end
                 addon.audio.RestoreFishingAudioFocus()
+                RestoreFishingFocusVisuals()
                 MaybeEquipConfiguredUnderlight("state-cast-start-nonfishing", true)
                 frame:SetScript("OnUpdate", nil)
             end
@@ -344,6 +352,7 @@ local function CreateFishingStateFrame()
                     addon.state.fishingLootInProgress = false
                     addon.state.lastFishingCastStopAt = 0
                     addon.audio.RestoreFishingAudioFocus()
+                    RestoreFishingFocusVisuals()
                     MaybeEquipConfiguredUnderlight("state-cast-stop-linger-zero", true)
                     frame:SetScript("OnUpdate", nil)
                 elseif elapsed >= addon.state.fishingExpireSeconds and not addon.state.fishingLootInProgress then
@@ -354,6 +363,7 @@ local function CreateFishingStateFrame()
                     addon.state.fishingLootInProgress = false
                     addon.state.lastFishingCastStopAt = 0
                     addon.audio.RestoreFishingAudioFocusAfterLinger()
+                    RestoreFishingFocusVisuals()
                     MaybeEquipConfiguredUnderlight("state-cast-stop-after-expire", true)
                     frame:SetScript("OnUpdate", nil)
                 else
@@ -395,6 +405,7 @@ local function CreateFishingStateFrame()
                                     addon.frames.audioRestore:Hide()
                                 end
                                 addon.audio.RestoreFishingAudioFocus()
+                                RestoreFishingFocusVisuals()
                                 MaybeEquipConfiguredUnderlight("state-post-stop-no-hooked-evidence", true)
                                 frame:SetScript("OnUpdate", nil)
                                 return
@@ -408,6 +419,7 @@ local function CreateFishingStateFrame()
                             addon.state.fishingLootInProgress = false
                             addon.state.lastFishingCastStopAt = 0
                             addon.audio.RestoreFishingAudioFocusAfterLinger()
+                            RestoreFishingFocusVisuals()
                             MaybeEquipConfiguredUnderlight("state-onupdate-expired-after-stop", true)
                             frame:SetScript("OnUpdate", nil)
                         end
@@ -444,6 +456,7 @@ local function CreateFishingStateFrame()
                     addon.frames.audioRestore:Hide()
                 end
                 addon.audio.RestoreFishingAudioFocus()
+                RestoreFishingFocusVisuals()
                 MaybeEquipConfiguredUnderlight("state-cast-failed", true)
                 frame:SetScript("OnUpdate", nil)
             elseif addon.db and addon.db.debugMode and addon.db.debugState and addon.state.savedFishingAudioCVars ~= nil and ShouldLogIgnoredFailure(spellID) then
@@ -480,6 +493,7 @@ local function CreateFishingStateFrame()
                     addon.frames.audioRestore:Hide()
                 end
                 addon.audio.RestoreFishingAudioFocus()
+                RestoreFishingFocusVisuals()
                 MaybeEquipConfiguredUnderlight("state-player-moving", true)
                 frame:SetScript("OnUpdate", nil)
             end
@@ -501,6 +515,7 @@ local function CreateFishingStateFrame()
                     addon.frames.audioRestore:Hide()
                 end
                 addon.audio.RestoreFishingAudioFocus()
+                RestoreFishingFocusVisuals()
                 MaybeEquipConfiguredUnderlight("state-combat-start")
                 frame:SetScript("OnUpdate", nil)
             end

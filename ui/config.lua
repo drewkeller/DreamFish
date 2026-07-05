@@ -786,6 +786,10 @@ local function SaveTackleBindings()
         addon.fishing.MaybeEquipConfiguredUnderlight("config-save")
     end
 
+    if addon.uiFocus and addon.uiFocus.RefreshFocusFadeState then
+        addon.uiFocus.RefreshFocusFadeState()
+    end
+
     UpdateToyApplyButtons()
 end
 
@@ -845,6 +849,12 @@ local function LoadConfigBindings()
     end
     if isFocusActive and addon.focusedAudioCheckbox then
         addon.focusedAudioCheckbox:SetChecked(addon.db.focusedAudio)
+    end
+    if isFocusActive and addon.focusedVisualsCheckbox then
+        addon.focusedVisualsCheckbox:SetChecked(addon.db.focusedVisuals)
+    end
+    if isFocusActive and addon.focusedVisualsLingerBox then
+        addon.focusedVisualsLingerBox:SetText(tostring(addon.db.focusedVisualsLinger or defaults.focusedVisualsLinger))
     end
     if isFocusActive and addon.treasureAlertsCheckbox then
         addon.treasureAlertsCheckbox:SetChecked(addon.db.treasureAlerts)
@@ -932,6 +942,14 @@ local function SaveConfigBindings()
     end
     if addon.focusedAudioCheckbox then
         addon.db.focusedAudio = addon.focusedAudioCheckbox:GetChecked()
+    end
+    if addon.focusedVisualsCheckbox then
+        addon.db.focusedVisuals = addon.focusedVisualsCheckbox:GetChecked()
+    end
+    if addon.focusedVisualsLingerBox then
+        addon.db.focusedVisualsLinger = addon.Clamp(tonumber(addon.focusedVisualsLingerBox:GetText()) or defaults.focusedVisualsLinger, 0, 60)
+    else
+        addon.db.focusedVisualsLinger = addon.Clamp(tonumber(addon.db.focusedVisualsLinger) or defaults.focusedVisualsLinger, 0, 60)
     end
     if addon.treasureAlertsCheckbox then
         addon.db.treasureAlerts = addon.treasureAlertsCheckbox:GetChecked()
@@ -1133,13 +1151,6 @@ local function BuildPanelShell(aceGUIInstance)
     _G[panel.escapeFrameAlias] = panel
     panel:Hide()
 
-    -- Force the invisible background drag frame to stretch across the whole window
-    -- Now we can grab it for moving the window
-    if aceWindow and aceWindow.titlebg then
-        aceWindow.titlebg:SetWidth(aceWindow.frame:GetWidth())
-        aceWindow.titlebg:SetHeight(aceWindow.frame:GetHeight())
-    end
-
     local function SavePanelPosition(self)
         if addon.db then
             local point, _, relativePoint, x, y = self:GetPoint(1)
@@ -1151,6 +1162,40 @@ local function BuildPanelShell(aceGUIInstance)
             }
         end
     end
+
+    -- 1. Movable frame: Access the underlying Blizzard Frame objects
+    local blizzFrame = aceWindow.frame
+    local titleBg = aceWindow.titlebg
+
+    -- 2. Kill the restricted default AceGUI TitleRegion
+    -- (This prevents the old logic from conflicting with our custom drag scripts)
+    if blizzFrame and blizzFrame.GetTitleRegion then
+        blizzFrame:GetTitleRegion():SetWidth(0)
+        blizzFrame:GetTitleRegion():SetHeight(0)
+    end
+
+    -- 3. Enable mouse tracking on the main container frame
+    blizzFrame:EnableMouse(true)
+    blizzFrame:SetMovable(true)
+
+    -- 4. Attach scripts to drag using the background
+    blizzFrame:SetScript("OnMouseDown", function(self, button)
+        if button == "LeftButton" and not self.isMoving then
+            self:StartMoving()
+            self.isMoving = true
+        end
+    end)
+
+    blizzFrame:SetScript("OnMouseUp", function(self, button)
+        if button == "LeftButton" and self.isMoving then
+            self:StopMovingOrSizing()
+            self.isMoving = false
+            SavePanelPosition(self)
+        end
+    end)
+
+    -- 5. Ensure the old title visual background still works to drag
+    titleBg:EnableMouse(false) -- Allows clicks to pass through to the blizzFrame
 
     panel:SetClampedToScreen(true)
     panel:EnableMouse(true)
@@ -1266,6 +1311,12 @@ local function BuildFocusTab(focusPage, ui, onLiveChange)
         "Reduces other sounds and focuses audio on fishing sounds, then restores when done fishing.")
     addon.audioLingerBox = ui.FlowEditBox(audioSection, "After catch (s)", 150, onLiveChange,
         "How long to keep the fishing audio focused after a cast is stopped. Combat or other cancellations immediately revert the audio focus.")
+
+    local visualSection = ui.FlowSection(root, "Visual")
+    addon.focusedVisualsCheckbox = ui.FlowCheckbox(visualSection, "Fade out visual elements when fishing", onLiveChange,
+        "Fades out other UI frames and focuses on fishing, then restores when done fishing. Not everything can be hidden.")
+    addon.focusedVisualsLingerBox = ui.FlowEditBox(visualSection, "After catch (s)", 150, onLiveChange,
+        "How long to keep the visuals faded after a cast is stopped. Combat or other cancellations immediately restore the visuals.")
 end
 
 local function BuildTackleTab(tacklePage, ui, createTackleItemDropBox, onLiveChange)

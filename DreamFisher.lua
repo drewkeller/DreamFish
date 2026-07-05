@@ -101,6 +101,13 @@ frame:SetScript("OnEvent", function(self, event, name)
         addon.audio.ResumePersistedAudioDuckingState()
     end
 
+    if addon.uiFocus and addon.uiFocus.CreateFocusFadeFrame then
+        addon.uiFocus.CreateFocusFadeFrame()
+        if addon.uiFocus.RefreshFocusFadeState then
+            addon.uiFocus.RefreshFocusFadeState()
+        end
+    end
+
     if addon.fishing and addon.fishing.MaybeEquipConfiguredUnderlight then
         addon.fishing.MaybeEquipConfiguredUnderlight("addon-loaded")
     end

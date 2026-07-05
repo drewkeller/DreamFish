@@ -17,6 +17,8 @@ addon.defaults = {
     lowBagThreshold = 2,
     focusedAudio = true,
     focusedAudioLinger = 10,
+    focusedVisuals = false,
+    focusedVisualsLinger = 10,
     -- Tackle
     selectedRaftToy = nil,
     selectedBobberToy = nil,
