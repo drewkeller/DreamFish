@@ -40,8 +40,9 @@ local function GetBuffItemCategory(itemID)
     end
 
     if addon.const and type(addon.const.bobberToyItemIDs) == "table" then
-        for _, toyItemID in ipairs(addon.const.bobberToyItemIDs) do
-            if tonumber(toyItemID) == numeric then
+        for _, toy in ipairs(addon.const.bobberToyItemIDs) do
+            local toyItemID = tonumber(type(toy) == "table" and toy.id or toy)
+            if toyItemID == numeric then
                 return "bobber"
             end
         end

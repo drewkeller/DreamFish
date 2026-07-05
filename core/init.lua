@@ -27,39 +27,32 @@ addon.defaults = {
     underlightAnglerMode = "disabled",
     useUnderlightAngler = false,
     -- Buffs
-    buffItems = {},
-    lureItems = {
-        { isChecked = false, itemID = nil },
-        { isChecked = false, itemID = nil },
-        { isChecked = false, itemID = nil },
-        { isChecked = false, itemID = nil },
-        { isChecked = false, itemID = nil },
-    },
-    baitItems = {
-        { isChecked = false, itemID = nil },
-        { isChecked = false, itemID = nil },
-        { isChecked = false, itemID = nil },
-        { isChecked = false, itemID = nil },
-        { isChecked = false, itemID = nil },
-    },
-    foodDrinkItems = {
-        { isChecked = false, itemID = nil },
-        { isChecked = false, itemID = nil },
-        { isChecked = false, itemID = nil },
-        { isChecked = false, itemID = nil },
-        { isChecked = false, itemID = nil },
-    },
     buffItems = {
-        { isChecked = false, itemID = nil },
-        { isChecked = false, itemID = nil },
-        { isChecked = false, itemID = nil },
-        { isChecked = false, itemID = nil },
-        { isChecked = false, itemID = nil },
-        { isChecked = false, itemID = nil },
-        { isChecked = false, itemID = nil },
-        { isChecked = false, itemID = nil },
-        { isChecked = false, itemID = nil },
-        { isChecked = false, itemID = nil },
+        { enabled = false, itemID = nil },
+        { enabled = false, itemID = nil },
+        { enabled = false, itemID = nil },
+        { enabled = false, itemID = nil },
+        { enabled = false, itemID = nil },
+        { enabled = false, itemID = nil },
+        { enabled = false, itemID = nil },
+        { enabled = false, itemID = nil },
+        { enabled = false, itemID = nil },
+        { enabled = false, itemID = nil },
+        { enabled = false, itemID = nil },
+        { enabled = false, itemID = nil },
+        { enabled = false, itemID = nil },
+        { enabled = false, itemID = nil },
+        { enabled = false, itemID = nil },
+        { enabled = false, itemID = nil },
+        { enabled = false, itemID = nil },
+        { enabled = false, itemID = nil },
+        { enabled = false, itemID = nil },
+        { enabled = false, itemID = nil },
+        { enabled = false, itemID = nil },
+        { enabled = false, itemID = nil },
+        { enabled = false, itemID = nil },
+        { enabled = false, itemID = nil },
+        { enabled = false, itemID = nil },
     },
     buffAuraByItem = {
         ["238374"] = { spellID = 1237942, duration = 30 }, -- Tender Lumifin
@@ -142,23 +135,23 @@ addon.const = {
     fishingChannelSpellID = 131476,
     hookedEvidenceConfirmSeconds = 4,
     bobberToyItemIDs = {
-        180993, -- Bat Visage
-        142528, -- Can of Worms
-        147307, -- Carved Wooden Helm
-        142529, -- Cat Head
-        147312, -- Demon Noggin
-        147308, -- Enchanted Bobber
-        147309, -- Face of the Forest
-        147310, -- Floating Totem
-        142532, -- Murloc Head
-        147311, -- Replica Gondola
-        142531, -- Squeaky Duck
-        142530, -- Tugboat
-        143662, -- Wooden Pepe
+        { id = 180993, name = "Bat Visage" },
+        { id = 142528, name = "Can of Worms" },
+        { id = 147307, name = "Carved Wooden Helm" },
+        { id = 142529, name = "Cat Head" },
+        { id = 147312, name = "Demon Noggin" },
+        { id = 147308, name = "Enchanted Bobber" },
+        { id = 147309, name = "Face of the Forest" },
+        { id = 147310, name = "Floating Totem" },
+        { id = 142532, name = "Murloc Head" },
+        { id = 147311, name = "Replica Gondola" },
+        { id = 142531, name = "Squeaky Duck" },
+        { id = 142530, name = "Tugboat" },
+        { id = 143662, name = "Wooden Pepe" },
     },
     raftToyItemIDs = {
-        85500, -- Angler's Fishing Raft
-        198428, -- Tuskarr Dinghy
+        { id = 85500, name = "Angler's Fishing Raft" },
+        { id = 198428, name = "Tuskarr Dinghy" },
     },
     underlightAnglerItemID = 133755,
     underlightAnglerModes = {

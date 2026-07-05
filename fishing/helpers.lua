@@ -6,8 +6,8 @@ local function GetOwnedToyItemIDs(candidateIDs)
     local owned = {}
     local seen = {}
 
-    local function AddToy(itemID)
-        local numeric = tonumber(itemID)
+    local function AddToy(toy)
+        local numeric = tonumber(type(toy) == "table" and toy.id or toy)
         if not numeric or numeric <= 0 or seen[numeric] then
             return
         end
@@ -19,8 +19,8 @@ local function GetOwnedToyItemIDs(candidateIDs)
     end
 
     if type(candidateIDs) == "table" then
-        for _, itemID in ipairs(candidateIDs) do
-            AddToy(itemID)
+        for _, toy in ipairs(candidateIDs) do
+            AddToy(toy)
         end
     end
 
