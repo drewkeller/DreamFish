@@ -5,7 +5,7 @@ local addon = _G["DreamFisher"]
 local panelNamesToFade = {
     "Minimap",
     "ObjectiveTrackerFrame",
-    --"ChatFrame1",
+    "ChatFrame1",
     -- Unit frames
     "PlayerFrame",
     "CompactPlayerFrame",
@@ -49,6 +49,8 @@ local elvUIFrames = {
     "ElvUI_Bar8",
     "ElvUI_Bar9",
     "ElvUI_Bar10",
+    "ElvUI_Bar11",
+    "ElvUI_Bar12",
     "ElvUI_Bar13",
     "ElvUI_Bar14",
     "ElvUI_Bar15",
@@ -67,7 +69,7 @@ local elvUIFrames = {
     "ElvUF_Boss",
     "ElvUF_Arena",
     -- Chat/Info panels
-    --"LeftChatPanel",
+    "LeftChatPanel",
     "RightChatPanel",
     "ElvUI_BottomPanel",
     "ElvUI_TopPanel",
@@ -87,70 +89,16 @@ local elvuiAlphaSettings = {    -- frameName, isEnabled, originalAlpha
     unitFrameAlpha = nil,
 }
 
-local function IsElvUIFrameModuleEnabled(frameName)
-    if not _G["ElvUI"] then return false end
-    local E = unpack(_G["ElvUI"])
-    if not E or not E.db then return false end
-
-    -- 1. Check Action Bars
-    if string.find(frameName, "ElvUI_Bar") then
-        local barIndex = string.match(frameName, "ElvUI_Bar(%d+)")
-        if barIndex and E.db.actionbar then
-            local barKey = "bar" .. barIndex
-            return E.db.actionbar[barKey] and E.db.actionbar[barKey].enabled
-        end
-    end
-
-    -- 2. Check Stance Bar
-    if frameName == "ElvUI_StanceBar" then
-        return E.db.actionbar and E.db.actionbar.stanceBar and E.db.actionbar.stanceBar.enable
-    end
-
-    -- 3. Check Core Unit Frames (Player, Target, Focus, etc.)
-    if string.find(frameName, "ElvUF_") then
-        -- Extract the unit key (e.g., "ElvUF_Player" becomes "player")
-        local unitKey = string.lower(string.gsub(frameName, "ElvUF_", ""))
-
-        -- Master UnitFrame module switch must be on, and the specific unit frame layout must be enabled
-        if E.db.unitframe and E.db.unitframe.units and E.db.unitframe.units[unitKey] then
-            local moduleEnabled = C_AddOns.IsAddOnLoaded("ElvUI_OptionsUI") or E:GetModule('UnitFrames', true)
-            return moduleEnabled and E.db.unitframe.units[unitKey].enable
-        end
-    end
-
-    -- 4. Check Standalone Auras (Buffs / Debuffs)
-    if frameName == "ElvUI_PlayerBuffs" or frameName == "ElvUI_PlayerDebuffs" then
-        return E.db.auras and E.db.auras.enable
-    end
-
-    -- 5. Check Chat Panels
-    if frameName == "LeftChatPanel" or frameName == "RightChatPanel" then
-        return E.db.chat and E.db.chat.enable
-    end
-
-    -- Fallback: If it's a generic frame, check if it physically exists and is visible
-    local fallbackFrame = _G[frameName]
-    return (fallbackFrame ~= nil)
-end
-
 local function ReadElvUIFrameSetting(E, frameName)
-    if not elvuiAlphaSettings[frameName] then
-        elvuiAlphaSettings[frameName] = {}
-    end
-
-    local isEnabled = IsElvUIFrameModuleEnabled(frameName)
-    elvuiAlphaSettings[frameName].isEnabled = isEnabled
-
-    if not isEnabled then
-        return
-    end
-
     local targetFrame = _G[frameName]
 
     if targetFrame then
         local alpha = targetFrame:GetAlpha()
+        if not elvuiAlphaSettings[frameName] then
+            elvuiAlphaSettings[frameName] = {}
+        end
         elvuiAlphaSettings[frameName].originalAlpha = alpha
-
+        elvuiAlphaSettings[frameName].isEnabled = (alpha == 1.0)
         C_Timer.After(2, function()
             print(string.format("ElvUI frame: %s | Alpha: %.2f | Enabled: %s", frameName, alpha, tostring(elvuiAlphaSettings[frameName].isEnabled)))
         end)
@@ -263,7 +211,7 @@ local function FadeElvUIFrames(E, hideFrames, targetAlpha)
 
                     FadeFrameCustom(targetFrame, hideFrames and "OUT" or "IN", 0.3, targetAlpha)
                 else
-                    --print("ElvUI frame not found: " .. frameName)
+                    print("ElvUI frame not found: " .. frameName)
                 end
             end
         end
@@ -450,38 +398,9 @@ local function ToggleElvUIDataBarVisibility(E, hideBars)
 end
 
 local function ToggleElvUIChatPanelsVisibility(hideBars, targetAlpha)
-    if isElvUIActive and _G["ElvUI"] then
-        local targetAlpha = isFishing and 0.0 or 1.0
-
-        -- Target the true structural background panels of ElvUI
-        local elvChatPanels = {
-            "LeftChatPanel",
-            "RightChatPanel",
-            "LeftChatToggleButton",  -- The tiny '<' arrow under the left chat
-            "RightChatToggleButton"  -- The tiny '>' arrow under the right chat
-        }
-
-        for _, panelName in ipairs(elvChatPanels) do
-            local panel = _G[panelName]
-            if panel then
-                panel:SetAlpha(targetAlpha)
-
-                -- Intercept ElvUI's internal layout engines from forcing alpha back to 1.0
-                if isFishing then
-                    if not panel.SetAlpha_Old then
-                        panel.SetAlpha_Old = panel.SetAlpha
-                        panel.SetAlpha = function() end -- Locks alpha at 0
-                    end
-                else
-                    if panel.SetAlpha_Old then
-                        panel.SetAlpha = panel.SetAlpha_Old
-                        panel.SetAlpha_Old = nil
-                    end
-                    panel:SetAlpha(1) -- Restores normal panel look
-                end
-            end
-        end
-    end
+    -- Handle ElvUI Chat Panels
+    if _G["LeftChatPanel"] then _G["LeftChatPanel"]:SetAlpha(targetAlpha) end
+    if _G["RightChatPanel"] then _G["RightChatPanel"]:SetAlpha(targetAlpha) end
 end
 
 -- Core function to alter element opacity safely
@@ -503,7 +422,7 @@ local function ApplyElvUIFade(isFishing)
         -- ToggleElvUIActionBarsVisibility(E, isFishing, targetAlpha)
         -- --ToggleElvUIUnitFramesVisibility(E, isFishing, targetAlpha)
         -- ToggleElvUIDataBarVisibility(E, isFishing)
-        ToggleElvUIChatPanelsVisibility(isFishing, targetAlpha)
+        -- ToggleElvUIChatPanelsVisibility(isFishing, targetAlpha)
     end
 end
 
@@ -513,7 +432,7 @@ loader:SetScript("OnEvent", function(self, event, ...)
         -- Detect if ElvUI module exists and is enabled by the user
         if C_AddOns.IsAddOnLoaded("ElvUI") and _G["ElvUI"] then
             isElvUIActive = true
-            --ReadElvUIGlobalAlphas()
+            ReadElvUIGlobalAlphas()
         end
     end
 end)
@@ -544,42 +463,6 @@ local function GetVisualsLingerSeconds()
     local defaults = addon and addon.defaults or nil
     local linger = (addon and addon.db and addon.db.focusedVisualsLinger) or (defaults and defaults.focusedVisualsLinger) or 0
     return math.max(0, tonumber(linger) or 0)
-end
-
-local function ToggleBlizzardChatFade(hideChat)
-    local targetAlpha = hideChat and 0.0 or 1.0
-
-    -- 1. Target the master docking container (handles tabs and the chat frame background)
-    if _G["GeneralDockManager"] then
-        _G["GeneralDockManager"]:SetAlpha(targetAlpha)
-    end
-
-    -- 2. Loop through all possible standard Blizzard chat frames (up to 10 max)
-    for i = 1, NUM_CHAT_WINDOWS or 10 do
-        local chatFrame = _G["ChatFrame"..i]
-        if chatFrame then
-            -- Fade the background text layout frame container
-            chatFrame:SetAlpha(targetAlpha)
-
-            -- Target specific sub-elements like the background textures and resize buttons
-            local background = _G["ChatFrame"..i.."Background"]
-            if background then background:SetAlpha(targetAlpha) end
-
-            local buttonFrame = _G["ChatFrame"..i.."ButtonFrame"]
-            if buttonFrame then buttonFrame:SetAlpha(targetAlpha) end
-
-            local editBox = _G["ChatFrame"..i.."EditBox"]
-            if editBox and hideChat then
-                -- Safely clear focus from the text input bar if it's currently open
-                editBox:ClearFocus()
-            end
-        end
-    end
-
-    -- 3. Handle the Quick Join toast/notification button next to chat
-    if _G["QuickJoinToastButton"] then
-        _G["QuickJoinToastButton"]:SetAlpha(targetAlpha)
-    end
 end
 
 local function ToggleMinimapIcons(hideIcons)
@@ -691,27 +574,16 @@ local function ToggleHandyNotesMapPins(hidePins)
 end
 
 local function FadeOutUI()
+    ApplyElvUIFade(true)  -- Hide/Fade out ElvUI elements
 
     -- Blizzard UI elements
     frameFader.restoreAt = nil
-    for i = 1, NUM_CHAT_WINDOWS or 10 do
-        table.insert(panelNamesToFade, "ChatFrame"..i)
-        table.insert(panelNamesToFade, "ChatFrame"..i.."Background")
-        table.insert(panelNamesToFade, "ChatFrame"..i.."ButtonFrame")
-        table.insert(panelNamesToFade, "ChatFrame"..i.."EditBox")
-    end
     for _, name in ipairs(panelNamesToFade) do
         local panel = ResolveNamedFrame(name)
         if panel and panel.IsShown and panel:IsShown() then
             frameFader.wasShownByName[name] = true
             if type(UIFrameFadeOut) == "function" and panel.GetAlpha then
                 UIFrameFadeOut(panel, 0.5, panel:GetAlpha() or 1, 0)
-                if name:find("ChatFrame") and name:find("EditBox") then
-                    -- need to clear focus from the edit box before hiding
-                    if panel then
-                        panel:ClearFocus()
-                    end
-                end
             elseif panel.SetAlpha then
                 panel:SetAlpha(0)
             end
@@ -719,19 +591,16 @@ local function FadeOutUI()
             frameFader.wasShownByName[name] = false
         end
     end
+    frameFader.isFaded = true
 
-    ApplyElvUIFade(true)  -- Hide/Fade out ElvUI elements
-
-    ToggleBlizzardChatFade(true)
     ToggleMinimapIcons(true)
     ToggleMinimapMarkers(true)
     TogglePOIArrows(true)
     ToggleHandyNotesMapPins(true)
-
-    frameFader.isFaded = true
 end
 
 local function FadeInUI()
+    ApplyElvUIFade(false)  -- Show/Restore ElvUI elements
 
     -- Blizzard UI elements
     for _, name in ipairs(panelNamesToFade) do
@@ -749,18 +618,14 @@ local function FadeInUI()
             end
         end
     end
+    frameFader.wasShownByName = {}
+    frameFader.isFaded = false
+    frameFader.restoreAt = nil
 
-    ApplyElvUIFade(false)  -- Show/Restore ElvUI elements
-
-    ToggleBlizzardChatFade(false)
     ToggleMinimapIcons(false)
     ToggleMinimapMarkers(false)
     TogglePOIArrows(false)
     ToggleHandyNotesMapPins(false)
-
-    frameFader.wasShownByName = {}
-    frameFader.isFaded = false
-    frameFader.restoreAt = nil
 end
 
 local function ScheduleFadeInUI()
