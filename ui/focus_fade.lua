@@ -5,8 +5,10 @@ local addon = _G["DreamFisher"]
 local panelNamesToFade = {
     "Minimap",
     "ObjectiveTrackerFrame",
-    "ChatFrame1",
+    --"ChatFrame1",
+    -- Unit frames
     "PlayerFrame",
+    "CompactPlayerFrame",
     "TargetFrame",
     "MainMenuBar",
     "MultiBarBottomLeft",
@@ -14,7 +16,17 @@ local panelNamesToFade = {
     "MultiBarLeft",
     "MultiBarRight",
     "MicroButtonAndBagsBar",
-    "ObjectiveTrackerFrame"
+    "ObjectiveTrackerFrame",
+    -- Status bar frames (more?)
+    "StatusTrackingBarManager",
+    -- Buff/debuff frames
+    "BuffFrame",
+    "DebuffFrame",
+    "DeadlyDebuffFrame",
+    "UIWidgetTopCenterContainerFrame",
+    -- Stance bar frames
+    "StanceBar",
+    "StanceBarFrame",
 }
 
 local frameFader = {
@@ -24,21 +36,243 @@ local frameFader = {
     restoreAt = nil,
 }
 
-
-
-
-
-local loader = CreateFrame("Frame")
-loader:RegisterEvent("PLAYER_LOGIN")
 local currentFishingState = nil
 
--- 1. Establish global variables to track active modules
-local isElvUIActive = false
+local elvUIFrames = {
+    "ElvUI_Bar1",
+    "ElvUI_Bar2",
+    "ElvUI_Bar3",
+    "ElvUI_Bar4",
+    "ElvUI_Bar5",
+    "ElvUI_Bar6",
+    "ElvUI_Bar7",
+    "ElvUI_Bar8",
+    "ElvUI_Bar9",
+    "ElvUI_Bar10",
+    "ElvUI_Bar13",
+    "ElvUI_Bar14",
+    "ElvUI_Bar15",
+    "ElvUI_StanceBar",
+    "ElvUI_PetBar",
+    -- "ElvUI_MicroBar", -- maybe we don't want to hide this one?
+    -- Core unit frames
+    "ElvUF_Player",
+    "ElvUF_Target",
+    "ElvUF_Pet",
+    "ElvUF_Focus",
+    "ElvUF_TargetTarget",
+    -- Group/Boss frames
+    "ElvUF_Party",
+    "ElvUF_Raid",
+    "ElvUF_Boss",
+    "ElvUF_Arena",
+    -- Chat/Info panels
+    --"LeftChatPanel",
+    "RightChatPanel",
+    "ElvUI_BottomPanel",
+    "ElvUI_TopPanel",
+    -- Buffs/Minimap/Data
+    "ElvUI_PlayerBuffs",
+    "ElvUI_PlayerDebuffs",
+    "ElvUI_Minimap",
+    --"ElvUI_LootFrame", keep this for fishing
+}
 
-local function ToggleElvUIStanceBar(hideBar)
-    if isElvUIActive and _G["ElvUI"] then
+-- Setup for ElvUI detection and event handling
+local loader = CreateFrame("Frame")
+loader:RegisterEvent("PLAYER_LOGIN")
+local isElvUIActive = false
+local elvuiAlphaSettings = {    -- frameName, isEnabled, originalAlpha
+    actionBarAlpha = nil,
+    unitFrameAlpha = nil,
+}
+
+local function IsElvUIFrameModuleEnabled(frameName)
+    if not _G["ElvUI"] then return false end
+    local E = unpack(_G["ElvUI"])
+    if not E or not E.db then return false end
+
+    -- 1. Check Action Bars
+    if string.find(frameName, "ElvUI_Bar") then
+        local barIndex = string.match(frameName, "ElvUI_Bar(%d+)")
+        if barIndex and E.db.actionbar then
+            local barKey = "bar" .. barIndex
+            return E.db.actionbar[barKey] and E.db.actionbar[barKey].enabled
+        end
+    end
+
+    -- 2. Check Stance Bar
+    if frameName == "ElvUI_StanceBar" then
+        return E.db.actionbar and E.db.actionbar.stanceBar and E.db.actionbar.stanceBar.enable
+    end
+
+    -- 3. Check Core Unit Frames (Player, Target, Focus, etc.)
+    if string.find(frameName, "ElvUF_") then
+        -- Extract the unit key (e.g., "ElvUF_Player" becomes "player")
+        local unitKey = string.lower(string.gsub(frameName, "ElvUF_", ""))
+
+        -- Master UnitFrame module switch must be on, and the specific unit frame layout must be enabled
+        if E.db.unitframe and E.db.unitframe.units and E.db.unitframe.units[unitKey] then
+            local moduleEnabled = C_AddOns.IsAddOnLoaded("ElvUI_OptionsUI") or E:GetModule('UnitFrames', true)
+            return moduleEnabled and E.db.unitframe.units[unitKey].enable
+        end
+    end
+
+    -- 4. Check Standalone Auras (Buffs / Debuffs)
+    if frameName == "ElvUI_PlayerBuffs" or frameName == "ElvUI_PlayerDebuffs" then
+        return E.db.auras and E.db.auras.enable
+    end
+
+    -- 5. Check Chat Panels
+    if frameName == "LeftChatPanel" or frameName == "RightChatPanel" then
+        return E.db.chat and E.db.chat.enable
+    end
+
+    -- Fallback: If it's a generic frame, check if it physically exists and is visible
+    local fallbackFrame = _G[frameName]
+    return (fallbackFrame ~= nil)
+end
+
+local function ReadElvUIFrameSetting(E, frameName)
+    if not elvuiAlphaSettings[frameName] then
+        elvuiAlphaSettings[frameName] = {}
+    end
+
+    local isEnabled = IsElvUIFrameModuleEnabled(frameName)
+    elvuiAlphaSettings[frameName].isEnabled = isEnabled
+
+    if not isEnabled then
+        return
+    end
+
+    local targetFrame = _G[frameName]
+
+    if targetFrame then
+        local alpha = targetFrame:GetAlpha()
+        elvuiAlphaSettings[frameName].originalAlpha = alpha
+
+        C_Timer.After(2, function()
+            print(string.format("ElvUI frame: %s | Alpha: %.2f | Enabled: %s", frameName, alpha, tostring(elvuiAlphaSettings[frameName].isEnabled)))
+        end)
+    else
+        C_Timer.After(2, function()
+            print("ElvUI frame not found: " .. frameName)
+        end)
+    end
+end
+
+local function ReadElvUIGlobalAlphas()
+    -- 1. Verify ElvUI is loaded and active
+    if not isElvUIActive then
+        print("DreamFisher: ElvUI is not active.")
+        return nil
+    end
+
+    -- 2. Unpack the ElvUI global engine
+    local E = unpack(_G["ElvUI"])
+
+    -- 3. Verify the profile database exists
+    if not E or not E.db then return nil end
+
+    -- -- --- READ CONFIGURATION VALUES ---
+    -- -- Action Bars Global Fade Setting (Returns a float between 0.0 and 1.0)
+    -- -- Note: 1.0 means 100% transparent (hidden), 0.0 means completely solid.
+    -- local actionBarAlpha = 0
+    -- if E.db.actionbar and E.db.actionbar.globalFadeAlpha then
+    --     actionBarAlpha = E.db.actionbar.globalFadeAlpha
+    -- end
+
+    -- -- Unit Frames Global Fade Setting (Returns a float between 0.0 and 1.0)
+    -- local unitFrameAlpha = 0
+    -- if E.db.unitframe and E.db.unitframe.general and E.db.unitframe.general.globalFadeAlpha then
+    --     unitFrameAlpha = E.db.unitframe.general.globalFadeAlpha
+    -- elseif E.db.unitframe and E.db.unitframe.globalFadeAlpha then
+    --     -- Classic / Older ElvUI version fallback path
+    --     unitFrameAlpha = E.db.unitframe.globalFadeAlpha
+    -- end
+
+    -- -- 4. Print or return the gathered database configurations
+    -- print(string.format("ElvUI Settings - ActionBar Fade: %.2f | UnitFrame Fade: %.2f", actionBarAlpha, unitFrameAlpha))
+
+    -- elvuiAlphaSettings.actionBarAlpha = actionBarAlpha
+    -- elvuiAlphaSettings.unitFrameAlpha = unitFrameAlpha
+
+
+    for _, frameName in ipairs(elvUIFrames) do
+        ReadElvUIFrameSetting(E, frameName)
+    end
+
+end
+
+local function FadeFrameCustom(frame, fadeMode, duration, targetAlpha)
+    if not frame then return end
+
+    -- Safety: If you previously overrode SetAlpha with an empty function,
+    -- restore it so the animation engine can physically adjust the visibility.
+    if frame.SetAlpha_Old then
+        frame.SetAlpha = frame.SetAlpha_Old
+        frame.SetAlpha_Old = nil
+    end
+
+    -- Setup the native Blizzard fading parameter block
+    local fadeInfo = {
+        mode = fadeMode,                -- "IN" to fade in, "OUT" to fade out
+        timeToFade = duration or 0.3,   -- Animation time in seconds
+        startAlpha = frame:GetAlpha(),   -- Dynamically capture current visibility
+        endAlpha = targetAlpha or 0.0,  -- The destination alpha (e.g., 0 for invisible)
+        finishedFunc = function()
+            -- Optional: If fading OUT, permanently intercept SetAlpha *after*
+            -- the animation completes to lock it at 0 while fishing.
+            if fadeMode == "OUT" and targetAlpha == 0 then
+                frame:SetAlpha(0)
+                frame.SetAlpha_Old = frame.SetAlpha
+                frame.SetAlpha = function() end
+            end
+        end
+    }
+
+    -- Execute Blizzard's native UI animation frame manager
+    -- (This works seamlessly across Retail and Classic clients)
+    if _G["UIFrameFade"] then
+        _G["UIFrameFade"](frame, fadeInfo)
+    else
+        -- Fallback: Instant change if the animation frame module is completely missing
+        frame:SetAlpha(targetAlpha or 0.0)
+    end
+end
+
+local function FadeElvUIFrames(E, hideFrames, targetAlpha)
+    if isElvUIActive and E then
+        for _, frameName in ipairs(elvUIFrames) do
+
+            alphaSetting = elvuiAlphaSettings[frameName]
+
+            if not alphaSetting then
+                ReadElvUIFrameSetting(E, frameName)
+                alphaSetting = elvuiAlphaSettings[frameName]
+            end
+
+            if alphaSetting and alphaSetting.isEnabled ~= nil then
+                local targetFrame = _G[frameName]
+
+                if targetFrame then
+                    -- if we are restoring, use the original alpha value
+                    if not hideFrames then
+                        targetAlpha = alphaSetting.originalAlpha
+                    end
+
+                    FadeFrameCustom(targetFrame, hideFrames and "OUT" or "IN", 0.3, targetAlpha)
+                else
+                    --print("ElvUI frame not found: " .. frameName)
+                end
+            end
+        end
+    end
+end
+
+local function ToggleElvUIStanceBar(E, hideBar, targetAlpha)
+    if isElvUIActive and E then
         -- --- ELVUI ACTIVE ROUTINE ---
-        local E = unpack(_G["ElvUI"])
         local AB = E:GetModule('ActionBars', true)
 
         if AB and E.db and E.db.actionbar and E.db.actionbar.stanceBar then
@@ -55,7 +289,6 @@ local function ToggleElvUIStanceBar(hideBar)
         -- Fallback Brute Force: Target the literal secure frame wrapper directly
         local stanceFrame = _G["ElvUI_StanceBar"]
         if stanceFrame then
-            local targetAlpha = hideBar and 0.0 or 1.0
             stanceFrame:SetAlpha(targetAlpha)
 
             -- Temporarily hook SetAlpha so ElvUI's engine can't draw it back while fishing
@@ -72,22 +305,11 @@ local function ToggleElvUIStanceBar(hideBar)
                 stanceFrame:SetAlpha(1)
             end
         end
-    else
-        -- --- DEFAULT BLIZZARD STANCE BAR FALLBACK ---
-        -- Targets the default Blizzard stance/shapeshift bar container safely
-        local blizzStance = _G["StanceBar"] or _G["StanceBarFrame"]
-        if blizzStance and blizzStance.SetAlpha then
-            blizzStance:SetAlpha(hideBar and 0.0 or 1.0)
-        end
     end
 end
 
-local function TogglePlayerAurasVisibility(hideAuras)
-    local targetAlpha = hideAuras and 0.0 or 1.0
-
-    if isElvUIActive and _G["ElvUI"] then
-        -- --- ELVUI ACTIVE ROUTINE ---
-        local E = unpack(_G["ElvUI"])
+local function ToggleElvUIPlayerAurasVisibility(E, hideAuras, targetAlpha)
+    if isElvUIActive and E then
         local A = E:GetModule('Auras', true)
 
         -- ElvUI places headers for player buffs and debuffs globally
@@ -123,38 +345,39 @@ local function TogglePlayerAurasVisibility(hideAuras)
             if elvPlayer.Debuffs then elvPlayer.Debuffs:SetAlpha(targetAlpha) end
             if elvPlayer.Auras then elvPlayer.Auras:SetAlpha(targetAlpha) end
         end
+    end
+end
 
-    else
-        -- --- DEFAULT BLIZZARD UI ROUTINE ---
-        -- Target modern and classic Blizzard Buff/Debiff containers safely
-        local blizzContainers = {
-            "BuffFrame",
-            "DebuffFrame",
-            "DeadlyDebuffFrame",
-            "UIWidgetTopCenterContainerFrame"
-        }
-
-        for _, frameName in ipairs(blizzContainers) do
-            local frameObj = _G[frameName]
-            if frameObj and frameObj.SetAlpha then
-                frameObj:SetAlpha(targetAlpha)
+local function ToggleElvUIUnitFramesVisibility(E, hideFrames, targetAlpha)
+    local UF = E:GetModule('UnitFrames', true)
+    if UF then
+        -- Locate ElvUI's secure player frame wrapper
+        local elvPlayer = _G["ElvUF_Player"]
+        if elvPlayer then
+            if isFishing then
+                elvPlayer:SetAlpha(targetAlpha)
+                -- Temporarily hook SetAlpha so ElvUI can't override it while fishing
+                if not elvPlayer.SetAlpha_Old then
+                    elvPlayer.SetAlpha_Old = elvPlayer.SetAlpha
+                    elvPlayer.SetAlpha = function() end
+                end
+            else
+                -- Restore normal ElvUI control when done fishing
+                if elvPlayer.SetAlpha_Old then
+                    elvPlayer.SetAlpha = elvPlayer.SetAlpha_Old
+                    elvPlayer.SetAlpha_Old = nil
+                end
+                if elvuiAlphaSettings and elvuiAlphaSettings.unitFrameAlpha then
+                    elvPlayer:SetAlpha(elvuiAlphaSettings.unitFrameAlpha)
+                else
+                    elvPlayer:SetAlpha(1)
+                end
             end
         end
     end
 end
 
--- 3. Core function to alter element opacity safely
-local function ApplyElvUIFade(isFishing)
-    if currentFishingState == isFishing then
-        return
-    end
-    currentFishingState = isFishing
-
-    local targetAlpha = isFishing and 0.0 or 1.0 -- 0.0 hides completely, 1.0 restores fully
-
-    TogglePlayerAurasVisibility(isFishing)
-    ToggleElvUIStanceBar(isFishing)
-
+local function ToggleElvUIActionBarsVisibility(E, hideBars, targetAlpha)
     -- --- FORCE ACTION BARS OVERRIDE ---
     -- Loop through ElvUI's structural bar frames and strip their alpha completely.
     -- This prevents ElvUI's GlobalFadeManager from forcing them visible mid-cast.
@@ -162,7 +385,7 @@ local function ApplyElvUIFade(isFishing)
         local bar = _G["ElvUI_Bar"..i]
         if bar then
             if isFishing then
-                bar:SetAlpha(0)
+                bar:SetAlpha(targetAlpha)
                 -- Temporarily block ElvUI from changing this specific bar's alpha
                 bar.SetAlpha_Old = bar.SetAlpha
                 bar.SetAlpha = function() end
@@ -172,110 +395,128 @@ local function ApplyElvUIFade(isFishing)
                     bar.SetAlpha = bar.SetAlpha_Old
                     bar.SetAlpha_Old = nil
                 end
-                bar:SetAlpha(1)
+                if elvuiAlphaSettings and elvuiAlphaSettings.actionBarAlpha then
+                    bar:SetAlpha(elvuiAlphaSettings.actionBarAlpha)
+                else
+                    bar:SetAlpha(1)
+                end
             end
         end
     end
 
-    if isElvUIActive and _G["ElvUI"] then
-        -- --- ELVUI ACTIVE ROUTINE ---
-        local E = unpack(_G["ElvUI"])
+    -- --- ELVUI ACTIVE ROUTINE ---
+    if E.db and E.db.actionbar then
+        E.db.actionbar.globalFadeAlpha = targetAlpha
+        local AB = E:GetModule('ActionBars', true)
+        if AB then
+            if type(AB.UpdateBarFade) == "function" then
+                AB:UpdateBarFade()
+            end
+        end
+    end
 
-        if E.db and E.db.actionbar then
-            E.db.actionbar.globalFadeAlpha = targetAlpha
-            local AB = E:GetModule('ActionBars', true)
-            if AB then
-                if type(AB.UpdateBarFade) == "function" then
-                    AB:UpdateBarFade()
+    -- 2. Unit Frame Global Fade
+    local FM = E:GetModule('GlobalFadeManager', true)
+    if FM then
+        FM:SetGlobalFadeAlpha(targetAlpha)
+    end
+end
+
+local function ToggleElvUIDataBarVisibility(E, hideBars)
+    local DB = E:GetModule('DataBars', true)
+    if DB and E.db and E.db.databars then
+        -- List of all ElvUI data bar names in the database
+        local barTypes = { "experience", "reputation", "honor", "azerite", "threat" }
+        local hideBars = isFishing
+
+        for _, barName in ipairs(barTypes) do
+            if E.db.databars[barName] then
+                -- If hiding, set enable to false; otherwise, restore to true
+                E.db.databars[barName].enable = not hideBars
+
+                -- Safely refresh the individual bar layout using ElvUI's internal API
+                local barMethodName = "Update" .. barName:gsub("^%l", string.upper) .. "Dimensions"
+                if type(DB[barMethodName]) == "function" then
+                    DB[barMethodName](DB)
                 end
             end
         end
 
-        -- 2. Modern & Safe alternative for Unit Frame Global Fade
-        -- Instead of indexing .general, we talk straight to ElvUI's fader system
-        local FM = E:GetModule('GlobalFadeManager', true)
-        if FM then
-            -- Force ElvUI to manually recalculate or hold fading states
-            FM:SetGlobalFadeAlpha(targetAlpha) -- Hides them
-        end
-
-        local UF = E:GetModule('UnitFrames', true)
-        if UF then
-            -- Locate ElvUI's secure player frame wrapper
-            local elvPlayer = _G["ElvUF_Player"]
-            if elvPlayer then
-                if isFishing then
-                    elvPlayer:SetAlpha(0)
-                    -- Temporarily hook SetAlpha so ElvUI can't override it while fishing
-                    if not elvPlayer.SetAlpha_Old then
-                        elvPlayer.SetAlpha_Old = elvPlayer.SetAlpha
-                        elvPlayer.SetAlpha = function() end
-                    end
-                else
-                    -- Restore normal ElvUI control when done fishing
-                    if elvPlayer.SetAlpha_Old then
-                        elvPlayer.SetAlpha = elvPlayer.SetAlpha_Old
-                        elvPlayer.SetAlpha_Old = nil
-                    end
-                    elvPlayer:SetAlpha(1)
-                end
-            end
-        end
-
-        local DB = E:GetModule('DataBars', true)
-        if DB and E.db and E.db.databars then
-            -- List of all ElvUI data bar names in the database
-            local barTypes = { "experience", "reputation", "honor", "azerite", "threat" }
-            local hideBars = isFishing
-
-            for _, barName in ipairs(barTypes) do
-                if E.db.databars[barName] then
-                    -- If hiding, set enable to false; otherwise, restore to true
-                    E.db.databars[barName].enable = not hideBars
-
-                    -- Safely refresh the individual bar layout using ElvUI's internal API
-                    local barMethodName = "Update" .. barName:gsub("^%l", string.upper) .. "Dimensions"
-                    if type(DB[barMethodName]) == "function" then
-                        DB[barMethodName](DB)
-                    end
-                end
-            end
-
-            -- Force a top-level master redraw of the entire module framework
-            if type(DB.UpdateAll) == "function" then
-                DB:UpdateAll()
-            end
-        end
-
-
-        -- Handle ElvUI Chat Panels
-        if _G["LeftChatPanel"] then _G["LeftChatPanel"]:SetAlpha(targetAlpha) end
-        if _G["RightChatPanel"] then _G["RightChatPanel"]:SetAlpha(targetAlpha) end
-
-    else
-        -- Fallback: If ElvUI is active but they disabled the Unitframes module
-        local blizzPlayer = _G["PlayerFrame"] or _G["CompactPlayerFrame"]
-        if blizzPlayer then blizzPlayer:SetAlpha(targetAlpha) end
-
-        -- Targets default Blizzard status bars (like StatusTrackingBarManager)
-        if _G["StatusTrackingBarManager"] then
-            _G["StatusTrackingBarManager"]:SetAlpha(targetAlpha)
+        -- Force a top-level master redraw of the entire module framework
+        if type(DB.UpdateAll) == "function" then
+            DB:UpdateAll()
         end
     end
 end
 
--- 5. Main initialization and event loop
+local function ToggleElvUIChatPanelsVisibility(hideBars, targetAlpha)
+    if isElvUIActive and _G["ElvUI"] then
+        local targetAlpha = isFishing and 0.0 or 1.0
+
+        -- Target the true structural background panels of ElvUI
+        local elvChatPanels = {
+            "LeftChatPanel",
+            "RightChatPanel",
+            "LeftChatToggleButton",  -- The tiny '<' arrow under the left chat
+            "RightChatToggleButton"  -- The tiny '>' arrow under the right chat
+        }
+
+        for _, panelName in ipairs(elvChatPanels) do
+            local panel = _G[panelName]
+            if panel then
+                panel:SetAlpha(targetAlpha)
+
+                -- Intercept ElvUI's internal layout engines from forcing alpha back to 1.0
+                if isFishing then
+                    if not panel.SetAlpha_Old then
+                        panel.SetAlpha_Old = panel.SetAlpha
+                        panel.SetAlpha = function() end -- Locks alpha at 0
+                    end
+                else
+                    if panel.SetAlpha_Old then
+                        panel.SetAlpha = panel.SetAlpha_Old
+                        panel.SetAlpha_Old = nil
+                    end
+                    panel:SetAlpha(1) -- Restores normal panel look
+                end
+            end
+        end
+    end
+end
+
+-- Core function to alter element opacity safely
+local function ApplyElvUIFade(isFishing)
+    if currentFishingState == isFishing then
+        return
+    end
+    currentFishingState = isFishing
+
+    local targetAlpha = isFishing and 0.0 or 1.0 -- 0.0 hides completely, 1.0 restores fully
+
+    if isElvUIActive and _G["ElvUI"] then
+        -- Let's just do this once because unpack is O(N)
+        local E = unpack(_G["ElvUI"])
+
+        FadeElvUIFrames(E, isFishing, targetAlpha)
+        -- ToggleElvUIPlayerAurasVisibility(E, isFishing, targetAlpha)
+        -- ToggleElvUIStanceBar(E, isFishing, targetAlpha)
+        -- ToggleElvUIActionBarsVisibility(E, isFishing, targetAlpha)
+        -- --ToggleElvUIUnitFramesVisibility(E, isFishing, targetAlpha)
+        -- ToggleElvUIDataBarVisibility(E, isFishing)
+        ToggleElvUIChatPanelsVisibility(isFishing, targetAlpha)
+    end
+end
+
+-- ElvUI: Main initialization and event loop
 loader:SetScript("OnEvent", function(self, event, ...)
     if event == "PLAYER_LOGIN" then
         -- Detect if ElvUI module exists and is enabled by the user
         if C_AddOns.IsAddOnLoaded("ElvUI") and _G["ElvUI"] then
             isElvUIActive = true
+            --ReadElvUIGlobalAlphas()
         end
     end
 end)
-
-
-
 
 local function ResolveNamedFrame(name)
     if type(name) ~= "string" or name == "" then
@@ -305,15 +546,172 @@ local function GetVisualsLingerSeconds()
     return math.max(0, tonumber(linger) or 0)
 end
 
+local function ToggleBlizzardChatFade(hideChat)
+    local targetAlpha = hideChat and 0.0 or 1.0
+
+    -- 1. Target the master docking container (handles tabs and the chat frame background)
+    if _G["GeneralDockManager"] then
+        _G["GeneralDockManager"]:SetAlpha(targetAlpha)
+    end
+
+    -- 2. Loop through all possible standard Blizzard chat frames (up to 10 max)
+    for i = 1, NUM_CHAT_WINDOWS or 10 do
+        local chatFrame = _G["ChatFrame"..i]
+        if chatFrame then
+            -- Fade the background text layout frame container
+            chatFrame:SetAlpha(targetAlpha)
+
+            -- Target specific sub-elements like the background textures and resize buttons
+            local background = _G["ChatFrame"..i.."Background"]
+            if background then background:SetAlpha(targetAlpha) end
+
+            local buttonFrame = _G["ChatFrame"..i.."ButtonFrame"]
+            if buttonFrame then buttonFrame:SetAlpha(targetAlpha) end
+
+            local editBox = _G["ChatFrame"..i.."EditBox"]
+            if editBox and hideChat then
+                -- Safely clear focus from the text input bar if it's currently open
+                editBox:ClearFocus()
+            end
+        end
+    end
+
+    -- 3. Handle the Quick Join toast/notification button next to chat
+    if _G["QuickJoinToastButton"] then
+        _G["QuickJoinToastButton"]:SetAlpha(targetAlpha)
+    end
+end
+
+local function ToggleMinimapIcons(hideIcons)
+    local targetAlpha = hideIcons and 0.0 or 1.0
+
+    -- --- 1. HIDE NATIVE BLIZZARD / ELVUI MINIMAP BUTTONS ---
+    -- List of standard tracking and event frames anchored around the minimap
+    local standardMinimapButtons = {
+        "MinimapCluster",
+        "GameTimeFrame",             -- Calendar button
+        "MiniMapMailFrame",          -- Mail icon
+        "MiniMapTracking",           -- Tracking magnifying glass
+        "QueueStatusButton",         -- LFG queue eye icon
+        "QueueStatusMinimapButton",  -- Classic LFG queue icon
+        "GarrisonLandingPageMinimapButton", -- Expansion/Mission tracking button
+        "ExpansionLandingPageMinimapButton" -- Dragonflight/TWW expansion button
+    }
+
+    for _, frameName in ipairs(standardMinimapButtons) do
+        local btn = _G[frameName]
+        if btn then
+            btn:SetAlpha(targetAlpha)
+
+            -- Prevent internal event triggers from undoing our visibility change
+            if hideIcons then
+                if not btn.SetAlpha_Old then
+                    btn.SetAlpha_Old = btn.SetAlpha
+                    btn.SetAlpha = function() end
+                end
+            else
+                if btn.SetAlpha_Old then
+                    btn.SetAlpha = btn.SetAlpha_Old
+                    btn.SetAlpha_Old = nil
+                end
+                btn:SetAlpha(1)
+            end
+        end
+    end
+
+    -- --- 2. HIDE THIRD-PARTY ADDON ICONS (LibDBIcon) ---
+    -- Almost every addon (Details, WeakAuras, etc.) uses LibDBIcon-1.0 to attach buttons.
+    local LibDBIcon = LibStub("LibDBIcon-1.0", true)
+    if LibDBIcon and LibDBIcon.GetButtonList then
+        for _, iconName in ipairs(LibDBIcon:GetButtonList()) do
+            local buttonFrame = LibDBIcon:GetMinimapButton(iconName)
+            if buttonFrame then
+                buttonFrame:SetAlpha(targetAlpha)
+
+                if hideIcons then
+                    if not buttonFrame.SetAlpha_Old then
+                        buttonFrame.SetAlpha_Old = buttonFrame.SetAlpha
+                        buttonFrame.SetAlpha = function() end
+                    end
+                else
+                    if buttonFrame.SetAlpha_Old then
+                        buttonFrame.SetAlpha = buttonFrame.SetAlpha_Old
+                        buttonFrame.SetAlpha_Old = nil
+                    end
+                    buttonFrame:SetAlpha(1)
+                end
+            end
+        end
+    end
+end
+
+local function ToggleMinimapMarkers(hideMarkers)
+    if hideMarkers then
+        -- 1. Wipe the quest POI indicators and shaded yellow objective circles
+        SetCVar("questPOI", 0)
+        SetCVar("minimapShowQuestBlobs", 0)
+
+        -- 2. Turn off the tracking system entirely (Hides Herbs, Ore, Fish, Tracked Targets)
+        -- This disables tracking nodes on your active mini navigation wheel
+        C_Minimap.SetTracking(0, false)
+    else
+        -- Restore your normal UI tracking behaviors when putting the rod away
+        SetCVar("questPOI", 1)
+        SetCVar("minimapShowQuestBlobs", 1)
+
+        -- Optional: Re-enable Fish tracking explicitly when done
+        -- (Or leave this part out to let the player manually re-check their preferred tracking)
+    end
+end
+
+local function TogglePOIArrows(hideArrows)
+    if _G["Minimap"] then
+        if hideArrows then
+            -- Replace the default spinning arrow texture file path with a blank string
+            if type(Minimap.SetStaticPOIArrowTexture) == "function" then
+                Minimap:SetStaticPOIArrowTexture("")
+            end
+        else
+            -- Restore the factory default Blizzard rotating arrow asset
+            if type(Minimap.SetStaticPOIArrowTexture) == "function" then
+                Minimap:SetStaticPOIArrowTexture([[Interface\Minimap\ROTATING-MINIMAPARROW]])
+            end
+        end
+    end
+end
+
+local function ToggleHandyNotesMapPins(hidePins)
+    if C_AddOns.IsAddOnLoaded("HandyNotes") and _G["HandyNotes"] then
+        local HandyNotes = LibStub("AceAddon-3.0"):GetAddon("HandyNotes", true)
+        if HandyNotes and type(HandyNotes.SetEnabled) == "function" then
+            -- Disabling/Enabling the module sweeps the pins away safely
+            if hidePins then HandyNotes:Disable() else HandyNotes:Enable() end
+        end
+    end
+end
+
 local function FadeOutUI()
-    ApplyElvUIFade(true)  -- Fade out ElvUI elements
+
+    -- Blizzard UI elements
     frameFader.restoreAt = nil
+    for i = 1, NUM_CHAT_WINDOWS or 10 do
+        table.insert(panelNamesToFade, "ChatFrame"..i)
+        table.insert(panelNamesToFade, "ChatFrame"..i.."Background")
+        table.insert(panelNamesToFade, "ChatFrame"..i.."ButtonFrame")
+        table.insert(panelNamesToFade, "ChatFrame"..i.."EditBox")
+    end
     for _, name in ipairs(panelNamesToFade) do
         local panel = ResolveNamedFrame(name)
         if panel and panel.IsShown and panel:IsShown() then
             frameFader.wasShownByName[name] = true
             if type(UIFrameFadeOut) == "function" and panel.GetAlpha then
                 UIFrameFadeOut(panel, 0.5, panel:GetAlpha() or 1, 0)
+                if name:find("ChatFrame") and name:find("EditBox") then
+                    -- need to clear focus from the edit box before hiding
+                    if panel then
+                        panel:ClearFocus()
+                    end
+                end
             elseif panel.SetAlpha then
                 panel:SetAlpha(0)
             end
@@ -321,11 +719,21 @@ local function FadeOutUI()
             frameFader.wasShownByName[name] = false
         end
     end
+
+    ApplyElvUIFade(true)  -- Hide/Fade out ElvUI elements
+
+    ToggleBlizzardChatFade(true)
+    ToggleMinimapIcons(true)
+    ToggleMinimapMarkers(true)
+    TogglePOIArrows(true)
+    ToggleHandyNotesMapPins(true)
+
     frameFader.isFaded = true
 end
 
 local function FadeInUI()
-    ApplyElvUIFade(false)
+
+    -- Blizzard UI elements
     for _, name in ipairs(panelNamesToFade) do
         local panel = ResolveNamedFrame(name)
         if panel and panel.SetAlpha then
@@ -341,6 +749,15 @@ local function FadeInUI()
             end
         end
     end
+
+    ApplyElvUIFade(false)  -- Show/Restore ElvUI elements
+
+    ToggleBlizzardChatFade(false)
+    ToggleMinimapIcons(false)
+    ToggleMinimapMarkers(false)
+    TogglePOIArrows(false)
+    ToggleHandyNotesMapPins(false)
+
     frameFader.wasShownByName = {}
     frameFader.isFaded = false
     frameFader.restoreAt = nil
