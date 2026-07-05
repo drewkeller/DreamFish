@@ -21,6 +21,7 @@ local aceGUI = nil
 local UpdateToyApplyButtons
 local SyncEscapeCloseRegistration
 local ownedToyOptionsCache = {}
+local ownedToyItemCache = {}
 local UNDERLIGHT_MODE_DISABLED = "disabled"
 local UNDERLIGHT_MODE_ALWAYS_EXCEPT_FISHING = "always_except_fishing"
 local UNDERLIGHT_MODE_LOCK = "lock_underlight"
@@ -409,38 +410,60 @@ end
 
 config.TryGetAceGUI = TryGetAceGUI
 
-local function BuildOwnedToyOptions(candidateIDs, includeDefaultLabel)
-    local cacheKeyParts = { tostring(includeDefaultLabel or "") }
-    if type(candidateIDs) == "table" then
-        for _, itemID in ipairs(candidateIDs) do
-            table.insert(cacheKeyParts, tostring(itemID))
-        end
+local function GetPerfNowMs()
+    if type(debugprofilestop) == "function" then
+        return debugprofilestop()
     end
-    local cacheKey = table.concat(cacheKeyParts, "|")
-    local cached = ownedToyOptionsCache[cacheKey]
+    if type(GetTimePreciseSec) == "function" then
+        return GetTimePreciseSec() * 1000
+    end
+    if type(GetTime) == "function" then
+        return GetTime() * 1000
+    end
+    return 0
+end
+
+local function IsConfigPerfDebugEnabled()
+    return addon
+        and addon.db
+        and addon.db.debugMode
+        and addon.db.debugState
+        and addon.DebugMessage
+end
+
+local function IsToyOwned(itemID)
+    local numeric = tonumber(itemID)
+    if not numeric or numeric <= 0 then
+        return false
+    end
+
+    local cached = ownedToyItemCache[numeric]
+    if cached ~= nil then
+        return cached
+    end
+
+    local owned = (type(PlayerHasToy) ~= "function") or PlayerHasToy(numeric)
+    ownedToyItemCache[numeric] = owned and true or false
+    return ownedToyItemCache[numeric]
+end
+
+local function BuildOwnedToyOptions(candidateIDs, includeDefaultLabel)
+    local defaultKey = tostring(includeDefaultLabel or "")
+    local candidateKey = (type(candidateIDs) == "table") and candidateIDs or "__non_table__"
+
+    local cacheByCandidate = ownedToyOptionsCache[candidateKey]
+    if not cacheByCandidate then
+        cacheByCandidate = {}
+        ownedToyOptionsCache[candidateKey] = cacheByCandidate
+    end
+
+    local cached = cacheByCandidate[defaultKey]
     if cached then
         return cached
     end
 
     local options = {}
     local seen = {}
-
-    local function GetFastToyLabel(itemID)
-        local numeric = tonumber(itemID)
-        if not numeric or numeric <= 0 then
-            return tostring(itemID)
-        end
-
-        if C_Item and type(C_Item.IsItemDataCachedByID) == "function" then
-            local ok, cached = pcall(C_Item.IsItemDataCachedByID, numeric)
-            if ok and not cached then
-                return "item:" .. tostring(numeric)
-            end
-        end
-
-        return (addon.utils and addon.utils.GetToyLabel and addon.utils.GetToyLabel(numeric))
-            or ("item:" .. tostring(numeric))
-    end
 
     if type(includeDefaultLabel) == "string" and includeDefaultLabel ~= "" then
         table.insert(options, {
@@ -453,20 +476,21 @@ local function BuildOwnedToyOptions(candidateIDs, includeDefaultLabel)
         return options
     end
 
-    for _, itemID in ipairs(candidateIDs) do
-        local numeric = tonumber(itemID)
+    for _, toy in ipairs(candidateIDs) do
+        local numeric = tonumber(type(toy) == "table" and toy.id or toy)
+        local name = type(toy) == "table" and toy.name or nil
         if numeric and numeric > 0 and not seen[numeric] then
             seen[numeric] = true
-            if type(PlayerHasToy) ~= "function" or PlayerHasToy(numeric) then
+            if IsToyOwned(numeric) then
                 table.insert(options, {
                     value = numeric,
-                    label = GetFastToyLabel(numeric),
+                    label = (type(name) == "string" and name ~= "") and name or ("item:" .. tostring(numeric)),
                 })
             end
         end
     end
 
-    ownedToyOptionsCache[cacheKey] = options
+    cacheByCandidate[defaultKey] = options
     return options
 end
 
@@ -1335,7 +1359,7 @@ function config.CreateConfigPanel()
 
     local function CreateTackleItemDropBox(parent, x, y, label, onLiveChange, options)
         local validateItemID = options and options.validateItemID or nil
-        local box = CreateFrame("Button", nil, parent, "SecureActionButtonTemplate")
+        local box = CreateFrame("Button", nil, parent)
         box:SetSize(48, 48)
         box:SetPoint("TOPLEFT", x, y)
         box:RegisterForClicks("AnyUp")
