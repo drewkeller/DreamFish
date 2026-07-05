@@ -36,7 +36,7 @@ local frameFader = {
     restoreAt = nil,
 }
 
-local currentFishingState = nil
+local fadeState = nil
 
 local elvUIFrames = {
     "ElvUI_Bar1",
@@ -69,14 +69,19 @@ local elvUIFrames = {
     -- Chat/Info panels
     "LeftChatPanel",
     "RightChatPanel",
+    "LeftChatToggleButton",
+    "RightChatToggleButton",
     "ElvUI_BottomPanel",
     "ElvUI_TopPanel",
     -- Buffs/Minimap/Data
     "ElvUI_PlayerBuffs",
     "ElvUI_PlayerDebuffs",
     "ElvUI_Minimap",
-    --"ElvUI_LootFrame", keep this for fishing
+    --"ElvUI_LootFrame", --keep this for fishing
 }
+
+-- array[frameName] = {wasShown = boolean, originalAlpha = number}
+elvUIFrameFader = {}
 
 -- Setup for ElvUI detection and event handling
 local loader = CreateFrame("Frame")
@@ -87,10 +92,8 @@ local elvuiAlphaSettings = {    -- frameName, isEnabled, originalAlpha
     unitFrameAlpha = nil,
 }
 
-local function IsElvUIFrameModuleEnabled(frameName)
-    if not _G["ElvUI"] then return false end
-    local E = unpack(_G["ElvUI"])
-    if not E or not E.db then return false end
+local function IsElvUIFrameModuleEnabled(E, frameName)
+    if not E or not E.db then return nil end
 
     -- 1. Check Action Bars
     if string.find(frameName, "ElvUI_Bar") then
@@ -125,23 +128,55 @@ local function IsElvUIFrameModuleEnabled(frameName)
 
     -- 5. Check Chat Panels
     if frameName == "LeftChatPanel" or frameName == "RightChatPanel" then
-        return E.db.chat and E.db.chat.enable
+        if not E.db.chat or not E.db.chat.enable then
+            print("Returning false for frame: " .. frameName, "faded: " .. tostring(frameFader.isFaded))
+            --return false
+            return true -- force true for now
+        end
+
+        -- Possible settings: "SHOWBOTH", "HIDEBOTH", "LEFT", or "RIGHT"
+        local backdropSetting = E.db.chat.panelBackdrop or "SHOWBOTH"
+
+        local isEnabled = true
+        if frameName == "LeftChatPanel" then
+            isEnabled = (backdropSetting == "SHOWBOTH" or backdropSetting == "LEFT")
+        elseif frameName == "RightChatPanel" then
+            isEnabled = (backdropSetting == "SHOWBOTH" or backdropSetting == "RIGHT")
+        end
+        print("Chat panel check for frame: " .. frameName .. ", isEnabled: " .. tostring(isEnabled))
+        return isEnabled
     end
 
     -- Fallback: If it's a generic frame, check if it physically exists and is visible
     local fallbackFrame = _G[frameName]
-    return (fallbackFrame ~= nil)
+    print("Fallback check for frame: " .. frameName .. ", exists: " .. tostring(fallbackFrame ~= nil))
+    return (fallbackFrame ~= nil) or nil
 end
 
 local function ReadElvUIFrameSetting(E, frameName)
-    if not elvuiAlphaSettings[frameName] then
-        elvuiAlphaSettings[frameName] = {}
+    if frameFader.isFaded then
+        print("Currently faded, skipping ElvUI frame setting read for frame: " .. frameName)
+        return
     end
 
-    local isEnabled = IsElvUIFrameModuleEnabled(frameName)
-    elvuiAlphaSettings[frameName].isEnabled = isEnabled
+    local isEnabled = true
+
+    -- if we've cached it, use the cached value
+    if elvuiAlphaSettings[frameName] then
+        isEnabled = elvuiAlphaSettings[frameName].isEnabled
+    else
+        elvuiAlphaSettings[frameName] = {}
+        isEnabled = IsElvUIFrameModuleEnabled(frameName)
+        elvuiAlphaSettings[frameName].isEnabled = isEnabled
+        C_Timer.After(2, function()
+            print("Read ElvUI frame setting for frame: " .. frameName .. ", isEnabled: " .. tostring(isEnabled))
+        end)
+    end
 
     if not isEnabled then
+        C_Timer.After(2, function()
+            print("ElvUI frame setting for frame: " .. frameName .. " is disabled.")
+        end)
         return
     end
 
@@ -164,7 +199,12 @@ end
 local function ReadElvUIGlobalAlphas()
     -- 1. Verify ElvUI is loaded and active
     if not isElvUIActive then
-        print("DreamFisher: ElvUI is not active.")
+        print("ElvUI is not active.")
+        return nil
+    end
+
+    if frameFader.isFaded then
+        print("Currently faded, skipping ElvUI global alpha read.")
         return nil
     end
 
@@ -205,7 +245,7 @@ local function ReadElvUIGlobalAlphas()
 end
 
 local function FadeFrameCustom(frame, fadeMode, duration, targetAlpha)
-    if not frame then return end
+    if not frame or not frame.GetAlpha then return end
 
     -- Safety: If you previously overrode SetAlpha with an empty function,
     -- restore it so the animation engine can physically adjust the visibility.
@@ -221,8 +261,7 @@ local function FadeFrameCustom(frame, fadeMode, duration, targetAlpha)
         startAlpha = frame:GetAlpha(),   -- Dynamically capture current visibility
         endAlpha = targetAlpha or 0.0,  -- The destination alpha (e.g., 0 for invisible)
         finishedFunc = function()
-            -- Optional: If fading OUT, permanently intercept SetAlpha *after*
-            -- the animation completes to lock it at 0 while fishing.
+            -- Set SetAlpha to an empty function so frame can't be changed while in fishing mode.
             if fadeMode == "OUT" and targetAlpha == 0 then
                 frame:SetAlpha(0)
                 frame.SetAlpha_Old = frame.SetAlpha
@@ -243,22 +282,29 @@ end
 
 local function FadeElvUIFrames(E, hideFrames, targetAlpha)
     if isElvUIActive and E then
+        print("Fading ElvUI frames, hideFrames: " .. tostring(hideFrames) .. ", targetAlpha: " .. tostring(targetAlpha))
         for _, frameName in ipairs(elvUIFrames) do
 
+            print(frameName ..": ")
+            DevTools_Dump(alphaSetting)
             alphaSetting = elvuiAlphaSettings[frameName]
 
-            if not alphaSetting then
+            if not alphaSetting or alphaSetting.isEnabled == nil or alphaSetting.alpha == nil then
+                print("Alpha setting not found for frame: " .. frameName .. ", reading ElvUI frame setting.")
                 ReadElvUIFrameSetting(E, frameName)
                 alphaSetting = elvuiAlphaSettings[frameName]
             end
 
-            if alphaSetting and alphaSetting.isEnabled ~= nil then
+            if alphaSetting and alphaSetting.isEnabled ~= nil and alphaSetting.isEnabled == true then
                 local targetFrame = _G[frameName]
 
                 if targetFrame then
                     -- if we are restoring, use the original alpha value
                     if not hideFrames then
-                        targetAlpha = alphaSetting.originalAlpha
+                        targetAlpha = hideFrames and 0 or 1 -- alphaSetting.originalAlpha
+                        print("Restoring alpha for frame: " .. frameName .. " to " .. tostring(targetAlpha))
+                    else
+                        print("Hiding alpha for frame: " .. frameName .. " to " .. tostring(targetAlpha))
                     end
 
                     FadeFrameCustom(targetFrame, hideFrames and "OUT" or "IN", 0.3, targetAlpha)
@@ -354,7 +400,7 @@ local function ToggleElvUIUnitFramesVisibility(E, hideFrames, targetAlpha)
         -- Locate ElvUI's secure player frame wrapper
         local elvPlayer = _G["ElvUF_Player"]
         if elvPlayer then
-            if isFishing then
+            if hideFrames then
                 elvPlayer:SetAlpha(targetAlpha)
                 -- Temporarily hook SetAlpha so ElvUI can't override it while fishing
                 if not elvPlayer.SetAlpha_Old then
@@ -384,7 +430,7 @@ local function ToggleElvUIActionBarsVisibility(E, hideBars, targetAlpha)
     for i = 1, 15 do
         local bar = _G["ElvUI_Bar"..i]
         if bar then
-            if isFishing then
+            if hideBars then
                 bar:SetAlpha(targetAlpha)
                 -- Temporarily block ElvUI from changing this specific bar's alpha
                 bar.SetAlpha_Old = bar.SetAlpha
@@ -427,7 +473,7 @@ local function ToggleElvUIDataBarVisibility(E, hideBars)
     if DB and E.db and E.db.databars then
         -- List of all ElvUI data bar names in the database
         local barTypes = { "experience", "reputation", "honor", "azerite", "threat" }
-        local hideBars = isFishing
+        local hideBars = hideBars
 
         for _, barName in ipairs(barTypes) do
             if E.db.databars[barName] then
@@ -457,14 +503,15 @@ end
 
 -- Core function to alter element opacity safely
 local function ApplyElvUIFade(isFishing)
-    if currentFishingState == isFishing then
-        return
-    end
-    currentFishingState = isFishing
-
     local targetAlpha = isFishing and 0.0 or 1.0 -- 0.0 hides completely, 1.0 restores fully
 
     if isElvUIActive and _G["ElvUI"] then
+
+        -- if fadeState == frameFader.isFaded then
+        --     return
+        -- end
+        -- fadeState = frameFader.isFaded
+
         -- Let's just do this once because unpack is O(N)
         local E = unpack(_G["ElvUI"])
 
@@ -625,9 +672,27 @@ local function ToggleHandyNotesMapPins(hidePins)
     end
 end
 
-local function FadeOutUI()
-    ApplyElvUIFade(true)  -- Hide/Fade out ElvUI elements
+local function GetElvUIFrameSettings(E, frameName)
+    local isEnabled = IsElvUIFrameModuleEnabled(E, frameName)
+    local alpha = 0
+    if isEnabled then
+        local targetFrame = _G[frameName]
 
+        if targetFrame and targetFrame.GetAlpha then
+            alpha = targetFrame:GetAlpha()
+        end
+
+        if string.find(frameName, "ElvUI_Bar") then
+            if E.db.actionbar and E.db.actionbar.globalFadeAlpha then
+                alpha = E.db.actionbar.globalFadeAlpha
+            end
+        end
+    end
+    print(string.format("ElvUI frame: %s | Alpha: %.2f | Enabled: %s", frameName, alpha, tostring(isEnabled)))
+    return isEnabled, alpha
+end
+
+local function FadeOutUI()
     -- Blizzard UI elements
     frameFader.restoreAt = nil
     for _, name in ipairs(panelNamesToFade) do
@@ -643,17 +708,38 @@ local function FadeOutUI()
             frameFader.wasShownByName[name] = false
         end
     end
-    frameFader.isFaded = true
+
+    -- ElvUI elements
+    -- for each frame
+    if _G["ElvUI"] then
+        local E = unpack(_G["ElvUI"])
+
+        for _, frameName in ipairs(elvUIFrames) do
+            -- Read current settings so we can restore them later
+            local isEnabled, alpha = GetElvUIFrameSettings(E, frameName)
+            local isShown = isEnabled and alpha > 0.0
+            elvUIFrameFader[frameName] = {wasShown = isShown, originalAlpha = alpha}
+            if isShown then
+                -- if the frame is shown, fade it out
+                local duration = 0.3
+                local targetAlpha = 0 -- hidden
+                local frame = _G[frameName]
+                FadeFrameCustom(frame, "OUT", duration, targetAlpha)
+            end
+        end
+    end
+
+    --ApplyElvUIFade(true)  -- Hide/Fade out ElvUI elements
 
     ToggleMinimapIcons(true)
     ToggleMinimapMarkers(true)
     TogglePOIArrows(true)
     ToggleHandyNotesMapPins(true)
+
+    frameFader.isFaded = true
 end
 
 local function FadeInUI()
-    ApplyElvUIFade(false)  -- Show/Restore ElvUI elements
-
     -- Blizzard UI elements
     for _, name in ipairs(panelNamesToFade) do
         local panel = ResolveNamedFrame(name)
@@ -666,18 +752,37 @@ local function FadeInUI()
                     panel:SetAlpha(1)
                 end
             else
-                panel:SetAlpha(1)
+                panel:SetAlpha(0) -- need to do anything?
             end
         end
     end
-    frameFader.wasShownByName = {}
-    frameFader.isFaded = false
-    frameFader.restoreAt = nil
+
+    if _G["ElvUI"] then
+        for _, frameName in ipairs(elvUIFrames) do
+            if elvUIFrameFader[frameName] then
+                local wasShown = elvUIFrameFader[frameName].wasShown or false
+                local originalAlpha = elvUIFrameFader[frameName].originalAlpha or 0
+                if wasShown then
+                    -- if the frame is shown, fade it back in to its original alpha
+                    local duration = 0.3
+                    local frame = _G[frameName]
+                    FadeFrameCustom(frame, "IN", duration, originalAlpha)
+                    print("Fading in ElvUI frame:", frameName, "to original alpha:", originalAlpha)
+                end
+            end
+        end
+    end
+
+    --ApplyElvUIFade(false)  -- Show/Restore ElvUI elements
 
     ToggleMinimapIcons(false)
     ToggleMinimapMarkers(false)
     TogglePOIArrows(false)
     ToggleHandyNotesMapPins(false)
+
+    frameFader.wasShownByName = {}
+    frameFader.isFaded = false
+    frameFader.restoreAt = nil
 end
 
 local function ScheduleFadeInUI()
