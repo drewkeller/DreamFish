@@ -6,9 +6,6 @@ local DebugMessage = addon.DebugMessage
 local DebugStateMessage = addon.DebugStateMessage or addon.DebugMessage
 local OVERSIZED_BOBBER_ITEM_ID = 202207
 local DUE_BUFF_CATEGORY_ORDER = { "food_drink", "lure", "bait", "bobber", "other_consumable" }
-local UNDERLIGHT_MODE_DISABLED = "disabled"
-local UNDERLIGHT_MODE_ALWAYS_EXCEPT_FISHING = "always_except_fishing"
-local UNDERLIGHT_MODE_LOCK = "lock_underlight"
 
 local ConfigureFishingClickAction
 local GetNextReadyDueBuffItem
@@ -493,14 +490,71 @@ local function IsItemAvailableForEquip(itemID)
     return false
 end
 
-local function NormalizeUnderlightMode(mode)
+local function IsUnderlightAnglerItemID(itemID)
+    local underlightID = addon.const and tonumber(addon.const.underlightAnglerItemID) or 133755
+    return tonumber(itemID) == underlightID
+end
+
+local function NormalizeLegacyPoleMode(mode)
     local modeText = type(mode) == "string" and mode or ""
-    if modeText == UNDERLIGHT_MODE_DISABLED
-        or modeText == UNDERLIGHT_MODE_ALWAYS_EXCEPT_FISHING
-        or modeText == UNDERLIGHT_MODE_LOCK then
+    if modeText == "disabled" or modeText == "always_except_fishing" or modeText == "lock_underlight" then
         return modeText
     end
-    return UNDERLIGHT_MODE_DISABLED
+    return "disabled"
+end
+
+local function NormalizePoleSelection(value, validateItemID)
+    local itemID = nil
+    local isChecked = false
+
+    if type(value) == "table" then
+        itemID = tonumber(value.itemID)
+        isChecked = value.isChecked ~= false
+    else
+        itemID = tonumber(value)
+        isChecked = itemID ~= nil
+    end
+
+    if not itemID or itemID <= 0 then
+        itemID = nil
+    end
+    if itemID and validateItemID and (not validateItemID(itemID)) then
+        itemID = nil
+    end
+    if not itemID then
+        isChecked = false
+    end
+
+    return {
+        itemID = itemID,
+        isChecked = isChecked and true or false,
+    }
+end
+
+local function GetConfiguredPoleSelections()
+    local primary = NormalizePoleSelection(addon.db and addon.db.selectedFishingPole)
+    local underlight = NormalizePoleSelection(addon.db and addon.db.selectedUnderlightAngler, IsUnderlightAnglerItemID)
+
+    local hasStructuredPrimary = type(addon.db and addon.db.selectedFishingPole) == "table"
+    local hasStructuredUnderlight = type(addon.db and addon.db.selectedUnderlightAngler) == "table"
+    if (not hasStructuredPrimary) and (not hasStructuredUnderlight) then
+        local legacyMode = NormalizeLegacyPoleMode(addon.db and addon.db.underlightAnglerMode)
+        if legacyMode == "lock_underlight" then
+            primary.isChecked = false
+            underlight.isChecked = underlight.itemID ~= nil
+        elseif legacyMode == "always_except_fishing" then
+            primary.isChecked = primary.itemID ~= nil
+            underlight.isChecked = underlight.itemID ~= nil
+        else
+            primary.isChecked = primary.itemID ~= nil
+            underlight.isChecked = false
+        end
+    end
+
+    return {
+        primary = primary,
+        underlight = underlight,
+    }
 end
 
 local function GetWaterContextDiagnostics()
@@ -534,16 +588,16 @@ local function IsPlayerInWaterContext()
 end
 
 local function GetSelectedFishingPoleDecision()
-    local poleItemID = addon.db and tonumber(addon.db.selectedFishingPole) or nil
-    local underlightMode = NormalizeUnderlightMode(addon.db and addon.db.underlightAnglerMode)
+    local selections = GetConfiguredPoleSelections()
+    local poleItemID = selections.primary.itemID
     local hasItem = IsItemAvailableForEquip(poleItemID)
     local mounted = (type(IsMounted) == "function" and IsMounted()) or false
     local equippedItemID = GetEquippedProfessionItemID()
     local alreadyEquipped = poleItemID and equippedItemID and (poleItemID == equippedItemID) or false
     local shouldApply = hasItem
+        and selections.primary.isChecked
         and (not mounted)
         and (not alreadyEquipped)
-        and underlightMode ~= UNDERLIGHT_MODE_LOCK
 
     return {
         itemID = poleItemID,
@@ -679,26 +733,25 @@ local function TryEquipItemToProfessionSlot(itemID)
     return false
 end
 
-local function GetDesiredConfiguredPoleItemID(mode, swimming, inFishingSession, forcePrimary)
-    local selectedPrimaryPoleID = addon.db and tonumber(addon.db.selectedFishingPole) or nil
-    local selectedUnderlightID = addon.db and tonumber(addon.db.selectedUnderlightAngler) or nil
+local function GetDesiredConfiguredPoleItemID(inFishingSession)
+    local selections = GetConfiguredPoleSelections()
+    local primary = selections.primary
+    local underlight = selections.underlight
 
-    if forcePrimary then
-        return selectedPrimaryPoleID
+    if not primary.isChecked and not underlight.isChecked then
+        return nil
+    end
+    if primary.isChecked and not underlight.isChecked then
+        return primary.itemID
+    end
+    if underlight.isChecked and not primary.isChecked then
+        return underlight.itemID
     end
 
-    if mode == UNDERLIGHT_MODE_DISABLED then
-        return selectedPrimaryPoleID
-    elseif mode == UNDERLIGHT_MODE_LOCK then
-        return selectedUnderlightID
-    elseif mode == UNDERLIGHT_MODE_ALWAYS_EXCEPT_FISHING then
-        if inFishingSession then
-            return selectedPrimaryPoleID
-        end
-        return selectedUnderlightID
+    if inFishingSession then
+        return primary.itemID
     end
-
-    return selectedPrimaryPoleID
+    return underlight.itemID
 end
 
 local function MaybeEquipConfiguredUnderlight(reason, forcePrimary)
@@ -706,7 +759,6 @@ local function MaybeEquipConfiguredUnderlight(reason, forcePrimary)
         return false
     end
 
-    local mode = NormalizeUnderlightMode(addon.db.underlightAnglerMode)
     local waterContext = GetWaterContextDiagnostics()
     local swimming = waterContext.result
     local isFishing = addon.state and addon.state.isFishing
@@ -721,7 +773,7 @@ local function MaybeEquipConfiguredUnderlight(reason, forcePrimary)
             .. " secureOption=" .. tostring(waterContext.secureOption))
     end
 
-    local desiredPoleItemID = GetDesiredConfiguredPoleItemID(mode, swimming, inFishingSession, forcePrimary)
+    local desiredPoleItemID = GetDesiredConfiguredPoleItemID(inFishingSession)
     if not desiredPoleItemID or desiredPoleItemID <= 0 then
         return false
     end
@@ -733,7 +785,6 @@ local function MaybeEquipConfiguredUnderlight(reason, forcePrimary)
     end
 
     DebugMessage("Syncing configured pole: reason=" .. tostring(reason or "unknown")
-        .. " mode=" .. tostring(mode)
         .. " swimming=" .. tostring(swimming)
         .. " inFishingSession=" .. tostring(inFishingSession)
         .. " forcePrimary=" .. tostring(forcePrimary and true or false)
@@ -979,17 +1030,18 @@ ConfigureFishingClickAction = function()
     local fishingPoleDecision = GetSelectedFishingPoleDecision()
     local bobberDecision = GetBobberUseDecision()
     local oversizedDecision = GetOversizedBobberDecision()
+    local poleSelections = GetConfiguredPoleSelections()
     local macroLines = {}
     local raftExclusiveWhileSwimming = false
-    local underlightMode = NormalizeUnderlightMode(addon.db and addon.db.underlightAnglerMode)
-    local underlightItemID = addon.db and tonumber(addon.db.selectedUnderlightAngler) or nil
+    local underlightItemID = poleSelections.underlight.itemID
     local underlightMounted = (type(IsMounted) == "function" and IsMounted()) or false
     local underlightEquippedItemID = GetEquippedProfessionItemID()
     local underlightAlreadyEquipped = underlightItemID
         and underlightEquippedItemID
         and (underlightItemID == underlightEquippedItemID)
         or false
-    local shouldEquipUnderlightInMacro = underlightMode == UNDERLIGHT_MODE_LOCK
+    local shouldEquipUnderlightInMacro = poleSelections.underlight.isChecked
+        and (not poleSelections.primary.isChecked)
         and IsItemAvailableForEquip(underlightItemID)
         and not underlightMounted
         and not underlightAlreadyEquipped
@@ -1023,8 +1075,7 @@ ConfigureFishingClickAction = function()
     if shouldEquipUnderlightInMacro then
         table.insert(macroLines, "/equip item:" .. tostring(underlightItemID))
         DebugBuffMessage("Fishing click will equip Underlight Angler: "
-            .. GetDebugItemLabel(underlightItemID)
-            .. " mode=" .. tostring(underlightMode))
+            .. GetDebugItemLabel(underlightItemID))
     end
 
     if (not raftExclusiveWhileSwimming) and bobberDecision.shouldApply then

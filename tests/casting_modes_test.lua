@@ -1088,7 +1088,6 @@ function tests.PrecastEquipsSelectedFishingPoleBeforeBobber()
         selectedRaftToy = nil,
         selectedFishingPole = 555001,
         selectedUnderlightAngler = nil,
-        underlightAnglerMode = "disabled",
         selectedBobberToy = 142531,
         useOversizedBobber = false,
     })
@@ -1126,9 +1125,8 @@ function tests.PrecastLockUnderlightSkipsPrimaryPoleSwap()
         buffAuraByItem = {},
         easyStrike = false,
         selectedRaftToy = nil,
-        selectedFishingPole = 555001,
-        selectedUnderlightAngler = 133755,
-        underlightAnglerMode = "lock_underlight",
+        selectedFishingPole = { itemID = 555001, isChecked = false },
+        selectedUnderlightAngler = { itemID = 133755, isChecked = true },
         selectedBobberToy = nil,
         useOversizedBobber = false,
     })
@@ -1156,7 +1154,6 @@ function tests.AlwaysExceptFishingIdleHelperEquipsUnderlight()
         buffItems = {},
         buffAuraByItem = {},
         selectedUnderlightAngler = 133755,
-        underlightAnglerMode = "always_except_fishing",
     })
 
     DreamFisher.state.isFishing = false
@@ -1200,7 +1197,6 @@ function tests.UnderlightIdleHelperFallsBackToUnslottedEquip()
         buffItems = {},
         buffAuraByItem = {},
         selectedUnderlightAngler = 133755,
-        underlightAnglerMode = "always_except_fishing",
     })
 
     DreamFisher.state.isFishing = false
@@ -1256,7 +1252,6 @@ function tests.ModeChangeDisabledEquipsPrimaryPole()
         buffAuraByItem = {},
         selectedFishingPole = 555001,
         selectedUnderlightAngler = 133755,
-        underlightAnglerMode = "disabled",
     })
 
     DreamFisher.state.isFishing = false

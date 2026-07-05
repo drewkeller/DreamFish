@@ -23,9 +23,6 @@ addon.defaults = {
     useOversizedBobber = false,
     selectedFishingPole = { isChecked = false, itemID = nil },
     selectedUnderlightAngler = { isChecked = false, itemID = nil },
-    -- deprecated
-    underlightAnglerMode = "disabled",
-    useUnderlightAngler = false,
     -- Buffs
     buffItems = {
         { enabled = false, itemID = nil },

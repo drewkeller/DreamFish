@@ -22,9 +22,6 @@ local UpdateToyApplyButtons
 local SyncEscapeCloseRegistration
 local ownedToyOptionsCache = {}
 local ownedToyItemCache = {}
-local UNDERLIGHT_MODE_DISABLED = "disabled"
-local UNDERLIGHT_MODE_ALWAYS_EXCEPT_FISHING = "always_except_fishing"
-local UNDERLIGHT_MODE_LOCK = "lock_underlight"
 local IsLikelyFishingPoleItem
 
 local function IsPositiveItemID(value)
@@ -40,30 +37,63 @@ local function IsUnderlightAnglerItemID(itemID)
     return tonumber(itemID) == GetUnderlightItemID()
 end
 
-local function NormalizeUnderlightMode(mode)
-    local allowed = addon.const and addon.const.underlightAnglerModes or nil
-    if type(mode) == "string" and allowed and allowed[mode] then
-        return mode
+local function NormalizeLegacyPoleMode(mode)
+    local modeText = type(mode) == "string" and mode or ""
+    if modeText == "disabled" or modeText == "always_except_fishing" or modeText == "lock_underlight" then
+        return modeText
     end
-    if type(mode) == "string" then
-        if mode == UNDERLIGHT_MODE_DISABLED
-            or mode == UNDERLIGHT_MODE_ALWAYS_EXCEPT_FISHING
-            or mode == UNDERLIGHT_MODE_LOCK then
-            return mode
-        end
+    return "disabled"
+end
+
+local function NormalizePoleSelection(value, validateItemID)
+    local itemID = nil
+    local isChecked = false
+
+    if type(value) == "table" then
+        itemID = IsPositiveItemID(value.itemID)
+        isChecked = value.isChecked ~= false
+    else
+        itemID = IsPositiveItemID(value)
+        isChecked = itemID ~= nil
     end
-    return UNDERLIGHT_MODE_DISABLED
+
+    if itemID and validateItemID and (not validateItemID(itemID)) then
+        itemID = nil
+    end
+    if not itemID then
+        isChecked = false
+    end
+
+    return {
+        isChecked = isChecked and true or false,
+        itemID = itemID,
+    }
 end
 
 local function NormalizeTackleConfigValues()
     if not addon.db then
         return
     end
-    addon.db.selectedFishingPole = IsPositiveItemID(addon.db.selectedFishingPole)
-    local underlightID = GetUnderlightItemID()
-    local configuredUnderlight = IsPositiveItemID(addon.db.selectedUnderlightAngler)
-    addon.db.selectedUnderlightAngler = (configuredUnderlight == underlightID) and configuredUnderlight or nil
-    addon.db.underlightAnglerMode = NormalizeUnderlightMode(addon.db.underlightAnglerMode)
+
+    local hadStructuredPrimary = type(addon.db.selectedFishingPole) == "table"
+    local hadStructuredUnderlight = type(addon.db.selectedUnderlightAngler) == "table"
+    local legacyMode = NormalizeLegacyPoleMode(addon.db.underlightAnglerMode)
+
+    addon.db.selectedFishingPole = NormalizePoleSelection(addon.db.selectedFishingPole)
+    addon.db.selectedUnderlightAngler = NormalizePoleSelection(addon.db.selectedUnderlightAngler, IsUnderlightAnglerItemID)
+
+    if (not hadStructuredPrimary) and (not hadStructuredUnderlight) then
+        if legacyMode == "lock_underlight" then
+            addon.db.selectedFishingPole.isChecked = false
+            addon.db.selectedUnderlightAngler.isChecked = addon.db.selectedUnderlightAngler.itemID ~= nil
+        elseif legacyMode == "always_except_fishing" then
+            addon.db.selectedFishingPole.isChecked = addon.db.selectedFishingPole.itemID ~= nil
+            addon.db.selectedUnderlightAngler.isChecked = addon.db.selectedUnderlightAngler.itemID ~= nil
+        else
+            addon.db.selectedFishingPole.isChecked = addon.db.selectedFishingPole.itemID ~= nil
+            addon.db.selectedUnderlightAngler.isChecked = false
+        end
+    end
 end
 
 local function IsItemInBags(itemID)
@@ -257,25 +287,26 @@ local function BuildOwnedFishingPoleOptions(includeDefaultLabel)
     return options
 end
 
-local function BuildUnderlightModeOptions()
-    local modeLabels = addon.const and addon.const.underlightAnglerModes or {}
-    return {
-        { value = UNDERLIGHT_MODE_DISABLED, label = modeLabels[UNDERLIGHT_MODE_DISABLED] or "Do not equip Underlight Angler" },
-        { value = UNDERLIGHT_MODE_ALWAYS_EXCEPT_FISHING, label = modeLabels[UNDERLIGHT_MODE_ALWAYS_EXCEPT_FISHING] or "Equip always except when fishing" },
-        { value = UNDERLIGHT_MODE_LOCK, label = modeLabels[UNDERLIGHT_MODE_LOCK] or "Equip now and don't swap" },
-    }
-end
-
 local function RefreshUnderlightConfigControls()
+    local configuredFishingPoleID = addon.fishingPoleBox and tonumber(addon.fishingPoleBox:GetText()) or nil
+    local hasFishingPole = configuredFishingPoleID and configuredFishingPoleID > 0 and IsItemAvailableForConfig(configuredFishingPoleID)
     local configuredUnderlightID = addon.underlightAnglerBox and tonumber(addon.underlightAnglerBox:GetText()) or nil
     local hasUnderlight = configuredUnderlightID and configuredUnderlightID > 0 and IsItemAvailableForConfig(configuredUnderlightID)
-    if addon.underlightAnglerModeSelector and addon.underlightAnglerModeSelector.SetEnabled then
-        addon.underlightAnglerModeSelector:SetEnabled(hasUnderlight)
-    end
 
-    if not hasUnderlight then
-        if addon.underlightAnglerModeSelector then
-            addon.underlightAnglerModeSelector:SetText(UNDERLIGHT_MODE_DISABLED)
+    if addon.fishingPoleEquipCheckbox then
+        if addon.fishingPoleEquipCheckbox.SetEnabled then
+            addon.fishingPoleEquipCheckbox:SetEnabled(hasFishingPole)
+        end
+        if not hasFishingPole then
+            addon.fishingPoleEquipCheckbox:SetChecked(false)
+        end
+    end
+    if addon.underlightAnglerEquipCheckbox then
+        if addon.underlightAnglerEquipCheckbox.SetEnabled then
+            addon.underlightAnglerEquipCheckbox:SetEnabled(hasUnderlight)
+        end
+        if not hasUnderlight then
+            addon.underlightAnglerEquipCheckbox:SetChecked(false)
         end
     end
 end
@@ -674,16 +705,25 @@ local function LoadConfigBindings()
     local fishingPoleFallback = (equippedProfessionItem and not IsUnderlightAnglerItemID(equippedProfessionItem))
         and equippedProfessionItem
         or GetEquippedFishingPoleItemID()
-    local selectedFishingPole = addon.db.selectedFishingPole or fishingPoleFallback or nil
+    local selectedFishingPoleConfig = type(addon.db.selectedFishingPole) == "table"
+        and addon.db.selectedFishingPole
+        or { isChecked = false, itemID = addon.db.selectedFishingPole }
+    local selectedFishingPole = selectedFishingPoleConfig.itemID or fishingPoleFallback or nil
     if isTackleActive and addon.fishingPoleBox then
         local desiredPoleText = tostring(selectedFishingPole or "")
         if addon.fishingPoleBox:GetText() ~= desiredPoleText then
             addon.fishingPoleBox:SetText(desiredPoleText)
         end
     end
+    if isTackleActive and addon.fishingPoleEquipCheckbox then
+        addon.fishingPoleEquipCheckbox:SetChecked(selectedFishingPoleConfig.isChecked and selectedFishingPole ~= nil)
+    end
 
     local underlightID = GetUnderlightItemID()
-    local selectedUnderlight = addon.db.selectedUnderlightAngler
+    local selectedUnderlightConfig = type(addon.db.selectedUnderlightAngler) == "table"
+        and addon.db.selectedUnderlightAngler
+        or { isChecked = false, itemID = addon.db.selectedUnderlightAngler }
+    local selectedUnderlight = selectedUnderlightConfig.itemID
     if (not selectedUnderlight or selectedUnderlight <= 0)
         and (IsUnderlightEquipped() or IsItemInBags(underlightID)) then
         selectedUnderlight = underlightID
@@ -694,10 +734,8 @@ local function LoadConfigBindings()
             addon.underlightAnglerBox:SetText(desiredUnderlightText)
         end
     end
-
-    if isTackleActive and addon.underlightAnglerModeSelector then
-        addon.underlightAnglerModeSelector:RefreshOptions()
-        addon.underlightAnglerModeSelector:SetText(addon.db.underlightAnglerMode or UNDERLIGHT_MODE_DISABLED)
+    if isTackleActive and addon.underlightAnglerEquipCheckbox then
+        addon.underlightAnglerEquipCheckbox:SetChecked(selectedUnderlightConfig.isChecked and selectedUnderlight ~= nil)
     end
 
     if isTackleActive then
@@ -802,25 +840,32 @@ local function SaveConfigBindings()
     end
     if addon.fishingPoleBox then
         local selectedFishingPole = tonumber(addon.fishingPoleBox:GetText())
-        addon.db.selectedFishingPole = (selectedFishingPole and selectedFishingPole > 0) and selectedFishingPole or nil
+        local itemID = (selectedFishingPole and selectedFishingPole > 0) and selectedFishingPole or nil
+        addon.db.selectedFishingPole = {
+            isChecked = (addon.fishingPoleEquipCheckbox and addon.fishingPoleEquipCheckbox:GetChecked()) and (itemID ~= nil) or false,
+            itemID = itemID,
+        }
     end
     if addon.underlightAnglerBox then
         local selectedUnderlight = tonumber(addon.underlightAnglerBox:GetText())
         if selectedUnderlight and selectedUnderlight > 0 and IsUnderlightAnglerItemID(selectedUnderlight) then
-            addon.db.selectedUnderlightAngler = selectedUnderlight
+            addon.db.selectedUnderlightAngler = {
+                isChecked = (addon.underlightAnglerEquipCheckbox and addon.underlightAnglerEquipCheckbox:GetChecked()) and true or false,
+                itemID = selectedUnderlight,
+            }
         else
-            addon.db.selectedUnderlightAngler = nil
+            addon.db.selectedUnderlightAngler = {
+                isChecked = false,
+                itemID = nil,
+            }
         end
-    end
-    if addon.underlightAnglerModeSelector then
-        addon.db.underlightAnglerMode = NormalizeUnderlightMode(addon.underlightAnglerModeSelector:GetText())
-    else
-        addon.db.underlightAnglerMode = NormalizeUnderlightMode(addon.db.underlightAnglerMode)
     end
 
     if not IsItemAvailableForConfig(GetUnderlightItemID()) then
-        addon.db.selectedUnderlightAngler = nil
-        addon.db.underlightAnglerMode = UNDERLIGHT_MODE_DISABLED
+        addon.db.selectedUnderlightAngler = {
+            isChecked = false,
+            itemID = nil,
+        }
     end
 
     NormalizeTackleConfigValues()
@@ -1062,38 +1107,69 @@ local function BuildFocusTab(focusPage, ui, onLiveChange)
     local root = ui.FlowRoot(focusPage, 12)
 
     local focusSection = ui.FlowSection(root, "Focus")
-    addon.autoLootCheckbox = ui.FlowCheckbox(focusSection, "Temporary Auto-Loot", onLiveChange)
-    addon.treasureAlertsCheckbox = ui.FlowCheckbox(focusSection, "Patient Treasure Notification", onLiveChange)
-    addon.bagAlertsCheckbox = ui.FlowCheckbox(focusSection, "Bag Monitor / Alert", onLiveChange)
-    addon.lowBagBox = ui.FlowEditBox(focusSection, "Low Bag Threshold:", 190, onLiveChange)
+    addon.autoLootCheckbox = ui.FlowCheckbox(focusSection, "Temporary auto-loot", onLiveChange)
+    addon.treasureAlertsCheckbox = ui.FlowCheckbox(focusSection, "Patient Treasure notification", onLiveChange)
+    addon.bagAlertsCheckbox = ui.FlowCheckbox(focusSection, "Bag monitor / alert", onLiveChange)
+    addon.lowBagBox = ui.FlowEditBox(focusSection, "Threshold (slots)", 150, onLiveChange)
 
     local audioSection = ui.FlowSection(root, "Audio")
-    addon.focusedAudioCheckbox = ui.FlowCheckbox(audioSection, "Fishing Focused Audio", onLiveChange)
-    addon.audioLingerBox = ui.FlowEditBox(audioSection, "Audio Linger After Catch (s):", 260, onLiveChange)
+    addon.focusedAudioCheckbox = ui.FlowCheckbox(audioSection, "Focused audio when fishing", onLiveChange)
+    addon.audioLingerBox = ui.FlowEditBox(audioSection, "After catch (s)", 150, onLiveChange)
 end
 
 local function BuildTackleTab(tacklePage, ui, createTackleItemDropBox, onLiveChange)
     local root = ui.FlowRoot(tacklePage, 12)
 
-    ui.FlowNote(root, "Tackle is automatically applied during pre-casting in this order, "
-        .. "if selected/enabled: raft (if swimming), fishing pole, underlight mode equip, bobber, oversized bobber.")
-    ui.FlowRowHost(root, 5)
+    local function CreateTackleEnabledCheckbox(parent, x, y, onToggle)
+        local checkbox = CreateFrame("CheckButton", nil, parent, "UICheckButtonTemplate")
+        checkbox:SetSize(24, 24)
+        checkbox:SetPoint("TOPLEFT", parent, "TOPLEFT", x, y)
+        checkbox:SetChecked(true)
+        checkbox:SetScript("OnClick", function(self)
+            onToggle(self:GetChecked() and true or false)
+        end)
 
+        return {
+            SetChecked = function(_, value)
+                checkbox:SetChecked(value and true or false)
+            end,
+            GetChecked = function()
+                return checkbox:GetChecked() and true or false
+            end,
+            SetEnabled = function(_, enabled)
+                if enabled then
+                    checkbox:Enable()
+                    checkbox:SetAlpha(1)
+                else
+                    checkbox:Disable()
+                    checkbox:SetAlpha(0.45)
+                end
+            end,
+        }
+    end
+
+    ui.FlowNote(root, "Tackle is automatically applied during pre-casting in this order, "
+        .. "if selected/enabled: raft (if swimming), pole, bobber, oversized bobber.")
+
+    -- Raft section
+    ui.FlowRowHost(root, 20)
     ui.FlowTitle(root, "Raft")
-    addon.raftSelector = ui.FlowToySelector(root, "Selected Raft:", 320, function()
+    addon.raftSelector = ui.FlowToySelector(root, "", 320, function()
         return BuildOwnedToyOptions(addon.const.raftToyItemIDs, "No Raft")
     end, onLiveChange)
     addon.raftApplyButton = ui.FlowSecureToyActionButton(root, 160, "Apply Raft")
-    ui.FlowRowHost(root, 6)
 
+    -- Bobber section
+    ui.FlowRowHost(root, 20)
     ui.FlowTitle(root, "Bobber")
-    addon.bobberSelector = ui.FlowToySelector(root, "Selected Bobber:", 320, function()
+    addon.bobberSelector = ui.FlowToySelector(root, "", 320, function()
         return BuildOwnedToyOptions(addon.const.bobberToyItemIDs, "Standard Bobber")
     end, onLiveChange)
     addon.oversizedBobberCheckbox = ui.FlowCheckbox(root, "Use oversized bobber", onLiveChange)
     addon.bobberApplyButton = ui.FlowSecureToyActionButton(root, 160, "Apply Bobber")
-    ui.FlowRowHost(root, 6)
 
+    -- Rods & Poles section
+    ui.FlowRowHost(root, 20)
     ui.FlowTitle(root, "Rods & Poles")
     local columns = ui.FlowColumns(root, 2)
     local leftColumn = columns[1]
@@ -1104,21 +1180,33 @@ local function BuildTackleTab(tacklePage, ui, createTackleItemDropBox, onLiveCha
     poleLabel:SetPoint("TOPLEFT", poleLabelHost, "TOPLEFT", 0, -2)
     poleLabel:SetText("Fishing Pole:")
     local poleBoxHost = ui.FlowRowHost(leftColumn, 56)
-    addon.fishingPoleBox = createTackleItemDropBox(poleBoxHost, 0, -2, nil, function()
+    addon.fishingPoleBox = createTackleItemDropBox(poleBoxHost, 26, -2, nil, function()
         RefreshUnderlightConfigControls()
         RefreshTackleEquippedPoleHighlights()
         if onLiveChange then
             onLiveChange()
         end
     end)
-    ui.FlowNote(leftColumn, "Drag a fishing pole from your bags into this box.")
+    addon.fishingPoleEquipCheckbox = CreateTackleEnabledCheckbox(poleBoxHost, 0, -14, function()
+        if onLiveChange then
+            onLiveChange()
+        end
+    end)
+    addon.fishingPoleBox.onItemPresenceChanged = function(_, hasItem)
+        if addon.fishingPoleEquipCheckbox and addon.fishingPoleEquipCheckbox.SetEnabled then
+            addon.fishingPoleEquipCheckbox:SetEnabled(hasItem)
+        end
+        if (not hasItem) and addon.fishingPoleEquipCheckbox then
+            addon.fishingPoleEquipCheckbox:SetChecked(false)
+        end
+    end
 
     local underlightLabelHost = ui.FlowRowHost(rightColumn, 20)
     local underlightLabel = underlightLabelHost:CreateFontString(nil, "OVERLAY", "GameFontNormal")
     underlightLabel:SetPoint("TOPLEFT", underlightLabelHost, "TOPLEFT", 0, -2)
     underlightLabel:SetText("Underlight Angler:")
     local underlightBoxHost = ui.FlowRowHost(rightColumn, 56)
-    addon.underlightAnglerBox = createTackleItemDropBox(underlightBoxHost, 0, -2, nil, function()
+    addon.underlightAnglerBox = createTackleItemDropBox(underlightBoxHost, 26, -2, nil, function()
         RefreshUnderlightConfigControls()
         RefreshTackleEquippedPoleHighlights()
         if onLiveChange then
@@ -1127,35 +1215,26 @@ local function BuildTackleTab(tacklePage, ui, createTackleItemDropBox, onLiveCha
     end, {
         validateItemID = IsUnderlightAnglerItemID,
     })
-    -- This acts as a spacer (text alpha is set to transparent) to keep layout the same as the left column
-    local hiddenUnderlightNote = ui.FlowNote(rightColumn, "Drag a fishing pole from your bags into this box.")
-    if hiddenUnderlightNote.label then
-        hiddenUnderlightNote.label:SetAlpha(0)
-    end
-
-    ui.FlowRowHost(root, 6)
-    addon.underlightAnglerModeSelector = ui.FlowDropdown(root, "Underlight Angler Mode:", 320, BuildUnderlightModeOptions, function()
-        local selectedMode = NormalizeUnderlightMode(addon.underlightAnglerModeSelector and addon.underlightAnglerModeSelector:GetText())
-        if addon.db then
-            addon.db.underlightAnglerMode = selectedMode
-            local selectedUnderlight = addon.underlightAnglerBox and tonumber(addon.underlightAnglerBox:GetText()) or nil
-            if selectedUnderlight and selectedUnderlight > 0 and IsUnderlightAnglerItemID(selectedUnderlight) then
-                addon.db.selectedUnderlightAngler = selectedUnderlight
-            end
-        end
-
-        if addon.fishing then
-            if addon.fishing.SyncConfiguredPoleForCurrentState then
-                addon.fishing.SyncConfiguredPoleForCurrentState("config-underlight-mode-change")
-            elseif addon.fishing.MaybeEquipConfiguredUnderlight then
-                addon.fishing.MaybeEquipConfiguredUnderlight("config-underlight-mode-change")
-            end
-        end
-
+    addon.underlightAnglerEquipCheckbox = CreateTackleEnabledCheckbox(underlightBoxHost, 0, -14, function()
         if onLiveChange then
             onLiveChange()
         end
     end)
+    addon.underlightAnglerBox.onItemPresenceChanged = function(_, hasItem)
+        if addon.underlightAnglerEquipCheckbox and addon.underlightAnglerEquipCheckbox.SetEnabled then
+            addon.underlightAnglerEquipCheckbox:SetEnabled(hasItem)
+        end
+        if (not hasItem) and addon.underlightAnglerEquipCheckbox then
+            addon.underlightAnglerEquipCheckbox:SetChecked(false)
+        end
+    end
+    ui.FlowNote(root, "Drag a fishing pole from your bags into the first slot to equip it.\n\n"
+        .. "Modes:\n"
+        .. "* Auto-swap: Check both boxes\n    (swap occurs when starting/stopping fishing)\n"
+        .. "* Single-pole: Only check one box.\n"
+        .. "* Manual: Leave both boxes unchecked.")
+
+    ui.FlowRowHost(root, 6)
 
     RefreshUnderlightConfigControls()
     RefreshTackleEquippedPoleHighlights()
@@ -1357,6 +1436,78 @@ function config.CreateConfigPanel()
         }, parent, x, y, label, onLiveChange)
     end
 
+    local function TryUnequipProfessionSlotItem(expectedItemID)
+        local expected = tonumber(expectedItemID)
+        if type(InCombatLockdown) == "function" and InCombatLockdown() then
+            return false
+        end
+        if type(GetInventoryItemID) ~= "function" or type(PickupInventoryItem) ~= "function" then
+            return false
+        end
+
+        local equipped = tonumber(GetInventoryItemID("player", 28))
+        if not equipped or equipped <= 0 then
+            return false
+        end
+        if expected and expected > 0 and equipped ~= expected then
+            return false
+        end
+
+        local function CursorHasItem()
+            if type(GetCursorInfo) ~= "function" then
+                return false
+            end
+            local cursorType = GetCursorInfo()
+            return cursorType == "item"
+        end
+
+        local function TryPlaceCursorItemInBags()
+            local pickupFn = nil
+            if C_Container and type(C_Container.PickupContainerItem) == "function" then
+                pickupFn = C_Container.PickupContainerItem
+            elseif type(PickupContainerItem) == "function" then
+                pickupFn = PickupContainerItem
+            end
+            if type(pickupFn) ~= "function" then
+                return false
+            end
+
+            local bagCount = NUM_BAG_SLOTS or 4
+            for bag = 0, bagCount do
+                local slots = addon.utils and addon.utils.ContainerNumSlots and addon.utils.ContainerNumSlots(bag) or 0
+                for slot = 1, slots do
+                    local slotItemID = addon.utils and addon.utils.ContainerItemID and addon.utils.ContainerItemID(bag, slot) or nil
+                    if not slotItemID then
+                        pcall(pickupFn, bag, slot)
+                        if not CursorHasItem() then
+                            return true
+                        end
+                    end
+                end
+            end
+
+            return false
+        end
+
+        pcall(PickupInventoryItem, 28)
+        if not CursorHasItem() then
+            return false
+        end
+
+        if type(PutItemInBackpack) == "function" then
+            pcall(PutItemInBackpack)
+        end
+        if CursorHasItem() then
+            TryPlaceCursorItemInBags()
+        end
+        if CursorHasItem() and type(ClearCursor) == "function" then
+            pcall(ClearCursor)
+        end
+
+        local after = tonumber(GetInventoryItemID("player", 28))
+        return not after or after <= 0
+    end
+
     local function CreateTackleItemDropBox(parent, x, y, label, onLiveChange, options)
         local validateItemID = options and options.validateItemID or nil
         local box = CreateFrame("Button", nil, parent)
@@ -1372,7 +1523,7 @@ function config.CreateConfigPanel()
         local border = box:CreateTexture(nil, "BORDER")
         border:SetPoint("TOPLEFT", box, "TOPLEFT", 0, 0)
         border:SetPoint("BOTTOMRIGHT", box, "BOTTOMRIGHT", 0, 0)
-        border:SetColorTexture(0.42, 0.42, 0.42, 0)
+        border:SetColorTexture(0.42, 0.42, 0.42, 0.9)
 
         local inner = box:CreateTexture(nil, "ARTWORK")
         inner:SetPoint("TOPLEFT", box, "TOPLEFT", 1, -1)
@@ -1387,14 +1538,21 @@ function config.CreateConfigPanel()
         box.itemID = nil
         box.textValue = ""
         box.isEquippedHighlight = false
+        box.isDragHover = false
 
-        function box:SetHighlightedAsEquipped(active)
-            self.isEquippedHighlight = active and true or false
-            if self.isEquippedHighlight then
+        local function UpdateBorderVisual()
+            if box.isEquippedHighlight then
                 border:SetColorTexture(0.9, 0.8, 0.2, 0.95)
+            elseif box.isDragHover then
+                border:SetColorTexture(0.25, 0.65, 1.0, 0.95)
             else
                 border:SetColorTexture(0.42, 0.42, 0.42, 0)
             end
+        end
+
+        function box:SetHighlightedAsEquipped(active)
+            self.isEquippedHighlight = active and true or false
+            UpdateBorderVisual()
         end
 
         local function IsCursorHoldingItem()
@@ -1424,10 +1582,14 @@ function config.CreateConfigPanel()
 
         function box:SetItemID(itemID)
             local numeric = tonumber(itemID)
+            local previousItemID = self.itemID
             if numeric and numeric > 0 and (not IsItemAccepted(numeric)) then
                 self.itemID = nil
                 self.textValue = ""
                 self.icon:SetTexture(nil)
+                if self.onItemPresenceChanged then
+                    self.onItemPresenceChanged(self, false)
+                end
                 return
             end
             if numeric and numeric > 0 then
@@ -1439,9 +1601,16 @@ function config.CreateConfigPanel()
                     self.icon:SetTexture(nil)
                 end
             else
+                if previousItemID and previousItemID > 0 then
+                    TryUnequipProfessionSlotItem(previousItemID)
+                end
                 self.itemID = nil
                 self.textValue = ""
                 self.icon:SetTexture(nil)
+            end
+
+            if self.onItemPresenceChanged then
+                self.onItemPresenceChanged(self, (self.itemID and self.itemID > 0) and true or false)
             end
         end
 
@@ -1491,6 +1660,8 @@ function config.CreateConfigPanel()
         end)
 
         box:SetScript("OnReceiveDrag", function(self)
+            self.isDragHover = true
+            UpdateBorderVisual()
             if AssignFromCursor(self) and onLiveChange then
                 onLiveChange()
             end
@@ -1510,6 +1681,8 @@ function config.CreateConfigPanel()
         end)
 
         box:SetScript("OnEnter", function(self)
+            self.isDragHover = IsCursorHoldingItem()
+            UpdateBorderVisual()
             if self.itemID and self.itemID > 0 and type(GameTooltip) == "table" then
                 GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
                 if type(GameTooltip.SetItemByID) == "function" then
@@ -1522,6 +1695,8 @@ function config.CreateConfigPanel()
         end)
 
         box:SetScript("OnLeave", function()
+            box.isDragHover = false
+            UpdateBorderVisual()
             if type(GameTooltip) == "table" then
                 GameTooltip:Hide()
             end
