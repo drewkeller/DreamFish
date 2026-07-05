@@ -33,6 +33,55 @@ function addon.ui.CreateAceWidgetAdapters(aceGUIInstance, panel)
         return RegisterAceWidget(widget)
     end
 
+    local function AttachTooltip(frame, title, text)
+        if not frame or type(frame.HookScript) ~= "function" then
+            return
+        end
+        if type(text) ~= "string" or text == "" then
+            return
+        end
+
+        frame:HookScript("OnEnter", function(self)
+            if type(GameTooltip) ~= "table" then
+                return
+            end
+            GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
+            if type(title) == "string" and title ~= "" then
+                GameTooltip:SetText(title, 1, 0.82, 0)
+                GameTooltip:AddLine(text, 1, 1, 1, true)
+            else
+                GameTooltip:SetText(text, 1, 1, 1, 1, true)
+            end
+            GameTooltip:Show()
+        end)
+
+        frame:HookScript("OnLeave", function()
+            if type(GameTooltip) == "table" then
+                GameTooltip:Hide()
+            end
+        end)
+    end
+
+    local function AttachTooltipToDropdownWidget(widget, title, text)
+        if not widget then
+            return
+        end
+
+        AttachTooltip(widget.frame, title, text)
+
+        local root = nil
+        if widget.frame and widget.frame.obj then
+            root = widget.frame.obj
+        else
+            root = widget
+        end
+
+        AttachTooltip(root.dropdown, title, text)
+        if root.dropdown and root.dropdown.Button then
+            AttachTooltip(root.dropdown.Button, title, text)
+        end
+    end
+
     local function CreateAceFlowRoot(parent, inset)
         local padding = tonumber(inset) or 12
         local group = aceGUIInstance:Create("SimpleGroup")
@@ -54,7 +103,7 @@ function addon.ui.CreateAceWidgetAdapters(aceGUIInstance, panel)
         return RegisterAndAttachChild(parent, section)
     end
 
-    local function CreateAceFlowCheckbox(parent, label, onLiveChange)
+    local function CreateAceFlowCheckbox(parent, label, onLiveChange, tooltipText)
         local widget = aceGUIInstance:Create("CheckBox")
         widget:SetType("checkbox")
         widget:SetLabel(label)
@@ -65,6 +114,7 @@ function addon.ui.CreateAceWidgetAdapters(aceGUIInstance, panel)
             end)
         end
         widget = RegisterAndAttachChild(parent, widget)
+        AttachTooltip(widget.frame, label, tooltipText)
 
         return {
             SetChecked = function(_, value)
@@ -76,7 +126,7 @@ function addon.ui.CreateAceWidgetAdapters(aceGUIInstance, panel)
         }
     end
 
-    local function CreateAceFlowEditBox(parent, label, width, onLiveChange)
+    local function CreateAceFlowEditBox(parent, label, width, onLiveChange, tooltipText)
         local widget = aceGUIInstance:Create("EditBox")
         widget:SetLabel(label)
         widget:DisableButton(true)
@@ -94,6 +144,7 @@ function addon.ui.CreateAceWidgetAdapters(aceGUIInstance, panel)
             end)
         end
         widget = RegisterAndAttachChild(parent, widget)
+        AttachTooltip(widget.frame, label, tooltipText)
 
         return {
             SetText = function(_, value)
@@ -143,7 +194,7 @@ function addon.ui.CreateAceWidgetAdapters(aceGUIInstance, panel)
         return columns
     end
 
-    local function CreateAceFlowDropdown(parent, label, width, optionsGetter, onLiveChange)
+    local function CreateAceFlowDropdown(parent, label, width, optionsGetter, onLiveChange, tooltipText)
         if label and label ~= "" then
             CreateAceFlowTitle(parent, label)
         end
@@ -154,6 +205,7 @@ function addon.ui.CreateAceWidgetAdapters(aceGUIInstance, panel)
             dropdown:SetWidth(width)
         end
         dropdown = RegisterAndAttachChild(parent, dropdown)
+        AttachTooltipToDropdownWidget(dropdown, label, tooltipText)
 
         local selector = {
             options = {},
@@ -232,7 +284,7 @@ function addon.ui.CreateAceWidgetAdapters(aceGUIInstance, panel)
         return selector
     end
 
-    local function CreateAceFlowToySelector(parent, label, width, optionsGetter, onLiveChange)
+    local function CreateAceFlowToySelector(parent, label, width, optionsGetter, onLiveChange, tooltipText)
         CreateAceFlowTitle(parent, label)
 
         local dropdown = aceGUIInstance:Create("Dropdown")
@@ -242,6 +294,7 @@ function addon.ui.CreateAceWidgetAdapters(aceGUIInstance, panel)
             dropdown:SetWidth(width)
         end
         dropdown = RegisterAndAttachChild(parent, dropdown)
+        AttachTooltipToDropdownWidget(dropdown, label, tooltipText)
 
         local selector = {
             options = {},
@@ -310,7 +363,7 @@ function addon.ui.CreateAceWidgetAdapters(aceGUIInstance, panel)
         return selector
     end
 
-    local function CreateAceFlowSecureToyActionButton(parent, width, text)
+    local function CreateAceFlowSecureToyActionButton(parent, width, text, tooltipText)
         local buttonHost = aceGUIInstance:Create("SimpleGroup")
         buttonHost:SetLayout("Fill")
         buttonHost:SetFullWidth(true)
@@ -325,6 +378,7 @@ function addon.ui.CreateAceWidgetAdapters(aceGUIInstance, panel)
         button:RegisterForClicks("AnyDown", "AnyUp")
         button:SetAttribute("type", "toy")
         button:SetAttribute("toy", nil)
+        AttachTooltip(button, text, tooltipText)
         return button
     end
 
@@ -337,8 +391,8 @@ function addon.ui.CreateAceWidgetAdapters(aceGUIInstance, panel)
         return rowHost.content or rowHost.frame
     end
 
-    local function CreateAceFlowCheckboxWithNote(parent, label, noteText, onLiveChange, noteOptions)
-        local checkboxControl = CreateAceFlowCheckbox(parent, label, onLiveChange)
+    local function CreateAceFlowCheckboxWithNote(parent, label, noteText, onLiveChange, noteOptions, tooltipText)
+        local checkboxControl = CreateAceFlowCheckbox(parent, label, onLiveChange, tooltipText)
 
         local opts = noteOptions or {}
         local fixedHeight = tonumber(opts.noteHeight)

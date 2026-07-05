@@ -1198,14 +1198,20 @@ local function BuildFocusTab(focusPage, ui, onLiveChange)
     local root = ui.FlowRoot(focusPage, 12)
 
     local focusSection = ui.FlowSection(root, "Focus")
-    addon.autoLootCheckbox = ui.FlowCheckbox(focusSection, "Temporary auto-loot", onLiveChange)
-    addon.treasureAlertsCheckbox = ui.FlowCheckbox(focusSection, "Patient Treasure notification", onLiveChange)
-    addon.bagAlertsCheckbox = ui.FlowCheckbox(focusSection, "Bag monitor / alert", onLiveChange)
-    addon.lowBagBox = ui.FlowEditBox(focusSection, "Threshold (slots)", 150, onLiveChange)
+    addon.autoLootCheckbox = ui.FlowCheckbox(focusSection, "Temporary auto-loot", onLiveChange,
+        "Enables auto-loot while fishing and returns it to your previous setting when done.")
+    addon.treasureAlertsCheckbox = ui.FlowCheckbox(focusSection, "Patient Treasure notification", onLiveChange,
+        "Notifies you if you catch a Patient Treasure by coloring the screen and playing a distinct sound.")
+    addon.bagAlertsCheckbox = ui.FlowCheckbox(focusSection, "Bag monitor / alert", onLiveChange,
+        "Monitors your bag space and alerts you when it is low.")
+    addon.lowBagBox = ui.FlowEditBox(focusSection, "Threshold (slots)", 150, onLiveChange,
+        "Minimum number of free bag slots before bag alerts are triggered (either normal or reagent slots).")
 
     local audioSection = ui.FlowSection(root, "Audio")
-    addon.focusedAudioCheckbox = ui.FlowCheckbox(audioSection, "Focused audio when fishing", onLiveChange)
-    addon.audioLingerBox = ui.FlowEditBox(audioSection, "After catch (s)", 150, onLiveChange)
+    addon.focusedAudioCheckbox = ui.FlowCheckbox(audioSection, "Focused audio when fishing", onLiveChange,
+        "Reduces other sounds and focuses audio on fishing sounds, then restores when done fishing.")
+    addon.audioLingerBox = ui.FlowEditBox(audioSection, "After catch (s)", 150, onLiveChange,
+        "How long to keep the fishing audio focused after a cast is stopped. Combat or other cancellations immediately revert the audio focus.")
 end
 
 local function BuildTackleTab(tacklePage, ui, createTackleItemDropBox, onLiveChange)
@@ -1234,7 +1240,7 @@ local function BuildTackleTab(tacklePage, ui, createTackleItemDropBox, onLiveCha
         button:HookScript("OnMouseUp", RefreshApplyButtonsSoon)
     end
 
-    local function CreateTackleEnabledCheckbox(parent, x, y, onToggle)
+    local function CreateTackleEnabledCheckbox(parent, x, y, onToggle, tooltipText)
         local checkbox = CreateFrame("CheckButton", nil, parent, "UICheckButtonTemplate")
         checkbox:SetSize(24, 24)
         checkbox:SetPoint("TOPLEFT", parent, "TOPLEFT", x, y)
@@ -1242,6 +1248,22 @@ local function BuildTackleTab(tacklePage, ui, createTackleItemDropBox, onLiveCha
         checkbox:SetScript("OnClick", function(self)
             onToggle(self:GetChecked() and true or false)
         end)
+
+        if type(tooltipText) == "string" and tooltipText ~= "" then
+            checkbox:SetScript("OnEnter", function(self)
+                if type(GameTooltip) ~= "table" then
+                    return
+                end
+                GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
+                GameTooltip:SetText(tooltipText, 1, 1, 1, 1, true)
+                GameTooltip:Show()
+            end)
+            checkbox:SetScript("OnLeave", function()
+                if type(GameTooltip) == "table" then
+                    GameTooltip:Hide()
+                end
+            end)
+        end
 
         return {
             SetChecked = function(_, value)
@@ -1267,21 +1289,24 @@ local function BuildTackleTab(tacklePage, ui, createTackleItemDropBox, onLiveCha
 
     -- Raft section
     ui.FlowRowHost(root, 20)
-    ui.FlowTitle(root, "Raft")
-    addon.raftSelector = ui.FlowToySelector(root, "", 320, function()
+    --ui.FlowTitle(root, "Raft")
+    addon.raftSelector = ui.FlowToySelector(root, "Raft", 320, function()
         return BuildOwnedToyOptions(addon.const.raftToyItemIDs, "No Raft")
-    end, onLiveChange)
-    addon.raftApplyButton = ui.FlowSecureToyActionButton(root, 160, "Apply Raft")
+    end, onLiveChange, "Choose the raft to be used when fishing. Applied automatically when casting the fishing line.")
+    addon.raftApplyButton = ui.FlowSecureToyActionButton(root, 160, "Apply Raft",
+        "Manually apply the selected raft now.")
     AttachToyApplyButtonRefresh(addon.raftApplyButton)
 
     -- Bobber section
     ui.FlowRowHost(root, 20)
-    ui.FlowTitle(root, "Bobber")
-    addon.bobberSelector = ui.FlowToySelector(root, "", 320, function()
+    --ui.FlowTitle(root, "Bobber")
+    addon.bobberSelector = ui.FlowToySelector(root, "Bobber", 320, function()
         return BuildOwnedToyOptions(addon.const.bobberToyItemIDs, "Standard Bobber")
-    end, onLiveChange)
-    addon.oversizedBobberCheckbox = ui.FlowCheckbox(root, "Use oversized bobber", onLiveChange)
-    addon.bobberApplyButton = ui.FlowSecureToyActionButton(root, 160, "Apply Bobber")
+    end, onLiveChange, "Choose the bobber to be used when fishing. Applied automatically when casting the fishing line.")
+    addon.oversizedBobberCheckbox = ui.FlowCheckbox(root, "Use oversized bobber", onLiveChange,
+        "Also apply the oversized bobber to your selected bobber (adds another click to apply it).")
+    addon.bobberApplyButton = ui.FlowSecureToyActionButton(root, 160, "Apply Bobber",
+        "Manually apply the selected bobber/oversized bobber now.")
     AttachToyApplyButtonRefresh(addon.bobberApplyButton)
 
     -- Rods & Poles section
@@ -1307,7 +1332,7 @@ local function BuildTackleTab(tacklePage, ui, createTackleItemDropBox, onLiveCha
         if onLiveChange then
             onLiveChange()
         end
-    end)
+    end, "Enable this pole for equipping.")
     addon.fishingPoleBox.onItemPresenceChanged = function(_, hasItem)
         if addon.fishingPoleEquipCheckbox and addon.fishingPoleEquipCheckbox.SetEnabled then
             addon.fishingPoleEquipCheckbox:SetEnabled(hasItem)
@@ -1335,7 +1360,7 @@ local function BuildTackleTab(tacklePage, ui, createTackleItemDropBox, onLiveCha
         if onLiveChange then
             onLiveChange()
         end
-    end)
+    end, "Enable Underlight Angler for equipping.")
     addon.underlightAnglerBox.onItemPresenceChanged = function(_, hasItem)
         if addon.underlightAnglerEquipCheckbox and addon.underlightAnglerEquipCheckbox.SetEnabled then
             addon.underlightAnglerEquipCheckbox:SetEnabled(hasItem)
@@ -1350,7 +1375,7 @@ local function BuildTackleTab(tacklePage, ui, createTackleItemDropBox, onLiveCha
         .. "* Single-pole: Only check one box.\n"
         .. "* Manual: Leave both boxes unchecked.")
 
-    ui.FlowRowHost(root, 6)
+    ui.FlowRowHost(root, 20)
 
     RefreshUnderlightConfigControls()
     RefreshTackleEquippedPoleHighlights()
@@ -1360,24 +1385,33 @@ local function BuildModesTab(modesPage, ui, onLiveChange)
     local root = ui.FlowRoot(modesPage, 12)
 
     local castingSection = ui.FlowSection(root, "Casting Triggers")
-    addon.modeDoubleRightClickCheckbox = ui.FlowCheckbox(castingSection, "Right double click", onLiveChange)
-    addon.modeSingleRightClickConfigCheckbox = ui.FlowCheckbox(castingSection, "Single right click (when this window is open)", onLiveChange)
+    addon.modeDoubleRightClickCheckbox = ui.FlowCheckbox(castingSection, "Double right click", onLiveChange,
+        "Double right-click in the world begins fishing.")
+    addon.modeSingleRightClickConfigCheckbox = ui.FlowCheckbox(castingSection,
+        "Single right click (when this window is open)", onLiveChange,
+        "Single right-click in the world begins fishing when the DreamFisher window is open.")
     addon.modeHotkeyCheckbox = ui.FlowCheckboxWithNote(
         castingSection,
         "Keybinding",
         "Set the key in Keybindings > DreamFisher.",
-        onLiveChange)
+        onLiveChange,
+        nil,
+        "Use a keybinding to begin fishing. Set the key in Keybindings > DreamFisher.")
 
     addon.enableHookedLootCheckbox = ui.FlowCheckboxWithNote(
         castingSection,
-        "Use right click and/or hotkey to reel in the fish",
-        "Requires some setup in Game Menu > Options: \n"
-        .. "1. Turn on \"Enable Interact Key\" (Options > Controls).\n"
-        .. "2. Set a keybinding (Keybindings > DreamFisher).\n"
-        .. "3. Ensure another addon does not try to control interactions while fishing.",
-        onLiveChange)
+        "EasyStrike (right click anywhere or use the hotkey)",
+        "Requirements:\n"
+        .. "1. Turn on \"Enable Interact Key\" (Game Options > Controls).\n"
+        .. "2. Set the \"Hotkey\" keybinding (Keybindings > DreamFisher).\n"
+        .. "3. Ensure another addon does not interfere while fishing.\n",
+        onLiveChange,
+        nil,
+        "When the bobber indicates a bite,  right click anywhere or the hotkey to hook, play and land the fish.")
 
-    addon.escapeCloseCheckbox = ui.FlowCheckbox(root, "Escape closes this window", onLiveChange)
+    ui.FlowRowHost(root, 40)
+    addon.escapeCloseCheckbox = ui.FlowCheckbox(root, "Escape closes this window", onLiveChange,
+        "Allow the Esc key to close the DreamFisher window.")
 end
 
 local function BuildBuffsTab(buffsPage, ui, createBuffItemDropBox, onLiveChange)
@@ -1386,7 +1420,7 @@ local function BuildBuffsTab(buffsPage, ui, createBuffItemDropBox, onLiveChange)
         .. "Buffs are automatically applied during pre-casting.\n"
         .. "Each category is processed in the order below.\n"
         .. "Items within a category are prioritized in the order of the slots.")
-    ui.FlowRowHost(root, 15)
+    ui.FlowRowHost(root, 20)
     local buffRoot = root
 
     addon.buffItemControls = {}
