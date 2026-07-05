@@ -49,8 +49,6 @@ local elvUIFrames = {
     "ElvUI_Bar8",
     "ElvUI_Bar9",
     "ElvUI_Bar10",
-    "ElvUI_Bar11",
-    "ElvUI_Bar12",
     "ElvUI_Bar13",
     "ElvUI_Bar14",
     "ElvUI_Bar15",
@@ -89,16 +87,70 @@ local elvuiAlphaSettings = {    -- frameName, isEnabled, originalAlpha
     unitFrameAlpha = nil,
 }
 
+local function IsElvUIFrameModuleEnabled(frameName)
+    if not _G["ElvUI"] then return false end
+    local E = unpack(_G["ElvUI"])
+    if not E or not E.db then return false end
+
+    -- 1. Check Action Bars
+    if string.find(frameName, "ElvUI_Bar") then
+        local barIndex = string.match(frameName, "ElvUI_Bar(%d+)")
+        if barIndex and E.db.actionbar then
+            local barKey = "bar" .. barIndex
+            return E.db.actionbar[barKey] and E.db.actionbar[barKey].enabled
+        end
+    end
+
+    -- 2. Check Stance Bar
+    if frameName == "ElvUI_StanceBar" then
+        return E.db.actionbar and E.db.actionbar.stanceBar and E.db.actionbar.stanceBar.enable
+    end
+
+    -- 3. Check Core Unit Frames (Player, Target, Focus, etc.)
+    if string.find(frameName, "ElvUF_") then
+        -- Extract the unit key (e.g., "ElvUF_Player" becomes "player")
+        local unitKey = string.lower(string.gsub(frameName, "ElvUF_", ""))
+
+        -- Master UnitFrame module switch must be on, and the specific unit frame layout must be enabled
+        if E.db.unitframe and E.db.unitframe.units and E.db.unitframe.units[unitKey] then
+            local moduleEnabled = C_AddOns.IsAddOnLoaded("ElvUI_OptionsUI") or E:GetModule('UnitFrames', true)
+            return moduleEnabled and E.db.unitframe.units[unitKey].enable
+        end
+    end
+
+    -- 4. Check Standalone Auras (Buffs / Debuffs)
+    if frameName == "ElvUI_PlayerBuffs" or frameName == "ElvUI_PlayerDebuffs" then
+        return E.db.auras and E.db.auras.enable
+    end
+
+    -- 5. Check Chat Panels
+    if frameName == "LeftChatPanel" or frameName == "RightChatPanel" then
+        return E.db.chat and E.db.chat.enable
+    end
+
+    -- Fallback: If it's a generic frame, check if it physically exists and is visible
+    local fallbackFrame = _G[frameName]
+    return (fallbackFrame ~= nil)
+end
+
 local function ReadElvUIFrameSetting(E, frameName)
+    if not elvuiAlphaSettings[frameName] then
+        elvuiAlphaSettings[frameName] = {}
+    end
+
+    local isEnabled = IsElvUIFrameModuleEnabled(frameName)
+    elvuiAlphaSettings[frameName].isEnabled = isEnabled
+
+    if not isEnabled then
+        return
+    end
+
     local targetFrame = _G[frameName]
 
     if targetFrame then
         local alpha = targetFrame:GetAlpha()
-        if not elvuiAlphaSettings[frameName] then
-            elvuiAlphaSettings[frameName] = {}
-        end
         elvuiAlphaSettings[frameName].originalAlpha = alpha
-        elvuiAlphaSettings[frameName].isEnabled = (alpha == 1.0)
+
         C_Timer.After(2, function()
             print(string.format("ElvUI frame: %s | Alpha: %.2f | Enabled: %s", frameName, alpha, tostring(elvuiAlphaSettings[frameName].isEnabled)))
         end)
@@ -211,7 +263,7 @@ local function FadeElvUIFrames(E, hideFrames, targetAlpha)
 
                     FadeFrameCustom(targetFrame, hideFrames and "OUT" or "IN", 0.3, targetAlpha)
                 else
-                    print("ElvUI frame not found: " .. frameName)
+                    --print("ElvUI frame not found: " .. frameName)
                 end
             end
         end
@@ -432,7 +484,7 @@ loader:SetScript("OnEvent", function(self, event, ...)
         -- Detect if ElvUI module exists and is enabled by the user
         if C_AddOns.IsAddOnLoaded("ElvUI") and _G["ElvUI"] then
             isElvUIActive = true
-            ReadElvUIGlobalAlphas()
+            --ReadElvUIGlobalAlphas()
         end
     end
 end)
