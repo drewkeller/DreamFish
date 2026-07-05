@@ -68,18 +68,6 @@ function addon.ui.CreateAceWidgetAdapters(aceGUIInstance, panel)
         end
 
         AttachTooltip(widget.frame, title, text)
-
-        local root = nil
-        if widget.frame and widget.frame.obj then
-            root = widget.frame.obj
-        else
-            root = widget
-        end
-
-        AttachTooltip(root.dropdown, title, text)
-        if root.dropdown and root.dropdown.Button then
-            AttachTooltip(root.dropdown.Button, title, text)
-        end
     end
 
     local function CreateAceFlowRoot(parent, inset)
@@ -382,6 +370,59 @@ function addon.ui.CreateAceWidgetAdapters(aceGUIInstance, panel)
         return button
     end
 
+    local function AttachTooltipToKeybindingWidget(widget, title, text)
+        if not widget then
+            return
+        end
+
+        AttachTooltip(widget.frame, title, text)
+
+        local root = nil
+        if widget.frame and widget.frame.obj then
+            root = widget.frame.obj
+        else
+            root = widget
+        end
+
+        if root.button then
+            AttachTooltip(root.button, title, text)
+        end
+    end
+
+    local function CreateAceFlowKeybinding(parent, label, width, onLiveChange, tooltipText)
+        local widget = aceGUIInstance:Create("Keybinding")
+        widget:SetLabel(label or "")
+        if width then
+            widget:SetWidth(width)
+        else
+            widget:SetFullWidth(true)
+        end
+
+        if onLiveChange then
+            widget:SetCallback("OnKeyChanged", function(_, _, value)
+                onLiveChange(value)
+            end)
+        end
+
+        widget = RegisterAndAttachChild(parent, widget)
+        AttachTooltipToKeybindingWidget(widget, label, tooltipText)
+
+        return {
+            SetText = function(_, value)
+                widget:SetKey((type(value) == "string" and value) or "")
+            end,
+            GetText = function()
+                return widget:GetKey() or ""
+            end,
+            SetEnabled = function(_, enabled)
+                widget:SetDisabled(not enabled)
+            end,
+            SetLabel = function(_, value)
+                widget:SetLabel(tostring(value or ""))
+            end,
+        }
+    end
+
     local function CreateAceFlowRowHost(parent, height)
         local rowHost = aceGUIInstance:Create("SimpleGroup")
         rowHost:SetLayout("Fill")
@@ -572,9 +613,39 @@ function addon.ui.CreateAceWidgetAdapters(aceGUIInstance, panel)
         return selector
     end
 
+    local function CreateAceKeybinding(parent, x, y, width, label, onLiveChange, tooltipText)
+        local widget = aceGUIInstance:Create("Keybinding")
+        widget:SetLabel(label or "")
+        widget:SetWidth(width or 220)
+        if onLiveChange then
+            widget:SetCallback("OnKeyChanged", function(_, _, value)
+                onLiveChange(value)
+            end)
+        end
+
+        widget = AnchorAceWidget(widget, parent, x, y)
+        AttachTooltipToKeybindingWidget(widget, label, tooltipText)
+
+        return {
+            SetText = function(_, value)
+                widget:SetKey((type(value) == "string" and value) or "")
+            end,
+            GetText = function()
+                return widget:GetKey() or ""
+            end,
+            SetEnabled = function(_, enabled)
+                widget:SetDisabled(not enabled)
+            end,
+            SetLabel = function(_, value)
+                widget:SetLabel(tostring(value or ""))
+            end,
+        }
+    end
+
     return {
         Checkbox = CreateAceCheckbox,
         EditBox = CreateAceEditBox,
+        Keybinding = CreateAceKeybinding,
         Title = CreateAceTitle,
         StaticTitle = CreateAceTitle,
         ToySelector = CreateAceToySelector,
@@ -588,6 +659,7 @@ function addon.ui.CreateAceWidgetAdapters(aceGUIInstance, panel)
         FlowColumns = CreateAceFlowColumns,
         FlowDropdown = CreateAceFlowDropdown,
         FlowToySelector = CreateAceFlowToySelector,
+        FlowKeybinding = CreateAceFlowKeybinding,
         FlowSecureToyActionButton = CreateAceFlowSecureToyActionButton,
         FlowRowHost = CreateAceFlowRowHost,
         FlowCheckboxWithNote = CreateAceFlowCheckboxWithNote,

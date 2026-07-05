@@ -24,6 +24,7 @@ local ownedToyOptionsCache = {}
 local ownedToyItemCache = {}
 local IsLikelyFishingPoleItem
 local OVERSIZED_BOBBER_ITEM_ID = 202207
+local HOTKEY_CLICK_BINDING = "CLICK DreamFisherSecureFishingButton:RightButton"
 local tacklePoleUI = {}
 local tackleToyUI = {}
 
@@ -626,6 +627,52 @@ local function GetCastingModesForConfig()
     return modes
 end
 
+local function GetConfiguredHotkeyBinding()
+    if type(GetBindingKey) ~= "function" then
+        return ""
+    end
+
+    local boundKeys = { GetBindingKey(HOTKEY_CLICK_BINDING) }
+    for _, key in ipairs(boundKeys) do
+        if type(key) == "string" and key ~= "" then
+            return key
+        end
+    end
+
+    return ""
+end
+
+local function ApplyConfiguredHotkeyBinding(keyText)
+    if type(InCombatLockdown) == "function" and InCombatLockdown() then
+        return false
+    end
+    if type(SetBinding) ~= "function" and type(SetBindingClick) ~= "function" then
+        return false
+    end
+
+    local boundKeys = (type(GetBindingKey) == "function") and { GetBindingKey(HOTKEY_CLICK_BINDING) } or {}
+    for _, key in ipairs(boundKeys) do
+        if type(key) == "string" and key ~= "" and type(SetBinding) == "function" then
+            pcall(SetBinding, key, nil)
+        end
+    end
+
+    local desiredKey = type(keyText) == "string" and keyText:match("^%s*(.-)%s*$") or ""
+    if desiredKey ~= "" then
+        if type(SetBindingClick) == "function" then
+            pcall(SetBindingClick, desiredKey, "DreamFisherSecureFishingButton", "RightButton")
+        elseif type(SetBinding) == "function" then
+            pcall(SetBinding, desiredKey, HOTKEY_CLICK_BINDING)
+        end
+    end
+
+    if type(SaveBindings) == "function" and type(GetCurrentBindingSet) == "function" then
+        pcall(SaveBindings, GetCurrentBindingSet())
+    end
+
+    return true
+end
+
 local function LoadTackleBindings(isTackleActive)
     if addon._lastAppliedTackleBindings == nil then
         addon._lastAppliedTackleBindings = {}
@@ -850,6 +897,9 @@ local function LoadConfigBindings()
         addon.modeDoubleRightClickCheckbox:SetChecked(modes.doubleRightClick)
         addon.modeSingleRightClickConfigCheckbox:SetChecked(modes.singleRightClick)
         addon.modeHotkeyCheckbox:SetChecked(modes.castHotkey)
+        if addon.castHotkeyKeybinding and addon.castHotkeyKeybinding.SetText then
+            addon.castHotkeyKeybinding:SetText(GetConfiguredHotkeyBinding())
+        end
     end
     if isModesActive and addon.enableHookedLootCheckbox then
         addon.enableHookedLootCheckbox:SetChecked(addon.db.easyStrike)
@@ -904,6 +954,10 @@ local function SaveConfigBindings()
             or ResolveBool(existingModes.castHotkey, defaultModes.castHotkey),
     }
     addon.db.castingModes = modeFlags
+
+    if addon.castHotkeyKeybinding and addon.castHotkeyKeybinding.GetText then
+        ApplyConfiguredHotkeyBinding(addon.castHotkeyKeybinding:GetText())
+    end
 
     if addon.enableHookedLootCheckbox then
         addon.db.easyStrike = addon.enableHookedLootCheckbox:GetChecked() or false
@@ -1392,18 +1446,21 @@ local function BuildModesTab(modesPage, ui, onLiveChange)
         "Single right-click in the world begins fishing when the DreamFisher window is open.")
     addon.modeHotkeyCheckbox = ui.FlowCheckboxWithNote(
         castingSection,
-        "Keybinding",
-        "Set the key in Keybindings > DreamFisher.",
+        "Hotkey",
+        "",
         onLiveChange,
         nil,
-        "Use a keybinding to begin fishing. Set the key in Keybindings > DreamFisher.")
+        "Use a keybinding to begin fishing.")
+    addon.castHotkeyKeybinding = ui.FlowKeybinding(castingSection, "", 220, onLiveChange,
+        "The keybinding to use for casting the fishing line (and reeling it in, if EasyStrike is enabled).")
 
+    local castingSection = ui.FlowSection(root, "Reeling Triggers")
     addon.enableHookedLootCheckbox = ui.FlowCheckboxWithNote(
         castingSection,
         "EasyStrike (right click anywhere or use the hotkey)",
         "Requirements:\n"
         .. "1. Turn on \"Enable Interact Key\" (Game Options > Controls).\n"
-        .. "2. Set the \"Hotkey\" keybinding (Keybindings > DreamFisher).\n"
+        .. "2. Set the \"Hotkey\" keybinding.\n"
         .. "3. Ensure another addon does not interfere while fishing.\n",
         onLiveChange,
         nil,
