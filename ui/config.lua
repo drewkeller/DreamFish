@@ -24,6 +24,8 @@ local ownedToyOptionsCache = {}
 local ownedToyItemCache = {}
 local IsLikelyFishingPoleItem
 local OVERSIZED_BOBBER_ITEM_ID = 202207
+local tacklePoleUI = {}
+local tackleToyUI = {}
 
 local function IsPositiveItemID(value)
     local numeric = tonumber(value)
@@ -141,7 +143,7 @@ local function IsItemAvailableForConfig(itemID)
     return IsItemInBags(itemID) or IsItemEquipped(itemID)
 end
 
-local function GetProfessionSlotItemID()
+function tacklePoleUI.GetProfessionSlotItemID()
     if type(GetInventoryItemID) ~= "function" then
         return nil
     end
@@ -154,7 +156,7 @@ local function GetProfessionSlotItemID()
     return itemID
 end
 
-local function GetEquippedItemIDs()
+function tacklePoleUI.GetEquippedItemIDs()
     local itemIDs = {}
     if type(GetInventoryItemID) ~= "function" then
         return itemIDs
@@ -178,8 +180,8 @@ local function GetEquippedItemIDs()
     return itemIDs
 end
 
-local function GetEquippedFishingPoleItemID()
-    local equipped = GetEquippedItemIDs()
+function tacklePoleUI.GetEquippedFishingPoleItemID()
+    local equipped = tacklePoleUI.GetEquippedItemIDs()
     for itemID, _ in pairs(equipped) do
         if IsLikelyFishingPoleItem(itemID) and not IsUnderlightAnglerItemID(itemID) then
             return itemID
@@ -188,9 +190,9 @@ local function GetEquippedFishingPoleItemID()
     return nil
 end
 
-local function IsUnderlightEquipped()
+function tacklePoleUI.IsUnderlightEquipped()
     local underlightID = GetUnderlightItemID()
-    local equipped = GetEquippedItemIDs()
+    local equipped = tacklePoleUI.GetEquippedItemIDs()
     return equipped[underlightID] and true or false
 end
 
@@ -312,7 +314,7 @@ local function RefreshUnderlightConfigControls()
     end
 end
 
-local function GetMainHandItemID()
+function tacklePoleUI.GetMainHandItemID()
     if type(GetInventoryItemID) ~= "function" then
         return nil
     end
@@ -324,18 +326,18 @@ local function GetMainHandItemID()
     return itemID
 end
 
-local function GetActiveEquippedTacklePoleItemID()
+function tacklePoleUI.GetActiveEquippedTacklePoleItemID()
     local underlightID = GetUnderlightItemID()
     if IsItemEquipped(underlightID) then
         return underlightID
     end
 
-    local professionItemID = GetProfessionSlotItemID()
+    local professionItemID = tacklePoleUI.GetProfessionSlotItemID()
     if professionItemID and professionItemID > 0 then
         return professionItemID
     end
 
-    local mainHandItemID = GetMainHandItemID()
+    local mainHandItemID = tacklePoleUI.GetMainHandItemID()
     if mainHandItemID and mainHandItemID > 0 then
         return mainHandItemID
     end
@@ -343,12 +345,12 @@ local function GetActiveEquippedTacklePoleItemID()
     return nil
 end
 
-local function RefreshTackleEquippedPoleHighlights()
+function tacklePoleUI.RefreshTackleEquippedPoleHighlights()
     if not addon.fishingPoleBox and not addon.underlightAnglerBox then
         return
     end
 
-    local activeEquippedPoleItemID = GetActiveEquippedTacklePoleItemID()
+    local activeEquippedPoleItemID = tacklePoleUI.GetActiveEquippedTacklePoleItemID()
 
     local selectedPole = addon.fishingPoleBox and tonumber(addon.fishingPoleBox:GetText()) or nil
     local selectedUnderlight = addon.underlightAnglerBox and tonumber(addon.underlightAnglerBox:GetText()) or nil
@@ -374,6 +376,14 @@ local function RefreshTackleEquippedPoleHighlights()
     end
 end
 
+local GetProfessionSlotItemID = tacklePoleUI.GetProfessionSlotItemID
+local GetEquippedItemIDs = tacklePoleUI.GetEquippedItemIDs
+local GetEquippedFishingPoleItemID = tacklePoleUI.GetEquippedFishingPoleItemID
+local IsUnderlightEquipped = tacklePoleUI.IsUnderlightEquipped
+local GetMainHandItemID = tacklePoleUI.GetMainHandItemID
+local GetActiveEquippedTacklePoleItemID = tacklePoleUI.GetActiveEquippedTacklePoleItemID
+local RefreshTackleEquippedPoleHighlights = tacklePoleUI.RefreshTackleEquippedPoleHighlights
+
 local tackleHighlightEventFrame = nil
 local tackleHighlightRefreshActive = false
 
@@ -394,7 +404,7 @@ local function SetTackleHighlightAutoRefreshEnabled(enabled)
                     end
                     local panel = addon.frames and addon.frames.config
                     if panel and panel:IsShown() then
-                        RefreshTackleEquippedPoleHighlights()
+                        tacklePoleUI.RefreshTackleEquippedPoleHighlights()
                     end
                 end)
             end
@@ -463,7 +473,7 @@ local function IsConfigPerfDebugEnabled()
         and addon.DebugMessage
 end
 
-local function IsToyOwned(itemID)
+function tackleToyUI.IsToyOwned(itemID)
     local numeric = tonumber(itemID)
     if not numeric or numeric <= 0 then
         return false
@@ -479,7 +489,7 @@ local function IsToyOwned(itemID)
     return ownedToyItemCache[numeric]
 end
 
-local function IsItemReadyForUse(itemID)
+function tackleToyUI.IsItemReadyForUse(itemID)
     local numeric = tonumber(itemID)
     if not numeric or numeric <= 0 or type(GetItemCooldown) ~= "function" then
         return true
@@ -500,26 +510,30 @@ local function IsItemReadyForUse(itemID)
     return (start + duration) <= (now + 0.05)
 end
 
-local function ResolveBobberApplyAction()
+function tackleToyUI.ResolveBobberApplyAction()
     local selectedToyID = addon.bobberSelector and tonumber(addon.bobberSelector:GetText()) or nil
     if not selectedToyID or selectedToyID <= 0 then
         return nil, "Apply Bobber (none)", false
     end
 
-    if IsItemReadyForUse(selectedToyID) then
+    if tackleToyUI.IsItemReadyForUse(selectedToyID) then
         return selectedToyID, "Apply Bobber", true
     end
 
     local oversizedEnabled = addon.db and addon.db.useOversizedBobber
     if oversizedEnabled
         and selectedToyID ~= OVERSIZED_BOBBER_ITEM_ID
-        and IsToyOwned(OVERSIZED_BOBBER_ITEM_ID)
-        and IsItemReadyForUse(OVERSIZED_BOBBER_ITEM_ID) then
+        and tackleToyUI.IsToyOwned(OVERSIZED_BOBBER_ITEM_ID)
+        and tackleToyUI.IsItemReadyForUse(OVERSIZED_BOBBER_ITEM_ID) then
         return OVERSIZED_BOBBER_ITEM_ID, "Oversize Bobber", true
     end
 
     return selectedToyID, "Apply Bobber", false
 end
+
+local IsToyOwned = tackleToyUI.IsToyOwned
+local IsItemReadyForUse = tackleToyUI.IsItemReadyForUse
+local ResolveBobberApplyAction = tackleToyUI.ResolveBobberApplyAction
 
 local function BuildOwnedToyOptions(candidateIDs, includeDefaultLabel)
     local defaultKey = tostring(includeDefaultLabel or "")
@@ -610,6 +624,122 @@ local function GetCastingModesForConfig()
         castHotkey = ResolveBool(dbModes.castHotkey, defaultsModes.castHotkey),
     }
     return modes
+end
+
+local function LoadTackleBindings(isTackleActive)
+    if addon._lastAppliedTackleBindings == nil then
+        addon._lastAppliedTackleBindings = {}
+    end
+
+    local lastTackle = addon._lastAppliedTackleBindings
+    local desiredRaftToy = addon.db.selectedRaftToy or nil
+    local desiredBobberToy = addon.db.selectedBobberToy or nil
+    if isTackleActive and addon.bobberSelector and lastTackle.selectedBobberToy ~= desiredBobberToy then
+        addon.bobberSelector:SetText(desiredBobberToy)
+        lastTackle.selectedBobberToy = desiredBobberToy
+    end
+    if isTackleActive and addon.raftSelector and lastTackle.selectedRaftToy ~= desiredRaftToy then
+        addon.raftSelector:SetText(desiredRaftToy)
+        lastTackle.selectedRaftToy = desiredRaftToy
+    end
+    if isTackleActive and addon.oversizedBobberCheckbox then
+        addon.oversizedBobberCheckbox:SetChecked(addon.db.useOversizedBobber)
+    end
+
+    local equippedProfessionItem = GetProfessionSlotItemID()
+    local fishingPoleFallback = (equippedProfessionItem and not IsUnderlightAnglerItemID(equippedProfessionItem))
+        and equippedProfessionItem
+        or GetEquippedFishingPoleItemID()
+    local selectedFishingPoleConfig = type(addon.db.selectedFishingPole) == "table"
+        and addon.db.selectedFishingPole
+        or { isChecked = false, itemID = addon.db.selectedFishingPole }
+    local selectedFishingPole = selectedFishingPoleConfig.itemID or fishingPoleFallback or nil
+    if isTackleActive and addon.fishingPoleBox then
+        local desiredPoleText = tostring(selectedFishingPole or "")
+        if addon.fishingPoleBox:GetText() ~= desiredPoleText then
+            addon.fishingPoleBox:SetText(desiredPoleText)
+        end
+    end
+    if isTackleActive and addon.fishingPoleEquipCheckbox then
+        addon.fishingPoleEquipCheckbox:SetChecked(selectedFishingPoleConfig.isChecked and selectedFishingPole ~= nil)
+    end
+
+    local underlightID = GetUnderlightItemID()
+    local selectedUnderlightConfig = type(addon.db.selectedUnderlightAngler) == "table"
+        and addon.db.selectedUnderlightAngler
+        or { isChecked = false, itemID = addon.db.selectedUnderlightAngler }
+    local selectedUnderlight = selectedUnderlightConfig.itemID
+    if (not selectedUnderlight or selectedUnderlight <= 0)
+        and (IsUnderlightEquipped() or IsItemInBags(underlightID)) then
+        selectedUnderlight = underlightID
+    end
+    if isTackleActive and addon.underlightAnglerBox then
+        local desiredUnderlightText = tostring(selectedUnderlight or "")
+        if addon.underlightAnglerBox:GetText() ~= desiredUnderlightText then
+            addon.underlightAnglerBox:SetText(desiredUnderlightText)
+        end
+    end
+    if isTackleActive and addon.underlightAnglerEquipCheckbox then
+        addon.underlightAnglerEquipCheckbox:SetChecked(selectedUnderlightConfig.isChecked and selectedUnderlight ~= nil)
+    end
+
+    if isTackleActive then
+        RefreshUnderlightConfigControls()
+        RefreshTackleEquippedPoleHighlights()
+    end
+
+    UpdateToyApplyButtons()
+end
+
+local function SaveTackleBindings()
+    if addon.oversizedBobberCheckbox then
+        addon.db.useOversizedBobber = addon.oversizedBobberCheckbox:GetChecked()
+    end
+    if addon.bobberSelector then
+        local selectedBobberToy = tonumber(addon.bobberSelector:GetText())
+        addon.db.selectedBobberToy = (selectedBobberToy and selectedBobberToy > 0) and selectedBobberToy or nil
+    end
+    if addon.raftSelector then
+        local selectedRaftToy = tonumber(addon.raftSelector:GetText())
+        addon.db.selectedRaftToy = (selectedRaftToy and selectedRaftToy > 0) and selectedRaftToy or nil
+    end
+    if addon.fishingPoleBox then
+        local selectedFishingPole = tonumber(addon.fishingPoleBox:GetText())
+        local itemID = (selectedFishingPole and selectedFishingPole > 0) and selectedFishingPole or nil
+        addon.db.selectedFishingPole = {
+            isChecked = (addon.fishingPoleEquipCheckbox and addon.fishingPoleEquipCheckbox:GetChecked()) and (itemID ~= nil) or false,
+            itemID = itemID,
+        }
+    end
+    if addon.underlightAnglerBox then
+        local selectedUnderlight = tonumber(addon.underlightAnglerBox:GetText())
+        if selectedUnderlight and selectedUnderlight > 0 and IsUnderlightAnglerItemID(selectedUnderlight) then
+            addon.db.selectedUnderlightAngler = {
+                isChecked = (addon.underlightAnglerEquipCheckbox and addon.underlightAnglerEquipCheckbox:GetChecked()) and true or false,
+                itemID = selectedUnderlight,
+            }
+        else
+            addon.db.selectedUnderlightAngler = {
+                isChecked = false,
+                itemID = nil,
+            }
+        end
+    end
+
+    if not IsItemAvailableForConfig(GetUnderlightItemID()) then
+        addon.db.selectedUnderlightAngler = {
+            isChecked = false,
+            itemID = nil,
+        }
+    end
+
+    NormalizeTackleConfigValues()
+
+    if addon.fishing and addon.fishing.MaybeEquipConfiguredUnderlight then
+        addon.fishing.MaybeEquipConfiguredUnderlight("config-save")
+    end
+
+    UpdateToyApplyButtons()
 end
 
 local function LoadConfigBindings()
@@ -725,68 +855,7 @@ local function LoadConfigBindings()
         addon.enableHookedLootCheckbox:SetChecked(addon.db.easyStrike)
     end
 
-    if addon._lastAppliedTackleBindings == nil then
-        addon._lastAppliedTackleBindings = {}
-    end
-
-    local lastTackle = addon._lastAppliedTackleBindings
-    local desiredRaftToy = addon.db.selectedRaftToy or nil
-    local desiredBobberToy = addon.db.selectedBobberToy or nil
-    if isTackleActive and addon.bobberSelector and lastTackle.selectedBobberToy ~= desiredBobberToy then
-        addon.bobberSelector:SetText(desiredBobberToy)
-        lastTackle.selectedBobberToy = desiredBobberToy
-    end
-    if isTackleActive and addon.raftSelector and lastTackle.selectedRaftToy ~= desiredRaftToy then
-        addon.raftSelector:SetText(desiredRaftToy)
-        lastTackle.selectedRaftToy = desiredRaftToy
-    end
-    if isTackleActive and addon.oversizedBobberCheckbox then
-        addon.oversizedBobberCheckbox:SetChecked(addon.db.useOversizedBobber)
-    end
-
-    local equippedProfessionItem = GetProfessionSlotItemID()
-    local fishingPoleFallback = (equippedProfessionItem and not IsUnderlightAnglerItemID(equippedProfessionItem))
-        and equippedProfessionItem
-        or GetEquippedFishingPoleItemID()
-    local selectedFishingPoleConfig = type(addon.db.selectedFishingPole) == "table"
-        and addon.db.selectedFishingPole
-        or { isChecked = false, itemID = addon.db.selectedFishingPole }
-    local selectedFishingPole = selectedFishingPoleConfig.itemID or fishingPoleFallback or nil
-    if isTackleActive and addon.fishingPoleBox then
-        local desiredPoleText = tostring(selectedFishingPole or "")
-        if addon.fishingPoleBox:GetText() ~= desiredPoleText then
-            addon.fishingPoleBox:SetText(desiredPoleText)
-        end
-    end
-    if isTackleActive and addon.fishingPoleEquipCheckbox then
-        addon.fishingPoleEquipCheckbox:SetChecked(selectedFishingPoleConfig.isChecked and selectedFishingPole ~= nil)
-    end
-
-    local underlightID = GetUnderlightItemID()
-    local selectedUnderlightConfig = type(addon.db.selectedUnderlightAngler) == "table"
-        and addon.db.selectedUnderlightAngler
-        or { isChecked = false, itemID = addon.db.selectedUnderlightAngler }
-    local selectedUnderlight = selectedUnderlightConfig.itemID
-    if (not selectedUnderlight or selectedUnderlight <= 0)
-        and (IsUnderlightEquipped() or IsItemInBags(underlightID)) then
-        selectedUnderlight = underlightID
-    end
-    if isTackleActive and addon.underlightAnglerBox then
-        local desiredUnderlightText = tostring(selectedUnderlight or "")
-        if addon.underlightAnglerBox:GetText() ~= desiredUnderlightText then
-            addon.underlightAnglerBox:SetText(desiredUnderlightText)
-        end
-    end
-    if isTackleActive and addon.underlightAnglerEquipCheckbox then
-        addon.underlightAnglerEquipCheckbox:SetChecked(selectedUnderlightConfig.isChecked and selectedUnderlight ~= nil)
-    end
-
-    if isTackleActive then
-        RefreshUnderlightConfigControls()
-        RefreshTackleEquippedPoleHighlights()
-    end
-
-    UpdateToyApplyButtons()
+    LoadTackleBindings(isTackleActive)
 end
 
 local function SaveConfigBindings()
@@ -842,9 +911,6 @@ local function SaveConfigBindings()
         addon.db.easyStrike = addon.db.easyStrike and true or false
     end
 
-    if addon.oversizedBobberCheckbox then
-        addon.db.useOversizedBobber = addon.oversizedBobberCheckbox:GetChecked()
-    end
     if addon.escapeCloseCheckbox then
         addon.db.closeWindowOnEscape = addon.escapeCloseCheckbox:GetChecked()
     end
@@ -873,51 +939,7 @@ local function SaveConfigBindings()
         end
     end
 
-    if addon.bobberSelector then
-        local selectedBobberToy = tonumber(addon.bobberSelector:GetText())
-        addon.db.selectedBobberToy = (selectedBobberToy and selectedBobberToy > 0) and selectedBobberToy or nil
-    end
-    if addon.raftSelector then
-        local selectedRaftToy = tonumber(addon.raftSelector:GetText())
-        addon.db.selectedRaftToy = (selectedRaftToy and selectedRaftToy > 0) and selectedRaftToy or nil
-    end
-    if addon.fishingPoleBox then
-        local selectedFishingPole = tonumber(addon.fishingPoleBox:GetText())
-        local itemID = (selectedFishingPole and selectedFishingPole > 0) and selectedFishingPole or nil
-        addon.db.selectedFishingPole = {
-            isChecked = (addon.fishingPoleEquipCheckbox and addon.fishingPoleEquipCheckbox:GetChecked()) and (itemID ~= nil) or false,
-            itemID = itemID,
-        }
-    end
-    if addon.underlightAnglerBox then
-        local selectedUnderlight = tonumber(addon.underlightAnglerBox:GetText())
-        if selectedUnderlight and selectedUnderlight > 0 and IsUnderlightAnglerItemID(selectedUnderlight) then
-            addon.db.selectedUnderlightAngler = {
-                isChecked = (addon.underlightAnglerEquipCheckbox and addon.underlightAnglerEquipCheckbox:GetChecked()) and true or false,
-                itemID = selectedUnderlight,
-            }
-        else
-            addon.db.selectedUnderlightAngler = {
-                isChecked = false,
-                itemID = nil,
-            }
-        end
-    end
-
-    if not IsItemAvailableForConfig(GetUnderlightItemID()) then
-        addon.db.selectedUnderlightAngler = {
-            isChecked = false,
-            itemID = nil,
-        }
-    end
-
-    NormalizeTackleConfigValues()
-
-    if addon.fishing and addon.fishing.MaybeEquipConfiguredUnderlight then
-        addon.fishing.MaybeEquipConfiguredUnderlight("config-save")
-    end
-
-    UpdateToyApplyButtons()
+    SaveTackleBindings()
 
     return previouslyActiveBuffItems
 end
