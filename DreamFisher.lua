@@ -192,11 +192,10 @@ lootTracker:SetScript("OnEvent", function(_, event, ...)
             if not (addon.fishing and addon.fishing.ApplySessionState and addon.fishing.RunSessionCloseEffects) then
                 error("DreamFisher: ApplySessionState and RunSessionCloseEffects are required for loot close handling")
             end
-            addon.fishing.ApplySessionState("LINGERING_FISHING_SESSION", "loot-closed")
+            addon.fishing.ApplySessionState("CLOSING_FISHING_SESSION", "loot-closed")
             addon.fishing.RunSessionCloseEffects({
                 restoreAutoLoot = true,
                 useLingerAudio = true,
-                restoreFocusVisuals = false,
                 poleReason = "loot-closed",
             })
             local now = (type(GetTime) == "function") and GetTime() or 0

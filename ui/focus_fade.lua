@@ -2,9 +2,23 @@
 
 local addon = _G["DreamFisher"]
 
+-- Finding frame names can be done by using /fstack in the game.
+-- 1. Turn on frame stack tool by typing /fstack in the game.
+-- 2. Hover over the frame you want to identify.
+-- 3. Note the frame name displayed by the frame stack tool (in the lighter colored text).
+-- 4. Turn off frame stack tool by typing /fstack again in the game.
 local panelNamesToFade = {
+    -- Minimap
     "Minimap",
     "ObjectiveTrackerFrame",
+    "MinimapCluster",
+    "GameTimeFrame",             -- Calendar button
+    "MiniMapMailFrame",          -- Mail icon
+    "MiniMapTracking",           -- Tracking magnifying glass
+    "QueueStatusButton",         -- LFG queue eye icon
+    "QueueStatusMinimapButton",  -- Classic LFG queue icon
+    "GarrisonLandingPageMinimapButton", -- Expansion/Mission tracking button
+    "ExpansionLandingPageMinimapButton", -- Dragonflight/TWW expansion button
     "ChatFrame1",
     -- Unit frames
     "PlayerFrame",
@@ -33,7 +47,6 @@ local frameFader = {
     frame = nil,
     isFaded = false,
     wasShownByName = {},
-    restoreAt = nil,
 }
 
 local fadeState = nil
@@ -54,10 +67,10 @@ local elvUIFrames = {
     "ElvUI_Bar15",
     "ElvUI_StanceBar",
     "ElvUI_PetBar",
-    -- "ElvUI_MicroBar", -- maybe we don't want to hide this one?
+    "ElvUI_MicroBar", -- maybe we don't want to hide this one?
     "ElvUF_Player_Castbar", -- We want to make sure this is shown
     -- Core unit frames
-    --"ElvUF_Player",
+    --"ElvUF_Player", -- Need to handle specially, in order to keep fishing castbar visible
     "ElvUF_Target",
     "ElvUF_Pet",
     "ElvUF_Focus",
@@ -85,6 +98,17 @@ local elvUIFrames = {
     "ElvDB_Honor",
     "ElvDB_Azerite",
     "ElvDB_Threat",
+    -- Data text panels
+    "ElvUI_DataTextPanel_LeftChatDataPanelSlot1",
+    "ElvUI_DataTextPanel_LeftChatDataPanelSlot2",
+    "ElvUI_DataTextPanel_LeftChatDataPanelSlot3",
+    "ElvUI_DataTextPanel_RightChatDataPanelSlot1",
+    "ElvUI_DataTextPanel_RightChatDataPanelSlot2",
+    "ElvUI_DataTextPanel_RightChatDataPanelSlot3",
+    "ElvUI_DataTextPanel_MiniMapDataPanelSlot1",
+    "ElvUI_DataTextPanel_MiniMapDataPanelSlot2",
+    "ElvUI_DataTextPanel_MiniMapDataPanelSlot3",
+    "AddonCompartmentFrame",
 }
 
 -- array[frameName] = {wasShown = boolean, originalAlpha = number}
@@ -168,7 +192,6 @@ local function IsElvUIFrameModuleEnabled(E, frameName)
 
     -- Fallback: If it's a generic frame, check if it physically exists and is visible
     local fallbackFrame = _G[frameName]
-    --print("Fallback check for frame: " .. frameName .. ", exists: " .. tostring(fallbackFrame ~= nil))
     return (fallbackFrame ~= nil) or nil
 end
 
@@ -208,113 +231,6 @@ local function FadeFrameCustom(frame, fadeMode, duration, targetAlpha)
     end
 end
 
--- local function ToggleElvUIStanceBar(E, hideBar, targetAlpha)
---     if isElvUIActive and E then
---         -- --- ELVUI ACTIVE ROUTINE ---
---         local AB = E:GetModule('ActionBars', true)
-
---         if AB and E.db and E.db.actionbar and E.db.actionbar.stanceBar then
---             -- 1. Modify ElvUI's internal stance bar database visibility switch
---             -- If hideBar is true, set enable to false; otherwise, restore to true
---             E.db.actionbar.stanceBar.enable = not hideBar
-
---             -- 2. Safely tell the ActionBar module to completely re-initialize the bar
---             if type(AB.PositionAndSizeBarStance) == "function" then
---                 AB:PositionAndSizeBarStance()
---             end
---         end
-
---         -- Fallback Brute Force: Target the literal secure frame wrapper directly
---         local stanceFrame = _G["ElvUI_StanceBar"]
---         if stanceFrame then
---             stanceFrame:SetAlpha(targetAlpha)
-
---             -- Temporarily hook SetAlpha so ElvUI's engine can't draw it back while fishing
---             if hideBar then
---                 if not stanceFrame.SetAlpha_Old then
---                     stanceFrame.SetAlpha_Old = stanceFrame.SetAlpha
---                     stanceFrame.SetAlpha = function() end
---                 end
---             else
---                 if stanceFrame.SetAlpha_Old then
---                     stanceFrame.SetAlpha = stanceFrame.SetAlpha_Old
---                     stanceFrame.SetAlpha_Old = nil
---                 end
---                 stanceFrame:SetAlpha(1)
---             end
---         end
---     end
--- end
-
--- local function ToggleElvUIPlayerAurasVisibility(E, hideAuras, targetAlpha)
---     if isElvUIActive and E then
---         local A = E:GetModule('Auras', true)
-
---         -- ElvUI places headers for player buffs and debuffs globally
---         local elvBuffs = _G["ElvUF_PlayerBuffs"]
---         local elvDebuffs = _G["ElvUF_PlayerDebuffs"]
-
---         -- Method A: If using ElvUI's standalone Aura module
---         if elvBuffs or elvDebuffs then
---             for _, frame in ipairs({elvBuffs, elvDebuffs}) do
---                 if frame then
---                     frame:SetAlpha(targetAlpha)
---                     -- Protect the transparency from ElvUI's layout update engine
---                     if hideAuras then
---                         if not frame.SetAlpha_Old then
---                             frame.SetAlpha_Old = frame.SetAlpha
---                             frame.SetAlpha = function() end
---                         end
---                     else
---                         if frame.SetAlpha_Old then
---                             frame.SetAlpha = frame.SetAlpha_Old
---                             frame.SetAlpha_Old = nil
---                         end
---                         frame:SetAlpha(1)
---                     end
---                 end
---             end
---         end
-
---         -- Method B: If they use ElvUI Unitframe-attached Auras (built into the player frame)
---         local elvPlayer = _G["ElvUF_Player"]
---         if elvPlayer then
---             if elvPlayer.Buffs then elvPlayer.Buffs:SetAlpha(targetAlpha) end
---             if elvPlayer.Debuffs then elvPlayer.Debuffs:SetAlpha(targetAlpha) end
---             if elvPlayer.Auras then elvPlayer.Auras:SetAlpha(targetAlpha) end
---         end
---     end
--- end
-
--- local function ToggleElvUIUnitFramesVisibility(E, hideFrames, targetAlpha)
---     local UF = E:GetModule('UnitFrames', true)
---     if UF then
---         -- Locate ElvUI's secure player frame wrapper
---         local elvPlayer = _G["ElvUF_Player"]
---         if elvPlayer then
---             if hideFrames then
---                 elvPlayer:SetAlpha(targetAlpha)
---                 -- Temporarily hook SetAlpha so ElvUI can't override it while fishing
---                 if not elvPlayer.SetAlpha_Old then
---                     elvPlayer.SetAlpha_Old = elvPlayer.SetAlpha
---                     elvPlayer.SetAlpha = function() end
---                 end
---             else
---                 -- Restore normal ElvUI control when done fishing
---                 if elvPlayer.SetAlpha_Old then
---                     elvPlayer.SetAlpha = elvPlayer.SetAlpha_Old
---                     elvPlayer.SetAlpha_Old = nil
---                 end
---                 if elvuiAlphaSettings and elvuiAlphaSettings.unitFrameAlpha then
---                     elvPlayer:SetAlpha(elvuiAlphaSettings.unitFrameAlpha)
---                 else
---                     elvPlayer:SetAlpha(1)
---                 end
---             end
---         end
---     end
--- end
-
 local function SetElvUIDataBarVisibility(E, frameName, hideBars)
     local DB = E:GetModule('DataBars', true)
     local barTitle = frameName:gsub("ElvDB_", "")
@@ -336,7 +252,7 @@ local function SetElvUIDataBarVisibility(E, frameName, hideBars)
     end
 end
 
--- ElvUI: Main initialization and event loop
+-- ElvUI: Detect
 loader:SetScript("OnEvent", function(self, event, ...)
     if event == "PLAYER_LOGIN" then
         -- Detect if ElvUI module exists and is enabled by the user
@@ -365,6 +281,18 @@ local function IsFishingSessionActive()
     return addon.fishing.IsFishingActiveSessionState() or addon.fishing.IsSessionState("LOOTING")
 end
 
+local function IsPreCastingSessionState()
+    if not addon or not addon.state then
+        return false
+    end
+
+    if not (addon.fishing and addon.fishing.IsSessionState) then
+        error("DreamFisher: IsSessionState is required for focus fade PRE_CASTING checks")
+    end
+
+    return addon.fishing.IsSessionState("PRE_CASTING")
+end
+
 local function IsFadeFeatureEnabled()
     if not addon or not addon.db then
         return false
@@ -372,48 +300,9 @@ local function IsFadeFeatureEnabled()
     return addon.db.focusedVisuals and true or false
 end
 
-local function GetVisualsLingerSeconds()
-    local defaults = addon and addon.defaults or nil
-    local linger = (addon and addon.db and addon.db.focusedVisualsLinger) or (defaults and defaults.focusedVisualsLinger) or 0
-    return math.max(0, tonumber(linger) or 0)
-end
+local function HideMinimapButtons(hideButtons)
+    local targetAlpha = hideButtons and 0.0 or 1.0
 
-local function ToggleMinimapIcons(hideIcons)
-    local targetAlpha = hideIcons and 0.0 or 1.0
-
-    -- --- 1. HIDE NATIVE BLIZZARD / ELVUI MINIMAP BUTTONS ---
-    -- List of standard tracking and event frames anchored around the minimap
-    local standardMinimapButtons = {
-        "MinimapCluster",
-        "GameTimeFrame",             -- Calendar button
-        "MiniMapMailFrame",          -- Mail icon
-        "MiniMapTracking",           -- Tracking magnifying glass
-        "QueueStatusButton",         -- LFG queue eye icon
-        "QueueStatusMinimapButton",  -- Classic LFG queue icon
-        "GarrisonLandingPageMinimapButton", -- Expansion/Mission tracking button
-        "ExpansionLandingPageMinimapButton" -- Dragonflight/TWW expansion button
-    }
-
-    for _, frameName in ipairs(standardMinimapButtons) do
-        local btn = _G[frameName]
-        if btn then
-            btn:SetAlpha(targetAlpha)
-
-            -- Prevent internal event triggers from undoing our visibility change
-            if hideIcons then
-                if not btn.SetAlpha_Old then
-                    btn.SetAlpha_Old = btn.SetAlpha
-                    btn.SetAlpha = function() end
-                end
-            else
-                if btn.SetAlpha_Old then
-                    btn.SetAlpha = btn.SetAlpha_Old
-                    btn.SetAlpha_Old = nil
-                end
-                btn:SetAlpha(1)
-            end
-        end
-    end
 
     -- --- 2. HIDE THIRD-PARTY ADDON ICONS (LibDBIcon) ---
     -- Almost every addon (Details, WeakAuras, etc.) uses LibDBIcon-1.0 to attach buttons.
@@ -424,7 +313,7 @@ local function ToggleMinimapIcons(hideIcons)
             if buttonFrame then
                 buttonFrame:SetAlpha(targetAlpha)
 
-                if hideIcons then
+                if hideButtons then
                     if not buttonFrame.SetAlpha_Old then
                         buttonFrame.SetAlpha_Old = buttonFrame.SetAlpha
                         buttonFrame.SetAlpha = function() end
@@ -441,42 +330,7 @@ local function ToggleMinimapIcons(hideIcons)
     end
 end
 
-local function ToggleMinimapMarkers(hideMarkers)
-    if hideMarkers then
-        -- 1. Wipe the quest POI indicators and shaded yellow objective circles
-        SetCVar("questPOI", 0)
-        SetCVar("minimapShowQuestBlobs", 0)
-
-        -- 2. Turn off the tracking system entirely (Hides Herbs, Ore, Fish, Tracked Targets)
-        -- This disables tracking nodes on your active mini navigation wheel
-        C_Minimap.SetTracking(0, false)
-    else
-        -- Restore your normal UI tracking behaviors when putting the rod away
-        SetCVar("questPOI", 1)
-        SetCVar("minimapShowQuestBlobs", 1)
-
-        -- Optional: Re-enable Fish tracking explicitly when done
-        -- (Or leave this part out to let the player manually re-check their preferred tracking)
-    end
-end
-
-local function TogglePOIArrows(hideArrows)
-    if _G["Minimap"] then
-        if hideArrows then
-            -- Replace the default spinning arrow texture file path with a blank string
-            if type(Minimap.SetStaticPOIArrowTexture) == "function" then
-                Minimap:SetStaticPOIArrowTexture("")
-            end
-        else
-            -- Restore the factory default Blizzard rotating arrow asset
-            if type(Minimap.SetStaticPOIArrowTexture) == "function" then
-                Minimap:SetStaticPOIArrowTexture([[Interface\Minimap\ROTATING-MINIMAPARROW]])
-            end
-        end
-    end
-end
-
-local function ToggleHandyNotesMapPins(hidePins)
+local function HideHandyNotesMapPins(hidePins)
     if C_AddOns.IsAddOnLoaded("HandyNotes") and _G["HandyNotes"] then
         local HandyNotes = LibStub("AceAddon-3.0"):GetAddon("HandyNotes", true)
         if HandyNotes and type(HandyNotes.SetEnabled) == "function" then
@@ -486,9 +340,32 @@ local function ToggleHandyNotesMapPins(hidePins)
     end
 end
 
+local function HideGatherMateMinimap(hidePins)
+    if _G["GatherMate2"] then
+        -- Toggle database setting
+        GatherMate2.db.profile.showMinimap = not hidePins
+
+        -- Force update to apply changes
+        local cfg = GatherMate2:GetModule("Config", true) or GatherMate2:GetModule("Display", true)
+        if cfg and cfg.UpdateConfig then cfg:UpdateConfig()
+        elseif cfg and cfg.UpdateMiniMap then cfg:UpdateMiniMap(true) end
+    end
+end
+
+local function HideMinimapCluster(hideMiniMap)
+    local minimapCluster = _G["MinimapCluster"]
+    if minimapCluster and minimapCluster.Hide then
+        if hideMiniMap then
+            minimapCluster:Hide()
+        else
+            minimapCluster:Show()
+        end
+    end
+end
+
 -- Hide the player unit frame without hiding the castbar, which is a child of the player frame
 -- Also, don't hide the loot window, which is an oUF tag like the health and power texts we need to hide.
-local function SetElvUIPlayerFrameVisibility(hideFrame)
+local function HideElvUIPlayerFrame(hideFrame)
     local targetAlpha = hideFrame and 0.0 or 1.0
 
     if isElvUIActive and _G["ElvUI"] then
@@ -581,16 +458,14 @@ local function SetElvUIPlayerFrameVisibility(hideFrame)
 end
 
 -- Helper function to control visibility states
-local function SetBlizzardMicroMenuVisibility(hideMenu)
+local function HideBlizzardMicroMenu(hideMenu)
     -- 1. Handle Micro Menu Container (and Bag Bar if attached)
     local targetContainer = MicroMenuContainer or MicroButtonAndBagsBar
     if targetContainer then
         if hideMenu then
             targetContainer:SetAlpha(0)
-            targetContainer:SetScale(0.0001)
         else
             targetContainer:SetAlpha(1)
-            targetContainer:SetScale(1)
         end
     end
 
@@ -604,27 +479,7 @@ local function SetBlizzardMicroMenuVisibility(hideMenu)
             end
         end
     end
-
-    -- 3. Handle Minimap Static POI Arrows
-    if hideMenu then
-        Minimap:SetStaticPOIArrowTexture("")
-        Minimap:SetPlayerTexture("") -- Optional: Hides player arrow as well
-        C_SuperTrack.SetSuperTrackedQuestID(0) -- Clear current quest path arrow
-    else
-        -- Resets to the default Blizzard UI textures when done
-        Minimap:SetStaticPOIArrowTexture("Interface\\Minimap\\MinimapArrow")
-        Minimap:SetPlayerTexture("Interface\\Minimap\\MinimapArrow")
-    end
 end
-
--- Intercept the Super Tracking system while fishing
--- hooksecurefunc(C_SuperTrack, "SetSuperTrackedQuestID", function(questID)
---     -- If a player equips a fishing rod and a quest updates, kill the new arrow instantly
---     if questID ~= 0 and IsEquippedItemType("Fishing") then
---         C_SuperTrack.SetSuperTrackedQuestID(0)
---     end
--- end)
-
 
 local function GetElvUIFrameSettings(E, frameName)
     local isEnabled = IsElvUIFrameModuleEnabled(E, frameName)
@@ -669,7 +524,6 @@ end
 
 local function FadeOutUI()
     -- Blizzard UI elements
-    frameFader.restoreAt = nil
     for _, name in ipairs(panelNamesToFade) do
         local panel = ResolveNamedFrame(name)
         if panel and panel.IsShown and panel:IsShown() then
@@ -683,15 +537,11 @@ local function FadeOutUI()
             frameFader.wasShownByName[name] = false
         end
     end
-    SetBlizzardMicroMenuVisibility(true)
+    HideBlizzardMicroMenu(true)
 
     -- ElvUI elements
-    -- for each frame
     if _G["ElvUI"] then
         local E = unpack(_G["ElvUI"])
-
-        -- elvUIFrameFader["LeftChatPanel"] = GetElvUIFrameSettings(E, "LeftChatPanel")
-        -- elvUIFrameFader["RightChatPanel"] = GetElvUIFrameSettings(E, "RightChatPanel")
 
         for _, name in ipairs(elvUIFrames) do
             -- Read current settings so we can restore them later
@@ -711,13 +561,13 @@ local function FadeOutUI()
                 end
             end
         end
-        SetElvUIPlayerFrameVisibility(true)
+        HideElvUIPlayerFrame(true)
     end
 
-    ToggleMinimapIcons(true)
-    ToggleMinimapMarkers(true)
-    TogglePOIArrows(true)
-    ToggleHandyNotesMapPins(true)
+    HideMinimapButtons(true)
+    HideMinimapCluster(true)
+    HideHandyNotesMapPins(true)
+    HideGatherMateMinimap(true)
 
     frameFader.isFaded = true
 end
@@ -739,75 +589,57 @@ local function FadeInUI()
             end
         end
     end
-    SetBlizzardMicroMenuVisibility(false)
+    HideBlizzardMicroMenu(false)
 
     if _G["ElvUI"] then
         local E = unpack(_G["ElvUI"])
-        for _, frameName in ipairs(elvUIFrames) do
-            if elvUIFrameFader[frameName] then
-                local wasShown = elvUIFrameFader[frameName].wasShown or false
-                local originalAlpha = elvUIFrameFader[frameName].originalAlpha or 0
+        for _, name in ipairs(elvUIFrames) do
+            if elvUIFrameFader[name] then
+                local wasShown = elvUIFrameFader[name].wasShown or false
+                local originalAlpha = elvUIFrameFader[name].originalAlpha or 0
                 -- if the frame was shown before, fade it back in to its original alpha
                 if wasShown then
-                    if string.find(frameName, "ElvDB_") then
-                        SetElvUIDataBarVisibility(E, frameName, false)
+                    if string.find(name, "ElvDB_") then
+                        SetElvUIDataBarVisibility(E, name, false)
                     else
                         local duration = 0.3
-                        local frame = _G[frameName]
+                        local frame = _G[name]
                         FadeFrameCustom(frame, "IN", duration, originalAlpha)
                     end
                 end
             end
         end
-        SetElvUIPlayerFrameVisibility(false)
+        HideElvUIPlayerFrame(false)
     end
 
-    ToggleMinimapIcons(false)
-    ToggleMinimapMarkers(false)
-    TogglePOIArrows(false)
-    ToggleHandyNotesMapPins(false)
+    HideMinimapButtons(false)
+    HideMinimapCluster(false)
+    HideHandyNotesMapPins(false)
+    HideGatherMateMinimap(false)
 
     frameFader.wasShownByName = {}
     frameFader.isFaded = false
-    frameFader.restoreAt = nil
-end
-
-local function ScheduleFadeInUI()
-    local lingerSeconds = GetVisualsLingerSeconds()
-    if lingerSeconds <= 0 then
-        FadeInUI()
-        return
-    end
-
-    if type(GetTime) ~= "function" then
-        FadeInUI()
-        return
-    end
-
-    frameFader.restoreAt = GetTime() + lingerSeconds
 end
 
 local function RefreshFocusFadeState()
+    if IsFadeFeatureEnabled() and IsPreCastingSessionState() then
+        if not frameFader.isFaded then
+            FadeOutUI()
+        end
+        return
+    end
+
     local shouldFade = IsFadeFeatureEnabled() and IsFishingSessionActive()
 
     if shouldFade and not frameFader.isFaded then
         FadeOutUI()
+    elseif IsFadeFeatureEnabled()
+        and (addon.fishing and addon.fishing.IsSessionState
+            and (addon.fishing.IsSessionState("CANCELLING_FISHING_SESSION") or addon.fishing.IsSessionState("CLOSING_FISHING_SESSION")))
+        and frameFader.isFaded then
+        FadeInUI()
     elseif not shouldFade and frameFader.isFaded then
-        if not IsFadeFeatureEnabled() then
-            FadeInUI()
-            return
-        end
-
-        if frameFader.restoreAt == nil then
-            ScheduleFadeInUI()
-            return
-        end
-
-        if type(GetTime) ~= "function" or GetTime() >= frameFader.restoreAt then
-            FadeInUI()
-        end
-    elseif shouldFade and frameFader.restoreAt ~= nil then
-        frameFader.restoreAt = nil
+        FadeInUI()
     end
 end
 
@@ -826,15 +658,6 @@ local function CreateFocusFadeFrame()
         end
     end)
 
-    frame:SetScript("OnUpdate", function(_, elapsed)
-        elapsedSinceRefresh = elapsedSinceRefresh + (tonumber(elapsed) or 0)
-        if elapsedSinceRefresh < 0.20 then
-            return
-        end
-        elapsedSinceRefresh = 0
-        RefreshFocusFadeState()
-    end)
-
     frameFader.frame = frame
     return frame
 end
@@ -846,5 +669,5 @@ addon.uiFocus.FadeOutUI = FadeOutUI
 addon.uiFocus.FadeInUI = FadeInUI
 addon._test = addon._test or {}
 addon._test.GetFocusFadeRestoreAt = function()
-    return frameFader.restoreAt
+    return nil
 end

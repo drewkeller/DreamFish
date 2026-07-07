@@ -245,16 +245,16 @@ assertEquals(lootStartTransition.reason, "loot-ready",
 
 -- Loot closes.
 lootOnEvent(lootFrame, "LOOT_CLOSED")
-assertEquals(addon.state.fishingSessionState, addon.fishing.SessionStates.LINGERING_FISHING_SESSION,
-    "LOOT_CLOSED should move to LINGERING_FISHING_SESSION")
+assertEquals(addon.state.fishingSessionState, addon.fishing.SessionStates.CLOSING_FISHING_SESSION,
+    "LOOT_CLOSED should move directly to CLOSING_FISHING_SESSION")
 
 history = addon._test.GetSessionTransitionHistory()
 local lootCloseTransition = history[#history]
 assertTrue(lootCloseTransition ~= nil, "Transition history should include loot-close transition")
 assertEquals(lootCloseTransition.fromState, addon.fishing.SessionStates.LOOTING,
     "Loot-close transition should originate from LOOTING")
-assertEquals(lootCloseTransition.toState, addon.fishing.SessionStates.LINGERING_FISHING_SESSION,
-    "Loot-close transition should move to LINGERING_FISHING_SESSION")
+assertEquals(lootCloseTransition.toState, addon.fishing.SessionStates.CLOSING_FISHING_SESSION,
+    "Loot-close transition should move directly to CLOSING_FISHING_SESSION")
 assertEquals(lootCloseTransition.reason, "loot-closed",
     "Loot-close transition should use loot-closed reason")
 
