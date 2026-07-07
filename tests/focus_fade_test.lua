@@ -150,13 +150,27 @@ for _, name in ipairs(trackedFrameNames) do
 end
 assertEquals(addon._test.GetFocusFadeRestoreAt(), nil, "Fade-out should clear any restore timer")
 
-addon._test.SetSessionState(addon.fishing.SessionStates.IDLE, "test-focus-fade-idle")
-addon.uiFocus.RefreshFocusFadeState()
+addon._test.SetSessionState(addon.fishing.SessionStates.CLOSING_FISHING_SESSION, "test-focus-fade-closing")
+local restoreAt = addon._test.GetFocusFadeRestoreAt()
+assertTrue(type(restoreAt) == "number" and restoreAt > now, "CLOSING should schedule visual restore timer")
+
+local onUpdate = focusFrame:GetScript("OnUpdate")
+assertTrue(type(onUpdate) == "function", "Focus fade frame should expose OnUpdate for linger restore")
+
+now = restoreAt - 0.1
+onUpdate(focusFrame, 0.1)
+for _, name in ipairs(trackedFrameNames) do
+    assertEquals((_G[name] and _G[name].GetAlpha and _G[name]:GetAlpha()) or nil, 0,
+        name .. " should stay hidden until visual linger expires")
+end
+
+now = restoreAt + 0.1
+onUpdate(focusFrame, 0.1)
 for _, name in ipairs(trackedFrameNames) do
     assertEquals((_G[name] and _G[name].GetAlpha and _G[name]:GetAlpha()) or nil, 1,
-        name .. " should restore immediately when session returns to IDLE")
+        name .. " should restore after visual linger expiry")
 end
-assertEquals(addon._test.GetFocusFadeRestoreAt(), nil, "Immediate restore should not schedule a timer")
+assertEquals(addon._test.GetFocusFadeRestoreAt(), nil, "Visual restore timer should clear after fade-in")
 
 addon._test.SetSessionState(addon.fishing.SessionStates.PRE_CASTING, "test-focus-fade-pre-cast")
 addon.uiFocus.RefreshFocusFadeState()

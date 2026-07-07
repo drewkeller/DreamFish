@@ -66,8 +66,11 @@ local function ApplySessionState(nextState, reason, options)
             addon.uiFocus.FadeOutUI()
         elseif (nextState == SESSION_STATES.CANCELLING_FISHING_SESSION
                 or nextState == SESSION_STATES.CLOSING_FISHING_SESSION)
+                and addon.uiFocus.RestoreFocusVisualsAfterLinger then
+            addon.uiFocus.RestoreFocusVisualsAfterLinger()
+        elseif (nextState == SESSION_STATES.CANCELLING_FISHING_SESSION
+                or nextState == SESSION_STATES.CLOSING_FISHING_SESSION)
                 and addon.uiFocus.FadeInUI then
-            print("Fading in UI from state:", nextState)
             addon.uiFocus.FadeInUI()
         end
     end

@@ -47,6 +47,7 @@ local frameFader = {
     frame = nil,
     isFaded = false,
     wasShownByName = {},
+    restoreAt = nil,
 }
 
 local fadeState = nil
@@ -300,6 +301,14 @@ local function IsFadeFeatureEnabled()
     return addon.db.focusedVisuals and true or false
 end
 
+local function GetVisualsLingerSeconds()
+    local defaults = addon and addon.defaults or nil
+    local linger = (addon and addon.db and addon.db.focusedVisualsLinger)
+        or (defaults and defaults.focusedVisualsLinger)
+        or 0
+    return math.max(0, tonumber(linger) or 0)
+end
+
 local function HideMinimapButtons(hideButtons)
     local targetAlpha = hideButtons and 0.0 or 1.0
 
@@ -355,11 +364,9 @@ end
 local function HideMinimapCluster(hideMiniMap)
     local minimapCluster = _G["MinimapCluster"]
     if minimapCluster and minimapCluster.Hide then
-        if hideMiniMap then
-            minimapCluster:Hide()
-        else
-            minimapCluster:Show()
-        end
+        minimapCluster:Hide()
+    elseif minimapCluster and minimapCluster.Show then
+        minimapCluster:Show()
     end
 end
 
@@ -523,6 +530,8 @@ local function GetElvUIFrameSettings(E, frameName)
 end
 
 local function FadeOutUI()
+    frameFader.restoreAt = nil
+
     -- Blizzard UI elements
     for _, name in ipairs(panelNamesToFade) do
         local panel = ResolveNamedFrame(name)
@@ -619,12 +628,35 @@ local function FadeInUI()
 
     frameFader.wasShownByName = {}
     frameFader.isFaded = false
+    frameFader.restoreAt = nil
+end
+
+local function RestoreFocusVisualsAfterLinger()
+    if not frameFader.isFaded then
+        frameFader.restoreAt = nil
+        return
+    end
+
+    if not IsFadeFeatureEnabled() then
+        FadeInUI()
+        return
+    end
+
+    local linger = GetVisualsLingerSeconds()
+    if linger <= 0 or type(GetTime) ~= "function" then
+        FadeInUI()
+        return
+    end
+
+    frameFader.restoreAt = GetTime() + linger
 end
 
 local function RefreshFocusFadeState()
     if IsFadeFeatureEnabled() and IsPreCastingSessionState() then
         if not frameFader.isFaded then
             FadeOutUI()
+        elseif frameFader.restoreAt ~= nil then
+            frameFader.restoreAt = nil
         end
         return
     end
@@ -633,11 +665,13 @@ local function RefreshFocusFadeState()
 
     if shouldFade and not frameFader.isFaded then
         FadeOutUI()
+    elseif shouldFade and frameFader.restoreAt ~= nil then
+        frameFader.restoreAt = nil
     elseif IsFadeFeatureEnabled()
         and (addon.fishing and addon.fishing.IsSessionState
             and (addon.fishing.IsSessionState("CANCELLING_FISHING_SESSION") or addon.fishing.IsSessionState("CLOSING_FISHING_SESSION")))
         and frameFader.isFaded then
-        FadeInUI()
+        RestoreFocusVisualsAfterLinger()
     elseif not shouldFade and frameFader.isFaded then
         FadeInUI()
     end
@@ -658,6 +692,15 @@ local function CreateFocusFadeFrame()
         end
     end)
 
+    frame:SetScript("OnUpdate", function()
+        if frameFader.restoreAt == nil then
+            return
+        end
+        if type(GetTime) ~= "function" or GetTime() >= frameFader.restoreAt then
+            FadeInUI()
+        end
+    end)
+
     frameFader.frame = frame
     return frame
 end
@@ -667,7 +710,8 @@ addon.uiFocus.CreateFocusFadeFrame = CreateFocusFadeFrame
 addon.uiFocus.RefreshFocusFadeState = RefreshFocusFadeState
 addon.uiFocus.FadeOutUI = FadeOutUI
 addon.uiFocus.FadeInUI = FadeInUI
+addon.uiFocus.RestoreFocusVisualsAfterLinger = RestoreFocusVisualsAfterLinger
 addon._test = addon._test or {}
 addon._test.GetFocusFadeRestoreAt = function()
-    return nil
+    return frameFader.restoreAt
 end
