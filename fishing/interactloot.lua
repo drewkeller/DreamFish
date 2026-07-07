@@ -11,6 +11,13 @@ local KNOWN_BOBBER_NPC_IDS = {
     [261797] = true,
 }
 
+local function ApplySessionStateRequired(nextState, reason)
+    if not (addon.fishing and type(addon.fishing.ApplySessionState) == "function") then
+        error("DreamFisher: ApplySessionState is required for interact loot state transitions")
+    end
+    addon.fishing.ApplySessionState(nextState, reason)
+end
+
 local function GetInteractOverrideFrame()
     if addon.frames and addon.frames.interactOverride then
         return addon.frames.interactOverride
@@ -187,18 +194,23 @@ local function IsHookedLootMode()
         return false
     end
 
+    if not (addon.fishing and addon.fishing.IsHookedWindowSessionState and addon.fishing.IsSessionState) then
+        error("DreamFisher: IsHookedWindowSessionState and IsSessionState are required for hooked loot mode")
+    end
+
     local now = (type(GetTime) == "function") and GetTime() or 0
     local graceUntil = tonumber(addon.state.fishingStartGraceUntil) or 0
-    local bobberActive = addon.state.isBobberActive and true or false
-    local bobberActiveReady = bobberActive and (now >= graceUntil)
+
+    local hookedWindowStateReady = addon.fishing.IsHookedWindowSessionState() and (now >= graceUntil)
     local fallbackHookWindow = false
-    if addon.state.isFishing and not addon.state.fishingLootInProgress then
-        -- Some clients do not reliably flip isBobberActive for secure-click hotkey paths.
-        -- Treat post-cast fishing state (after start grace) as a hooked-interact window.
+
+    if addon.fishing.IsSessionState("CASTING") and not addon.fishing.IsSessionState("LOOTING") then
+        -- Some clients do not reliably emit the expected hooked-window transition in secure-click hotkey paths.
+        -- Treat post-cast state (after start grace) as a hooked-interact fallback window.
         fallbackHookWindow = now >= graceUntil
     end
 
-    return bobberActiveReady or fallbackHookWindow
+    return hookedWindowStateReady or fallbackHookWindow
 end
 
 local function ConfigureInteractLootAction(frame)
@@ -246,6 +258,7 @@ local function ConfigureInteractLootAction(frame)
     local inAcquireWindow = acquireExpiresAt > now
 
     if hasSoftInteractNameOnly then
+        ApplySessionStateRequired("WAITING_FOR_LOOT_WINDOW", "hooked-soft-name-acquire-interact")
         frame:SetAttribute("type", "macro")
         frame:SetAttribute("macrotext", table.concat(targetMacroLines, "\n") .. "\n/interact")
         frame:SetAttribute("spell", nil)
@@ -258,6 +271,7 @@ local function ConfigureInteractLootAction(frame)
     -- Some clients need one keypress to acquire bobber target, then one keypress to interact.
     -- Keep target acquisition macro armed until an interactable unit actually exists.
     if type(UnitExists) == "function" and (not hasAnyInteractUnit) then
+        ApplySessionStateRequired("WAITING_FOR_STRIKE", "hooked-target-acquire")
         if addon.state and (not inAcquireWindow) then
             addon.state.interactAcquireExpiresAt = now + 2.5
         end
@@ -279,6 +293,7 @@ local function ConfigureInteractLootAction(frame)
         return true
     end
 
+    ApplySessionStateRequired("WAITING_FOR_LOOT_WINDOW", "hooked-direct-interact")
     frame:SetAttribute("type", "macro")
     frame:SetAttribute("macrotext", "/interact")
     frame:SetAttribute("spell", nil)

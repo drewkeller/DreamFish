@@ -186,10 +186,15 @@ local function RestoreFishingAudioFocus()
         return
     end
     if addon.db and addon.db.debugMode and DebugMessage then
+        if not (addon.fishing and addon.fishing.GetCurrentSessionFlags) then
+            error("DreamFisher: GetCurrentSessionFlags is required for audio diagnostics")
+        end
+        local flags = addon.fishing.GetCurrentSessionFlags()
         DebugMessage("Audio restore now: elapsed=" .. string.format("%.3f", GetFishingElapsedSeconds())
-            .. " isFishing=" .. tostring(addon.state and addon.state.isFishing)
-            .. " isBobberActive=" .. tostring(addon.state and addon.state.isBobberActive)
-            .. " lootInProgress=" .. tostring(addon.state and addon.state.fishingLootInProgress))
+            .. " sessionState=" .. tostring(addon.state and addon.state.fishingSessionState)
+            .. " flags={isFishing=" .. tostring(flags.isFishing)
+            .. ", isBobberActive=" .. tostring(flags.isBobberActive)
+            .. ", lootInProgress=" .. tostring(flags.fishingLootInProgress) .. "}")
     end
     if type(SetCVar) ~= "function" then
         addon.state.savedFishingAudioCVars = nil

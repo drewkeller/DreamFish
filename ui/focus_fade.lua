@@ -358,7 +358,11 @@ local function IsFishingSessionActive()
         return false
     end
 
-    return (addon.state.isFishing or addon.state.isBobberActive or addon.state.fishingLootInProgress) and true or false
+    if not (addon.fishing and addon.fishing.IsFishingActiveSessionState and addon.fishing.IsSessionState) then
+        error("DreamFisher: IsFishingActiveSessionState and IsSessionState are required for focus fade state checks")
+    end
+
+    return addon.fishing.IsFishingActiveSessionState() or addon.fishing.IsSessionState("LOOTING")
 end
 
 local function IsFadeFeatureEnabled()

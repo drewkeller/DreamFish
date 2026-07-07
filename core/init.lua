@@ -77,11 +77,8 @@ addon.state = {
     savedAutoLoot = nil,
 
     -- Fishing
-    isFishing = false,
-    isBobberActive = false,
+    fishingSessionState = "IDLE",
     fishingStartTime = 0,
-    fishingCastActive = false,
-    fishingLootInProgress = false,
 
     -- Audio
     savedFishingAudioCVars = nil,

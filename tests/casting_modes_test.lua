@@ -119,9 +119,7 @@ function RunTest(name, testFn)
         DreamFisher.state.foodDrinkCastBlockWarningAt = 0
         DreamFisher._test.SetLastRightClickTime(0)  -- Clear click state
         DreamFisher.state.lastFishingSecureClickAt = 0
-        DreamFisher.state.isFishing = false
-        DreamFisher.state.isBobberActive = false
-        DreamFisher.state.fishingLootInProgress = false
+        DreamFisher._test.SetSessionState(DreamFisher.fishing.SessionStates.IDLE, "test-run-setup-reset")
         DreamFisher.state.fishingStartGraceUntil = 0
         DreamFisher.state.interactAcquireExpiresAt = 0
         DreamFisher.state.interactOverrideActive = false
@@ -206,9 +204,10 @@ function tests.TargetSelectedRightClickExitsFishingSessionState()
         return unit == "target"
     end
 
-    DreamFisher.state.isFishing = true
-    DreamFisher.state.isBobberActive = true
-    DreamFisher.state.fishingLootInProgress = true
+    DreamFisher._test.SetSessionState(
+        DreamFisher.fishing.SessionStates.LOOTING,
+        "test-target-selected-exit"
+    )
     DreamFisher.state.interactAcquireExpiresAt = mockTime + 5
     DreamFisher.state.savedFishingAudioCVars = {
         ambience = "0.4",
@@ -220,12 +219,8 @@ function tests.TargetSelectedRightClickExitsFishingSessionState()
 
     _G.UnitExists = originalUnitExists
 
-    assertEquals(DreamFisher.state.isFishing, false,
-        "Target-selected right-click should exit fishing state")
-    assertEquals(DreamFisher.state.isBobberActive, false,
-        "Target-selected right-click should clear bobber-active state")
-    assertEquals(DreamFisher.state.fishingLootInProgress, false,
-        "Target-selected right-click should clear fishing loot progress")
+    assertEquals(DreamFisher._test.GetSessionState(), DreamFisher.fishing.SessionStates.CLOSING_FISHING_SESSION,
+        "Target-selected right-click should exit to CLOSING_FISHING_SESSION")
     assertEquals(DreamFisher.state.interactAcquireExpiresAt, 0,
         "Target-selected right-click should clear interact acquire window")
     assertEquals(DreamFisher.state.savedFishingAudioCVars, nil,
@@ -1156,8 +1151,7 @@ function tests.AlwaysExceptFishingIdleHelperEquipsUnderlight()
         selectedUnderlightAngler = 133755,
     })
 
-    DreamFisher.state.isFishing = false
-    DreamFisher.state.isBobberActive = false
+    DreamFisher._test.SetSessionState(DreamFisher.fishing.SessionStates.IDLE, "test-underlight-idle")
 
     local originalFind = DreamFisher.buff.FindItemInBags
     DreamFisher.buff.FindItemInBags = function(itemID)
@@ -1199,8 +1193,7 @@ function tests.UnderlightIdleHelperFallsBackToUnslottedEquip()
         selectedUnderlightAngler = 133755,
     })
 
-    DreamFisher.state.isFishing = false
-    DreamFisher.state.isBobberActive = false
+    DreamFisher._test.SetSessionState(DreamFisher.fishing.SessionStates.IDLE, "test-underlight-idle-fallback")
 
     local originalFind = DreamFisher.buff.FindItemInBags
     DreamFisher.buff.FindItemInBags = function(itemID)
@@ -1254,8 +1247,7 @@ function tests.ModeChangeDisabledEquipsPrimaryPole()
         selectedUnderlightAngler = 133755,
     })
 
-    DreamFisher.state.isFishing = false
-    DreamFisher.state.isBobberActive = false
+    DreamFisher._test.SetSessionState(DreamFisher.fishing.SessionStates.IDLE, "test-mode-change-disabled")
 
     local originalFind = DreamFisher.buff.FindItemInBags
     DreamFisher.buff.FindItemInBags = function(itemID)
@@ -1658,7 +1650,10 @@ function tests.HookedLootModeConfiguresInteractAction()
         easyStrike = true,
     })
 
-    DreamFisher.state.isBobberActive = true
+    DreamFisher._test.SetSessionState(
+        DreamFisher.fishing.SessionStates.WAITING_FOR_STRIKE,
+        "test-hooked-mode-bobber-only"
+    )
     DreamFisher.state.fishingStartGraceUntil = mockTime - 1
     DreamFisher.fishing.ConfigureFishingClickAction()
 
@@ -1683,7 +1678,10 @@ function tests.HookedLootModeDisabledKeepsFishingCastAction()
         easyStrike = false,
     })
 
-    DreamFisher.state.isBobberActive = true
+    DreamFisher._test.SetSessionState(
+        DreamFisher.fishing.SessionStates.WAITING_FOR_STRIKE,
+        "test-hooked-mode-disabled-bobber-only"
+    )
     DreamFisher.fishing.ConfigureFishingClickAction()
 
     assertEquals(capturedAttrs["type"], "spell", "Disabled hooked mode should keep normal cast action")
@@ -1706,9 +1704,7 @@ function tests.HookedLootFallbackWindowConfiguresInteractAction()
         easyStrike = true,
     })
 
-    DreamFisher.state.isFishing = true
-    DreamFisher.state.isBobberActive = false
-    DreamFisher.state.fishingLootInProgress = false
+    DreamFisher._test.SetSessionState(DreamFisher.fishing.SessionStates.CASTING, "test-hooked-fallback-window")
     DreamFisher.state.fishingStartGraceUntil = mockTime - 1
 
     DreamFisher.fishing.ConfigureFishingClickAction()
@@ -2166,9 +2162,7 @@ function tests.HookedRightClickRoutesToInteractWhenHooked()
         easyStrike = true,
     })
 
-    DreamFisher.state.isFishing = true
-    DreamFisher.state.isBobberActive = true
-    DreamFisher.state.fishingLootInProgress = false
+    DreamFisher._test.SetSessionState(DreamFisher.fishing.SessionStates.WAITING_FOR_STRIKE, "test-hooked-right-click")
     DreamFisher.state.fishingStartGraceUntil = mockTime - 1
     DreamFisher.state.interactAcquireExpiresAt = mockTime + 2
     DreamFisher._test.SetLastRightClickTime(0)
@@ -2203,9 +2197,7 @@ function tests.StaleHookedOverrideFallsBackToCastFlow()
         easyStrike = true,
     })
 
-    DreamFisher.state.isFishing = false
-    DreamFisher.state.isBobberActive = false
-    DreamFisher.state.fishingLootInProgress = false
+    DreamFisher._test.SetSessionState(DreamFisher.fishing.SessionStates.IDLE, "test-stale-hooked-override")
     DreamFisher.state.fishingStartTime = 0
     DreamFisher.state.fishingStartGraceUntil = 0
     DreamFisher.state.interactOverrideActive = true
@@ -2251,9 +2243,7 @@ function tests.RecentFishingWithInteractTargetRoutesHookedFallback()
         easyStrike = true,
     })
 
-    DreamFisher.state.isFishing = false
-    DreamFisher.state.isBobberActive = false
-    DreamFisher.state.fishingLootInProgress = false
+    DreamFisher._test.SetSessionState(DreamFisher.fishing.SessionStates.IDLE, "test-recent-fishing-target")
     DreamFisher.state.fishingStartTime = mockTime - 3
     DreamFisher.state.fishingStartGraceUntil = mockTime - 1
     DreamFisher.state.interactOverrideActive = false
@@ -2301,9 +2291,7 @@ function tests.PostCastHookWindowRoutesHookedFallbackWithoutUnits()
         easyStrike = true,
     })
 
-    DreamFisher.state.isFishing = true
-    DreamFisher.state.isBobberActive = false
-    DreamFisher.state.fishingLootInProgress = false
+    DreamFisher._test.SetSessionState(DreamFisher.fishing.SessionStates.CASTING, "test-post-cast-hook-window")
     DreamFisher.state.fishingStartTime = mockTime - 3
     DreamFisher.state.fishingStartGraceUntil = mockTime - 1
     DreamFisher.state.interactOverrideActive = false
@@ -2317,8 +2305,8 @@ function tests.PostCastHookWindowRoutesHookedFallbackWithoutUnits()
         "Post-cast no-evidence state should not force hooked interact routing")
     assertEquals(DreamFisher._test.GetLastRightClickTime(), mockTime,
         "Post-cast no-evidence state should return to normal click timing flow")
-    assertEquals(DreamFisher.state.isFishing, false,
-        "Post-cast no-evidence fallback should clear stale fishing state")
+    assertEquals(DreamFisher._test.GetSessionState(), DreamFisher.fishing.SessionStates.CLOSING_FISHING_SESSION,
+        "Post-cast no-evidence fallback should finalize to closing session state")
 
     DreamFisher.fishing.GetInteractDiagnostics = originalGetDiag
     _G.SetOverrideBindingClick = originalBindingClick
@@ -2340,9 +2328,7 @@ function tests.HookedAcquireWindowKeepsTargetMacroWithoutSoftName()
         easyStrike = true,
     })
 
-    DreamFisher.state.isFishing = true
-    DreamFisher.state.isBobberActive = false
-    DreamFisher.state.fishingLootInProgress = false
+    DreamFisher._test.SetSessionState(DreamFisher.fishing.SessionStates.CASTING, "test-hooked-acquire-window")
     DreamFisher.state.fishingStartGraceUntil = mockTime - 1
     DreamFisher.state.interactAcquireExpiresAt = 0
 
@@ -2386,9 +2372,7 @@ function tests.HookedSoftNameUsesAcquirePlusInteractMacro()
         easyStrike = true,
     })
 
-    DreamFisher.state.isFishing = true
-    DreamFisher.state.isBobberActive = false
-    DreamFisher.state.fishingLootInProgress = false
+    DreamFisher._test.SetSessionState(DreamFisher.fishing.SessionStates.CASTING, "test-hooked-soft-name")
     DreamFisher.state.fishingStartGraceUntil = mockTime - 1
     DreamFisher.state.interactAcquireExpiresAt = 0
 

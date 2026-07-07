@@ -3,6 +3,13 @@
 local addon = _G["DreamFisher"]
 local PrintMessage = addon.PrintMessage
 
+local function GetCurrentSessionFlagsRequired()
+    if not (addon.fishing and addon.fishing.GetCurrentSessionFlags) then
+        error("DreamFisher: GetCurrentSessionFlags is required for command diagnostics")
+    end
+    return addon.fishing.GetCurrentSessionFlags()
+end
+
 local function RegisterSlashCommands()
     SLASH_DREAMFISHER1 = "/df"
     SLASH_DREAMFISHER2 = "/dreamfisher"
@@ -51,14 +58,17 @@ local function RegisterSlashCommands()
             local amb = GetCVar("Sound_AmbienceVolume")
             local mus = GetCVar("Sound_MusicVolume")
             local dia = GetCVar("Sound_DialogVolume")
+            local sessionState = addon.state and addon.state.fishingSessionState or "IDLE"
+            local flags = GetCurrentSessionFlagsRequired()
             local remaining = 0
             if addon.state.audioRestoreAt then
                 remaining = math.max(0, addon.state.audioRestoreAt - GetTime())
             end
             PrintMessage("Audio state: ducked=" .. tostring(addon.state.savedFishingAudioCVars ~= nil)
-                .. " isFishing=" .. tostring(addon.state.isFishing)
-                .. " bobberActive=" .. tostring(addon.state.isBobberActive)
-                .. " lootInProgress=" .. tostring(addon.state.fishingLootInProgress)
+                .. " sessionState=" .. tostring(sessionState)
+                .. " flags={isFishing=" .. tostring(flags.isFishing)
+                .. ", isBobberActive=" .. tostring(flags.isBobberActive)
+                .. ", lootInProgress=" .. tostring(flags.fishingLootInProgress) .. "}"
                 .. " restoreIn=" .. string.format("%.1f", remaining) .. "s")
             PrintMessage("CVars: Ambience=" .. tostring(amb) .. " Music=" .. tostring(mus) .. " Dialog=" .. tostring(dia))
             return
@@ -107,9 +117,11 @@ local function RegisterSlashCommands()
             else
                 PrintMessage("Interact diagnostics unavailable")
             end
-            PrintMessage("State: isFishing=" .. tostring(addon.state and addon.state.isFishing)
-                .. " isBobberActive=" .. tostring(addon.state and addon.state.isBobberActive)
-                .. " lootInProgress=" .. tostring(addon.state and addon.state.fishingLootInProgress))
+            local flags = GetCurrentSessionFlagsRequired()
+            PrintMessage("State: sessionState=" .. tostring(addon.state and addon.state.fishingSessionState)
+                .. " flags={isFishing=" .. tostring(flags.isFishing)
+                .. ", isBobberActive=" .. tostring(flags.isBobberActive)
+                .. ", lootInProgress=" .. tostring(flags.fishingLootInProgress) .. "}")
             return
         end
         if command == "raft" then

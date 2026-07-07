@@ -177,28 +177,38 @@ lootTracker:RegisterEvent("BAG_UPDATE")
 lootTracker:RegisterEvent("UI_INFO_MESSAGE")
 lootTracker:SetScript("OnEvent", function(_, event, ...)
     if event == "LOOT_READY" then
-        if addon.state.isBobberActive or addon.state.savedFishingAudioCVars ~= nil then
-            addon.state.fishingLootInProgress = true
-            addon.state.isBobberActive = false
-            addon.state.isFishing = false
+        if not (addon.fishing and addon.fishing.ApplySessionState and addon.fishing.IsLootReadySessionState) then
+            error("DreamFisher: ApplySessionState and IsLootReadySessionState are required for loot-ready handling")
+        end
+        if addon.fishing.IsLootReadySessionState() then
+            addon.fishing.ApplySessionState("LOOTING", "loot-ready")
         end
     elseif event == "LOOT_CLOSED" then
-        if addon.fishing then addon.fishing.RestoreOriginalAutoLoot() end
-        if addon.state.fishingLootInProgress then
+        if not (addon.fishing and addon.fishing.IsSessionState) then
+            error("DreamFisher: IsSessionState is required for loot-close handling")
+        end
+        if addon.fishing.IsSessionState("LOOTING") then
             DebugBagMessage("Fishing loot in progress ended")
-            addon.state.fishingLootInProgress = false
-            if addon.audio then addon.audio.RestoreFishingAudioFocusAfterLinger() end
-            if addon.fishing and addon.fishing.MaybeEquipConfiguredUnderlight then
-                addon.fishing.MaybeEquipConfiguredUnderlight("loot-closed")
+            if not (addon.fishing and addon.fishing.ApplySessionState and addon.fishing.RunSessionCloseEffects) then
+                error("DreamFisher: ApplySessionState and RunSessionCloseEffects are required for loot close handling")
             end
+            addon.fishing.ApplySessionState("LINGERING_FISHING_SESSION", "loot-closed")
+            addon.fishing.RunSessionCloseEffects({
+                restoreAutoLoot = true,
+                useLingerAudio = true,
+                restoreFocusVisuals = false,
+                poleReason = "loot-closed",
+            })
             local now = (type(GetTime) == "function") and GetTime() or 0
             fishingLootBagCheckPendingUntil = now + 2
             DebugBagMessage("Queued bag-threshold check for BAG_UPDATE_DELAYED")
         end
-        addon.state.isBobberActive = false
         addon.state.lastBagWarning = 0
     elseif event == "BAG_UPDATE" then
-        if addon.state.isFishing and addon.utils then
+        if not (addon.fishing and addon.fishing.IsFishingActiveSessionState) then
+            error("DreamFisher: IsFishingActiveSessionState is required for bag-update handling")
+        end
+        if addon.fishing.IsFishingActiveSessionState() and addon.utils then
             addon.utils.CheckBagSpace()
         end
         if addon.utils then addon.utils.CheckBuffItemStockWarnings() end
@@ -227,13 +237,14 @@ lootTracker:SetScript("OnEvent", function(_, event, ...)
             local now = (type(GetTime) == "function") and GetTime() or 0
             local startedAt = tonumber(addon.state.fishingStartTime) or 0
             local elapsed = (startedAt > 0 and now >= startedAt) and (now - startedAt) or 0
-            addon.state.isFishing = false
-            addon.state.isBobberActive = false
-            addon.state.fishingLootInProgress = false
-            addon.state.interactAcquireExpiresAt = 0
-            if addon.fishing and addon.fishing.ClearNativeInteractOverride then
-                addon.fishing.ClearNativeInteractOverride()
+            if not (addon.fishing and addon.fishing.CancelAndCloseFishingSession) then
+                error("DreamFisher: CancelAndCloseFishingSession is required for no-fish-hooked handling")
             end
+            addon.fishing.CancelAndCloseFishingSession(
+                "ui-info-no-fish-hooked",
+                "ui-info-no-fish-hooked-close",
+                { restoreAutoLoot = true, poleReason = "ui-info-no-fish-hooked" }
+            )
             if DebugStateMessage then
                 DebugStateMessage("Detected fish-hook info message (413); cleared fishing/hooked state"
                     .. " elapsed=" .. string.format("%.3f", elapsed)

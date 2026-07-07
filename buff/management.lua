@@ -258,12 +258,16 @@ local function MaybeUseBuffItems()
         return
     end
 
+    if not (addon.fishing and addon.fishing.IsFishingActiveSessionState) then
+        error("DreamFisher: IsFishingActiveSessionState is required for buff management")
+    end
+
     if GetTime() - addon.state.lastBuffCheckTime < addon.state.buffCheckInterval then
         return
     end
     addon.state.lastBuffCheckTime = GetTime()
 
-    if not addon.state or not addon.state.isFishing then
+    if not addon.state or not addon.fishing.IsFishingActiveSessionState() then
         return
     end
 

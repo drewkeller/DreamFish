@@ -126,32 +126,32 @@ if addon.fishing then
 end
 
 -- Case 1: UI_INFO_MESSAGE type 413 should clear fishing/hooked state.
-addon.state.isFishing = true
-addon.state.isBobberActive = true
-addon.state.fishingLootInProgress = true
+addon._test.SetSessionState(
+    addon.fishing.SessionStates.LOOTING,
+    "test-ui-info-pre-413"
+)
 addon.state.interactAcquireExpiresAt = 9
 clearCalls = 0
 
 onEvent(nil, "UI_INFO_MESSAGE", 413, "No fish are hooked.")
 
-assertEquals(addon.state.isFishing, false, "Type 413 should clear isFishing")
-assertEquals(addon.state.isBobberActive, false, "Type 413 should clear isBobberActive")
-assertEquals(addon.state.fishingLootInProgress, false, "Type 413 should clear fishingLootInProgress")
+assertEquals(addon._test.GetSessionState(), addon.fishing.SessionStates.CLOSING_FISHING_SESSION,
+    "Type 413 should finalize to CLOSING_FISHING_SESSION")
 assertEquals(addon.state.interactAcquireExpiresAt, 0, "Type 413 should reset interactAcquireExpiresAt")
 assertEquals(clearCalls, 1, "Type 413 should clear native interact override")
 
 -- Case 2: Other UI_INFO_MESSAGE types should not clear state.
-addon.state.isFishing = true
-addon.state.isBobberActive = true
-addon.state.fishingLootInProgress = true
+addon._test.SetSessionState(
+    addon.fishing.SessionStates.LOOTING,
+    "test-ui-info-pre-non413"
+)
 addon.state.interactAcquireExpiresAt = 7
 clearCalls = 0
 
 onEvent(nil, "UI_INFO_MESSAGE", 999, "Other info message")
 
-assertEquals(addon.state.isFishing, true, "Non-413 should not clear isFishing")
-assertEquals(addon.state.isBobberActive, true, "Non-413 should not clear isBobberActive")
-assertEquals(addon.state.fishingLootInProgress, true, "Non-413 should not clear fishingLootInProgress")
+assertEquals(addon._test.GetSessionState(), addon.fishing.SessionStates.LOOTING,
+    "Non-413 should keep LOOTING session state")
 assertEquals(addon.state.interactAcquireExpiresAt, 7, "Non-413 should not change interactAcquireExpiresAt")
 assertEquals(clearCalls, 0, "Non-413 should not clear native interact override")
 

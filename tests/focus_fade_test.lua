@@ -52,6 +52,10 @@ local function makeFrame(name)
         SetBackdropColor = function() end,
         SetFrameStrata = function() end,
         SetAllPoints = function() end,
+        SetScale = function() end,
+        EnableMouse = function() end,
+        SetStaticPOIArrowTexture = function() end,
+        SetPlayerTexture = function() end,
         IsShown = function() return frame._shown end,
         GetAlpha = function() return frame._alpha end,
         SetAlpha = function(_, value) frame._alpha = value end,
@@ -105,6 +109,10 @@ _G.GetTime = function() return now end
 _G.GetCVar = function() return "0" end
 _G.SetCVar = function() end
 _G.PlayerHasToy = function() return true end
+_G.C_SuperTrack = { SetSuperTrackedQuestID = function() end }
+_G.LibStub = function() return nil end
+_G.C_Minimap = { SetTracking = function() end }
+_G.C_AddOns = { IsAddOnLoaded = function() return false end }
 
 -- Load addon modules.
 dofile("core/init.lua")
@@ -134,9 +142,7 @@ addon.uiFocus.CreateFocusFadeFrame()
 local focusFrame = addon.uiFocus and addon.uiFocus.CreateFocusFadeFrame and addon.uiFocus.CreateFocusFadeFrame()
 assertTrue(focusFrame ~= nil, "Focus fade frame should be created")
 
-addon.state.isFishing = true
-addon.state.isBobberActive = false
-addon.state.fishingLootInProgress = false
+addon._test.SetSessionState(addon.fishing.SessionStates.CASTING, "test-focus-fade-fishing")
 addon.uiFocus.RefreshFocusFadeState()
 
 for _, name in ipairs(trackedFrameNames) do
@@ -144,9 +150,7 @@ for _, name in ipairs(trackedFrameNames) do
 end
 assertEquals(addon._test.GetFocusFadeRestoreAt(), nil, "Fade-out should clear any restore timer")
 
-addon.state.isFishing = false
-addon.state.isBobberActive = false
-addon.state.fishingLootInProgress = false
+addon._test.SetSessionState(addon.fishing.SessionStates.IDLE, "test-focus-fade-idle")
 addon.uiFocus.RefreshFocusFadeState()
 assertEquals(addon._test.GetFocusFadeRestoreAt(), 103, "Restore timer should use focusedVisualsLinger")
 

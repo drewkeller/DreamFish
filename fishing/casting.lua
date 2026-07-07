@@ -759,11 +759,13 @@ local function MaybeEquipConfiguredUnderlight(reason, forcePrimary)
         return false
     end
 
+    if not (addon.fishing and addon.fishing.IsFishingActiveSessionState) then
+        error("DreamFisher: IsFishingActiveSessionState is required for configured pole sync")
+    end
+
     local waterContext = GetWaterContextDiagnostics()
     local swimming = waterContext.result
-    local isFishing = addon.state and addon.state.isFishing
-    local isBobberActive = addon.state and addon.state.isBobberActive
-    local inFishingSession = isFishing or isBobberActive
+    local inFishingSession = addon.fishing.IsFishingActiveSessionState()
 
     if addon.db.debugMode and addon.db.debugState then
         DebugStateMessage("Water context check: result=" .. tostring(swimming)
@@ -1020,9 +1022,7 @@ ConfigureFishingClickAction = function()
     elseif addon.db and addon.db.easyStrike then
         local now = (type(GetTime) == "function") and GetTime() or 0
         local graceUntil = tonumber(addon.state and addon.state.fishingStartGraceUntil) or 0
-        DebugMessage("Hooked interact not armed: isFishing=" .. tostring(addon.state and addon.state.isFishing)
-            .. " isBobberActive=" .. tostring(addon.state and addon.state.isBobberActive)
-            .. " lootInProgress=" .. tostring(addon.state and addon.state.fishingLootInProgress)
+        DebugMessage("Hooked interact not armed: sessionState=" .. tostring(addon.state and addon.state.fishingSessionState)
             .. " graceRemaining=" .. string.format("%.2f", math.max(0, graceUntil - now)))
     end
 
@@ -1284,9 +1284,9 @@ end
 
 local function StartFishingCastState()
     addon.audio.StartFishingAudioFocus()
-    addon.state.isFishing = true
-    addon.state.isBobberActive = true
-    addon.state.fishingLootInProgress = false
+    if addon.fishing and addon.fishing.ApplySessionState then
+        addon.fishing.ApplySessionState("PRE_CASTING", "direct-cast-start")
+    end
     addon.fishing.EnableTemporaryAutoLoot()
 end
 
@@ -1517,30 +1517,19 @@ local function ExitFishingSessionForTargetSelection()
         return
     end
 
-    addon.state.isFishing = false
-    addon.state.isBobberActive = false
-    addon.state.fishingLootInProgress = false
-    addon.state.interactAcquireExpiresAt = 0
-    addon.state.audioRestoreAt = nil
-
-    if addon.fishing and addon.fishing.ClearNativeInteractOverride then
-        addon.fishing.ClearNativeInteractOverride()
-    else
-        addon.state.interactOverrideActive = false
-        addon.state.interactOverrideExpiresAt = 0
+    if not (addon.fishing and addon.fishing.CancelAndCloseFishingSession) then
+        error("DreamFisher: CancelAndCloseFishingSession is required for target selection exit")
     end
 
-    if addon.frames and addon.frames.audioRestore then
-        addon.frames.audioRestore:Hide()
-    end
-
-    if addon.audio and addon.audio.RestoreFishingAudioFocus then
-        addon.audio.RestoreFishingAudioFocus()
-    end
-
-    if addon.fishing and addon.fishing.RestoreOriginalAutoLoot then
-        addon.fishing.RestoreOriginalAutoLoot()
-    end
+    addon.fishing.CancelAndCloseFishingSession(
+        "target-selected",
+        "target-selected-close",
+        {
+            restoreAutoLoot = true,
+            restoreFocusVisuals = false,
+            syncPole = false,
+        }
+    )
 end
 
 local function ExitFishingSessionForNoHookEvidence()
@@ -1548,32 +1537,19 @@ local function ExitFishingSessionForNoHookEvidence()
         return
     end
 
-    addon.state.isFishing = false
-    addon.state.isBobberActive = false
-    addon.state.fishingCastActive = false
-    addon.state.fishingLootInProgress = false
-    addon.state.lastFishingCastStopAt = 0
-    addon.state.interactAcquireExpiresAt = 0
-    addon.state.audioRestoreAt = nil
-
-    if addon.fishing and addon.fishing.ClearNativeInteractOverride then
-        addon.fishing.ClearNativeInteractOverride()
-    else
-        addon.state.interactOverrideActive = false
-        addon.state.interactOverrideExpiresAt = 0
+    if not (addon.fishing and addon.fishing.CancelAndCloseFishingSession) then
+        error("DreamFisher: CancelAndCloseFishingSession is required for no-hook-evidence exit")
     end
 
-    if addon.frames and addon.frames.audioRestore then
-        addon.frames.audioRestore:Hide()
-    end
-
-    if addon.audio and addon.audio.RestoreFishingAudioFocus then
-        addon.audio.RestoreFishingAudioFocus()
-    end
-
-    if addon.fishing and addon.fishing.RestoreOriginalAutoLoot then
-        addon.fishing.RestoreOriginalAutoLoot()
-    end
+    addon.fishing.CancelAndCloseFishingSession(
+        "no-hook-evidence",
+        "no-hook-evidence-close",
+        {
+            restoreAutoLoot = true,
+            restoreFocusVisuals = false,
+            syncPole = false,
+        }
+    )
 end
 
 local function HandleWorldRightClick(forceImmediate)
@@ -1611,12 +1587,10 @@ local function HandleWorldRightClick(forceImmediate)
         end
 
         DebugMessage("Stale hooked interact override with no target; clearing override and resuming cast flow")
-        if addon.fishing.ClearNativeInteractOverride then
-            addon.fishing.ClearNativeInteractOverride()
-        else
-            addon.state.interactOverrideActive = false
-            addon.state.interactOverrideExpiresAt = 0
+        if not (addon.fishing and addon.fishing.ClearNativeInteractOverride) then
+            error("DreamFisher: ClearNativeInteractOverride is required for stale hooked override cleanup")
         end
+        addon.fishing.ClearNativeInteractOverride()
         addon.state.interactAcquireExpiresAt = 0
     end
 
@@ -1739,11 +1713,11 @@ local function HandleWorldRightClick(forceImmediate)
         local now = (type(GetTime) == "function") and GetTime() or 0
         -- Mark a pre-cast fishing session for audio/tests. Hooked mode is
         -- still blocked by grace-window gating until cast has transitioned.
-        addon.state.isFishing = true
-        addon.state.isBobberActive = true
+        if addon.fishing and addon.fishing.ApplySessionState then
+            addon.fishing.ApplySessionState("PRE_CASTING", "right-click-pre-cast")
+        end
         addon.state.fishingStartTime = now
         addon.state.fishingStartGraceUntil = now + 1.5
-        addon.state.fishingLootInProgress = false
         addon.state.interactAcquireExpiresAt = 0
 
         if hadUnavailableDueBuff then
