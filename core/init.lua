@@ -68,6 +68,7 @@ addon.defaults = {
     configWindowPosition = nil,
     debugMode = true,
     debugState = false,
+    debugFade = true,
     debugBags = false,
     debugBuffs = false,
 }

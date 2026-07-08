@@ -3,6 +3,24 @@
 local addon = _G["DreamFisher"]
 local PrintMessage = addon.PrintMessage
 
+local function Trim(text)
+    if type(strtrim) == "function" then
+        return strtrim(text or "")
+    end
+    return (tostring(text or ""):gsub("^%s+", ""):gsub("%s+$", ""))
+end
+
+local function PrintFocusVisualDump()
+    if not (addon.uiFocus and addon.uiFocus.GetFocusVisualStateLines) then
+        PrintMessage("Focus visual dump unavailable")
+        return
+    end
+
+    for _, line in ipairs(addon.uiFocus.GetFocusVisualStateLines()) do
+        PrintMessage(line)
+    end
+end
+
 local function GetCurrentSessionFlagsRequired()
     if not (addon.fishing and addon.fishing.GetCurrentSessionFlags) then
         error("DreamFisher: GetCurrentSessionFlags is required for command diagnostics")
@@ -14,7 +32,14 @@ local function RegisterSlashCommands()
     SLASH_DREAMFISHER1 = "/df"
     SLASH_DREAMFISHER2 = "/dreamfisher"
     SlashCmdList["DREAMFISHER"] = function(msg)
-        local command = string.lower(strtrim(msg or ""))
+        local input = string.lower(Trim(msg))
+        local command = input
+        local commandArgs = ""
+        local baseCommand, remainder = string.match(input, "^(%S+)%s*(.-)$")
+        if baseCommand then
+            command = baseCommand
+            commandArgs = remainder or ""
+        end
         if command == "help" or command == "h" or command == "?" then
             PrintMessage("|cFFFFD700Available Commands:|r")
             PrintMessage("  |cFF7FFFDAhelp, h, ?|r - Show this help message")
@@ -25,9 +50,12 @@ local function RegisterSlashCommands()
             PrintMessage("  |cFF7FFFDAduckaudio, da|r - Manually start audio ducking")
             PrintMessage("  |cFF7FFFDArestoreaudio, ra|r - Manually restore audio from ducking")
             PrintMessage("  |cFF7FFFDAdebug, dbg|r - Toggle debug mode on/off")
+            PrintMessage("  |cFF7FFFDAfocusdebug, fdbg|r - Toggle focus fade state tracing on/off")
             PrintMessage("  |cFF7FFFDAcast|r - Show secure cast macro helper")
             PrintMessage("  |cFF7FFFDAinteractsetup, is|r - Show hooked-interact setup checklist")
             PrintMessage("  |cFF7FFFDAinteractdiag, id|r - Show live interact target diagnostics")
+            PrintMessage("  |cFF7FFFDAforcevisible, fv|r - Force focus visuals visible once")
+            PrintMessage("  |cFF7FFFDAfocusdump, fd|r - Dump focus visibility and alpha state")
             PrintMessage("  |cFF7FFFDAraft|r - Apply the selected raft")
             PrintMessage("  |cFF7FFFDA(no args)|r - Toggle config UI")
             return
@@ -95,6 +123,11 @@ local function RegisterSlashCommands()
             PrintMessage("Debug mode: " .. (addon.db.debugMode and "ON" or "OFF"))
             return
         end
+        if command == "focusdebug" or command == "fdbg" then
+            addon.db.debugState = not addon.db.debugState
+            PrintMessage("Focus fade tracing: " .. (addon.db.debugState and "ON" or "OFF"))
+            return
+        end
         if command == "cast" then
             if addon.fishing and addon.fishing.HandleCastCommand then
                 addon.fishing.HandleCastCommand()
@@ -122,6 +155,19 @@ local function RegisterSlashCommands()
                 .. " flags={isFishing=" .. tostring(flags.isFishing)
                 .. ", isBobberActive=" .. tostring(flags.isBobberActive)
                 .. ", lootInProgress=" .. tostring(flags.fishingLootInProgress) .. "}")
+            return
+        end
+        if command == "focusdump" or command == "fd" then
+            PrintFocusVisualDump()
+            return
+        end
+        if command == "forcevisible" or command == "fv" then
+            if addon.uiFocus and addon.uiFocus.ForceVisibleFocusVisuals then
+                addon.uiFocus.ForceVisibleFocusVisuals()
+                PrintMessage("Force-visible focus visuals: one-time restore")
+            else
+                PrintMessage("Force-visible focus visuals unavailable")
+            end
             return
         end
         if command == "raft" then

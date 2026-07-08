@@ -947,7 +947,13 @@ local function SaveConfigBindings()
         addon.db.focusedAudio = addon.focusedAudioCheckbox:GetChecked()
     end
     if addon.focusedVisualsCheckbox then
-        addon.db.focusedVisuals = addon.focusedVisualsCheckbox:GetChecked()
+        local newFocusedVisuals = addon.focusedVisualsCheckbox:GetChecked()
+        local oldFocusedVisuals = addon.db.focusedVisuals and true or false
+        addon.db.focusedVisuals = newFocusedVisuals
+
+        if oldFocusedVisuals and not newFocusedVisuals and addon.uiFocus and addon.uiFocus.FadeInUI then
+            addon.uiFocus.FadeInUI()
+        end
     end
     if addon.focusedVisualsLingerBox then
         addon.db.focusedVisualsLinger = addon.Clamp(tonumber(addon.focusedVisualsLingerBox:GetText()) or defaults.focusedVisualsLinger, 0, 60)
@@ -2061,3 +2067,5 @@ end
 
 -- Update config module exports
 config.UpdateConfigUI = UpdateConfigUI
+addon._test = addon._test or {}
+addon._test.SaveConfigBindings = SaveConfigBindings

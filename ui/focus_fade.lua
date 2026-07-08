@@ -1,6 +1,7 @@
 -- DreamFisher: Focus frame fading while fishing
 
 local addon = _G["DreamFisher"]
+local DebugStateMessage = addon.DebugStateMessage or addon.DebugMessage or function() end
 
 -- Finding frame names can be done by using /fstack in the game.
 -- 1. Turn on frame stack tool by typing /fstack in the game.
@@ -301,6 +302,90 @@ local function IsFadeFeatureEnabled()
     return addon.db.focusedVisuals and true or false
 end
 
+local ForceVisibleFocusVisuals
+local BuildFocusVisualStateLines
+
+local function FocusFadeTrace(message)
+    if addon and addon.db and addon.db.debugMode and addon.db.debugState then
+        -- Keep chat output readable by default; per-frame traces are too noisy.
+        local isFrameDetail = string.find(message, " frame ", 1, true) ~= nil
+        if isFrameDetail and not (addon.db and addon.db.debugFadeVerbose) then
+            return
+        end
+        DebugStateMessage("Focus fade: " .. tostring(message))
+    end
+end
+
+local function FocusFadeTraceState(prefix)
+    if not (addon and addon.db and addon.db.debugMode and addon.db.debugState) then
+        return
+    end
+    local minimap = ResolveNamedFrame("Minimap")
+    local minimapShown = minimap and minimap.IsShown and minimap:IsShown() or false
+    local minimapAlpha = minimap and minimap.GetAlpha and minimap:GetAlpha() or nil
+    local cluster = ResolveNamedFrame("MinimapCluster")
+    local clusterShown = cluster and cluster.IsShown and cluster:IsShown() or false
+    local alphaText = minimapAlpha == nil and "n/a" or string.format("%.2f", tonumber(minimapAlpha) or 0)
+    DebugStateMessage("Focus fade: " .. tostring(prefix)
+        .. " featureEnabled=" .. tostring(IsFadeFeatureEnabled())
+        .. " isFaded=" .. tostring(frameFader.isFaded)
+        .. " restoreAt=" .. tostring(frameFader.restoreAt)
+        .. " minimapShown=" .. tostring(minimapShown)
+        .. " minimapAlpha=" .. alphaText
+        .. " clusterShown=" .. tostring(clusterShown))
+end
+
+local function ClearSetAlphaOverride(frame)
+    if frame and frame.SetAlpha_Old then
+        frame.SetAlpha = frame.SetAlpha_Old
+        frame.SetAlpha_Old = nil
+    end
+end
+
+local function ForceFrameVisible(frame)
+    if not frame then
+        return
+    end
+    ClearSetAlphaOverride(frame)
+    if frame.Show then
+        frame:Show()
+    end
+    if frame.SetAlpha then
+        frame:SetAlpha(1)
+    end
+end
+
+BuildFocusVisualStateLines = function()
+    local lines = {}
+    table.insert(lines, "Focus visuals dump: featureEnabled=" .. tostring(IsFadeFeatureEnabled())
+        .. " isFaded=" .. tostring(frameFader.isFaded)
+        .. " restoreAt=" .. tostring(frameFader.restoreAt))
+
+    local function AppendFrameLine(name)
+        local frame = ResolveNamedFrame(name)
+        if not frame then
+            table.insert(lines, name .. ": missing")
+            return
+        end
+
+        local shown = frame.IsShown and frame:IsShown() or false
+        local alpha = frame.GetAlpha and frame:GetAlpha() or nil
+        local alphaText = alpha == nil and "n/a" or string.format("%.2f", tonumber(alpha) or 0)
+        local locked = frame.SetAlpha_Old and " locked" or ""
+        table.insert(lines, name .. ": shown=" .. tostring(shown) .. " alpha=" .. alphaText .. locked)
+    end
+
+    for _, name in ipairs(panelNamesToFade) do
+        AppendFrameLine(name)
+    end
+
+    for _, name in ipairs(elvUIFrames) do
+        AppendFrameLine(name)
+    end
+
+    return lines
+end
+
 local function GetVisualsLingerSeconds()
     local defaults = addon and addon.defaults or nil
     local linger = (addon and addon.db and addon.db.focusedVisualsLinger)
@@ -363,10 +448,28 @@ end
 
 local function HideMinimapCluster(hideMiniMap)
     local minimapCluster = _G["MinimapCluster"]
-    if minimapCluster and minimapCluster.Hide then
-        minimapCluster:Hide()
-    elseif minimapCluster and minimapCluster.Show then
+    local minimap = _G["Minimap"]
+
+    if hideMiniMap then
+        if minimapCluster and minimapCluster.Hide then
+            minimapCluster:Hide()
+        end
+        return
+    end
+
+    if minimapCluster and minimapCluster.Show then
         minimapCluster:Show()
+    end
+
+    -- Some UIs leave Minimap itself hidden/locked even after the cluster is shown.
+    if minimap then
+        ClearSetAlphaOverride(minimap)
+        if minimap.Show then
+            minimap:Show()
+        end
+        if minimap.SetAlpha then
+            minimap:SetAlpha(1)
+        end
     end
 end
 
@@ -530,6 +633,7 @@ local function GetElvUIFrameSettings(E, frameName)
 end
 
 local function FadeOutUI()
+    FocusFadeTrace("FadeOutUI begin")
     frameFader.restoreAt = nil
 
     -- Blizzard UI elements
@@ -537,6 +641,7 @@ local function FadeOutUI()
         local panel = ResolveNamedFrame(name)
         if panel and panel.IsShown and panel:IsShown() then
             frameFader.wasShownByName[name] = true
+            FocusFadeTrace("FadeOutUI hide Blizzard frame " .. name .. " alpha=" .. tostring(panel.GetAlpha and panel:GetAlpha() or 1))
             if type(UIFrameFadeOut) == "function" and panel.GetAlpha then
                 UIFrameFadeOut(panel, 0.5, panel:GetAlpha() or 1, 0)
             elseif panel.SetAlpha then
@@ -544,6 +649,7 @@ local function FadeOutUI()
             end
         else
             frameFader.wasShownByName[name] = false
+            FocusFadeTrace("FadeOutUI skip Blizzard frame " .. name .. " (not shown)")
         end
     end
     HideBlizzardMicroMenu(true)
@@ -560,6 +666,7 @@ local function FadeOutUI()
             elvUIFrameFader[name] = {wasShown = isShown, originalAlpha = alpha}
             -- if the frame/bar is shown, hide it
             if isShown and doFadeOut then
+                FocusFadeTrace("FadeOutUI hide ElvUI frame " .. name .. " alpha=" .. tostring(alpha))
                 if string.find(name, "ElvDB_") then
                     SetElvUIDataBarVisibility(E, name, true)
                 else
@@ -568,6 +675,10 @@ local function FadeOutUI()
                     local frame = _G[name]
                     FadeFrameCustom(frame, "OUT", duration, targetAlpha)
                 end
+            elseif isShown then
+                FocusFadeTrace("FadeOutUI keep ElvUI frame visible " .. name .. " (castbar exception)")
+            else
+                FocusFadeTrace("FadeOutUI skip ElvUI frame " .. name .. " (not shown)")
             end
         end
         HideElvUIPlayerFrame(true)
@@ -579,27 +690,32 @@ local function FadeOutUI()
     HideGatherMateMinimap(true)
 
     frameFader.isFaded = true
+    FocusFadeTraceState("FadeOutUI end")
 end
 
 local function FadeInUI()
+    FocusFadeTrace("FadeInUI begin")
     -- Blizzard UI elements
     for _, name in ipairs(panelNamesToFade) do
         local panel = ResolveNamedFrame(name)
         if panel and panel.SetAlpha then
             local wasShown = frameFader.wasShownByName[name]
             if wasShown then
+                FocusFadeTrace("FadeInUI restore Blizzard frame " .. name)
                 if type(UIFrameFadeIn) == "function" and panel.GetAlpha then
                     UIFrameFadeIn(panel, 0.3, panel:GetAlpha() or 0, 1)
                 else
                     panel:SetAlpha(1)
                 end
             else
+                FocusFadeTrace("FadeInUI leave Blizzard frame hidden " .. name .. " (was not shown before fade)")
                 panel:SetAlpha(0) -- need to do anything?
             end
         end
     end
     HideBlizzardMicroMenu(false)
 
+    FocusFadeTrace("FadeInUI restoring ElvUI frames")
     if _G["ElvUI"] then
         local E = unpack(_G["ElvUI"])
         for _, name in ipairs(elvUIFrames) do
@@ -608,6 +724,7 @@ local function FadeInUI()
                 local originalAlpha = elvUIFrameFader[name].originalAlpha or 0
                 -- if the frame was shown before, fade it back in to its original alpha
                 if wasShown then
+                    FocusFadeTrace("FadeInUI restore ElvUI frame " .. name .. " alpha=" .. tostring(originalAlpha))
                     if string.find(name, "ElvDB_") then
                         SetElvUIDataBarVisibility(E, name, false)
                     else
@@ -615,6 +732,8 @@ local function FadeInUI()
                         local frame = _G[name]
                         FadeFrameCustom(frame, "IN", duration, originalAlpha)
                     end
+                else
+                    FocusFadeTrace("FadeInUI skip ElvUI frame " .. name .. " (was not shown before fade)")
                 end
             end
         end
@@ -629,33 +748,76 @@ local function FadeInUI()
     frameFader.wasShownByName = {}
     frameFader.isFaded = false
     frameFader.restoreAt = nil
+    FocusFadeTraceState("FadeInUI end")
 end
 
 local function RestoreFocusVisualsAfterLinger()
+    FocusFadeTrace("RestoreFocusVisualsAfterLinger begin")
     if not frameFader.isFaded then
         frameFader.restoreAt = nil
+        FocusFadeTrace("RestoreFocusVisualsAfterLinger skipped; UI not faded")
         return
     end
 
     if not IsFadeFeatureEnabled() then
+        FocusFadeTrace("RestoreFocusVisualsAfterLinger immediate restore; focused visuals disabled")
         FadeInUI()
         return
     end
 
     local linger = GetVisualsLingerSeconds()
     if linger <= 0 or type(GetTime) ~= "function" then
+        FocusFadeTrace("RestoreFocusVisualsAfterLinger immediate restore; linger=" .. tostring(linger) .. " GetTimeAvailable=" .. tostring(type(GetTime) == "function"))
         FadeInUI()
         return
     end
 
     frameFader.restoreAt = GetTime() + linger
+    FocusFadeTrace("RestoreFocusVisualsAfterLinger scheduled restoreAt=" .. tostring(frameFader.restoreAt) .. " linger=" .. tostring(linger))
+end
+
+ForceVisibleFocusVisuals = function()
+    frameFader.restoreAt = nil
+
+    for _, name in ipairs(panelNamesToFade) do
+        ForceFrameVisible(ResolveNamedFrame(name))
+        frameFader.wasShownByName[name] = true
+    end
+
+    if _G["ElvUI"] then
+        local E = unpack(_G["ElvUI"])
+        for _, name in ipairs(elvUIFrames) do
+            local frame = ResolveNamedFrame(name)
+            if frame then
+                ForceFrameVisible(frame)
+                if string.find(name, "ElvDB_") then
+                    SetElvUIDataBarVisibility(E, name, false)
+                end
+            end
+        end
+        HideElvUIPlayerFrame(false)
+    end
+
+    HideBlizzardMicroMenu(false)
+    HideMinimapButtons(false)
+    HideMinimapCluster(false)
+    HideHandyNotesMapPins(false)
+    HideGatherMateMinimap(false)
+
+    frameFader.isFaded = false
 end
 
 local function RefreshFocusFadeState()
+    FocusFadeTrace("RefreshFocusFadeState begin state=" .. tostring(addon.state and addon.state.fishingSessionState)
+        .. " featureEnabled=" .. tostring(IsFadeFeatureEnabled())
+        .. " isFaded=" .. tostring(frameFader.isFaded)
+        .. " restoreAt=" .. tostring(frameFader.restoreAt))
     if IsFadeFeatureEnabled() and IsPreCastingSessionState() then
         if not frameFader.isFaded then
+            FocusFadeTrace("RefreshFocusFadeState entering PRE_CASTING -> fade out")
             FadeOutUI()
         elseif frameFader.restoreAt ~= nil then
+            FocusFadeTrace("RefreshFocusFadeState clearing pending restore during PRE_CASTING")
             frameFader.restoreAt = nil
         end
         return
@@ -664,15 +826,19 @@ local function RefreshFocusFadeState()
     local shouldFade = IsFadeFeatureEnabled() and IsFishingSessionActive()
 
     if shouldFade and not frameFader.isFaded then
+        FocusFadeTrace("RefreshFocusFadeState shouldFade=true and not faded -> fade out")
         FadeOutUI()
     elseif shouldFade and frameFader.restoreAt ~= nil then
+        FocusFadeTrace("RefreshFocusFadeState shouldFade=true and restoreAt pending -> clear timer")
         frameFader.restoreAt = nil
     elseif IsFadeFeatureEnabled()
         and (addon.fishing and addon.fishing.IsSessionState
             and (addon.fishing.IsSessionState("CANCELLING_FISHING_SESSION") or addon.fishing.IsSessionState("CLOSING_FISHING_SESSION")))
         and frameFader.isFaded then
+        FocusFadeTrace("RefreshFocusFadeState close/cancel state with faded UI -> schedule restore")
         RestoreFocusVisualsAfterLinger()
     elseif not shouldFade and frameFader.isFaded then
+        FocusFadeTrace("RefreshFocusFadeState shouldFade=false and faded -> fade in")
         FadeInUI()
     end
 end
@@ -697,6 +863,7 @@ local function CreateFocusFadeFrame()
             return
         end
         if type(GetTime) ~= "function" or GetTime() >= frameFader.restoreAt then
+            FocusFadeTrace("OnUpdate restoreAt reached -> FadeInUI")
             FadeInUI()
         end
     end)
@@ -711,7 +878,10 @@ addon.uiFocus.RefreshFocusFadeState = RefreshFocusFadeState
 addon.uiFocus.FadeOutUI = FadeOutUI
 addon.uiFocus.FadeInUI = FadeInUI
 addon.uiFocus.RestoreFocusVisualsAfterLinger = RestoreFocusVisualsAfterLinger
+addon.uiFocus.ForceVisibleFocusVisuals = ForceVisibleFocusVisuals
+addon.uiFocus.GetFocusVisualStateLines = BuildFocusVisualStateLines
 addon._test = addon._test or {}
 addon._test.GetFocusFadeRestoreAt = function()
     return frameFader.restoreAt
 end
+addon._test.GetFocusVisualStateLines = BuildFocusVisualStateLines
