@@ -134,6 +134,7 @@ dofile("DreamFisher.lua")
 
 local addon = _G.DreamFisher
 assertTrue(type(addon) == "table", "Addon should load")
+addon.commands.RegisterSlashCommands()
 
 addon._test.SetDB({ focusedVisuals = true, focusedVisualsLinger = 3, focusedAudio = false, autoLoot = true, bagAlerts = true, treasureAlerts = true, lowBagThreshold = 2 })
 addon.uiFocus.CreateFocusFadeFrame()
@@ -149,6 +150,58 @@ for _, name in ipairs(trackedFrameNames) do
         name .. " should fade out while fishing")
 end
 assertEquals(addon._test.GetFocusFadeRestoreAt(), nil, "Fade-out should clear any restore timer")
+
+addon._test.SetSessionState(addon.fishing.SessionStates.CANCELLING_FISHING_SESSION, "test-focus-fade-cancel")
+for _, name in ipairs(trackedFrameNames) do
+    assertEquals((_G[name] and _G[name].GetAlpha and _G[name]:GetAlpha()) or nil, 1,
+        name .. " should restore immediately when fishing is cancelled")
+end
+assertEquals(addon._test.GetFocusFadeRestoreAt(), nil, "Cancelling fishing should not schedule a restore timer")
+
+addon.focusedVisualsCheckbox = {
+    GetChecked = function()
+        return false
+    end,
+}
+addon.db.focusedVisuals = true
+addon._test.SaveConfigBindings()
+for _, name in ipairs(trackedFrameNames) do
+    assertEquals((_G[name] and _G[name].GetAlpha and _G[name]:GetAlpha()) or nil, 1,
+        name .. " should restore immediately when focused visuals are unchecked")
+end
+assertEquals(addon._test.GetFocusFadeRestoreAt(), nil, "Unchecking focused visuals should not leave a restore timer")
+addon.focusedVisualsCheckbox = nil
+
+addon._test.SetSessionState(addon.fishing.SessionStates.CASTING, "test-focus-fade-disabled-visuals")
+addon.uiFocus.RefreshFocusFadeState()
+for _, name in ipairs(trackedFrameNames) do
+    assertEquals((_G[name] and _G[name].GetAlpha and _G[name]:GetAlpha()) or nil, 1,
+        name .. " should not fade out while focused visuals are disabled")
+end
+assertEquals(addon._test.GetFocusFadeRestoreAt(), nil, "Disabled focused visuals should not schedule a restore timer")
+
+addon.db.focusedVisuals = true
+
+addon._test.SetSessionState(addon.fishing.SessionStates.CASTING, "test-focus-fade-reenabled-visuals")
+addon.uiFocus.RefreshFocusFadeState()
+for _, name in ipairs(trackedFrameNames) do
+    assertEquals((_G[name] and _G[name].GetAlpha and _G[name]:GetAlpha()) or nil, 0,
+        name .. " should fade out again after focused visuals are re-enabled")
+end
+assertEquals(addon._test.GetFocusFadeRestoreAt(), nil, "Re-enabled focused visuals should still clear the restore timer while fishing")
+
+SlashCmdList["DREAMFISHER"]("forcevisible")
+for _, name in ipairs(trackedFrameNames) do
+    assertEquals((_G[name] and _G[name].GetAlpha and _G[name]:GetAlpha()) or nil, 1,
+        name .. " should be fully visible after forcevisible")
+end
+
+addon._test.SetSessionState(addon.fishing.SessionStates.CASTING, "test-focus-fade-forcevisible-once")
+addon.uiFocus.RefreshFocusFadeState()
+for _, name in ipairs(trackedFrameNames) do
+    assertEquals((_G[name] and _G[name].GetAlpha and _G[name]:GetAlpha()) or nil, 0,
+        name .. " should fade out again on the next refresh because forcevisible is one-time")
+end
 
 addon._test.SetSessionState(addon.fishing.SessionStates.CLOSING_FISHING_SESSION, "test-focus-fade-closing")
 local restoreAt = addon._test.GetFocusFadeRestoreAt()
