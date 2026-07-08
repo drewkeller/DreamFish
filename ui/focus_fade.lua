@@ -20,7 +20,7 @@ local panelNamesToFade = {
     "QueueStatusMinimapButton",  -- Classic LFG queue icon
     "GarrisonLandingPageMinimapButton", -- Expansion/Mission tracking button
     "ExpansionLandingPageMinimapButton", -- Dragonflight/TWW expansion button
-    "ChatFrame1",
+    --"ChatFrame1",
     -- Unit frames
     "PlayerFrame",
     "CompactPlayerFrame",
@@ -48,7 +48,12 @@ local frameFader = {
     frame = nil,
     isFaded = false,
     wasShownByName = {},
+    originalAlphaByName = {},
     restoreAt = nil,
+    restoreVerifyAt = nil,
+    restoreVerifyChecksRemaining = 0,
+    restoreExpectedShownByName = {},
+    restoreExpectedAlphaByName = {},
 }
 
 local fadeState = nil
@@ -83,7 +88,7 @@ local elvUIFrames = {
     "ElvUF_Boss",
     "ElvUF_Arena",
     -- Chat/Info panels
-    "LeftChatPanel",
+    --"LeftChatPanel",
     "RightChatPanel",
     "LeftChatToggleButton",
     "RightChatToggleButton",
@@ -335,6 +340,46 @@ local function FocusFadeTraceState(prefix)
         .. " clusterShown=" .. tostring(clusterShown))
 end
 
+local function TraceChatFrameState(label)
+    if not (addon and addon.db and addon.db.debugMode and addon.db.debugState) then
+        return
+    end
+
+    local names = {
+        "ChatFrame1",
+        "ChatFrame1Background",
+        "ChatFrame1Tab",
+        "GeneralDockManager",
+    }
+
+    local segments = {}
+    for _, name in ipairs(names) do
+        local frame = ResolveNamedFrame(name)
+        if frame then
+            local shown = frame.IsShown and frame:IsShown() or false
+            local alpha = frame.GetAlpha and frame:GetAlpha() or nil
+            local effAlpha = frame.GetEffectiveAlpha and frame:GetEffectiveAlpha() or nil
+            local parent = frame.GetParent and frame:GetParent() or nil
+            local parentName = parent and parent.GetName and parent:GetName() or nil
+            local parentShown = parent and parent.IsShown and parent:IsShown() or nil
+            local parentAlpha = parent and parent.GetAlpha and parent:GetAlpha() or nil
+            local locked = frame.SetAlpha_Old and true or false
+            table.insert(segments, name
+                .. " shown=" .. tostring(shown)
+                .. " alpha=" .. tostring(alpha)
+                .. " effectiveAlpha=" .. tostring(effAlpha)
+                .. " locked=" .. tostring(locked)
+                .. " parent=" .. tostring(parentName)
+                .. " parentShown=" .. tostring(parentShown)
+                .. " parentAlpha=" .. tostring(parentAlpha))
+        else
+            table.insert(segments, name .. " missing")
+        end
+    end
+
+    FocusFadeTrace("Chat frame trace (" .. tostring(label) .. "): " .. table.concat(segments, " | "))
+end
+
 local function ClearSetAlphaOverride(frame)
     if frame and frame.SetAlpha_Old then
         frame.SetAlpha = frame.SetAlpha_Old
@@ -392,6 +437,69 @@ local function GetVisualsLingerSeconds()
         or (defaults and defaults.focusedVisualsLinger)
         or 0
     return math.max(0, tonumber(linger) or 0)
+end
+
+local function VerifyBlizzardFrameRestore(label)
+    if not (addon and addon.db and addon.db.debugMode and addon.db.debugState) then
+        return
+    end
+
+    local criticalFrames = {
+        Minimap = true,
+        MinimapCluster = true,
+        ObjectiveTrackerFrame = true,
+        ChatFrame1 = true,
+        PlayerFrame = true,
+        TargetFrame = true,
+        MultiBarBottomLeft = true,
+        MultiBarBottomRight = true,
+        MultiBarLeft = true,
+        MultiBarRight = true,
+        MicroButtonAndBagsBar = true,
+        UIWidgetTopCenterContainerFrame = true,
+    }
+
+    local mismatches = {}
+    local seenNames = {}
+    for _, name in ipairs(panelNamesToFade) do
+        if not seenNames[name] then
+            seenNames[name] = true
+
+            local expectedShown = frameFader.restoreExpectedShownByName[name]
+            local expectedAlpha = frameFader.restoreExpectedAlphaByName[name]
+            if expectedShown then
+                local panel = ResolveNamedFrame(name)
+                local observedShown = panel and panel.IsShown and panel:IsShown() or false
+                local observedAlpha = panel and panel.GetAlpha and panel:GetAlpha() or nil
+
+                -- Many Blizzard frames are conditional/variant (mail icon, compact player,
+                -- queue buttons, stance variants). Avoid noisy false positives for non-critical
+                -- frames unless they are currently visible and measurable.
+                local shouldCheck = true
+                if (not criticalFrames[name]) and (not observedShown or observedAlpha == nil) then
+                    shouldCheck = false
+                end
+
+                if shouldCheck then
+                    local targetAlpha = tonumber(expectedAlpha) or 1
+                    local observed = tonumber(observedAlpha) or -1
+                    if (not observedShown) or math.abs(observed - targetAlpha) > 0.1 then
+                        table.insert(mismatches, name .. " shown=" .. tostring(observedShown)
+                            .. " alpha=" .. tostring(observedAlpha)
+                            .. " expectedAlpha=" .. tostring(targetAlpha))
+                    end
+                end
+            end
+        end
+    end
+
+    if #mismatches > 0 then
+        FocusFadeTrace("Restore verification mismatch (" .. tostring(label) .. "): " .. table.concat(mismatches, "; "))
+        TraceChatFrameState("verify-mismatch:" .. tostring(label))
+    else
+        FocusFadeTrace("Restore verification ok (" .. tostring(label) .. ")")
+        TraceChatFrameState("verify-ok:" .. tostring(label))
+    end
 end
 
 local function HideMinimapButtons(hideButtons)
@@ -458,7 +566,11 @@ local function HideMinimapCluster(hideMiniMap)
     end
 
     if minimapCluster and minimapCluster.Show then
+        ClearSetAlphaOverride(minimapCluster)
         minimapCluster:Show()
+        if minimapCluster.SetAlpha then
+            minimapCluster:SetAlpha(tonumber(frameFader.originalAlphaByName["MinimapCluster"]) or 1)
+        end
     end
 
     -- Some UIs leave Minimap itself hidden/locked even after the cluster is shown.
@@ -468,7 +580,7 @@ local function HideMinimapCluster(hideMiniMap)
             minimap:Show()
         end
         if minimap.SetAlpha then
-            minimap:SetAlpha(1)
+            minimap:SetAlpha(tonumber(frameFader.originalAlphaByName["Minimap"]) or 1)
         end
     end
 end
@@ -634,13 +746,24 @@ end
 
 local function FadeOutUI()
     FocusFadeTrace("FadeOutUI begin")
+    TraceChatFrameState("fadeout-begin")
     frameFader.restoreAt = nil
 
     -- Blizzard UI elements
     for _, name in ipairs(panelNamesToFade) do
         local panel = ResolveNamedFrame(name)
+        if frameFader.originalAlphaByName[name] == nil then
+            if panel and panel.GetAlpha then
+                frameFader.originalAlphaByName[name] = panel:GetAlpha()
+            else
+                frameFader.originalAlphaByName[name] = nil
+            end
+        end
+
         if panel and panel.IsShown and panel:IsShown() then
-            frameFader.wasShownByName[name] = true
+            if frameFader.wasShownByName[name] == nil then
+                frameFader.wasShownByName[name] = true
+            end
             FocusFadeTrace("FadeOutUI hide Blizzard frame " .. name .. " alpha=" .. tostring(panel.GetAlpha and panel:GetAlpha() or 1))
             if type(UIFrameFadeOut) == "function" and panel.GetAlpha then
                 UIFrameFadeOut(panel, 0.5, panel:GetAlpha() or 1, 0)
@@ -648,7 +771,9 @@ local function FadeOutUI()
                 panel:SetAlpha(0)
             end
         else
-            frameFader.wasShownByName[name] = false
+            if frameFader.wasShownByName[name] == nil then
+                frameFader.wasShownByName[name] = false
+            end
             FocusFadeTrace("FadeOutUI skip Blizzard frame " .. name .. " (not shown)")
         end
     end
@@ -691,25 +816,31 @@ local function FadeOutUI()
 
     frameFader.isFaded = true
     FocusFadeTraceState("FadeOutUI end")
+    TraceChatFrameState("fadeout-end")
 end
 
 local function FadeInUI()
     FocusFadeTrace("FadeInUI begin")
+    TraceChatFrameState("fadein-begin")
     -- Blizzard UI elements
     for _, name in ipairs(panelNamesToFade) do
         local panel = ResolveNamedFrame(name)
         if panel and panel.SetAlpha then
+            ClearSetAlphaOverride(panel)
             local wasShown = frameFader.wasShownByName[name]
+            local originalAlpha = tonumber(frameFader.originalAlphaByName[name]) or 1
             if wasShown then
-                FocusFadeTrace("FadeInUI restore Blizzard frame " .. name)
+                FocusFadeTrace("FadeInUI restore Blizzard frame " .. name .. " alpha=" .. tostring(originalAlpha))
                 if type(UIFrameFadeIn) == "function" and panel.GetAlpha then
-                    UIFrameFadeIn(panel, 0.3, panel:GetAlpha() or 0, 1)
+                    UIFrameFadeIn(panel, 0.3, panel:GetAlpha() or 0, originalAlpha)
                 else
-                    panel:SetAlpha(1)
+                    panel:SetAlpha(originalAlpha)
                 end
             else
                 FocusFadeTrace("FadeInUI leave Blizzard frame hidden " .. name .. " (was not shown before fade)")
-                panel:SetAlpha(0) -- need to do anything?
+                if frameFader.originalAlphaByName[name] ~= nil then
+                    panel:SetAlpha(originalAlpha)
+                end
             end
         end
     end
@@ -745,10 +876,17 @@ local function FadeInUI()
     HideHandyNotesMapPins(false)
     HideGatherMateMinimap(false)
 
+    frameFader.restoreExpectedShownByName = addon.DeepCopy(frameFader.wasShownByName or {})
+    frameFader.restoreExpectedAlphaByName = addon.DeepCopy(frameFader.originalAlphaByName or {})
     frameFader.wasShownByName = {}
+    frameFader.originalAlphaByName = {}
     frameFader.isFaded = false
     frameFader.restoreAt = nil
+    -- Delay first verification until fade-in animation should be complete.
+    frameFader.restoreVerifyAt = (type(GetTime) == "function") and (GetTime() + 0.80) or nil
+    frameFader.restoreVerifyChecksRemaining = 2
     FocusFadeTraceState("FadeInUI end")
+    TraceChatFrameState("fadein-end")
 end
 
 local function RestoreFocusVisualsAfterLinger()
@@ -859,6 +997,15 @@ local function CreateFocusFadeFrame()
     end)
 
     frame:SetScript("OnUpdate", function()
+        if frameFader.restoreVerifyChecksRemaining and frameFader.restoreVerifyChecksRemaining > 0
+            and frameFader.restoreVerifyAt ~= nil
+            and type(GetTime) == "function"
+            and GetTime() >= frameFader.restoreVerifyAt then
+            VerifyBlizzardFrameRestore("onupdate")
+            frameFader.restoreVerifyChecksRemaining = frameFader.restoreVerifyChecksRemaining - 1
+            frameFader.restoreVerifyAt = GetTime() + 0.50
+        end
+
         if frameFader.restoreAt == nil then
             return
         end
