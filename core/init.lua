@@ -12,6 +12,7 @@ addon.frame = frame
 addon.defaults = {
     -- Focus
     autoLoot = true,
+    fishBiteAlert = false,
     treasureAlerts = true,
     bagAlerts = true,
     lowBagThreshold = 2,
@@ -256,6 +257,7 @@ addon.frames = {
     tracker = nil,
     state = nil,
     config = nil,
+    fishBiteAlert = nil,
     treasureAlert = nil,
     bagFullAlert = nil,
     audioRestore = nil,

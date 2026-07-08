@@ -859,6 +859,9 @@ local function LoadConfigBindings()
     if isFocusActive and addon.treasureAlertsCheckbox then
         addon.treasureAlertsCheckbox:SetChecked(addon.db.treasureAlerts)
     end
+    if isFocusActive and addon.fishBiteAlertCheckbox then
+        addon.fishBiteAlertCheckbox:SetChecked(addon.db.fishBiteAlert)
+    end
     if isFocusActive and addon.bagAlertsCheckbox then
         addon.bagAlertsCheckbox:SetChecked(addon.db.bagAlerts)
     end
@@ -953,6 +956,9 @@ local function SaveConfigBindings()
     end
     if addon.treasureAlertsCheckbox then
         addon.db.treasureAlerts = addon.treasureAlertsCheckbox:GetChecked()
+    end
+    if addon.fishBiteAlertCheckbox then
+        addon.db.fishBiteAlert = addon.fishBiteAlertCheckbox:GetChecked()
     end
     if addon.bagAlertsCheckbox then
         addon.db.bagAlerts = addon.bagAlertsCheckbox:GetChecked()
@@ -1299,6 +1305,8 @@ local function BuildFocusTab(focusPage, ui, onLiveChange)
     local focusSection = ui.FlowSection(root, "Focus")
     addon.autoLootCheckbox = ui.FlowCheckbox(focusSection, "Temporary auto-loot", onLiveChange,
         "Enables auto-loot while fishing and returns it to your previous setting when done.")
+    addon.fishBiteAlertCheckbox = ui.FlowCheckbox(focusSection, "Fish bite alert", onLiveChange,
+        "Colors the screen when a fish bites.")
     addon.treasureAlertsCheckbox = ui.FlowCheckbox(focusSection, "Patient Treasure notification", onLiveChange,
         "Notifies you if you catch a Patient Treasure by coloring the screen and playing a distinct sound.")
     addon.bagAlertsCheckbox = ui.FlowCheckbox(focusSection, "Bag monitor / alert", onLiveChange,

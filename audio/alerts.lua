@@ -136,6 +136,59 @@ local function CreateBagFullAlertFrame()
     return addon.frames.bagFullAlert
 end
 
+local function CreateFishBiteAlertFrame()
+    if addon.frames.fishBiteAlert then
+        return addon.frames.fishBiteAlert
+    end
+
+    local alert = CreateFrame("Frame", addonName .. "FishBiteAlertFrame", UIParent, "BackdropTemplate")
+    alert:SetAllPoints(UIParent)
+    alert:SetFrameStrata("FULLSCREEN_DIALOG")
+    alert:EnableMouse(false)
+    alert:Hide()
+
+    alert:SetBackdrop({
+        bgFile = "Interface\\Buttons\\WHITE8X8",
+        edgeFile = "Interface\\Tooltips\\UI-Tooltip-Border",
+        tile = false,
+        edgeSize = 16,
+        insets = { left = 4, right = 4, top = 4, bottom = 4 },
+    })
+    alert:SetBackdropColor(0.45, 0.76, 1, 0.22)
+    alert:SetBackdropBorderColor(0.62, 0.85, 1, 0.55)
+
+    alert.flash = alert:CreateTexture(nil, "BACKGROUND")
+    alert.flash:SetAllPoints(UIParent)
+    alert.flash:SetColorTexture(0.55, 0.82, 1, 0.28)
+
+    addon.frames.fishBiteAlert = alert
+    return addon.frames.fishBiteAlert
+end
+
+local function ShowFishBiteAlert(force)
+    if not force and (not addon.db or not addon.db.fishBiteAlert) then
+        return
+    end
+
+    local now = GetTime()
+    if not force and now - (addon.state.lastAlertTime or 0) < 0.2 then
+        return
+    end
+    addon.state.lastAlertTime = now
+
+    local alert = CreateFishBiteAlertFrame()
+    alert:Show()
+
+    alert.timeLeft = 0.8
+    alert:SetScript("OnUpdate", function(self, elapsed)
+        self.timeLeft = self.timeLeft - elapsed
+        if self.timeLeft <= 0 then
+            self:SetScript("OnUpdate", nil)
+            self:Hide()
+        end
+    end)
+end
+
 local function ShowBagFullAlert(force)
     if not force and (not addon.db or not addon.db.bagAlerts) then
         return
@@ -166,3 +219,5 @@ addon.alerts.CreateTreasureAlertFrame = CreateTreasureAlertFrame
 addon.alerts.ShowPatientTreasureAlert = ShowPatientTreasureAlert
 addon.alerts.CreateBagFullAlertFrame = CreateBagFullAlertFrame
 addon.alerts.ShowBagFullAlert = ShowBagFullAlert
+addon.alerts.CreateFishBiteAlertFrame = CreateFishBiteAlertFrame
+addon.alerts.ShowFishBiteAlert = ShowFishBiteAlert

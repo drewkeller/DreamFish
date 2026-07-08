@@ -75,6 +75,13 @@ local function ApplySessionState(nextState, reason, options)
         end
     end
 
+    if previousState ~= nextState
+        and nextState == SESSION_STATES.WAITING_FOR_STRIKE
+        and addon.alerts
+        and addon.alerts.ShowFishBiteAlert then
+        addon.alerts.ShowFishBiteAlert()
+    end
+
     if previousState ~= nextState then
         RecordTransition(previousState, nextState, reason)
     end
