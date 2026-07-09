@@ -32,6 +32,8 @@ local SESSION_STATE_FLAGS = {
     [SESSION_STATES.CLOSING_FISHING_SESSION] = { isFishing = false, isBobberActive = false, fishingCastActive = false, fishingLootInProgress = false },
 }
 
+local GetSessionFlagsForState
+
 local MAX_TRANSITION_HISTORY = 200
 
 local function RecordTransition(fromState, toState, reason)
@@ -58,7 +60,7 @@ local function ApplySessionState(nextState, reason, options)
     local previousState = addon.state.fishingSessionState or SESSION_STATES.IDLE
     addon.state.fishingSessionState = nextState
 
-    print("Applying session state:", nextState, "reason:", reason, "previous state:", previousState)
+    --print("Applying session state:", nextState, "reason:", reason, "previous state:", previousState)
 
     if addon.uiFocus then
         if nextState == SESSION_STATES.CANCELLING_FISHING_SESSION
@@ -129,7 +131,7 @@ local function IsHookedWindowSessionState()
     return HOOKED_WINDOW_SESSION_STATES[GetCurrentSessionState()] and true or false
 end
 
-local function GetSessionFlagsForState(state)
+GetSessionFlagsForState = function(state)
     local sessionState = state or GetCurrentSessionState()
     local defaults = SESSION_STATE_FLAGS[sessionState] or SESSION_STATE_FLAGS[SESSION_STATES.IDLE]
     return {
@@ -576,12 +578,15 @@ local function CreateFishingStateFrame()
                 )
                 frame:SetScript("OnUpdate", nil)
             elseif addon.db and addon.db.debugMode and addon.db.debugState and addon.state.savedFishingAudioCVars ~= nil and ShouldLogIgnoredFailure(spellID) then
-                DebugStateMessage("Ignoring non-fishing cast failure event while fishing session active:"
-                    .. " event=" .. tostring(event)
-                    .. " spellID=" .. tostring(spellID)
-                    .. " strictFishing=" .. tostring(isFishingSpellStrict)
-                    .. " byName=" .. tostring(IsFishingSpellByName())
-                    .. " interactOverrideActive=" .. tostring(addon.state and addon.state.interactOverrideActive))
+                local suppressedEvent = (event == "UNIT_SPELLCAST_FAILED_QUIET")
+                if not suppressedEvent then
+                    DebugStateMessage("Ignoring non-fishing cast failure event while fishing session active:"
+                        .. " event=" .. tostring(event)
+                        .. " spellID=" .. tostring(spellID)
+                        .. " strictFishing=" .. tostring(isFishingSpellStrict)
+                        .. " byName=" .. tostring(IsFishingSpellByName())
+                        .. " interactOverrideActive=" .. tostring(addon.state and addon.state.interactOverrideActive))
+                end
             end
         elseif event == "PLAYER_STARTED_MOVING" then
             if addon.fishing and addon.fishing.ClearNativeInteractOverride then

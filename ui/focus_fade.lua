@@ -3,6 +3,10 @@
 local addon = _G["DreamFisher"]
 local DebugStateMessage = addon.DebugStateMessage or addon.DebugMessage or function() end
 
+local HIDDEN_ALPHA = 0.0001 -- Using 0 can cause issues with mouse events; use a very small number instead.
+local VISIBLE_ALPHA = 1.0
+local ALPHA_THRESHOLD = 0.25 -- Threshold to consider a frame effectively invisible
+
 -- Finding frame names can be done by using /fstack in the game.
 -- 1. Turn on frame stack tool by typing /fstack in the game.
 -- 2. Hover over the frame you want to identify.
@@ -11,8 +15,8 @@ local DebugStateMessage = addon.DebugStateMessage or addon.DebugMessage or funct
 local panelNamesToFade = {
     -- Minimap
     "Minimap",
-    "ObjectiveTrackerFrame",
     "MinimapCluster",
+    "ObjectiveTrackerFrame",
     "GameTimeFrame",             -- Calendar button
     "MiniMapMailFrame",          -- Mail icon
     "MiniMapTracking",           -- Tracking magnifying glass
@@ -20,7 +24,11 @@ local panelNamesToFade = {
     "QueueStatusMinimapButton",  -- Classic LFG queue icon
     "GarrisonLandingPageMinimapButton", -- Expansion/Mission tracking button
     "ExpansionLandingPageMinimapButton", -- Dragonflight/TWW expansion button
-    --"ChatFrame1",
+    "ChatFrame1",
+    "ChatFrame2",
+    "ChatFrame3",
+    "ChatFrame4",
+    "RightChatPanel",
     -- Unit frames
     "PlayerFrame",
     "CompactPlayerFrame",
@@ -42,23 +50,6 @@ local panelNamesToFade = {
     -- Stance bar frames
     "StanceBar",
     "StanceBarFrame",
-}
-
-local frameFader = {
-    frame = nil,
-    isFaded = false,
-    wasShownByName = {},
-    originalAlphaByName = {},
-    restoreAt = nil,
-    restoreVerifyAt = nil,
-    restoreVerifyChecksRemaining = 0,
-    restoreExpectedShownByName = {},
-    restoreExpectedAlphaByName = {},
-}
-
-local fadeState = nil
-
-local elvUIFrames = {
     "ElvUI_Bar1",
     "ElvUI_Bar2",
     "ElvUI_Bar3",
@@ -88,7 +79,7 @@ local elvUIFrames = {
     "ElvUF_Boss",
     "ElvUF_Arena",
     -- Chat/Info panels
-    --"LeftChatPanel",
+    "LeftChatPanel",
     "RightChatPanel",
     "LeftChatToggleButton",
     "RightChatToggleButton",
@@ -117,6 +108,21 @@ local elvUIFrames = {
     "ElvUI_DataTextPanel_MiniMapDataPanelSlot3",
     "AddonCompartmentFrame",
 }
+
+local frameFader = {
+    frame = nil,
+    isFaded = false,
+    wasShownByName = {},
+    originalAlphaByName = {},
+    restoreAt = nil,
+    restoreVerifyAt = nil,
+    restoreVerifyChecksRemaining = 0,
+    restoreExpectedShownByName = {},
+    restoreExpectedAlphaByName = {},
+}
+
+local fadeState = nil
+local elvUIFrames = {}
 
 -- array[frameName] = {wasShown = boolean, originalAlpha = number}
 elvUIFrameFader = {}
@@ -217,11 +223,11 @@ local function FadeFrameCustom(frame, fadeMode, duration, targetAlpha)
         mode = fadeMode,                -- "IN" to fade in, "OUT" to fade out
         timeToFade = duration or 0.3,   -- Animation time in seconds
         startAlpha = frame:GetAlpha(),   -- Dynamically capture current visibility
-        endAlpha = targetAlpha or 0.0,  -- The destination alpha (e.g., 0 for invisible)
+        endAlpha = targetAlpha or HIDDEN_ALPHA,  -- The destination alpha (e.g., 0 for invisible)
         finishedFunc = function()
             -- Set SetAlpha to an empty function so frame can't be changed while in fishing mode.
             if fadeMode == "OUT" and targetAlpha == 0 then
-                frame:SetAlpha(0)
+                frame:SetAlpha(HIDDEN_ALPHA)
                 frame.SetAlpha_Old = frame.SetAlpha
                 frame.SetAlpha = function() end
             end
@@ -234,7 +240,7 @@ local function FadeFrameCustom(frame, fadeMode, duration, targetAlpha)
         _G["UIFrameFade"](frame, fadeInfo)
     else
         -- Fallback: Instant change if the animation frame module is completely missing
-        frame:SetAlpha(targetAlpha or 0.0)
+        frame:SetAlpha(targetAlpha or HIDDEN_ALPHA)
     end
 end
 
@@ -330,7 +336,7 @@ local function FocusFadeTraceState(prefix)
     local minimapAlpha = minimap and minimap.GetAlpha and minimap:GetAlpha() or nil
     local cluster = ResolveNamedFrame("MinimapCluster")
     local clusterShown = cluster and cluster.IsShown and cluster:IsShown() or false
-    local alphaText = minimapAlpha == nil and "n/a" or string.format("%.2f", tonumber(minimapAlpha) or 0)
+    local alphaText = minimapAlpha == nil and "n/a" or string.format("%.2f", tonumber(minimapAlpha) or HIDDEN_ALPHA)
     DebugStateMessage("Focus fade: " .. tostring(prefix)
         .. " featureEnabled=" .. tostring(IsFadeFeatureEnabled())
         .. " isFaded=" .. tostring(frameFader.isFaded)
@@ -387,16 +393,23 @@ local function ClearSetAlphaOverride(frame)
     end
 end
 
-local function ForceFrameVisible(frame)
+local function ForceFrameVisible(name)
+    local frame = ResolveNamedFrame(name)
+    if name == "ElvUI_Bar8" then
+        print("ForceFrameVisible for " .. tostring(name) .. " frame=" .. tostring(frame))
+    end
     if not frame then
         return
     end
-    ClearSetAlphaOverride(frame)
-    if frame.Show then
+
+    local wasShown = frameFader.wasShownByName[name]
+    local originalAlpha = tonumber(frameFader.originalAlphaByName[name]) or VISIBLE_ALPHA
+
+    if originalAlpha ~= nil and originalAlpha > ALPHA_THRESHOLD and frame.SetAlpha then
+        ClearSetAlphaOverride(frame)
+        frame:SetAlpha(originalAlpha)
+    elseif wasShown ~= nil and wasShown == true and frame.Show then
         frame:Show()
-    end
-    if frame.SetAlpha then
-        frame:SetAlpha(1)
     end
 end
 
@@ -415,7 +428,7 @@ BuildFocusVisualStateLines = function()
 
         local shown = frame.IsShown and frame:IsShown() or false
         local alpha = frame.GetAlpha and frame:GetAlpha() or nil
-        local alphaText = alpha == nil and "n/a" or string.format("%.2f", tonumber(alpha) or 0)
+        local alphaText = alpha == nil and "n/a" or string.format("%.2f", tonumber(alpha) or HIDDEN_ALPHA)
         local locked = frame.SetAlpha_Old and " locked" or ""
         table.insert(lines, name .. ": shown=" .. tostring(shown) .. " alpha=" .. alphaText .. locked)
     end
@@ -445,18 +458,21 @@ local function VerifyBlizzardFrameRestore(label)
     end
 
     local criticalFrames = {
-        Minimap = true,
-        MinimapCluster = true,
-        ObjectiveTrackerFrame = true,
-        ChatFrame1 = true,
-        PlayerFrame = true,
-        TargetFrame = true,
-        MultiBarBottomLeft = true,
-        MultiBarBottomRight = true,
-        MultiBarLeft = true,
-        MultiBarRight = true,
-        MicroButtonAndBagsBar = true,
-        UIWidgetTopCenterContainerFrame = true,
+        -- ElvUIBar1 = true,
+        -- Minimap = true,
+        -- MinimapCluster = true,
+        -- ObjectiveTrackerFrame = true,
+        -- ChatFrame1 = true,
+        ChatFrame4 = true,
+        RightChatPanel = true,
+        -- PlayerFrame = true,
+        -- TargetFrame = true,
+        -- MultiBarBottomLeft = true,
+        -- MultiBarBottomRight = true,
+        -- MultiBarLeft = true,
+        -- MultiBarRight = true,
+        -- MicroButtonAndBagsBar = true,
+        -- UIWidgetTopCenterContainerFrame = true,
     }
 
     local mismatches = {}
@@ -477,33 +493,44 @@ local function VerifyBlizzardFrameRestore(label)
                 -- frames unless they are currently visible and measurable.
                 local shouldCheck = true
                 if (not criticalFrames[name]) and (not observedShown or observedAlpha == nil) then
+                    print("Skipping restore verification for " .. tostring(name) .. " because it's not critical and is currently not shown or has no alpha")
                     shouldCheck = false
                 end
 
                 if shouldCheck then
-                    local targetAlpha = tonumber(expectedAlpha) or 1
+                    --local targetAlpha = tonumber(expectedAlpha) or VISIBLE_ALPHA
+                    local targetAlpha = VISIBLE_ALPHA
                     local observed = tonumber(observedAlpha) or -1
                     if (not observedShown) or math.abs(observed - targetAlpha) > 0.1 then
                         table.insert(mismatches, name .. " shown=" .. tostring(observedShown)
                             .. " alpha=" .. tostring(observedAlpha)
                             .. " expectedAlpha=" .. tostring(targetAlpha))
+                    else
+                        print("Restore verification ok for " .. tostring(name) .. " shown=" .. tostring(observedShown)
+                            .. " alpha=" .. tostring(observedAlpha))
                     end
+                else
+                    print("Restore verification skipped for " .. tostring(name) .. " expectedShown=" .. tostring(expectedShown)
+                        .. " expectedAlpha=" .. tostring(expectedAlpha))
                 end
             end
         end
     end
 
+    -- local panel = _G["RightChatPanel"]
+    -- local alpha = panel.GetAlpha()
+    -- print("RightChatPanel alpha: " .. tostring(alpha) .. "expected alpha: " .. tostring(frameFader.restoreExpectedAlphaByName["RightChatPanel"] or "n/a"))
     if #mismatches > 0 then
-        FocusFadeTrace("Restore verification mismatch (" .. tostring(label) .. "): " .. table.concat(mismatches, "; "))
+        print("Restore verification mismatch (" .. tostring(label) .. "): " .. table.concat(mismatches, "; "))
         TraceChatFrameState("verify-mismatch:" .. tostring(label))
     else
-        FocusFadeTrace("Restore verification ok (" .. tostring(label) .. ")")
+        print("Restore verification ok (" .. tostring(label) .. ")")
         TraceChatFrameState("verify-ok:" .. tostring(label))
     end
 end
 
 local function HideMinimapButtons(hideButtons)
-    local targetAlpha = hideButtons and 0.0 or 1.0
+    local targetAlpha = hideButtons and HIDDEN_ALPHA or VISIBLE_ALPHA
 
 
     -- --- 2. HIDE THIRD-PARTY ADDON ICONS (LibDBIcon) ---
@@ -525,7 +552,7 @@ local function HideMinimapButtons(hideButtons)
                         buttonFrame.SetAlpha = buttonFrame.SetAlpha_Old
                         buttonFrame.SetAlpha_Old = nil
                     end
-                    buttonFrame:SetAlpha(1)
+                    buttonFrame:SetAlpha(VISIBLE_ALPHA)
                 end
             end
         end
@@ -588,7 +615,7 @@ end
 -- Hide the player unit frame without hiding the castbar, which is a child of the player frame
 -- Also, don't hide the loot window, which is an oUF tag like the health and power texts we need to hide.
 local function HideElvUIPlayerFrame(hideFrame)
-    local targetAlpha = hideFrame and 0.0 or 1.0
+    local targetAlpha = hideFrame and HIDDEN_ALPHA or VISIBLE_ALPHA
 
     if isElvUIActive and _G["ElvUI"] then
         -- --- ELVUI ACTIVE ROUTINE ---
@@ -621,7 +648,7 @@ local function HideElvUIPlayerFrame(hideFrame)
                                 bar.SetAlpha = bar.SetAlpha_Old
                                 bar.SetAlpha_Old = nil
                             end
-                            bar:SetAlpha(1)
+                            bar:SetAlpha(VISIBLE_ALPHA)
                         end
                     end
                 end
@@ -685,9 +712,9 @@ local function HideBlizzardMicroMenu(hideMenu)
     local targetContainer = MicroMenuContainer or MicroButtonAndBagsBar
     if targetContainer then
         if hideMenu then
-            targetContainer:SetAlpha(0)
+            targetContainer:SetAlpha(HIDDEN_ALPHA)
         else
-            targetContainer:SetAlpha(1)
+            targetContainer:SetAlpha(VISIBLE_ALPHA)
         end
     end
 
@@ -697,180 +724,71 @@ local function HideBlizzardMicroMenu(hideMenu)
             local button = _G[buttonName]
             if button then
                 button:EnableMouse(not hideMenu)
-                button:SetAlpha(hideMenu and 0 or 1)
+                button:SetAlpha(hideMenu and HIDDEN_ALPHA or VISIBLE_ALPHA)
             end
         end
     end
-end
-
-local function GetElvUIFrameSettings(E, frameName)
-    local isEnabled = IsElvUIFrameModuleEnabled(E, frameName)
-    local alpha = nil
-    if isEnabled then
-        local targetFrame = _G[frameName]
-
-        if targetFrame and targetFrame.GetAlpha then
-            alpha = targetFrame:GetAlpha()
-        end
-
-        -- Action bars "global" alpha setting
-        if alpha == nil and  string.find(frameName, "ElvUI_Bar") then
-            if E.db.actionbar and E.db.actionbar.globalFadeAlpha then
-                alpha = E.db.actionbar.globalFadeAlpha
-            end
-
-        -- Player castbar
-        elseif alpha == nil and string.find(frameName, "ElvUF_PlayerCastbar") then
-            -- if E.db.unitframe and E.db.unitframe.units and E.db.unitframe.units.player and E.db.unitframe.units.player.castbar and E.db.unitframe.units.player.castbar.enable ~= nil then
-            --     alpha = E.db.unitframe.units.player.castbar.enable and 1 or 0
-            -- end
-
-        -- Unit frames
-        elseif alpha == nil and string.find(frameName, "ElvUF_") then
-            if E.db.unitframe and E.db.unitframe.general and E.db.unitframe.general.globalFadeAlpha then
-                alpha = E.db.unitframe.general.globalFadeAlpha
-            end
-
-        -- Data bars (no "alpha" setting, other than that which is determined by their "color" setting)
-        elseif alpha == nil and string.find(frameName, "ElvDB_") then
-            local barName = string.gsub(frameName, "ElvDB_", "")
-            barName = barName:lower()
-            local isVisible = E.db.databars and E.db.databars[barName] and E.db.databars[barName].enable
-            alpha = isVisible and 1 or 0
-        end
-    end
-
-    alpha = alpha == nil and 0 or alpha
-    return isEnabled, alpha
 end
 
 local function FadeOutUI()
-    FocusFadeTrace("FadeOutUI begin")
-    TraceChatFrameState("fadeout-begin")
     frameFader.restoreAt = nil
 
     -- Blizzard UI elements
     for _, name in ipairs(panelNamesToFade) do
         local panel = ResolveNamedFrame(name)
-        if frameFader.originalAlphaByName[name] == nil then
-            if panel and panel.GetAlpha then
-                frameFader.originalAlphaByName[name] = panel:GetAlpha()
-            else
-                frameFader.originalAlphaByName[name] = nil
-            end
-        end
+        local alpha = panel and panel.GetAlpha and panel:GetAlpha() or nil
+        local isShown = panel and panel.IsShown and panel:IsShown() or nil
+        frameFader.wasShownByName[name] = isShown
+        frameFader.originalAlphaByName[name] = alpha
 
-        if panel and panel.IsShown and panel:IsShown() then
-            if frameFader.wasShownByName[name] == nil then
-                frameFader.wasShownByName[name] = true
-            end
-            FocusFadeTrace("FadeOutUI hide Blizzard frame " .. name .. " alpha=" .. tostring(panel.GetAlpha and panel:GetAlpha() or 1))
+        if panel and isShown == true and alpha > ALPHA_THRESHOLD then
+            print("FadeOutUI hide Blizzard frame " .. name .. " alpha=" .. tostring(panel.GetAlpha and panel:GetAlpha() or "n/a"))
             if type(UIFrameFadeOut) == "function" and panel.GetAlpha then
-                UIFrameFadeOut(panel, 0.5, panel:GetAlpha() or 1, 0)
+                UIFrameFadeOut(panel, 3.0, panel:GetAlpha() or VISIBLE_ALPHA, HIDDEN_ALPHA)
             elseif panel.SetAlpha then
-                panel:SetAlpha(0)
+                panel:SetAlpha(HIDDEN_ALPHA)
+            elseif panel.Hide then
+                panel:Hide()
             end
-        else
-            if frameFader.wasShownByName[name] == nil then
-                frameFader.wasShownByName[name] = false
-            end
-            FocusFadeTrace("FadeOutUI skip Blizzard frame " .. name .. " (not shown)")
         end
     end
+
+    HideElvUIPlayerFrame(true)
     HideBlizzardMicroMenu(true)
-
-    -- ElvUI elements
-    if _G["ElvUI"] then
-        local E = unpack(_G["ElvUI"])
-
-        for _, name in ipairs(elvUIFrames) do
-            -- Read current settings so we can restore them later
-            local isEnabled, alpha = GetElvUIFrameSettings(E, name)
-            local isShown = isEnabled and alpha > 0.0
-            local doFadeOut = name ~= "ElvUF_Player_Castbar"
-            elvUIFrameFader[name] = {wasShown = isShown, originalAlpha = alpha}
-            -- if the frame/bar is shown, hide it
-            if isShown and doFadeOut then
-                FocusFadeTrace("FadeOutUI hide ElvUI frame " .. name .. " alpha=" .. tostring(alpha))
-                if string.find(name, "ElvDB_") then
-                    SetElvUIDataBarVisibility(E, name, true)
-                else
-                    local duration = 0.3
-                    local targetAlpha = 0 -- hidden
-                    local frame = _G[name]
-                    FadeFrameCustom(frame, "OUT", duration, targetAlpha)
-                end
-            elseif isShown then
-                FocusFadeTrace("FadeOutUI keep ElvUI frame visible " .. name .. " (castbar exception)")
-            else
-                FocusFadeTrace("FadeOutUI skip ElvUI frame " .. name .. " (not shown)")
-            end
-        end
-        HideElvUIPlayerFrame(true)
-    end
-
     HideMinimapButtons(true)
     HideMinimapCluster(true)
     HideHandyNotesMapPins(true)
     HideGatherMateMinimap(true)
 
     frameFader.isFaded = true
-    FocusFadeTraceState("FadeOutUI end")
-    TraceChatFrameState("fadeout-end")
 end
 
 local function FadeInUI()
-    FocusFadeTrace("FadeInUI begin")
-    TraceChatFrameState("fadein-begin")
-    -- Blizzard UI elements
     for _, name in ipairs(panelNamesToFade) do
+        if name == "ElvUI_Bar8" then
+            print("FadeInUI found frame=" .. tostring(frame))
+        end
         local panel = ResolveNamedFrame(name)
-        if panel and panel.SetAlpha then
-            ClearSetAlphaOverride(panel)
-            local wasShown = frameFader.wasShownByName[name]
-            local originalAlpha = tonumber(frameFader.originalAlphaByName[name]) or 1
-            if wasShown then
-                FocusFadeTrace("FadeInUI restore Blizzard frame " .. name .. " alpha=" .. tostring(originalAlpha))
+        local wasShown = frameFader.wasShownByName[name]
+        local originalAlpha = tonumber(frameFader.originalAlphaByName[name]) or VISIBLE_ALPHA
+        if panel then
+            if originalAlpha ~= nill and originalAlpha > ALPHA_THRESHOLD and panel.SetAlpha then
+                ClearSetAlphaOverride(panel)
                 if type(UIFrameFadeIn) == "function" and panel.GetAlpha then
-                    UIFrameFadeIn(panel, 0.3, panel:GetAlpha() or 0, originalAlpha)
-                else
+                    UIFrameFadeIn(panel, 3, panel:GetAlpha() or HIDDEN_ALPHA, originalAlpha)
+                elseif panel.SetAlpha then
                     panel:SetAlpha(originalAlpha)
+                elseif panel.Show then
+                    panel:Show()
                 end
-            else
-                FocusFadeTrace("FadeInUI leave Blizzard frame hidden " .. name .. " (was not shown before fade)")
-                if frameFader.originalAlphaByName[name] ~= nil then
-                    panel:SetAlpha(originalAlpha)
-                end
+            elseif wasShown == true and panel.Show then
+                panel:Show()
             end
         end
     end
+
+    HideElvUIPlayerFrame(false)
     HideBlizzardMicroMenu(false)
-
-    FocusFadeTrace("FadeInUI restoring ElvUI frames")
-    if _G["ElvUI"] then
-        local E = unpack(_G["ElvUI"])
-        for _, name in ipairs(elvUIFrames) do
-            if elvUIFrameFader[name] then
-                local wasShown = elvUIFrameFader[name].wasShown or false
-                local originalAlpha = elvUIFrameFader[name].originalAlpha or 0
-                -- if the frame was shown before, fade it back in to its original alpha
-                if wasShown then
-                    FocusFadeTrace("FadeInUI restore ElvUI frame " .. name .. " alpha=" .. tostring(originalAlpha))
-                    if string.find(name, "ElvDB_") then
-                        SetElvUIDataBarVisibility(E, name, false)
-                    else
-                        local duration = 0.3
-                        local frame = _G[name]
-                        FadeFrameCustom(frame, "IN", duration, originalAlpha)
-                    end
-                else
-                    FocusFadeTrace("FadeInUI skip ElvUI frame " .. name .. " (was not shown before fade)")
-                end
-            end
-        end
-        HideElvUIPlayerFrame(false)
-    end
-
     HideMinimapButtons(false)
     HideMinimapCluster(false)
     HideHandyNotesMapPins(false)
@@ -918,7 +836,7 @@ ForceVisibleFocusVisuals = function()
     frameFader.restoreAt = nil
 
     for _, name in ipairs(panelNamesToFade) do
-        ForceFrameVisible(ResolveNamedFrame(name))
+        ForceFrameVisible(name)
         frameFader.wasShownByName[name] = true
     end
 
@@ -927,7 +845,7 @@ ForceVisibleFocusVisuals = function()
         for _, name in ipairs(elvUIFrames) do
             local frame = ResolveNamedFrame(name)
             if frame then
-                ForceFrameVisible(frame)
+                ForceFrameVisible(naame)
                 if string.find(name, "ElvDB_") then
                     SetElvUIDataBarVisibility(E, name, false)
                 end
