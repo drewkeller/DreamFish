@@ -308,6 +308,23 @@ local function CloseFishingSession(closeReason, options)
     RunSessionCloseEffects(options)
 end
 
+local function StartLingerThenCloseSession(lingerReason, closeReason, options)
+    local opts = options or {}
+    local closeStateReason = closeReason or lingerReason
+
+    ApplySessionState(SESSION_STATES.STARTING_LINGER, lingerReason)
+
+    local closeOpts = {
+        restoreAutoLoot = opts.restoreAutoLoot,
+        useLingerAudio = true,
+        syncPole = opts.syncPole,
+        poleReason = opts.poleReason,
+    }
+    RunSessionCloseEffects(closeOpts)
+
+    ApplySessionState(SESSION_STATES.CLOSING_FISHING_SESSION, closeStateReason)
+end
+
 local function TryArmNativeInteractOverrideFromFishingState()
     if not addon.db or not addon.db.easyStrike then
         return
@@ -501,10 +518,10 @@ local function CreateFishingStateFrame()
             end
         elseif event == "UNIT_SPELLCAST_STOP" or event == "UNIT_SPELLCAST_CHANNEL_STOP" then
             if stopLooksFishing and IsFishingActiveSessionState() and addon.state.savedFishingAudioCVars ~= nil then
-                ApplySessionState(SESSION_STATES.WAITING_FOR_BITE, "cast-stop-enter-waiting-for-bite")
+                ApplySessionState(SESSION_STATES.WAITING_FOR_BITE, "cast-phase-ended-enter-waiting-for-bite")
                 local linger = (addon.db and addon.db.focusedAudioLinger) or addon.defaults.focusedAudioLinger
                 local elapsed = (addon.state.fishingStartTime > 0) and (GetTime() - addon.state.fishingStartTime) or 0
-                LogStateTransition("cast-stop-evaluating", event, spellID, isFishingSpell)
+                LogStateTransition("cast-phase-ended-evaluating", event, spellID, isFishingSpell)
                 if linger <= 0 then
                     LogStateTransition("cast-stop-restore-immediate-linger-zero", event, spellID, isFishingSpell)
                     CloseFishingSession(
@@ -514,12 +531,15 @@ local function CreateFishingStateFrame()
                     frame:SetScript("OnUpdate", nil)
                 elseif elapsed >= addon.state.fishingExpireSeconds and not IsSessionState(SESSION_STATES.LOOTING) then
                     LogStateTransition("cast-stop-restore-linger-after-expire", event, spellID, isFishingSpell)
-                    ApplySessionState(SESSION_STATES.CLOSING_FISHING_SESSION, "cast-stop-restore-linger-after-expire")
-                    RunSessionCloseEffects({ useLingerAudio = true, poleReason = "state-cast-stop-after-expire" })
+                    StartLingerThenCloseSession(
+                        "cast-stop-starting-linger-after-expire",
+                        "cast-stop-restore-linger-after-expire",
+                        { poleReason = "state-cast-stop-after-expire" }
+                    )
                     frame:SetScript("OnUpdate", nil)
                 else
-                    LogStateTransition("cast-stop-enter-bobber-window", event, spellID, isFishingSpell)
-                    ApplySessionState(SESSION_STATES.WAITING_FOR_STRIKE, "cast-stop-enter-bobber-window")
+                    LogStateTransition("cast-phase-ended-enter-bobber-window", event, spellID, isFishingSpell)
+                    ApplySessionState(SESSION_STATES.WAITING_FOR_STRIKE, "cast-phase-ended-enter-bobber-window")
                     addon.state.lastFishingCastStopAt = GetTime()
                     if addon.fishing and addon.fishing.ArmNativeInteractOverride then
                         addon.fishing.ArmNativeInteractOverride()
@@ -538,9 +558,8 @@ local function CreateFishingStateFrame()
                             and not IsSessionState(SESSION_STATES.LOOTING) then
                             local hasAnyInteractUnit, hasSoftInteractNameOnly, inAcquireWindow = GetHookedInteractEvidence()
                             if (not hasAnyInteractUnit) and (not hasSoftInteractNameOnly) and (not inAcquireWindow) then
-                                LogStateTransition("post-stop-no-hooked-evidence-cancel", event, spellID, isFishingSpell)
-                                CancelAndCloseFishingSession(
-                                    "post-stop-no-hooked-evidence-cancel",
+                                LogStateTransition("post-stop-no-hooked-evidence-close", event, spellID, isFishingSpell)
+                                CloseFishingSession(
                                     "post-stop-no-hooked-evidence-close",
                                     { poleReason = "state-post-stop-no-hooked-evidence" }
                                 )
@@ -638,6 +657,7 @@ addon.fishing.ApplySessionState = ApplySessionState
 addon.fishing.RunSessionCloseEffects = RunSessionCloseEffects
 addon.fishing.CancelAndCloseFishingSession = CancelAndCloseFishingSession
 addon.fishing.CloseFishingSession = CloseFishingSession
+addon.fishing.StartLingerThenCloseSession = StartLingerThenCloseSession
 addon.fishing.IsFishingActiveSessionState = IsFishingActiveSessionState
 addon.fishing.IsLootReadySessionState = IsLootReadySessionState
 addon.fishing.IsSessionState = IsSessionState

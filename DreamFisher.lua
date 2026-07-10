@@ -189,15 +189,17 @@ lootTracker:SetScript("OnEvent", function(_, event, ...)
         end
         if addon.fishing.IsSessionState("LOOTING") then
             DebugBagMessage("Fishing loot in progress ended")
-            if not (addon.fishing and addon.fishing.ApplySessionState and addon.fishing.RunSessionCloseEffects) then
-                error("DreamFisher: ApplySessionState and RunSessionCloseEffects are required for loot close handling")
+            if not (addon.fishing and addon.fishing.StartLingerThenCloseSession) then
+                error("DreamFisher: StartLingerThenCloseSession is required for loot close handling")
             end
-            addon.fishing.ApplySessionState("CLOSING_FISHING_SESSION", "loot-closed")
-            addon.fishing.RunSessionCloseEffects({
+            addon.fishing.StartLingerThenCloseSession(
+                "loot-closed-starting-linger",
+                "loot-closed",
+                {
                 restoreAutoLoot = true,
-                useLingerAudio = true,
                 poleReason = "loot-closed",
-            })
+                }
+            )
             local now = (type(GetTime) == "function") and GetTime() or 0
             fishingLootBagCheckPendingUntil = now + 2
             DebugBagMessage("Queued bag-threshold check for BAG_UPDATE_DELAYED")

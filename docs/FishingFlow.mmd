@@ -1,0 +1,41 @@
+flowchart TD
+    A[User trigger: right click or hotkey] --> B[PRE_CASTING]
+    B --> C[Fishing cast starts]
+    C --> D[CASTING]
+    D --> E[Enable auto loot and focused audio]
+
+    D --> F[Cast phase ends]
+    F --> G[WAITING_FOR_BITE]
+
+    G --> H{End of cast evaluation}
+    H -->|Linger <= 0| I[CLOSING_FISHING_SESSION]
+    H -->|Expired and not looting| J[STARTING_LINGER]
+    H -->|Normal hooked window| K[WAITING_FOR_STRIKE]
+
+    J --> I
+
+    K --> L{Hooked interact evidence}
+    L -->|No evidence after confirm window| I
+    L -->|Need target acquire| K
+    L -->|Direct interact route| M[WAITING_FOR_LOOT_WINDOW]
+
+    M --> N{Loot events}
+    N -->|LOOT_READY while loot eligible| O[LOOTING]
+    N -->|No fish hooked UI 413| P[CANCELLING_FISHING_SESSION]
+
+    O --> Q{Loot closed?}
+    Q -->|LOOT_CLOSED| J
+
+    D --> R{Interrupt paths}
+    G --> R
+    K --> R
+    M --> R
+    O --> R
+
+    R -->|Movement| P
+    R -->|Combat starts| P
+    R -->|Fishing cast interrupted or failed| P
+    R -->|Non fishing cast starts after grace| P
+
+    P --> I
+    I --> Z[Session close effects: restore audio, clear interact override, optional auto loot restore]
