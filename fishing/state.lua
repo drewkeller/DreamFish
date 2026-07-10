@@ -66,11 +66,11 @@ local function ApplySessionState(nextState, reason, options)
         if nextState == SESSION_STATES.CANCELLING_FISHING_SESSION
                 and addon.uiFocus.ForceVisibleFocusVisuals then
             addon.uiFocus.ForceVisibleFocusVisuals()
-        elseif (nextState == SESSION_STATES.PRE_CASTING or nextState == SESSION_STATES.CASTING)
+        elseif nextState == SESSION_STATES.PRE_CASTING
                 and addon.uiFocus.FadeOutUI
                 and addon.db
                 and addon.db.focusedVisuals then
-            addon.uiFocus.FadeOutUI("SessionState-" .. tostring(nextState))
+            addon.uiFocus.FadeOutUI()
         elseif nextState == SESSION_STATES.CLOSING_FISHING_SESSION
                 and addon.uiFocus.RestoreFocusVisualsAfterLinger then
             addon.uiFocus.RestoreFocusVisualsAfterLinger()

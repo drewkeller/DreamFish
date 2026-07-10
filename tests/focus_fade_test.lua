@@ -142,12 +142,12 @@ addon.uiFocus.CreateFocusFadeFrame()
 local focusFrame = addon.uiFocus and addon.uiFocus.CreateFocusFadeFrame and addon.uiFocus.CreateFocusFadeFrame()
 assertTrue(focusFrame ~= nil, "Focus fade frame should be created")
 
-addon._test.SetSessionState(addon.fishing.SessionStates.CASTING, "test-focus-fade-fishing")
+addon._test.SetSessionState(addon.fishing.SessionStates.PRE_CASTING, "test-focus-fade-pre-cast-fishing")
 addon.uiFocus.RefreshFocusFadeState()
 
 for _, name in ipairs(trackedFrameNames) do
-    assertEquals((_G[name] and _G[name].GetAlpha and _G[name]:GetAlpha()) or nil, 0,
-        name .. " should fade out while fishing")
+    assertEquals((_G[name] and _G[name].GetAlpha and _G[name]:GetAlpha()) or nil, 0.0001,
+    name .. " should fade out during PRE_CASTING")
 end
 assertEquals(addon._test.GetFocusFadeRestoreAt(), nil, "Fade-out should clear any restore timer")
 
@@ -172,21 +172,21 @@ end
 assertEquals(addon._test.GetFocusFadeRestoreAt(), nil, "Unchecking focused visuals should not leave a restore timer")
 addon.focusedVisualsCheckbox = nil
 
-addon._test.SetSessionState(addon.fishing.SessionStates.CASTING, "test-focus-fade-disabled-visuals")
+addon._test.SetSessionState(addon.fishing.SessionStates.PRE_CASTING, "test-focus-fade-disabled-visuals")
 addon.uiFocus.RefreshFocusFadeState()
 for _, name in ipairs(trackedFrameNames) do
     assertEquals((_G[name] and _G[name].GetAlpha and _G[name]:GetAlpha()) or nil, 1,
-        name .. " should not fade out while focused visuals are disabled")
+    name .. " should not fade out during PRE_CASTING while focused visuals are disabled")
 end
 assertEquals(addon._test.GetFocusFadeRestoreAt(), nil, "Disabled focused visuals should not schedule a restore timer")
 
 addon.db.focusedVisuals = true
 
-addon._test.SetSessionState(addon.fishing.SessionStates.CASTING, "test-focus-fade-reenabled-visuals")
+addon._test.SetSessionState(addon.fishing.SessionStates.PRE_CASTING, "test-focus-fade-reenabled-visuals")
 addon.uiFocus.RefreshFocusFadeState()
 for _, name in ipairs(trackedFrameNames) do
-    assertEquals((_G[name] and _G[name].GetAlpha and _G[name]:GetAlpha()) or nil, 0,
-        name .. " should fade out again after focused visuals are re-enabled")
+    assertEquals((_G[name] and _G[name].GetAlpha and _G[name]:GetAlpha()) or nil, 0.0001,
+    name .. " should fade out again during PRE_CASTING after focused visuals are re-enabled")
 end
 assertEquals(addon._test.GetFocusFadeRestoreAt(), nil, "Re-enabled focused visuals should still clear the restore timer while fishing")
 
@@ -196,11 +196,11 @@ for _, name in ipairs(trackedFrameNames) do
         name .. " should be fully visible after forcevisible")
 end
 
-addon._test.SetSessionState(addon.fishing.SessionStates.CASTING, "test-focus-fade-forcevisible-once")
+addon._test.SetSessionState(addon.fishing.SessionStates.PRE_CASTING, "test-focus-fade-forcevisible-once")
 addon.uiFocus.RefreshFocusFadeState()
 for _, name in ipairs(trackedFrameNames) do
-    assertEquals((_G[name] and _G[name].GetAlpha and _G[name]:GetAlpha()) or nil, 0,
-        name .. " should fade out again on the next refresh because forcevisible is one-time")
+    assertEquals((_G[name] and _G[name].GetAlpha and _G[name]:GetAlpha()) or nil, 0.0001,
+    name .. " should fade out again on next PRE_CASTING refresh because forcevisible is one-time")
 end
 
 addon._test.SetSessionState(addon.fishing.SessionStates.CLOSING_FISHING_SESSION, "test-focus-fade-closing")
@@ -213,7 +213,7 @@ assertTrue(type(onUpdate) == "function", "Focus fade frame should expose OnUpdat
 now = restoreAt - 0.1
 onUpdate(focusFrame, 0.1)
 for _, name in ipairs(trackedFrameNames) do
-    assertEquals((_G[name] and _G[name].GetAlpha and _G[name]:GetAlpha()) or nil, 0,
+    assertEquals((_G[name] and _G[name].GetAlpha and _G[name]:GetAlpha()) or nil, 0.0001,
         name .. " should stay hidden until visual linger expires")
 end
 
@@ -228,7 +228,7 @@ assertEquals(addon._test.GetFocusFadeRestoreAt(), nil, "Visual restore timer sho
 addon._test.SetSessionState(addon.fishing.SessionStates.PRE_CASTING, "test-focus-fade-pre-cast")
 addon.uiFocus.RefreshFocusFadeState()
 for _, name in ipairs(trackedFrameNames) do
-    assertEquals((_G[name] and _G[name].GetAlpha and _G[name]:GetAlpha()) or nil, 0,
+    assertEquals((_G[name] and _G[name].GetAlpha and _G[name]:GetAlpha()) or nil, 0.0001,
         name .. " should remain hidden in PRE_CASTING")
 end
 assertEquals(addon._test.GetFocusFadeRestoreAt(), nil, "PRE_CASTING should keep fade state without restore timer")
@@ -236,7 +236,7 @@ assertEquals(addon._test.GetFocusFadeRestoreAt(), nil, "PRE_CASTING should keep 
 addon._test.SetSessionState(addon.fishing.SessionStates.CASTING, "test-focus-fade-refade-after-pre-cast")
 addon.uiFocus.RefreshFocusFadeState()
 for _, name in ipairs(trackedFrameNames) do
-    assertEquals((_G[name] and _G[name].GetAlpha and _G[name]:GetAlpha()) or nil, 0,
+    assertEquals((_G[name] and _G[name].GetAlpha and _G[name]:GetAlpha()) or nil, 0.0001,
         name .. " should fade out again after leaving PRE_CASTING")
 end
 assertEquals(addon._test.GetFocusFadeRestoreAt(), nil, "Fade-out after PRE_CASTING should not leave a restore timer")

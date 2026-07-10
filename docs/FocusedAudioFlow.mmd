@@ -1,0 +1,70 @@
+flowchart TD
+    A[Session state change] --> B{State}
+
+    B -->|PRE_CASTING| C[ApplySessionState calls FadeOutUI]
+    B -->|CLOSING_FISHING_SESSION| D[ApplySessionState calls RestoreFocusVisualsAfterLinger]
+    B -->|CANCELLING_FISHING_SESSION| E[ApplySessionState calls ForceVisibleFocusVisuals]
+    B -->|Other states| F[No direct state-triggered fade call]
+
+    C --> G{FadeOutUI guard\nisFading?}
+    G -->|yes| H[Ignore request]
+    G -->|no| I[Set isFading=true, clear restoreAt]
+
+    I --> J[Per frame: read current shown+alpha]
+    J --> K{Capture baseline?\nnot isFaded and not IsFrameFading and not IsBaselineCaptureSuppressed}
+    K -->|yes| L[Cache wasShownByName + originalAlphaByName]
+    K -->|no| M[Keep existing baseline]
+
+    L --> N[Remove pending frame fade timer]
+    M --> N
+    N --> O{shown and alpha > 0.001}
+    O -->|yes| P[Disable clicks and FadeOut to 0.0001 over 3.0s]
+    O -->|no| Q[Skip frame fade]
+
+    P --> R["Hide supporting UI groups\n(minimap/buttons/micro menu/elv helpers)"]
+    Q --> R
+    R --> S[Set isFaded=true, isFading=false]
+
+    D --> T{RestoreFocusVisualsAfterLinger guard}
+    T -->|not faded| U[No-op]
+    T -->|feature disabled| V[FadeInUI immediately]
+    T -->|linger <= 0 or no GetTime| V
+    T -->|linger > 0| W[Set restoreAt = now + linger]
+
+    W --> X[Focus frame OnUpdate]
+    X --> Y{now >= restoreAt}
+    Y -->|no| X
+    Y -->|yes| V
+
+    V --> ZA{FadeInUI guard\nisFading?}
+    ZA -->|yes| ZB[Ignore request]
+    ZA -->|no| ZC[Set isFading=true]
+
+    ZC --> ZD["Set cacheSuppressUntil = now + 3.0s"]
+    ZD --> ZE["Per frame FadeFrameIn(3.0)"]
+    ZE --> ZF{wasShown baseline?\nif nil fallback to frame:IsShown}
+    ZF -->|true| ZG[Enable clicks, clear alpha override, remove fade timer, show frame]
+    ZF -->|false| ZH[Leave hidden]
+
+    ZG --> ZI[Target alpha = originalAlpha,\nfall back to 1.0 if nil/<=threshold]
+    ZI --> ZJ[FadeIn to target over 3.0s]
+
+    ZJ --> ZK["Restore supporting UI groups\n(minimap/buttons/micro menu/elv helpers)"]
+    ZH --> ZK
+    ZK --> ZL[Copy restoreExpected* from baseline cache]
+    ZL --> ZM[Clear baseline caches, set isFaded=false, restoreAt=nil, isFading=false]
+
+    E --> ZN[ForceVisibleFocusVisuals]
+    ZN --> ZO["Set isFading=true, clear restoreAt/cacheSuppressUntil"]
+    ZO --> ZP["Per frame FadeFrameIn(0.0)\n(immediate for previously visible frames)"]
+    ZP --> ZQ["Restore supporting UI groups\n(minimap/buttons/micro menu/elv helpers), set isFaded=false, isFading=false"]
+
+    F --> ZR[RefreshFocusFadeState path]
+    ZR --> ZS{PRE_CASTING?}
+    ZS -->|yes and not isFaded| C
+    ZS -->|yes and restoreAt set| ZT[Clear pending restoreAt]
+    ZS -->|no| ZU{isFishingSessionActive and restoreAt set}
+    ZU -->|yes| ZV[Clear pending restoreAt]
+    ZU -->|no| ZW{close/cancel state and isFaded}
+    ZW -->|yes| D
+    ZW -->|no and not fishing and isFaded| V

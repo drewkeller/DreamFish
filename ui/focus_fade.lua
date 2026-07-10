@@ -6,6 +6,8 @@ local DebugStateMessage = addon.DebugStateMessage or addon.DebugMessage or funct
 local HIDDEN_ALPHA = 0.0001 -- Using 0 can cause issues with mouse events; use a very small number instead.
 local VISIBLE_ALPHA = 1.0
 local ALPHA_THRESHOLD = 0.25 -- Threshold to consider a frame effectively invisible
+local FADE_IN_DURATION = 3.0
+local FADE_OUT_DURATION = 3.0
 
 -- Finding frame names can be done by using /fstack in the game.
 -- 1. Turn on frame stack tool by typing /fstack in the game.
@@ -74,15 +76,15 @@ local panelNamesToFade = {
     "ElvUF_Boss",
     "ElvUF_Arena",
     -- Chat/Info panels
-    --"ChatFrame1", -- text
+    "ChatFrame1", -- Chat frame text
+    "LeftChatPanel", -- Chat frame background
     "ChatFrame2",
     "ChatFrame3",
-    "ChatFrame4",
-    --"LeftChatPanel",
-    "RightChatPanel",
+    --"ChatFrame4",
+    --"RightChatPanel",  -- Loot frame background
     "LeftChatToggleButton",
     "RightChatToggleButton",
-    --"ElvUI_BottomPanel",
+    "ElvUI_BottomPanel",
     "ElvUI_TopPanel",
     -- Buffs/Minimap/Data
     "ElvUI_PlayerBuffs",
@@ -112,6 +114,7 @@ local frameFader = {
     frame = nil,
     isFading = nil,
     isFaded = false,
+    cacheSuppressUntil = nil,
     wasShownByName = {},
     originalAlphaByName = {},
     restoreAt = nil,
@@ -135,135 +138,6 @@ local elvuiAlphaSettings = {    -- frameName, isEnabled, originalAlpha
     actionBarAlpha = nil,
     unitFrameAlpha = nil,
 }
-
-local function IsElvUIFrameModuleEnabled(E, frameName)
-    if not E or not E.db then return nil end
-
-    -- Action Bars
-    if string.find(frameName, "ElvUI_Bar") then
-        local barIndex = string.match(frameName, "ElvUI_Bar(%d+)")
-        if barIndex and E.db.actionbar then
-            local barKey = "bar" .. barIndex
-            return E.db.actionbar[barKey] and E.db.actionbar[barKey].enabled
-        end
-    end
-
-    -- Stance Bar
-    if frameName == "ElvUI_StanceBar" then
-        return E.db.actionbar and E.db.actionbar.stanceBar and E.db.actionbar.stanceBar.enable
-    end
-
-    if frameName == "ElvUF_Player_Castbar" then
-        local UF = E:GetModule('UnitFrames', true)
-
-        if UF and E.db and E.db.unitframe and E.db.unitframe.units and E.db.unitframe.units.player then
-            return E.db.unitframe.units.player.castbar.enable == true
-        end
-    end
-
-    -- Core Unit Frames (Player, Target, Focus, etc.)
-    if string.find(frameName, "ElvUF_") then
-        -- Extract the unit key (e.g., "ElvUF_Player" becomes "player")
-        local unitKey = string.lower(string.gsub(frameName, "ElvUF_", ""))
-
-        -- Master UnitFrame module switch must be on, and the specific unit frame layout must be enabled
-        if E.db.unitframe and E.db.unitframe.units and E.db.unitframe.units[unitKey] then
-            local moduleEnabled = C_AddOns.IsAddOnLoaded("ElvUI_OptionsUI") or E:GetModule('UnitFrames', true)
-            return moduleEnabled and E.db.unitframe.units[unitKey].enable
-        end
-    end
-
-    -- Standalone Auras (Buffs / Debuffs)
-    if frameName == "ElvUI_PlayerBuffs" or frameName == "ElvUI_PlayerDebuffs" then
-        return E.db.auras and E.db.auras.enable
-    end
-
-    -- Chat Panels
-    if frameName == "LeftChatPanel" or frameName == "RightChatPanel" then
-        if not E.private or not E.private.chat or not E.private.chat.enable then
-            return false
-        end
-
-        -- Possible settings: "SHOWBOTH", "HIDEBOTH", "LEFT", or "RIGHT"
-        local backdropSetting = E.db.chat.panelBackdrop or "SHOWBOTH"
-
-        local isEnabled = true
-        if frameName == "LeftChatPanel" then
-            isEnabled = (backdropSetting == "SHOWBOTH" or backdropSetting == "LEFT")
-        elseif frameName == "RightChatPanel" then
-            isEnabled = (backdropSetting == "SHOWBOTH" or backdropSetting == "RIGHT")
-        end
-        return isEnabled
-    end
-
-    -- Data Bars (Experience, Reputation, etc.)
-    if string.find(frameName, "ElvDB_") then
-        local barName = string.gsub(frameName, "ElvDB_", "")
-        barName = barName:lower()
-        return E.db.databars and E.db.databars[barName] and E.db.databars[barName].enable
-    end
-
-    -- Fallback: If it's a generic frame, check if it physically exists and is visible
-    local fallbackFrame = _G[frameName]
-    return (fallbackFrame ~= nil) or nil
-end
-
-local function FadeFrameCustom(frame, fadeMode, duration, targetAlpha)
-    if not frame or not frame.GetAlpha then return end
-
-    -- Safety: If you previously overrode SetAlpha with an empty function,
-    -- restore it so the animation engine can physically adjust the visibility.
-    if frame.SetAlpha_Old then
-        frame.SetAlpha = frame.SetAlpha_Old
-        frame.SetAlpha_Old = nil
-    end
-
-    -- Setup the native Blizzard fading parameter block
-    local fadeInfo = {
-        mode = fadeMode,                -- "IN" to fade in, "OUT" to fade out
-        timeToFade = duration or 0.3,   -- Animation time in seconds
-        startAlpha = frame:GetAlpha(),   -- Dynamically capture current visibility
-        endAlpha = targetAlpha or HIDDEN_ALPHA,  -- The destination alpha (e.g., 0 for invisible)
-        finishedFunc = function()
-            -- Set SetAlpha to an empty function so frame can't be changed while in fishing mode.
-            if fadeMode == "OUT" and targetAlpha == 0 then
-                frame:SetAlpha(HIDDEN_ALPHA)
-                frame.SetAlpha_Old = frame.SetAlpha
-                frame.SetAlpha = function() end
-            end
-        end
-    }
-
-    -- Execute Blizzard's native UI animation frame manager
-    -- (This works seamlessly across Retail and Classic clients)
-    if _G["UIFrameFade"] then
-        _G["UIFrameFade"](frame, fadeInfo)
-    else
-        -- Fallback: Instant change if the animation frame module is completely missing
-        frame:SetAlpha(targetAlpha or HIDDEN_ALPHA)
-    end
-end
-
-local function SetElvUIDataBarVisibility(E, frameName, hideBars)
-    local DB = E:GetModule('DataBars', true)
-    local barTitle = frameName:gsub("ElvDB_", "")
-    local barName = barTitle:lower()
-
-    if DB and E.db and E.db.databars and E.db.databars[barName] then
-        E.db.databars[barName].enable = not hideBars
-
-        -- Refresh the individual bar layout using ElvUI's internal API
-        local barMethodName = "Update" .. barTitle .. "Dimensions"
-        if type(DB[barMethodName]) == "function" then
-            DB[barMethodName](DB)
-        end
-
-        -- Force a top-level master redraw of the entire module framework (yes, this appears to be necessary)
-        if type(DB.UpdateAll) == "function" then
-            DB:UpdateAll()
-        end
-    end
-end
 
 -- ElvUI: Detect
 loader:SetScript("OnEvent", function(self, event, ...)
@@ -716,6 +590,45 @@ local function IsFrameFading(frame)
     return UIFrameFadeTimers[frame] ~= nil
 end
 
+local function DeferredDebugPrint(delaySeconds, message)
+    if C_Timer and type(C_Timer.After) == "function" then
+        C_Timer.After(delaySeconds or 0, function()
+            print(message)
+        end)
+    else
+        print(message)
+    end
+end
+
+local function SetFrameClickEnabled(frame, enabled)
+    if not frame then
+        return
+    end
+    if type(frame.SetMouseClickEnabled) == "function" then
+        frame:SetMouseClickEnabled(enabled)
+    elseif type(frame.EnableMouse) == "function" then
+        frame:EnableMouse(enabled)
+    end
+end
+
+local function IsBaselineCaptureSuppressed()
+    local suppressUntil = tonumber(frameFader.cacheSuppressUntil) or 0
+    if suppressUntil <= 0 then
+        return false
+    end
+
+    if type(GetTime) ~= "function" then
+        return true
+    end
+
+    if GetTime() < suppressUntil then
+        return true
+    end
+
+    frameFader.cacheSuppressUntil = nil
+    return false
+end
+
 local function FadeFrameIn(name, duration)
     local frame = ResolveNamedFrame(name)
     if not frame then
@@ -723,37 +636,38 @@ local function FadeFrameIn(name, duration)
     end
 
     local wasShown = frameFader.wasShownByName[name]
+    if wasShown == nil and frame and frame.IsShown then
+        wasShown = frame:IsShown() and true or false
+    end
     local originalAlpha = tonumber(frameFader.originalAlphaByName[name])
 
     if wasShown == true then
-        frame:SetMouseClickEnabled(true)
-        if originalAlpha ~= nil and originalAlpha > ALPHA_THRESHOLD and frame.SetAlpha then
-            ClearSetAlphaOverride(frame)
-            -- cancel previous fade-out / fade-in timers
-            if type(UIFrameFadeRemoveFrame) == "function" then
-                UIFrameFadeRemoveFrame(frame)
-            end
-            if duration == 0 and frame.SetAlpha then
-                frame:SetAlpha(originalAlpha)
-            elseif duration > 0 and type(UIFrameFadeIn) == "function" and frame.GetAlpha then
-                UIFrameFadeIn(frame, duration or 0.3, frame:GetAlpha() or HIDDEN_ALPHA, originalAlpha)
-            elseif frame.SetAlpha then
-                frame:SetAlpha(originalAlpha)
-            elseif frame.Show then
-                frame:Show()
-            end
-        elseif frame.Show then
+        SetFrameClickEnabled(frame, true)
+        ClearSetAlphaOverride(frame)
+        -- cancel previous fade-out / fade-in timers before restoring
+        if type(UIFrameFadeRemoveFrame) == "function" then
+            UIFrameFadeRemoveFrame(frame)
+        end
+
+        local targetAlpha = originalAlpha
+        if targetAlpha == nil or targetAlpha <= ALPHA_THRESHOLD then
+            targetAlpha = VISIBLE_ALPHA
+        end
+
+        if frame.Show then
             frame:Show()
+        end
+
+        if duration and duration > 0 and type(UIFrameFadeIn) == "function" and frame.GetAlpha then
+            UIFrameFadeIn(frame, duration, frame:GetAlpha() or HIDDEN_ALPHA, targetAlpha)
+        elseif frame.SetAlpha then
+            frame:SetAlpha(targetAlpha)
         end
     end
 end
 
-local function FadeOutUI(reason)
-    C_Timer.After(0, function()
-        print("FadeOutUI begin: reason=" .. tostring(reason))
-    end)
+local function FadeOutUI()
     if frameFader.isFading then
-        print("Ignoring FadeOutUI request because a fade is already in progress")
         return
     end
     frameFader.isFading = true
@@ -763,21 +677,24 @@ local function FadeOutUI(reason)
     for _, name in ipairs(panelNamesToFade) do
         local frame = ResolveNamedFrame(name)
 
-        local alpha = frameFader.wasShownByName[name]
-        local isShown = frameFader.originalAlphaByName[name]
+        local isShown = frame and frame.IsShown and frame:IsShown()
+        local alpha = frame and frame.GetAlpha and frame:GetAlpha()
 
-        if not IsFrameFading(frame) then
-            alpha = frame and frame.GetAlpha and frame:GetAlpha() or nil
-            isShown = frame and frame.IsShown and frame:IsShown() or nil
+        -- cache current visibility states for restoral
+        if (not frameFader.isFaded) and (not IsFrameFading(frame)) and (not IsBaselineCaptureSuppressed()) then
             frameFader.wasShownByName[name] = isShown
             frameFader.originalAlphaByName[name] = alpha
         end
 
-        if frame and isShown == true and alpha > ALPHA_THRESHOLD then
-            -- print("FadeOutUI hide Blizzard frame " .. name .. " alpha=" .. tostring(frame.GetAlpha and frame:GetAlpha() or "n/a"))
-            frame:SetMouseClickEnabled(false)
+        -- cancel previous fade-out / fade-in timers before restoring
+        if type(UIFrameFadeRemoveFrame) == "function" then
+            UIFrameFadeRemoveFrame(frame)
+        end
+
+        if frame and isShown == true and alpha > 0.001 then
+            SetFrameClickEnabled(frame, false)
             if type(UIFrameFadeOut) == "function" and frame.GetAlpha then
-                UIFrameFadeOut(frame, 3.0, frame:GetAlpha() or VISIBLE_ALPHA, HIDDEN_ALPHA)
+                UIFrameFadeOut(frame, FADE_OUT_DURATION, frame:GetAlpha() or VISIBLE_ALPHA, HIDDEN_ALPHA)
             elseif frame.SetAlpha then
                 frame:SetAlpha(HIDDEN_ALPHA)
             elseif frame.Hide then
@@ -798,15 +715,19 @@ local function FadeOutUI(reason)
 end
 
 local function FadeInUI()
-    print("FadeInUI begin")
     if frameFader.isFading then
-        print("Ignoring FadeInUI request because a fade is already in progress")
         return
     end
     frameFader.isFading = true
 
+    if type(GetTime) == "function" then
+        frameFader.cacheSuppressUntil = GetTime() + FADE_IN_DURATION
+    else
+        frameFader.cacheSuppressUntil = nil
+    end
+
     for _, name in ipairs(panelNamesToFade) do
-        FadeFrameIn(name, 3.0)
+        FadeFrameIn(name, FADE_IN_DURATION)
     end
 
     HideElvUIPlayerFrame(false)
@@ -856,11 +777,10 @@ local function RestoreFocusVisualsAfterLinger()
 end
 
 ForceVisibleFocusVisuals = function()
-    C_Timer.After(0.1, function()
-        print("ForceVisibleFocusVisuals begin")
-    end)
+    DeferredDebugPrint(0.1, "ForceVisibleFocusVisuals begin")
     frameFader.isFading = true
     frameFader.restoreAt = nil
+    frameFader.cacheSuppressUntil = nil
 
     for _, name in ipairs(panelNamesToFade) do
         FadeFrameIn(name, 0.0) -- immediate
@@ -885,7 +805,7 @@ local function RefreshFocusFadeState()
     if IsFadeFeatureEnabled() and IsPreCastingSessionState() then
         if not frameFader.isFaded then
             FocusFadeTrace("RefreshFocusFadeState entering PRE_CASTING -> fade out")
-            FadeOutUI("RefreshFocusFadeState: Precasting")
+            FadeOutUI()
         elseif frameFader.restoreAt ~= nil then
             FocusFadeTrace("RefreshFocusFadeState clearing pending restore during PRE_CASTING")
             frameFader.restoreAt = nil
@@ -895,10 +815,7 @@ local function RefreshFocusFadeState()
 
     local shouldFade = IsFadeFeatureEnabled() and IsFishingSessionActive()
 
-    if shouldFade and not frameFader.isFaded then
-        FocusFadeTrace("RefreshFocusFadeState shouldFade=true and not faded -> fade out")
-        FadeOutUI("RefreshFocusFadeState: FishingActive 1")
-    elseif shouldFade and frameFader.restoreAt ~= nil then
+    if shouldFade and frameFader.restoreAt ~= nil then
         FocusFadeTrace("RefreshFocusFadeState shouldFade=true and restoreAt pending -> clear timer")
         frameFader.restoreAt = nil
     elseif IsFadeFeatureEnabled()
