@@ -24,11 +24,6 @@ local panelNamesToFade = {
     "QueueStatusMinimapButton",  -- Classic LFG queue icon
     "GarrisonLandingPageMinimapButton", -- Expansion/Mission tracking button
     "ExpansionLandingPageMinimapButton", -- Dragonflight/TWW expansion button
-    "ChatFrame1",
-    "ChatFrame2",
-    "ChatFrame3",
-    "ChatFrame4",
-    "RightChatPanel",
     -- Unit frames
     "PlayerFrame",
     "CompactPlayerFrame",
@@ -79,11 +74,15 @@ local panelNamesToFade = {
     "ElvUF_Boss",
     "ElvUF_Arena",
     -- Chat/Info panels
-    "LeftChatPanel",
+    --"ChatFrame1", -- text
+    "ChatFrame2",
+    "ChatFrame3",
+    "ChatFrame4",
+    --"LeftChatPanel",
     "RightChatPanel",
     "LeftChatToggleButton",
     "RightChatToggleButton",
-    "ElvUI_BottomPanel",
+    --"ElvUI_BottomPanel",
     "ElvUI_TopPanel",
     -- Buffs/Minimap/Data
     "ElvUI_PlayerBuffs",
@@ -111,6 +110,7 @@ local panelNamesToFade = {
 
 local frameFader = {
     frame = nil,
+    isFading = nil,
     isFaded = false,
     wasShownByName = {},
     originalAlphaByName = {},
@@ -390,26 +390,6 @@ local function ClearSetAlphaOverride(frame)
     if frame and frame.SetAlpha_Old then
         frame.SetAlpha = frame.SetAlpha_Old
         frame.SetAlpha_Old = nil
-    end
-end
-
-local function ForceFrameVisible(name)
-    local frame = ResolveNamedFrame(name)
-    if name == "ElvUI_Bar8" then
-        print("ForceFrameVisible for " .. tostring(name) .. " frame=" .. tostring(frame))
-    end
-    if not frame then
-        return
-    end
-
-    local wasShown = frameFader.wasShownByName[name]
-    local originalAlpha = tonumber(frameFader.originalAlphaByName[name]) or VISIBLE_ALPHA
-
-    if originalAlpha ~= nil and originalAlpha > ALPHA_THRESHOLD and frame.SetAlpha then
-        ClearSetAlphaOverride(frame)
-        frame:SetAlpha(originalAlpha)
-    elseif wasShown ~= nil and wasShown == true and frame.Show then
-        frame:Show()
     end
 end
 
@@ -730,25 +710,78 @@ local function HideBlizzardMicroMenu(hideMenu)
     end
 end
 
-local function FadeOutUI()
+local function IsFrameFading(frame)
+    if not UIFrameFadeTimers or not frame then return false end
+    -- If the frame exists as a key in the table, it is actively fading
+    return UIFrameFadeTimers[frame] ~= nil
+end
+
+local function FadeFrameIn(name, duration)
+    local frame = ResolveNamedFrame(name)
+    if not frame then
+        return
+    end
+
+    local wasShown = frameFader.wasShownByName[name]
+    local originalAlpha = tonumber(frameFader.originalAlphaByName[name])
+
+    if wasShown == true then
+        frame:SetMouseClickEnabled(true)
+        if originalAlpha ~= nil and originalAlpha > ALPHA_THRESHOLD and frame.SetAlpha then
+            ClearSetAlphaOverride(frame)
+            -- cancel previous fade-out / fade-in timers
+            if type(UIFrameFadeRemoveFrame) == "function" then
+                UIFrameFadeRemoveFrame(frame)
+            end
+            if duration == 0 and frame.SetAlpha then
+                frame:SetAlpha(originalAlpha)
+            elseif duration > 0 and type(UIFrameFadeIn) == "function" and frame.GetAlpha then
+                UIFrameFadeIn(frame, duration or 0.3, frame:GetAlpha() or HIDDEN_ALPHA, originalAlpha)
+            elseif frame.SetAlpha then
+                frame:SetAlpha(originalAlpha)
+            elseif frame.Show then
+                frame:Show()
+            end
+        elseif frame.Show then
+            frame:Show()
+        end
+    end
+end
+
+local function FadeOutUI(reason)
+    C_Timer.After(0, function()
+        print("FadeOutUI begin: reason=" .. tostring(reason))
+    end)
+    if frameFader.isFading then
+        print("Ignoring FadeOutUI request because a fade is already in progress")
+        return
+    end
+    frameFader.isFading = true
     frameFader.restoreAt = nil
 
     -- Blizzard UI elements
     for _, name in ipairs(panelNamesToFade) do
-        local panel = ResolveNamedFrame(name)
-        local alpha = panel and panel.GetAlpha and panel:GetAlpha() or nil
-        local isShown = panel and panel.IsShown and panel:IsShown() or nil
-        frameFader.wasShownByName[name] = isShown
-        frameFader.originalAlphaByName[name] = alpha
+        local frame = ResolveNamedFrame(name)
 
-        if panel and isShown == true and alpha > ALPHA_THRESHOLD then
-            print("FadeOutUI hide Blizzard frame " .. name .. " alpha=" .. tostring(panel.GetAlpha and panel:GetAlpha() or "n/a"))
-            if type(UIFrameFadeOut) == "function" and panel.GetAlpha then
-                UIFrameFadeOut(panel, 3.0, panel:GetAlpha() or VISIBLE_ALPHA, HIDDEN_ALPHA)
-            elseif panel.SetAlpha then
-                panel:SetAlpha(HIDDEN_ALPHA)
-            elseif panel.Hide then
-                panel:Hide()
+        local alpha = frameFader.wasShownByName[name]
+        local isShown = frameFader.originalAlphaByName[name]
+
+        if not IsFrameFading(frame) then
+            alpha = frame and frame.GetAlpha and frame:GetAlpha() or nil
+            isShown = frame and frame.IsShown and frame:IsShown() or nil
+            frameFader.wasShownByName[name] = isShown
+            frameFader.originalAlphaByName[name] = alpha
+        end
+
+        if frame and isShown == true and alpha > ALPHA_THRESHOLD then
+            -- print("FadeOutUI hide Blizzard frame " .. name .. " alpha=" .. tostring(frame.GetAlpha and frame:GetAlpha() or "n/a"))
+            frame:SetMouseClickEnabled(false)
+            if type(UIFrameFadeOut) == "function" and frame.GetAlpha then
+                UIFrameFadeOut(frame, 3.0, frame:GetAlpha() or VISIBLE_ALPHA, HIDDEN_ALPHA)
+            elseif frame.SetAlpha then
+                frame:SetAlpha(HIDDEN_ALPHA)
+            elseif frame.Hide then
+                frame:Hide()
             end
         end
     end
@@ -761,30 +794,19 @@ local function FadeOutUI()
     HideGatherMateMinimap(true)
 
     frameFader.isFaded = true
+    frameFader.isFading = false
 end
 
 local function FadeInUI()
+    print("FadeInUI begin")
+    if frameFader.isFading then
+        print("Ignoring FadeInUI request because a fade is already in progress")
+        return
+    end
+    frameFader.isFading = true
+
     for _, name in ipairs(panelNamesToFade) do
-        if name == "ElvUI_Bar8" then
-            print("FadeInUI found frame=" .. tostring(frame))
-        end
-        local panel = ResolveNamedFrame(name)
-        local wasShown = frameFader.wasShownByName[name]
-        local originalAlpha = tonumber(frameFader.originalAlphaByName[name]) or VISIBLE_ALPHA
-        if panel then
-            if originalAlpha ~= nill and originalAlpha > ALPHA_THRESHOLD and panel.SetAlpha then
-                ClearSetAlphaOverride(panel)
-                if type(UIFrameFadeIn) == "function" and panel.GetAlpha then
-                    UIFrameFadeIn(panel, 3, panel:GetAlpha() or HIDDEN_ALPHA, originalAlpha)
-                elseif panel.SetAlpha then
-                    panel:SetAlpha(originalAlpha)
-                elseif panel.Show then
-                    panel:Show()
-                end
-            elseif wasShown == true and panel.Show then
-                panel:Show()
-            end
-        end
+        FadeFrameIn(name, 3.0)
     end
 
     HideElvUIPlayerFrame(false)
@@ -800,6 +822,7 @@ local function FadeInUI()
     frameFader.originalAlphaByName = {}
     frameFader.isFaded = false
     frameFader.restoreAt = nil
+    frameFader.isFading = false
     -- Delay first verification until fade-in animation should be complete.
     frameFader.restoreVerifyAt = (type(GetTime) == "function") and (GetTime() + 0.80) or nil
     frameFader.restoreVerifyChecksRemaining = 2
@@ -833,27 +856,17 @@ local function RestoreFocusVisualsAfterLinger()
 end
 
 ForceVisibleFocusVisuals = function()
+    C_Timer.After(0.1, function()
+        print("ForceVisibleFocusVisuals begin")
+    end)
+    frameFader.isFading = true
     frameFader.restoreAt = nil
 
     for _, name in ipairs(panelNamesToFade) do
-        ForceFrameVisible(name)
-        frameFader.wasShownByName[name] = true
+        FadeFrameIn(name, 0.0) -- immediate
     end
 
-    if _G["ElvUI"] then
-        local E = unpack(_G["ElvUI"])
-        for _, name in ipairs(elvUIFrames) do
-            local frame = ResolveNamedFrame(name)
-            if frame then
-                ForceFrameVisible(naame)
-                if string.find(name, "ElvDB_") then
-                    SetElvUIDataBarVisibility(E, name, false)
-                end
-            end
-        end
-        HideElvUIPlayerFrame(false)
-    end
-
+    HideElvUIPlayerFrame(false)
     HideBlizzardMicroMenu(false)
     HideMinimapButtons(false)
     HideMinimapCluster(false)
@@ -861,6 +874,7 @@ ForceVisibleFocusVisuals = function()
     HideGatherMateMinimap(false)
 
     frameFader.isFaded = false
+    frameFader.isFading = false
 end
 
 local function RefreshFocusFadeState()
@@ -871,7 +885,7 @@ local function RefreshFocusFadeState()
     if IsFadeFeatureEnabled() and IsPreCastingSessionState() then
         if not frameFader.isFaded then
             FocusFadeTrace("RefreshFocusFadeState entering PRE_CASTING -> fade out")
-            FadeOutUI()
+            FadeOutUI("RefreshFocusFadeState: Precasting")
         elseif frameFader.restoreAt ~= nil then
             FocusFadeTrace("RefreshFocusFadeState clearing pending restore during PRE_CASTING")
             frameFader.restoreAt = nil
@@ -883,7 +897,7 @@ local function RefreshFocusFadeState()
 
     if shouldFade and not frameFader.isFaded then
         FocusFadeTrace("RefreshFocusFadeState shouldFade=true and not faded -> fade out")
-        FadeOutUI()
+        FadeOutUI("RefreshFocusFadeState: FishingActive 1")
     elseif shouldFade and frameFader.restoreAt ~= nil then
         FocusFadeTrace("RefreshFocusFadeState shouldFade=true and restoreAt pending -> clear timer")
         frameFader.restoreAt = nil
@@ -895,7 +909,7 @@ local function RefreshFocusFadeState()
         RestoreFocusVisualsAfterLinger()
     elseif not shouldFade and frameFader.isFaded then
         FocusFadeTrace("RefreshFocusFadeState shouldFade=false and faded -> fade in")
-        FadeInUI()
+        FadeInUI("RefreshFocusFadeState: FishingInactive 2")
     end
 end
 
@@ -937,6 +951,16 @@ local function CreateFocusFadeFrame()
     return frame
 end
 
+function addon:DebugFocusFrame(frameName)
+    local frame = ResolveNamedFrame(frameName)
+    if frame then
+        print("DebugFocusFrame " .. tostring(frameName) .. " shown=" .. tostring(frame.IsShown and frame:IsShown() or "n/a")
+            .. " alpha=" .. tostring(frame.GetAlpha and frame:GetAlpha() or "n/a"))
+    else
+        print("DebugFocusFrame " .. tostring(frameName) .. " not found")
+    end
+end
+
 addon.uiFocus = addon.uiFocus or {}
 addon.uiFocus.CreateFocusFadeFrame = CreateFocusFadeFrame
 addon.uiFocus.RefreshFocusFadeState = RefreshFocusFadeState
@@ -950,3 +974,6 @@ addon._test.GetFocusFadeRestoreAt = function()
     return frameFader.restoreAt
 end
 addon._test.GetFocusVisualStateLines = BuildFocusVisualStateLines
+addon.uiFocus.DebugFocusFrame = function(frameName)
+    addon:DebugFocusFrame(frameName)
+end

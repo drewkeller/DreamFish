@@ -32,7 +32,7 @@ local function RegisterSlashCommands()
     SLASH_DREAMFISHER1 = "/df"
     SLASH_DREAMFISHER2 = "/dreamfisher"
     SlashCmdList["DREAMFISHER"] = function(msg)
-        local input = string.lower(Trim(msg))
+        local input = Trim(msg)
         local command = input
         local commandArgs = ""
         local baseCommand, remainder = string.match(input, "^(%S+)%s*(.-)$")
@@ -57,7 +57,18 @@ local function RegisterSlashCommands()
             PrintMessage("  |cFF7FFFDAforcevisible, fv|r - Force focus visuals visible once")
             PrintMessage("  |cFF7FFFDAfocusdump, fd|r - Dump focus visibility and alpha state")
             PrintMessage("  |cFF7FFFDAraft|r - Apply the selected raft")
+            PrintMessage("  |cFF7FFFDADebugFocusFrame, dff <frameName>|r - Dump IsShown and Alpha focus frame state for the named frame")
             PrintMessage("  |cFF7FFFDA(no args)|r - Toggle config UI")
+            return
+        end
+        if command == "dff" then
+            local frameName = Trim(commandArgs)
+            if frameName == "" then
+                PrintMessage("Usage: /df dff <frameName>")
+                return
+            end
+            print("Debug focus frame:", frameName)
+            addon.uiFocus.DebugFocusFrame(frameName)
             return
         end
         if command == "testtreasure" or command == "tt" then

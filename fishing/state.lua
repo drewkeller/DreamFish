@@ -70,7 +70,7 @@ local function ApplySessionState(nextState, reason, options)
                 and addon.uiFocus.FadeOutUI
                 and addon.db
                 and addon.db.focusedVisuals then
-            addon.uiFocus.FadeOutUI()
+            addon.uiFocus.FadeOutUI("SessionState-" .. tostring(nextState))
         elseif nextState == SESSION_STATES.CLOSING_FISHING_SESSION
                 and addon.uiFocus.RestoreFocusVisualsAfterLinger then
             addon.uiFocus.RestoreFocusVisualsAfterLinger()
