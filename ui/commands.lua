@@ -10,17 +10,6 @@ local function Trim(text)
     return (tostring(text or ""):gsub("^%s+", ""):gsub("%s+$", ""))
 end
 
-local function PrintFocusVisualDump()
-    if not (addon.uiFocus and addon.uiFocus.GetFocusVisualStateLines) then
-        PrintMessage("Focus visual dump unavailable")
-        return
-    end
-
-    for _, line in ipairs(addon.uiFocus.GetFocusVisualStateLines()) do
-        PrintMessage(line)
-    end
-end
-
 local function GetCurrentSessionFlagsRequired()
     if not (addon.fishing and addon.fishing.GetCurrentSessionFlags) then
         error("DreamFisher: GetCurrentSessionFlags is required for command diagnostics")
@@ -34,11 +23,9 @@ local function RegisterSlashCommands()
     SlashCmdList["DREAMFISHER"] = function(msg)
         local input = Trim(msg)
         local command = input
-        local commandArgs = ""
-        local baseCommand, remainder = string.match(input, "^(%S+)%s*(.-)$")
+        local baseCommand = string.match(input, "^(%S+)")
         if baseCommand then
             command = baseCommand
-            commandArgs = remainder or ""
         end
         if command == "help" or command == "h" or command == "?" then
             PrintMessage("|cFFFFD700Available Commands:|r")
@@ -50,25 +37,12 @@ local function RegisterSlashCommands()
             PrintMessage("  |cFF7FFFDAduckaudio, da|r - Manually start audio ducking")
             PrintMessage("  |cFF7FFFDArestoreaudio, ra|r - Manually restore audio from ducking")
             PrintMessage("  |cFF7FFFDAdebug, dbg|r - Toggle debug mode on/off")
-            PrintMessage("  |cFF7FFFDAfocusdebug, fdbg|r - Toggle focus fade state tracing on/off")
             PrintMessage("  |cFF7FFFDAcast|r - Show secure cast macro helper")
             PrintMessage("  |cFF7FFFDAinteractsetup, is|r - Show hooked-interact setup checklist")
             PrintMessage("  |cFF7FFFDAinteractdiag, id|r - Show live interact target diagnostics")
             PrintMessage("  |cFF7FFFDAforcevisible, fv|r - Force focus visuals visible once")
-            PrintMessage("  |cFF7FFFDAfocusdump, fd|r - Dump focus visibility and alpha state")
             PrintMessage("  |cFF7FFFDAraft|r - Apply the selected raft")
-            PrintMessage("  |cFF7FFFDADebugFocusFrame, dff <frameName>|r - Dump IsShown and Alpha focus frame state for the named frame")
             PrintMessage("  |cFF7FFFDA(no args)|r - Toggle config UI")
-            return
-        end
-        if command == "dff" then
-            local frameName = Trim(commandArgs)
-            if frameName == "" then
-                PrintMessage("Usage: /df dff <frameName>")
-                return
-            end
-            print("Debug focus frame:", frameName)
-            addon.uiFocus.DebugFocusFrame(frameName)
             return
         end
         if command == "testtreasure" or command == "tt" then
@@ -134,11 +108,6 @@ local function RegisterSlashCommands()
             PrintMessage("Debug mode: " .. (addon.db.debugMode and "ON" or "OFF"))
             return
         end
-        if command == "focusdebug" or command == "fdbg" then
-            addon.db.debugState = not addon.db.debugState
-            PrintMessage("Focus fade tracing: " .. (addon.db.debugState and "ON" or "OFF"))
-            return
-        end
         if command == "cast" then
             if addon.fishing and addon.fishing.HandleCastCommand then
                 addon.fishing.HandleCastCommand()
@@ -166,10 +135,6 @@ local function RegisterSlashCommands()
                 .. " flags={isFishing=" .. tostring(flags.isFishing)
                 .. ", isBobberActive=" .. tostring(flags.isBobberActive)
                 .. ", lootInProgress=" .. tostring(flags.fishingLootInProgress) .. "}")
-            return
-        end
-        if command == "focusdump" or command == "fd" then
-            PrintFocusVisualDump()
             return
         end
         if command == "forcevisible" or command == "fv" then

@@ -1,7 +1,6 @@
 -- DreamFisher: Focus frame fading while fishing
 
 local addon = _G["DreamFisher"]
-local DebugStateMessage = addon.DebugStateMessage or addon.DebugMessage or function() end
 
 local HIDDEN_ALPHA = 0.0001 -- Using 0 can cause issues with mouse events; use a very small number instead.
 local VISIBLE_ALPHA = 1.0
@@ -76,11 +75,11 @@ local panelNamesToFade = {
     "ElvUF_Boss",
     "ElvUF_Arena",
     -- Chat/Info panels
-    "ChatFrame1", -- Chat frame text
+    "ChatFrame1",    -- Chat frame text
     "LeftChatPanel", -- Chat frame background
     "ChatFrame2",
     "ChatFrame3",
-    --"ChatFrame4",
+    --"ChatFrame4",      -- Loot frame text
     --"RightChatPanel",  -- Loot frame background
     "LeftChatToggleButton",
     "RightChatToggleButton",
@@ -118,14 +117,7 @@ local frameFader = {
     wasShownByName = {},
     originalAlphaByName = {},
     restoreAt = nil,
-    restoreVerifyAt = nil,
-    restoreVerifyChecksRemaining = 0,
-    restoreExpectedShownByName = {},
-    restoreExpectedAlphaByName = {},
 }
-
-local fadeState = nil
-local elvUIFrames = {}
 
 -- array[frameName] = {wasShown = boolean, originalAlpha = number}
 elvUIFrameFader = {}
@@ -134,10 +126,6 @@ elvUIFrameFader = {}
 local loader = CreateFrame("Frame")
 loader:RegisterEvent("PLAYER_LOGIN")
 local isElvUIActive = false
-local elvuiAlphaSettings = {    -- frameName, isEnabled, originalAlpha
-    actionBarAlpha = nil,
-    unitFrameAlpha = nil,
-}
 
 -- ElvUI: Detect
 loader:SetScript("OnEvent", function(self, event, ...)
@@ -188,77 +176,6 @@ local function IsFadeFeatureEnabled()
 end
 
 local ForceVisibleFocusVisuals
-local BuildFocusVisualStateLines
-
-local function FocusFadeTrace(message)
-    if addon and addon.db and addon.db.debugMode and addon.db.debugState then
-        -- Keep chat output readable by default; per-frame traces are too noisy.
-        local isFrameDetail = string.find(message, " frame ", 1, true) ~= nil
-        if isFrameDetail and not (addon.db and addon.db.debugFadeVerbose) then
-            return
-        end
-        DebugStateMessage("Focus fade: " .. tostring(message))
-    end
-end
-
-local function FocusFadeTraceState(prefix)
-    if not (addon and addon.db and addon.db.debugMode and addon.db.debugState) then
-        return
-    end
-    local minimap = ResolveNamedFrame("Minimap")
-    local minimapShown = minimap and minimap.IsShown and minimap:IsShown() or false
-    local minimapAlpha = minimap and minimap.GetAlpha and minimap:GetAlpha() or nil
-    local cluster = ResolveNamedFrame("MinimapCluster")
-    local clusterShown = cluster and cluster.IsShown and cluster:IsShown() or false
-    local alphaText = minimapAlpha == nil and "n/a" or string.format("%.2f", tonumber(minimapAlpha) or HIDDEN_ALPHA)
-    DebugStateMessage("Focus fade: " .. tostring(prefix)
-        .. " featureEnabled=" .. tostring(IsFadeFeatureEnabled())
-        .. " isFaded=" .. tostring(frameFader.isFaded)
-        .. " restoreAt=" .. tostring(frameFader.restoreAt)
-        .. " minimapShown=" .. tostring(minimapShown)
-        .. " minimapAlpha=" .. alphaText
-        .. " clusterShown=" .. tostring(clusterShown))
-end
-
-local function TraceChatFrameState(label)
-    if not (addon and addon.db and addon.db.debugMode and addon.db.debugState) then
-        return
-    end
-
-    local names = {
-        "ChatFrame1",
-        "ChatFrame1Background",
-        "ChatFrame1Tab",
-        "GeneralDockManager",
-    }
-
-    local segments = {}
-    for _, name in ipairs(names) do
-        local frame = ResolveNamedFrame(name)
-        if frame then
-            local shown = frame.IsShown and frame:IsShown() or false
-            local alpha = frame.GetAlpha and frame:GetAlpha() or nil
-            local effAlpha = frame.GetEffectiveAlpha and frame:GetEffectiveAlpha() or nil
-            local parent = frame.GetParent and frame:GetParent() or nil
-            local parentName = parent and parent.GetName and parent:GetName() or nil
-            local parentShown = parent and parent.IsShown and parent:IsShown() or nil
-            local parentAlpha = parent and parent.GetAlpha and parent:GetAlpha() or nil
-            local locked = frame.SetAlpha_Old and true or false
-            table.insert(segments, name
-                .. " shown=" .. tostring(shown)
-                .. " alpha=" .. tostring(alpha)
-                .. " effectiveAlpha=" .. tostring(effAlpha)
-                .. " locked=" .. tostring(locked)
-                .. " parent=" .. tostring(parentName)
-                .. " parentShown=" .. tostring(parentShown)
-                .. " parentAlpha=" .. tostring(parentAlpha))
-        else
-            table.insert(segments, name .. " missing")
-        end
-    end
-
-    FocusFadeTrace("Chat frame trace (" .. tostring(label) .. "): " .. table.concat(segments, " | "))
-end
 
 local function ClearSetAlphaOverride(frame)
     if frame and frame.SetAlpha_Old then
@@ -267,120 +184,12 @@ local function ClearSetAlphaOverride(frame)
     end
 end
 
-BuildFocusVisualStateLines = function()
-    local lines = {}
-    table.insert(lines, "Focus visuals dump: featureEnabled=" .. tostring(IsFadeFeatureEnabled())
-        .. " isFaded=" .. tostring(frameFader.isFaded)
-        .. " restoreAt=" .. tostring(frameFader.restoreAt))
-
-    local function AppendFrameLine(name)
-        local frame = ResolveNamedFrame(name)
-        if not frame then
-            table.insert(lines, name .. ": missing")
-            return
-        end
-
-        local shown = frame.IsShown and frame:IsShown() or false
-        local alpha = frame.GetAlpha and frame:GetAlpha() or nil
-        local alphaText = alpha == nil and "n/a" or string.format("%.2f", tonumber(alpha) or HIDDEN_ALPHA)
-        local locked = frame.SetAlpha_Old and " locked" or ""
-        table.insert(lines, name .. ": shown=" .. tostring(shown) .. " alpha=" .. alphaText .. locked)
-    end
-
-    for _, name in ipairs(panelNamesToFade) do
-        AppendFrameLine(name)
-    end
-
-    for _, name in ipairs(elvUIFrames) do
-        AppendFrameLine(name)
-    end
-
-    return lines
-end
-
 local function GetVisualsLingerSeconds()
     local defaults = addon and addon.defaults or nil
     local linger = (addon and addon.db and addon.db.focusedVisualsLinger)
         or (defaults and defaults.focusedVisualsLinger)
         or 0
     return math.max(0, tonumber(linger) or 0)
-end
-
-local function VerifyBlizzardFrameRestore(label)
-    if not (addon and addon.db and addon.db.debugMode and addon.db.debugState) then
-        return
-    end
-
-    local criticalFrames = {
-        -- ElvUIBar1 = true,
-        -- Minimap = true,
-        -- MinimapCluster = true,
-        -- ObjectiveTrackerFrame = true,
-        -- ChatFrame1 = true,
-        ChatFrame4 = true,
-        RightChatPanel = true,
-        -- PlayerFrame = true,
-        -- TargetFrame = true,
-        -- MultiBarBottomLeft = true,
-        -- MultiBarBottomRight = true,
-        -- MultiBarLeft = true,
-        -- MultiBarRight = true,
-        -- MicroButtonAndBagsBar = true,
-        -- UIWidgetTopCenterContainerFrame = true,
-    }
-
-    local mismatches = {}
-    local seenNames = {}
-    for _, name in ipairs(panelNamesToFade) do
-        if not seenNames[name] then
-            seenNames[name] = true
-
-            local expectedShown = frameFader.restoreExpectedShownByName[name]
-            local expectedAlpha = frameFader.restoreExpectedAlphaByName[name]
-            if expectedShown then
-                local panel = ResolveNamedFrame(name)
-                local observedShown = panel and panel.IsShown and panel:IsShown() or false
-                local observedAlpha = panel and panel.GetAlpha and panel:GetAlpha() or nil
-
-                -- Many Blizzard frames are conditional/variant (mail icon, compact player,
-                -- queue buttons, stance variants). Avoid noisy false positives for non-critical
-                -- frames unless they are currently visible and measurable.
-                local shouldCheck = true
-                if (not criticalFrames[name]) and (not observedShown or observedAlpha == nil) then
-                    print("Skipping restore verification for " .. tostring(name) .. " because it's not critical and is currently not shown or has no alpha")
-                    shouldCheck = false
-                end
-
-                if shouldCheck then
-                    --local targetAlpha = tonumber(expectedAlpha) or VISIBLE_ALPHA
-                    local targetAlpha = VISIBLE_ALPHA
-                    local observed = tonumber(observedAlpha) or -1
-                    if (not observedShown) or math.abs(observed - targetAlpha) > 0.1 then
-                        table.insert(mismatches, name .. " shown=" .. tostring(observedShown)
-                            .. " alpha=" .. tostring(observedAlpha)
-                            .. " expectedAlpha=" .. tostring(targetAlpha))
-                    else
-                        print("Restore verification ok for " .. tostring(name) .. " shown=" .. tostring(observedShown)
-                            .. " alpha=" .. tostring(observedAlpha))
-                    end
-                else
-                    print("Restore verification skipped for " .. tostring(name) .. " expectedShown=" .. tostring(expectedShown)
-                        .. " expectedAlpha=" .. tostring(expectedAlpha))
-                end
-            end
-        end
-    end
-
-    -- local panel = _G["RightChatPanel"]
-    -- local alpha = panel.GetAlpha()
-    -- print("RightChatPanel alpha: " .. tostring(alpha) .. "expected alpha: " .. tostring(frameFader.restoreExpectedAlphaByName["RightChatPanel"] or "n/a"))
-    if #mismatches > 0 then
-        print("Restore verification mismatch (" .. tostring(label) .. "): " .. table.concat(mismatches, "; "))
-        TraceChatFrameState("verify-mismatch:" .. tostring(label))
-    else
-        print("Restore verification ok (" .. tostring(label) .. ")")
-        TraceChatFrameState("verify-ok:" .. tostring(label))
-    end
 end
 
 local function HideMinimapButtons(hideButtons)
@@ -590,16 +399,6 @@ local function IsFrameFading(frame)
     return UIFrameFadeTimers[frame] ~= nil
 end
 
-local function DeferredDebugPrint(delaySeconds, message)
-    if C_Timer and type(C_Timer.After) == "function" then
-        C_Timer.After(delaySeconds or 0, function()
-            print(message)
-        end)
-    else
-        print(message)
-    end
-end
-
 local function SetFrameClickEnabled(frame, enabled)
     if not frame then
         return
@@ -737,47 +536,34 @@ local function FadeInUI()
     HideHandyNotesMapPins(false)
     HideGatherMateMinimap(false)
 
-    frameFader.restoreExpectedShownByName = addon.DeepCopy(frameFader.wasShownByName or {})
-    frameFader.restoreExpectedAlphaByName = addon.DeepCopy(frameFader.originalAlphaByName or {})
     frameFader.wasShownByName = {}
     frameFader.originalAlphaByName = {}
     frameFader.isFaded = false
     frameFader.restoreAt = nil
     frameFader.isFading = false
-    -- Delay first verification until fade-in animation should be complete.
-    frameFader.restoreVerifyAt = (type(GetTime) == "function") and (GetTime() + 0.80) or nil
-    frameFader.restoreVerifyChecksRemaining = 2
-    FocusFadeTraceState("FadeInUI end")
-    TraceChatFrameState("fadein-end")
 end
 
 local function RestoreFocusVisualsAfterLinger()
-    FocusFadeTrace("RestoreFocusVisualsAfterLinger begin")
     if not frameFader.isFaded then
         frameFader.restoreAt = nil
-        FocusFadeTrace("RestoreFocusVisualsAfterLinger skipped; UI not faded")
         return
     end
 
     if not IsFadeFeatureEnabled() then
-        FocusFadeTrace("RestoreFocusVisualsAfterLinger immediate restore; focused visuals disabled")
         FadeInUI()
         return
     end
 
     local linger = GetVisualsLingerSeconds()
     if linger <= 0 or type(GetTime) ~= "function" then
-        FocusFadeTrace("RestoreFocusVisualsAfterLinger immediate restore; linger=" .. tostring(linger) .. " GetTimeAvailable=" .. tostring(type(GetTime) == "function"))
         FadeInUI()
         return
     end
 
     frameFader.restoreAt = GetTime() + linger
-    FocusFadeTrace("RestoreFocusVisualsAfterLinger scheduled restoreAt=" .. tostring(frameFader.restoreAt) .. " linger=" .. tostring(linger))
 end
 
 ForceVisibleFocusVisuals = function()
-    DeferredDebugPrint(0.1, "ForceVisibleFocusVisuals begin")
     frameFader.isFading = true
     frameFader.restoreAt = nil
     frameFader.cacheSuppressUntil = nil
@@ -798,16 +584,10 @@ ForceVisibleFocusVisuals = function()
 end
 
 local function RefreshFocusFadeState()
-    FocusFadeTrace("RefreshFocusFadeState begin state=" .. tostring(addon.state and addon.state.fishingSessionState)
-        .. " featureEnabled=" .. tostring(IsFadeFeatureEnabled())
-        .. " isFaded=" .. tostring(frameFader.isFaded)
-        .. " restoreAt=" .. tostring(frameFader.restoreAt))
     if IsFadeFeatureEnabled() and IsPreCastingSessionState() then
         if not frameFader.isFaded then
-            FocusFadeTrace("RefreshFocusFadeState entering PRE_CASTING -> fade out")
             FadeOutUI()
         elseif frameFader.restoreAt ~= nil then
-            FocusFadeTrace("RefreshFocusFadeState clearing pending restore during PRE_CASTING")
             frameFader.restoreAt = nil
         end
         return
@@ -816,17 +596,14 @@ local function RefreshFocusFadeState()
     local shouldFade = IsFadeFeatureEnabled() and IsFishingSessionActive()
 
     if shouldFade and frameFader.restoreAt ~= nil then
-        FocusFadeTrace("RefreshFocusFadeState shouldFade=true and restoreAt pending -> clear timer")
         frameFader.restoreAt = nil
     elseif IsFadeFeatureEnabled()
         and (addon.fishing and addon.fishing.IsSessionState
             and (addon.fishing.IsSessionState("CANCELLING_FISHING_SESSION") or addon.fishing.IsSessionState("CLOSING_FISHING_SESSION")))
         and frameFader.isFaded then
-        FocusFadeTrace("RefreshFocusFadeState close/cancel state with faded UI -> schedule restore")
         RestoreFocusVisualsAfterLinger()
     elseif not shouldFade and frameFader.isFaded then
-        FocusFadeTrace("RefreshFocusFadeState shouldFade=false and faded -> fade in")
-        FadeInUI("RefreshFocusFadeState: FishingInactive 2")
+        FadeInUI()
     end
 end
 
@@ -836,8 +613,6 @@ local function CreateFocusFadeFrame()
     end
 
     local frame = CreateFrame("Frame")
-    local elapsedSinceRefresh = 0
-
     frame:RegisterEvent("PLAYER_REGEN_ENABLED")
     frame:SetScript("OnEvent", function(_, event)
         if event == "PLAYER_REGEN_ENABLED" then
@@ -846,36 +621,16 @@ local function CreateFocusFadeFrame()
     end)
 
     frame:SetScript("OnUpdate", function()
-        if frameFader.restoreVerifyChecksRemaining and frameFader.restoreVerifyChecksRemaining > 0
-            and frameFader.restoreVerifyAt ~= nil
-            and type(GetTime) == "function"
-            and GetTime() >= frameFader.restoreVerifyAt then
-            VerifyBlizzardFrameRestore("onupdate")
-            frameFader.restoreVerifyChecksRemaining = frameFader.restoreVerifyChecksRemaining - 1
-            frameFader.restoreVerifyAt = GetTime() + 0.50
-        end
-
         if frameFader.restoreAt == nil then
             return
         end
         if type(GetTime) ~= "function" or GetTime() >= frameFader.restoreAt then
-            FocusFadeTrace("OnUpdate restoreAt reached -> FadeInUI")
             FadeInUI()
         end
     end)
 
     frameFader.frame = frame
     return frame
-end
-
-function addon:DebugFocusFrame(frameName)
-    local frame = ResolveNamedFrame(frameName)
-    if frame then
-        print("DebugFocusFrame " .. tostring(frameName) .. " shown=" .. tostring(frame.IsShown and frame:IsShown() or "n/a")
-            .. " alpha=" .. tostring(frame.GetAlpha and frame:GetAlpha() or "n/a"))
-    else
-        print("DebugFocusFrame " .. tostring(frameName) .. " not found")
-    end
 end
 
 addon.uiFocus = addon.uiFocus or {}
@@ -885,12 +640,7 @@ addon.uiFocus.FadeOutUI = FadeOutUI
 addon.uiFocus.FadeInUI = FadeInUI
 addon.uiFocus.RestoreFocusVisualsAfterLinger = RestoreFocusVisualsAfterLinger
 addon.uiFocus.ForceVisibleFocusVisuals = ForceVisibleFocusVisuals
-addon.uiFocus.GetFocusVisualStateLines = BuildFocusVisualStateLines
 addon._test = addon._test or {}
 addon._test.GetFocusFadeRestoreAt = function()
     return frameFader.restoreAt
-end
-addon._test.GetFocusVisualStateLines = BuildFocusVisualStateLines
-addon.uiFocus.DebugFocusFrame = function(frameName)
-    addon:DebugFocusFrame(frameName)
 end
