@@ -16,8 +16,8 @@ else
 fi
 
 # Copy the main addon files to the addon directory
-cp -f DreamFisher.lua DreamFisher.toc Bindings.xml DreamFisher_Tests.lua Requirements.md "UI requirements.md" \
+cp -f DreamFisher.lua DreamFisher.toc Bindings.xml  \
   "$ADDON_DIR"
 
 # Copy the addon subdirectories to the addon directory
-cp -rf audio buff core fishing ui tests Libs "$ADDON_DIR"
+cp -rf audio buff core fishing ui Libs "$ADDON_DIR"

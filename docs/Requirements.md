@@ -30,8 +30,11 @@ Name the addon "DreamFisher".
     - Medium attention: UI Info message, multiple "dings" or equivalent impact audio
     - Low attention: UI Info message, single "ding"
 [ ] Add sliders so the player can configure how much to affect each audio channel when fishing
-[ ] Allow benefits of Underlight Angler when not fishing (walk on water, fast swimming)
-
+[x] Allow benefits of Underlight Angler when not fishing (walk on water, fast swimming)
+[ ] Add a way for the player to choose additional frames to fade in/out (dropper? open window list?)
+  [ ] Enable/disable each frame
+  [ ] Set level of fade (alpha) for each frame
+[ ] Add compatibility for profile (Buffs tab, especially)
 
 # UI Features
 The addon provies an interface window with the following features.
