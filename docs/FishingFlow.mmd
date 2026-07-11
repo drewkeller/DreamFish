@@ -15,13 +15,13 @@ flowchart TD
     J --> I
 
     K --> L{Hooked interact evidence}
-    L -->|No evidence after confirm window| I
+    L -->|No evidence after confirm window| J
     L -->|Need target acquire| K
     L -->|Direct interact route| M[WAITING_FOR_LOOT_WINDOW]
 
     M --> N{Loot events}
     N -->|LOOT_READY while loot eligible| O[LOOTING]
-    N -->|No fish hooked UI 413| P[CANCELLING_FISHING_SESSION]
+    N -->|No fish hooked UI 413| J
 
     O --> Q{Loot closed?}
     Q -->|LOOT_CLOSED| J
@@ -38,4 +38,5 @@ flowchart TD
     R -->|Non fishing cast starts after grace| P
 
     P --> I
-    I --> Z[Session close effects: restore audio, clear interact override, optional auto loot restore]
+    J -->|STARTING_LINGER runs close effects| Z[Session close effects: restore audio, clear bobber interact override, optional auto loot restore]
+    I --> Z

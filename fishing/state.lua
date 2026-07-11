@@ -71,7 +71,7 @@ local function ApplySessionState(nextState, reason, options)
                 and addon.db
                 and addon.db.focusedVisuals then
             addon.uiFocus.FadeOutUI()
-        elseif nextState == SESSION_STATES.CLOSING_FISHING_SESSION
+        elseif nextState == SESSION_STATES.STARTING_LINGER
                 and addon.uiFocus.RestoreFocusVisualsAfterLinger then
             addon.uiFocus.RestoreFocusVisualsAfterLinger()
         end
@@ -559,7 +559,8 @@ local function CreateFishingStateFrame()
                             local hasAnyInteractUnit, hasSoftInteractNameOnly, inAcquireWindow = GetHookedInteractEvidence()
                             if (not hasAnyInteractUnit) and (not hasSoftInteractNameOnly) and (not inAcquireWindow) then
                                 LogStateTransition("post-stop-no-hooked-evidence-close", event, spellID, isFishingSpell)
-                                CloseFishingSession(
+                                StartLingerThenCloseSession(
+                                    "post-stop-no-hooked-evidence-starting-linger",
                                     "post-stop-no-hooked-evidence-close",
                                     { poleReason = "state-post-stop-no-hooked-evidence" }
                                 )

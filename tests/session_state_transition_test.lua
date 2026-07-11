@@ -212,13 +212,32 @@ assertEquals(history[2].toState, addon.fishing.SessionStates.WAITING_FOR_BITE,
 assertEquals(history[2].reason, "cast-phase-ended-enter-waiting-for-bite",
     "Second transition should use cast-phase-ended-enter-waiting-for-bite reason")
 
--- No-hook-evidence timeout should cancel and close after confirm window.
+-- No-hook-evidence timeout should pass through STARTING_LINGER before close.
 now = 206
 local stateOnUpdate = stateFrame:GetScript("OnUpdate")
 assertTrue(type(stateOnUpdate) == "function", "State frame OnUpdate should exist in waiting-for-strike window")
 stateOnUpdate(stateFrame, 0.2)
 assertEquals(addon.state.fishingSessionState, addon.fishing.SessionStates.CLOSING_FISHING_SESSION,
     "No-hook-evidence timeout should finalize to CLOSING_FISHING_SESSION")
+
+history = addon._test.GetSessionTransitionHistory()
+local noHookCloseTransition = history[#history]
+local noHookStartingLingerTransition = history[#history - 1]
+assertTrue(noHookCloseTransition ~= nil, "Transition history should include no-hook-evidence close transition")
+assertTrue(noHookStartingLingerTransition ~= nil,
+    "Transition history should include no-hook-evidence starting-linger transition")
+assertEquals(noHookStartingLingerTransition.fromState, addon.fishing.SessionStates.WAITING_FOR_STRIKE,
+    "No-hook-evidence starting-linger transition should originate from WAITING_FOR_STRIKE")
+assertEquals(noHookStartingLingerTransition.toState, addon.fishing.SessionStates.STARTING_LINGER,
+    "No-hook-evidence starting-linger transition should move to STARTING_LINGER")
+assertEquals(noHookStartingLingerTransition.reason, "post-stop-no-hooked-evidence-starting-linger",
+    "No-hook-evidence starting-linger transition should use canonical starting-linger reason")
+assertEquals(noHookCloseTransition.fromState, addon.fishing.SessionStates.STARTING_LINGER,
+    "No-hook-evidence close transition should originate from STARTING_LINGER")
+assertEquals(noHookCloseTransition.toState, addon.fishing.SessionStates.CLOSING_FISHING_SESSION,
+    "No-hook-evidence close transition should move to CLOSING_FISHING_SESSION")
+assertEquals(noHookCloseTransition.reason, "post-stop-no-hooked-evidence-close",
+    "No-hook-evidence close transition should use canonical close reason")
 
 -- Re-enter for loot flow assertions below.
 now = 210

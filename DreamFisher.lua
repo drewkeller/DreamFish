@@ -238,11 +238,11 @@ lootTracker:SetScript("OnEvent", function(_, event, ...)
             local now = (type(GetTime) == "function") and GetTime() or 0
             local startedAt = tonumber(addon.state.fishingStartTime) or 0
             local elapsed = (startedAt > 0 and now >= startedAt) and (now - startedAt) or 0
-            if not (addon.fishing and addon.fishing.CancelAndCloseFishingSession) then
-                error("DreamFisher: CancelAndCloseFishingSession is required for no-fish-hooked handling")
+            if not (addon.fishing and addon.fishing.StartLingerThenCloseSession) then
+                error("DreamFisher: StartLingerThenCloseSession is required for no-fish-hooked handling")
             end
-            addon.fishing.CancelAndCloseFishingSession(
-                "ui-info-no-fish-hooked",
+            addon.fishing.StartLingerThenCloseSession(
+                "ui-info-no-fish-hooked-starting-linger",
                 "ui-info-no-fish-hooked-close",
                 { restoreAutoLoot = true, poleReason = "ui-info-no-fish-hooked" }
             )
