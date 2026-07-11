@@ -815,7 +815,8 @@ local function LoadConfigBindings()
             for slot = 1, slots do
                 local itemID = addon.utils and addon.utils.ContainerItemID and addon.utils.ContainerItemID(bag, slot) or nil
                 if itemID then
-                    counts[itemID] = (counts[itemID] or 0) + 1
+                    local quantity = addon.utils and addon.utils.ContainerItemCount and addon.utils.ContainerItemCount(bag, slot) or 1
+                    counts[itemID] = (counts[itemID] or 0) + math.max(1, tonumber(quantity) or 1)
                 end
             end
         end
@@ -825,7 +826,8 @@ local function LoadConfigBindings()
             for slot = 1, reagentSlots do
                 local itemID = addon.utils and addon.utils.ContainerItemID and addon.utils.ContainerItemID(5, slot) or nil
                 if itemID then
-                    counts[itemID] = (counts[itemID] or 0) + 1
+                    local quantity = addon.utils and addon.utils.ContainerItemCount and addon.utils.ContainerItemCount(5, slot) or 1
+                    counts[itemID] = (counts[itemID] or 0) + math.max(1, tonumber(quantity) or 1)
                 end
             end
         end
@@ -883,6 +885,9 @@ local function LoadConfigBindings()
             local desiredText = tostring(itemID or "")
             if control.itemBox:GetText() ~= desiredText then
                 control.itemBox:SetText(desiredText)
+            end
+            if control.itemBox and control.itemBox.UpdateCountDisplay then
+                control.itemBox:UpdateCountDisplay()
             end
 
             -- Refresh presence-driven checkbox dim/enable state even when text
