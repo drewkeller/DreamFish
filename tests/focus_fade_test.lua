@@ -136,7 +136,7 @@ local addon = _G.DreamFisher
 assertTrue(type(addon) == "table", "Addon should load")
 addon.commands.RegisterSlashCommands()
 
-addon._test.SetDB({ focusedVisuals = true, focusedVisualsLinger = 3, focusedAudio = false, autoLoot = true, bagAlerts = true, treasureAlerts = true, lowBagThreshold = 2 })
+addon._test.SetDB({ focusedVisuals = true, focusedVisualsLinger = 3, focusedAudio = false, autoLoot = true, bagAlerts = true, treasureAlerts = true, bagAlertsThreshold = 2 })
 addon.uiFocus.CreateFocusFadeFrame()
 
 local focusFrame = addon.uiFocus and addon.uiFocus.CreateFocusFadeFrame and addon.uiFocus.CreateFocusFadeFrame()

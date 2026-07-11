@@ -267,12 +267,18 @@ bagMonitor:SetScript("OnEvent", function(_, event)
         local now = (type(GetTime) == "function") and GetTime() or 0
         if fishingLootBagCheckPendingUntil > 0 then
             if now <= fishingLootBagCheckPendingUntil then
-                local threshold = (addon.db and addon.db.lowBagThreshold) or addon.defaults.lowBagThreshold
-                local regularFree = addon.utils.GetFreeBagSlots(false)
-                local reagentFree = addon.utils.GetFreeReagentBagSlots()
-                DebugBagMessage("Low bag threshold set to " .. tostring(threshold))
+                local shouldCheckRegular = addon.db and addon.db.bagAlerts
+                local shouldCheckReagent = addon.db and addon.db.reagentBagAlerts
+                local threshold = (addon.db and addon.db.bagAlertsThreshold) or addon.defaults.bagAlertsThreshold
+                local reagentThreshold = (addon.db and addon.db.reagentBagAlertsThreshold) or addon.defaults.reagentBagAlertsThreshold
+                local regularFree = shouldCheckRegular and addon.utils.GetFreeBagSlots(false) or nil
+                local reagentFree = shouldCheckReagent and addon.utils.GetFreeReagentBagSlots() or nil
+                local isRegularLow = regularFree ~= nil and regularFree <= threshold
+                local isReagentLow = reagentFree ~= nil and reagentFree <= reagentThreshold
+                DebugBagMessage("Low bag threshold set to bags=" .. tostring(threshold)
+                    .. " reagent=" .. tostring(reagentThreshold))
                 DebugBagMessage("BAG_UPDATE_DELAYED slots: regularFree=" .. tostring(regularFree) .. ", reagentFree=" .. tostring(reagentFree))
-                if regularFree <= threshold or reagentFree <= threshold then
+                if isRegularLow or isReagentLow then
                     DebugBagMessage("Bag space low after loot close: regularFree=" .. tostring(regularFree) .. ", reagentFree=" .. tostring(reagentFree))
                     addon.alerts.ShowBagFullAlert()
                     fishingLootBagCheckPendingUntil = 0

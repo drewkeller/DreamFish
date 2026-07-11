@@ -864,11 +864,14 @@ local function LoadConfigBindings()
     if isFocusActive and addon.bagAlertsCheckbox then
         addon.bagAlertsCheckbox:SetChecked(addon.db.bagAlerts)
     end
+    if isFocusActive and addon.reagentBagAlertsCheckbox then
+        addon.reagentBagAlertsCheckbox:SetChecked(addon.db.reagentBagAlerts)
+    end
     if isModesActive and addon.escapeCloseCheckbox then
         addon.escapeCloseCheckbox:SetChecked(addon.db.closeWindowOnEscape)
     end
-    if isFocusActive and addon.lowBagBox then
-        addon.lowBagBox:SetText(tostring(addon.db.lowBagThreshold or defaults.lowBagThreshold))
+    if isFocusActive and addon.bagAlertsThresholdBox then
+        addon.bagAlertsThresholdBox:SetText(tostring(addon.db.bagAlertsThreshold or defaults.bagAlertsThreshold))
     end
     if activeTab == "buffs" and addon.buffItemControls then
         for i, control in ipairs(addon.buffItemControls) do
@@ -930,10 +933,16 @@ local function SaveConfigBindings()
 
     local previouslyActiveBuffItems = CollectActiveBuffItemIDs(addon.db.buffItems)
 
-    if addon.lowBagBox then
-        addon.db.lowBagThreshold = addon.Clamp(tonumber(addon.lowBagBox:GetText()) or defaults.lowBagThreshold, 0, 20)
+    if addon.bagAlertsThresholdBox then
+        addon.db.bagAlertsThreshold = addon.Clamp(tonumber(addon.bagAlertsThresholdBox:GetText()) or defaults.bagAlertsThreshold, 0, 20)
     else
-        addon.db.lowBagThreshold = addon.Clamp(tonumber(addon.db.lowBagThreshold) or defaults.lowBagThreshold, 0, 20)
+        addon.db.bagAlertsThreshold = addon.Clamp(tonumber(addon.db.bagAlertsThreshold) or defaults.bagAlertsThreshold, 0, 20)
+    end
+
+    if addon.reagentBagAlertsThresholdBox then
+        addon.db.reagentBagAlertsThreshold = addon.Clamp(tonumber(addon.reagentBagAlertsThresholdBox:GetText()) or defaults.reagentBagAlertsThreshold, 0, 20)
+    else
+        addon.db.reagentBagAlertsThreshold = addon.Clamp(tonumber(addon.db.reagentBagAlertsThreshold) or defaults.reagentBagAlertsThreshold, 0, 20)
     end
 
     if addon.audioLingerBox then
@@ -967,6 +976,9 @@ local function SaveConfigBindings()
     end
     if addon.bagAlertsCheckbox then
         addon.db.bagAlerts = addon.bagAlertsCheckbox:GetChecked()
+    end
+    if addon.reagentBagAlertsCheckbox then
+        addon.db.reagentBagAlerts = addon.reagentBagAlertsCheckbox:GetChecked()
     end
 
     local existingModes = (type(addon.db.castingModes) == "table") and addon.db.castingModes or {}
@@ -1312,10 +1324,16 @@ local function BuildFocusTab(focusPage, ui, onLiveChange)
         "Enables auto-loot while fishing and returns it to your previous setting when done.")
     addon.treasureAlertsCheckbox = ui.FlowCheckbox(focusSection, "Patient Treasure notification", onLiveChange,
         "Notifies you if you catch a Patient Treasure by coloring the screen and playing a distinct sound.")
-    addon.bagAlertsCheckbox = ui.FlowCheckbox(focusSection, "Bag monitor / alert", onLiveChange,
-        "Monitors your bag space and alerts you when it is low.")
-    addon.lowBagBox = ui.FlowEditBox(focusSection, "Threshold (slots)", 150, onLiveChange,
-        "Minimum number of free bag slots before bag alerts are triggered (either normal or reagent slots).")
+
+    addon.bagAlertsCheckbox = ui.FlowCheckbox(focusSection, "Normal bag monitor / alert", onLiveChange,
+        "Monitors your bag space and alerts you when it is low (non-reagent slots).")
+    addon.bagAlertsThresholdBox = ui.FlowEditBox(focusSection, "Threshold (slots)", 150, onLiveChange,
+        "Minimum number of free bag slots before an alert is triggered (non-reagent slots).")
+
+    addon.reagentBagAlertsCheckbox = ui.FlowCheckbox(focusSection, "Reagent bag monitor / alert", onLiveChange,
+        "Monitors your reagentbag space and alerts you when it is low.")
+    addon.reagentBagAlertsThresholdBox = ui.FlowEditBox(focusSection, "Reagent Bag Threshold (slots)", 150, onLiveChange,
+        "Minimum number of free reagent bag slots before an alert is triggered.")
 
     local audioSection = ui.FlowSection(root, "Audio")
     addon.focusedAudioCheckbox = ui.FlowCheckbox(audioSection, "Focused audio when fishing", onLiveChange,

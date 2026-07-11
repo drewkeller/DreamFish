@@ -179,7 +179,7 @@ addon._test.SetDB({
     autoLoot = true,
     bagAlerts = true,
     treasureAlerts = true,
-    lowBagThreshold = 2,
+    bagAlertsThreshold = 2,
 })
 
 addon._test.ClearSessionTransitionHistory()
@@ -329,7 +329,7 @@ addon._test.SetDB({
     autoLoot = true,
     bagAlerts = true,
     treasureAlerts = true,
-    lowBagThreshold = 2,
+    bagAlertsThreshold = 2,
 })
 
 now = 400

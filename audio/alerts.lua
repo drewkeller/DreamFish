@@ -137,7 +137,9 @@ local function CreateBagFullAlertFrame()
 end
 
 local function ShowBagFullAlert(force)
-    if not force and (not addon.db or not addon.db.bagAlerts) then
+    local shouldShowBagAlert = force or (addon.db and addon.db.bagAlerts)
+    local shouldShowReagentBagAlert = force or (addon.db and addon.db.reagentBagAlerts)
+    if not shouldShowBagAlert and not shouldShowReagentBagAlert then
         return
     end
 

@@ -184,7 +184,7 @@ local function driveOnUpdateUntil(targetTime)
 end
 
 -- Initialize addon state.
-addon._test.SetDB({ focusedAudio = true, focusedAudioLinger = 10, autoLoot = true, bagAlerts = true, treasureAlerts = true, lowBagThreshold = 2 })
+addon._test.SetDB({ focusedAudio = true, focusedAudioLinger = 10, autoLoot = true, bagAlerts = true, reagentBagAlerts = true, treasureAlerts = true, bagAlertsThreshold = 2, reagentBagAlertsThreshold = 2 })
 local fishingStateFrame = addon._test.GetFishingStateFrame()
 local onEvent = fishingStateFrame and fishingStateFrame:GetScript("OnEvent")
 assertTrue(type(onEvent) == "function", "Fishing state frame OnEvent should exist")
@@ -344,7 +344,13 @@ driveOnUpdateUntil(813)
 currentSessionState = addon._test.GetSessionState()
 assertEquals(currentSessionState, addon.fishing.SessionStates.CLOSING_FISHING_SESSION,
     "No-evidence bobber mode should self-clear to CLOSING_FISHING_SESSION")
+local audioRestoreAt = addon._test.GetAudioRestoreAt()
+assertTrue(type(audioRestoreAt) == "number" and audioRestoreAt > now,
+    "No-evidence bobber mode should schedule audio restore after linger")
+assertTrue(addon._test.GetAudioDucked(),
+    "Audio should remain ducked until stale bobber linger expires")
+driveOnUpdateUntil(audioRestoreAt + 1)
 assertTrue(not addon._test.GetAudioDucked(),
-    "Audio should restore when stale bobber mode self-clears")
+    "Audio should restore after stale bobber linger expires")
 
 print("PASS: audio_ducking_test")

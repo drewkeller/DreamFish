@@ -127,7 +127,7 @@ setBagState(
 assertEquals(addon._test.GetFreeBagSlots(), 2, "Should count free slots across normal and reagent bags")
 
 -- Case 2: Warning fires at threshold and is throttled for 60 seconds.
-addon._test.SetDB({ lowBagThreshold = 2, bagAlerts = true })
+addon._test.SetDB({ bagAlertsThreshold = 2, bagAlerts = true, reagentBagAlerts = true, reagentBagAlertsThreshold = 2 })
 addon._test.ResetBagWarningState()
 clearMessages()
 now = 100
@@ -154,7 +154,7 @@ setBagState(
         [5] = { [1] = nil, [2] = nil },
     }
 )
-addon._test.SetDB({ lowBagThreshold = 1, bagAlerts = true })
+addon._test.SetDB({ bagAlertsThreshold = 1, bagAlerts = true, reagentBagAlerts = true, reagentBagAlertsThreshold = 1 })
 addon._test.ResetBagWarningState()
 clearMessages()
 now = 200
@@ -172,12 +172,92 @@ setBagState(
         [5] = { [1] = 444, [2] = nil },
     }
 )
-addon._test.SetDB({ lowBagThreshold = 1, bagAlerts = true })
+addon._test.SetDB({ bagAlertsThreshold = 1, bagAlerts = true, reagentBagAlerts = true, reagentBagAlertsThreshold = 1 })
 addon._test.ResetBagWarningState()
 clearMessages()
 now = 300
 addon._test.CheckBagSpace()
 assertEquals(#messages, 1, "Should warn when reagent bag free slots are at threshold")
 assertTrue(string.find(messages[1], "Reagent: 1", 1, true) ~= nil, "Warning should include reagent free-slot count")
+
+-- Case 5: Normal-bag alert can fire while reagent-bag alert is disabled.
+setBagState(
+    {
+        [0] = 2,
+        [5] = 2,
+    },
+    {
+        [0] = { [1] = 555, [2] = nil },
+        [5] = { [1] = 666, [2] = 777 },
+    }
+)
+addon._test.SetDB({ bagAlertsThreshold = 1, bagAlerts = true, reagentBagAlerts = false, reagentBagAlertsThreshold = 0 })
+addon._test.ResetBagWarningState()
+clearMessages()
+now = 400
+addon._test.CheckBagSpace()
+assertEquals(#messages, 1, "Should warn when regular bag slots are low and reagent alerts are disabled")
+assertTrue(string.find(messages[1], "Bags: 1", 1, true) ~= nil,
+    "Normal-only warning should include regular free-slot count")
+
+-- Case 6: Reagent-bag alert can fire while normal-bag alert is disabled.
+setBagState(
+    {
+        [0] = 4,
+        [5] = 2,
+    },
+    {
+        [0] = { [1] = nil, [2] = nil, [3] = nil, [4] = nil },
+        [5] = { [1] = 888, [2] = nil },
+    }
+)
+addon._test.SetDB({ bagAlertsThreshold = 0, bagAlerts = false, reagentBagAlerts = true, reagentBagAlertsThreshold = 1 })
+addon._test.ResetBagWarningState()
+clearMessages()
+now = 500
+addon._test.CheckBagSpace()
+assertEquals(#messages, 1, "Should warn when reagent bag slots are low and normal alerts are disabled")
+assertTrue(string.find(messages[1], "Reagent: 1", 1, true) ~= nil,
+    "Reagent-only warning should include reagent free-slot count")
+
+-- Case 6b: A disabled reagent-bag alert should not fire just because reagent slots are low.
+setBagState(
+    {
+        [0] = 3,
+        [5] = 2,
+    },
+    {
+        [0] = { [1] = nil, [2] = nil, [3] = 1333 },
+        [5] = { [1] = 1444, [2] = nil },
+    }
+)
+addon._test.SetDB({ bagAlertsThreshold = 1, bagAlerts = true, reagentBagAlerts = false, reagentBagAlertsThreshold = 1 })
+addon._test.ResetBagWarningState()
+clearMessages()
+now = 550
+addon._test.CheckBagSpace()
+assertEquals(#messages, 0, "Should not warn when only reagent slots are low and reagent alerts are disabled")
+
+-- Case 7: Different thresholds should independently gate regular and reagent alerts.
+setBagState(
+    {
+        [0] = 3,
+        [5] = 3,
+    },
+    {
+        [0] = { [1] = 999, [2] = nil, [3] = nil },
+        [5] = { [1] = 1111, [2] = 1222, [3] = nil },
+    }
+)
+addon._test.SetDB({ bagAlertsThreshold = 2, bagAlerts = true, reagentBagAlerts = true, reagentBagAlertsThreshold = 0 })
+addon._test.ResetBagWarningState()
+clearMessages()
+now = 600
+addon._test.CheckBagSpace()
+assertEquals(#messages, 1, "Should warn when regular bag threshold is met even if reagent threshold is not")
+assertTrue(string.find(messages[1], "Bags: 2", 1, true) ~= nil,
+    "Different-threshold warning should include regular free-slot count")
+assertTrue(string.find(messages[1], "Reagent: 1", 1, true) ~= nil,
+    "Different-threshold warning should include reagent free-slot count")
 
 print("PASS: bag_space_test")

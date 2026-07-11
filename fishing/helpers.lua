@@ -208,21 +208,28 @@ local function CheckBuffItemStockWarnings()
 end
 
 local function CheckBagSpace()
-    if not addon.db or not addon.db.bagAlerts then
+    local shouldCheckRegular = addon.db and addon.db.bagAlerts
+    local shouldCheckReagent = addon.db and addon.db.reagentBagAlerts
+    if not shouldCheckRegular and not shouldCheckReagent then
         return
     end
 
-    local threshold = addon.db.lowBagThreshold or addon.defaults.lowBagThreshold
-    local regularFree = GetFreeBagSlots(false)
-    local reagentFree = GetFreeReagentBagSlots()
+    local threshold = addon.db.bagAlertsThreshold or addon.defaults.bagAlertsThreshold
+    local reagentThreshold = addon.db.reagentBagAlertsThreshold or addon.defaults.reagentBagAlertsThreshold
+    local regularFree = shouldCheckRegular and GetFreeBagSlots(false) or nil
+    local reagentFree = shouldCheckReagent and GetFreeReagentBagSlots() or nil
+    local isRegularLow = regularFree ~= nil and regularFree <= threshold
+    local isReagentLow = reagentFree ~= nil and reagentFree <= reagentThreshold
 
-    if regularFree <= threshold or reagentFree <= threshold then
+    if isRegularLow or isReagentLow then
         local now = GetTime()
         if now - addon.state.lastBagWarning >= 60 then
             addon.state.lastBagWarning = now
             addon.PrintMessage(
-                "Low bag space! Bags: " .. regularFree .. ", Reagent: " .. reagentFree ..
-                " slot(s) remaining (threshold: " .. threshold .. ")."
+                "Low bag space! Bags: " .. tostring(regularFree or "n/a")
+                .. ", Reagent: " .. tostring(reagentFree or "n/a")
+                .. " slot(s) remaining (thresholds: bags=" .. tostring(threshold)
+                .. ", reagent=" .. tostring(reagentThreshold) .. ")."
             )
         end
     end
