@@ -198,19 +198,25 @@ assertEquals(addon.state.fishingSessionState, addon.fishing.SessionStates.WAITIN
     "Cast stop should move to WAITING_FOR_STRIKE")
 
 local history = addon._test.GetSessionTransitionHistory()
-assertTrue(#history >= 2, "Transition history should include cast start and cast stop transitions")
+assertTrue(#history >= 3, "Transition history should include pre-cast, cast start, and cast stop transitions")
 assertEquals(history[1].fromState, addon.fishing.SessionStates.IDLE,
     "First transition should start from IDLE")
-assertEquals(history[1].toState, addon.fishing.SessionStates.CASTING,
-    "First transition should move to CASTING")
-assertEquals(history[1].reason, "cast-start-fishing",
-    "First transition should use cast-start-fishing reason")
-assertEquals(history[2].fromState, addon.fishing.SessionStates.CASTING,
-    "Second transition should start from CASTING")
-assertEquals(history[2].toState, addon.fishing.SessionStates.WAITING_FOR_BITE,
-    "Second transition should move to WAITING_FOR_BITE")
-assertEquals(history[2].reason, "cast-phase-ended-enter-waiting-for-bite",
-    "Second transition should use cast-phase-ended-enter-waiting-for-bite reason")
+assertEquals(history[1].toState, addon.fishing.SessionStates.PRE_CASTING,
+    "First transition should move to PRE_CASTING")
+assertEquals(history[1].reason, "cast-start-recover-pre-cast-from-closing",
+    "First transition should use recover-pre-cast reason")
+assertEquals(history[2].fromState, addon.fishing.SessionStates.PRE_CASTING,
+    "Second transition should start from PRE_CASTING")
+assertEquals(history[2].toState, addon.fishing.SessionStates.CASTING,
+    "Second transition should move to CASTING")
+assertEquals(history[2].reason, "cast-start-fishing",
+    "Second transition should use cast-start-fishing reason")
+assertEquals(history[3].fromState, addon.fishing.SessionStates.CASTING,
+    "Third transition should start from CASTING")
+assertEquals(history[3].toState, addon.fishing.SessionStates.WAITING_FOR_BITE,
+    "Third transition should move to WAITING_FOR_BITE")
+assertEquals(history[3].reason, "cast-phase-ended-enter-waiting-for-bite",
+    "Third transition should use cast-phase-ended-enter-waiting-for-bite reason")
 
 -- No-hook-evidence timeout should pass through STARTING_LINGER before close.
 now = 206
@@ -292,6 +298,25 @@ now = 300
 stateOnEvent(stateFrame, "UNIT_SPELLCAST_START", "player", nil, addon.const.fishingSpellID)
 assertEquals(addon.state.fishingSessionState, addon.fishing.SessionStates.CASTING,
     "Cast start should move to CASTING before cancellation test")
+
+history = addon._test.GetSessionTransitionHistory()
+local castStartTransition = history[#history]
+local recoverPreCastTransition = history[#history - 1]
+assertTrue(castStartTransition ~= nil, "Transition history should include cast-start transition")
+assertTrue(recoverPreCastTransition ~= nil,
+    "Transition history should include recover-pre-cast transition when starting from close")
+assertEquals(recoverPreCastTransition.fromState, addon.fishing.SessionStates.CLOSING_FISHING_SESSION,
+    "Recover-pre-cast transition should originate from CLOSING_FISHING_SESSION")
+assertEquals(recoverPreCastTransition.toState, addon.fishing.SessionStates.PRE_CASTING,
+    "Recover-pre-cast transition should move to PRE_CASTING")
+assertEquals(recoverPreCastTransition.reason, "cast-start-recover-pre-cast-from-closing",
+    "Recover-pre-cast transition should use canonical reason")
+assertEquals(castStartTransition.fromState, addon.fishing.SessionStates.PRE_CASTING,
+    "Cast-start transition should originate from PRE_CASTING after close recovery")
+assertEquals(castStartTransition.toState, addon.fishing.SessionStates.CASTING,
+    "Cast-start transition should move to CASTING")
+assertEquals(castStartTransition.reason, "cast-start-fishing",
+    "Cast-start transition should use cast-start-fishing reason")
 
 stateOnEvent(stateFrame, "PLAYER_REGEN_DISABLED")
 assertEquals(addon.state.fishingSessionState, addon.fishing.SessionStates.CLOSING_FISHING_SESSION,

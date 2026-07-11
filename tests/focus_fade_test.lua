@@ -203,9 +203,9 @@ for _, name in ipairs(trackedFrameNames) do
     name .. " should fade out again on next PRE_CASTING refresh because forcevisible is one-time")
 end
 
-addon._test.SetSessionState(addon.fishing.SessionStates.CLOSING_FISHING_SESSION, "test-focus-fade-closing")
+addon._test.SetSessionState(addon.fishing.SessionStates.STARTING_LINGER, "test-focus-fade-starting-linger")
 local restoreAt = addon._test.GetFocusFadeRestoreAt()
-assertTrue(type(restoreAt) == "number" and restoreAt > now, "CLOSING should schedule visual restore timer")
+assertTrue(type(restoreAt) == "number" and restoreAt > now, "STARTING_LINGER should schedule visual restore timer")
 
 local onUpdate = focusFrame:GetScript("OnUpdate")
 assertTrue(type(onUpdate) == "function", "Focus fade frame should expose OnUpdate for linger restore")

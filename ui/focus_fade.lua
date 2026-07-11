@@ -624,6 +624,7 @@ local function CreateFocusFadeFrame()
         if frameFader.restoreAt == nil then
             return
         end
+
         if type(GetTime) ~= "function" or GetTime() >= frameFader.restoreAt then
             FadeInUI()
         end

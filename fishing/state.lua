@@ -484,6 +484,9 @@ local function CreateFishingStateFrame()
 
         if event == "UNIT_SPELLCAST_START" or event == "UNIT_SPELLCAST_CHANNEL_START" then
             if isFishingSpell then
+                if not IsSessionState(SESSION_STATES.PRE_CASTING) then
+                    ApplySessionState(SESSION_STATES.PRE_CASTING, "cast-start-recover-pre-cast-from-closing")
+                end
                 LogStateTransition("cast-start-fishing", event, spellID, isFishingSpell)
                 addon.state.audioLingerGeneration = addon.state.audioLingerGeneration + 1
                 addon.state.audioRestoreAt = nil
