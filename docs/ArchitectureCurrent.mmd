@@ -1,0 +1,66 @@
+flowchart LR
+    Main[DreamFisher.lua\nmain coordinator]
+
+    subgraph Core
+        Init[core/init.lua]
+        Utils[core/utils.lua]
+    end
+
+    subgraph Fishing
+        FH[fishing/helpers.lua]
+        FC[fishing/casting.lua]
+        FI[fishing/interactloot.lua]
+        FS[fishing/state.lua]
+    end
+
+    subgraph Buff
+        BT[buff/tracking.lua]
+        BTM[buff/timing.lua]
+        BM[buff/management.lua]
+    end
+
+    subgraph Audio
+        AD[audio/ducking.lua]
+        AA[audio/alerts.lua]
+    end
+
+    subgraph UI
+        UC[ui/commands.lua]
+        UCFG[ui/config.lua]
+        UFF[ui/focus_fade.lua]
+        UBOX[ui/buff_item_drop_box.lua]
+        UACE[ui/ace_widget_factory.lua]
+    end
+
+    Init --> Main
+    Utils --> Main
+    FH --> Main
+    FC --> Main
+    FI --> Main
+    FS --> Main
+    BT --> Main
+    BTM --> Main
+    BM --> Main
+    AD --> Main
+    AA --> Main
+    UC --> Main
+    UCFG --> Main
+    UFF --> Main
+    UBOX --> Main
+    UACE --> Main
+
+    FC --> FS
+    FS --> AD
+    FS --> UFF
+    FS --> FC
+    FC --> BM
+    BM --> BTM
+    BTM --> BT
+    UCFG --> BM
+    UCFG --> FS
+    UCFG --> FC
+    UC --> FS
+    UC --> AD
+    AA --> FH
+
+    Note[Characteristics:\n- Global addon table used across modules\n- Runtime coordination spread across state/casting/main\n- UI directly reaches behavior modules]

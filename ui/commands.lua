@@ -2,6 +2,9 @@
 
 local addon = _G["DreamFisher"]
 local PrintMessage = addon.PrintMessage
+local requireFishingAPI = addon.RequireFishingAPI
+local requireAudioAPI = addon.RequireAudioAPI
+local requireAlertsAPI = addon.RequireAlertsAPI
 
 local function Trim(text)
     if type(strtrim) == "function" then
@@ -11,10 +14,15 @@ local function Trim(text)
 end
 
 local function GetCurrentSessionFlagsRequired()
-    if not (addon.fishing and addon.fishing.GetCurrentSessionFlags) then
+    if not addon.RequireFishingAPI then
+        error("DreamFisher: RequireFishingAPI helper is required for command diagnostics")
+    end
+    local fishingAPI = addon.RequireFishingAPI()
+
+    if not (fishingAPI and fishingAPI.GetCurrentSessionFlags) then
         error("DreamFisher: GetCurrentSessionFlags is required for command diagnostics")
     end
-    return addon.fishing.GetCurrentSessionFlags()
+    return fishingAPI.GetCurrentSessionFlags()
 end
 
 local function RegisterSlashCommands()
@@ -46,21 +54,39 @@ local function RegisterSlashCommands()
             return
         end
         if command == "testtreasure" or command == "tt" then
-            addon.alerts.ShowPatientTreasureAlert("Test Trigger", true)
+            if not requireAlertsAPI then
+                error("DreamFisher: RequireAlertsAPI helper is required for testtreasure")
+            end
+            local alerts = requireAlertsAPI()
+            if alerts and alerts.ShowPatientTreasureAlert then
+                alerts.ShowPatientTreasureAlert("Test Trigger", true)
+            end
             PrintMessage("Triggered Patient Treasure alert test.")
             return
         end
         if command == "testbagsfull" or command == "tbf" then
-            addon.alerts.ShowBagFullAlert(true)
+            if not requireAlertsAPI then
+                error("DreamFisher: RequireAlertsAPI helper is required for testbagsfull")
+            end
+            local alerts = requireAlertsAPI()
+            if alerts and alerts.ShowBagFullAlert then
+                alerts.ShowBagFullAlert(true)
+            end
             PrintMessage("Triggered bags full alert test.")
             return
         end
         if command == "testaudio" or command == "ta" then
+            if not requireAudioAPI then
+                error("DreamFisher: RequireAudioAPI helper is required for testaudio")
+            end
+            local audio = requireAudioAPI()
             local amb = GetCVar("Sound_AmbienceVolume")
             local mus = GetCVar("Sound_MusicVolume")
             local dia = GetCVar("Sound_DialogVolume")
             PrintMessage("Audio before duck: Ambience=" .. tostring(amb) .. " Music=" .. tostring(mus) .. " Dialog=" .. tostring(dia))
-            addon.audio.EnableFishingAudioFocus(true)
+            if audio and audio.EnableFishingAudioFocus then
+                audio.EnableFishingAudioFocus(true)
+            end
             local amb2 = GetCVar("Sound_AmbienceVolume")
             local mus2 = GetCVar("Sound_MusicVolume")
             local dia2 = GetCVar("Sound_DialogVolume")
@@ -87,7 +113,13 @@ local function RegisterSlashCommands()
             return
         end
         if command == "duckaudio" or command == "da" then
-            addon.audio.EnableFishingAudioFocus(true)
+            if not requireAudioAPI then
+                error("DreamFisher: RequireAudioAPI helper is required for duckaudio")
+            end
+            local audio = requireAudioAPI()
+            if audio and audio.EnableFishingAudioFocus then
+                audio.EnableFishingAudioFocus(true)
+            end
             addon.state.audioRestoreAt = GetTime() + (addon.db.focusedAudioLinger or addon.defaults.focusedAudioLinger or 10)
             local amb = GetCVar("Sound_AmbienceVolume")
             local mus = GetCVar("Sound_MusicVolume")
@@ -96,7 +128,13 @@ local function RegisterSlashCommands()
             return
         end
         if command == "restoreaudio" or command == "ra" then
-            addon.audio.RestoreFishingAudioFocus()
+            if not requireAudioAPI then
+                error("DreamFisher: RequireAudioAPI helper is required for restoreaudio")
+            end
+            local audio = requireAudioAPI()
+            if audio and audio.RestoreFishingAudioFocus then
+                audio.RestoreFishingAudioFocus()
+            end
             local amb = GetCVar("Sound_AmbienceVolume")
             local mus = GetCVar("Sound_MusicVolume")
             local dia = GetCVar("Sound_DialogVolume")
@@ -109,8 +147,12 @@ local function RegisterSlashCommands()
             return
         end
         if command == "cast" then
-            if addon.fishing and addon.fishing.HandleCastCommand then
-                addon.fishing.HandleCastCommand()
+            if not requireFishingAPI then
+                error("DreamFisher: RequireFishingAPI helper is required for cast command")
+            end
+            local fishing = requireFishingAPI()
+            if fishing and fishing.HandleCastCommand then
+                fishing.HandleCastCommand()
                 PrintMessage("Use keybind or macro /click DreamFisherSecureFishingButton RightButton")
             end
             return
@@ -124,9 +166,13 @@ local function RegisterSlashCommands()
             return
         end
         if command == "interactdiag" or command == "id" then
-            if addon.fishing and addon.fishing.GetInteractDiagnostics and addon.fishing.FormatInteractDiagnostics then
-                local diag = addon.fishing.GetInteractDiagnostics()
-                PrintMessage("Interact diag: " .. addon.fishing.FormatInteractDiagnostics(diag))
+            if not requireFishingAPI then
+                error("DreamFisher: RequireFishingAPI helper is required for interact diagnostics")
+            end
+            local fishing = requireFishingAPI()
+            if fishing and fishing.GetInteractDiagnostics and fishing.FormatInteractDiagnostics then
+                local diag = fishing.GetInteractDiagnostics()
+                PrintMessage("Interact diag: " .. fishing.FormatInteractDiagnostics(diag))
             else
                 PrintMessage("Interact diagnostics unavailable")
             end
@@ -138,8 +184,9 @@ local function RegisterSlashCommands()
             return
         end
         if command == "forcevisible" or command == "fv" then
-            if addon.uiFocus and addon.uiFocus.ForceVisibleFocusVisuals then
-                addon.uiFocus.ForceVisibleFocusVisuals()
+            local uiFocus = (addon.GetUIFocusAPI and addon.GetUIFocusAPI()) or addon.uiFocus
+            if uiFocus and uiFocus.ForceVisibleFocusVisuals then
+                uiFocus.ForceVisibleFocusVisuals()
                 PrintMessage("Force-visible focus visuals: one-time restore")
             else
                 PrintMessage("Force-visible focus visuals unavailable")

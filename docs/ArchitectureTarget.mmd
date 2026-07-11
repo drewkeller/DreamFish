@@ -1,0 +1,64 @@
+
+flowchart LR
+    Entry[DreamFisher.lua\nbootstrap only]
+
+    subgraph AppLayer[Application Layer]
+        Orchestrator[app/orchestrator.lua]
+        SessionSvc[app/session_service.lua]
+        CastSvc[app/cast_service.lua]
+        BuffSvc[app/buff_service.lua]
+        AudioSvc[app/audio_service.lua]
+        BagSvc[app/bag_service.lua]
+    end
+
+    subgraph Domain[Domain State]
+        SessionMachine[state/session_machine.lua]
+        SessionQueries[state/session_queries.lua]
+    end
+
+    subgraph Infrastructure[Infrastructure Adapters]
+        WoWAPI[infra/wow_api.lua]
+        Events[infra/event_bus.lua]
+        Repo[infra/settings_repo.lua]
+        Alerts[infra/alert_adapter.lua]
+    end
+
+    subgraph UI[UI Layer]
+        UIConfig[ui/config.lua]
+        UICommands[ui/commands.lua]
+        UIFocus[ui/focus_fade.lua]
+        UIBuffBox[ui/buff_item_drop_box.lua]
+    end
+
+    Entry --> Orchestrator
+    Orchestrator --> SessionSvc
+    Orchestrator --> CastSvc
+    Orchestrator --> BuffSvc
+    Orchestrator --> AudioSvc
+    Orchestrator --> BagSvc
+
+    SessionSvc --> SessionMachine
+    SessionSvc --> SessionQueries
+    CastSvc --> SessionMachine
+    BuffSvc --> SessionQueries
+    AudioSvc --> SessionQueries
+    BagSvc --> SessionQueries
+
+    SessionSvc --> Events
+    CastSvc --> WoWAPI
+    BuffSvc --> WoWAPI
+    AudioSvc --> WoWAPI
+    BagSvc --> WoWAPI
+
+    SessionSvc --> Repo
+    UIConfig --> Repo
+    UICommands --> SessionSvc
+    UICommands --> AudioSvc
+    UIConfig --> SessionSvc
+    UIFocus --> SessionQueries
+    UIBuffBox --> BuffSvc
+
+    BagSvc --> Alerts
+    AudioSvc --> Alerts
+
+    Note[Design goals:\n- State transitions centralized in one machine\n- UI talks to services, not deep module internals\n- Adapters isolate WoW API and persistence\n- Easier unit testing via service + state boundaries]

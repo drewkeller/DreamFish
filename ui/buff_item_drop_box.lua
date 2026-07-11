@@ -67,8 +67,14 @@ function addon.ui.CreateBuffItemDropBox(deps, parent, x, y, label, onLiveChange)
             local bag, slot = nil, nil
             if addon.buff and addon.buff.FindItemInBags then
                 bag, slot = addon.buff.FindItemInBags(numeric)
-            elseif addon.fishing and addon.fishing.FindItemInBags then
-                bag, slot = addon.fishing.FindItemInBags(numeric)
+            else
+                if not addon.RequireFishingAPI then
+                    error("DreamFisher: RequireFishingAPI helper is required for buff item bag lookup fallback")
+                end
+                local fishing = addon.RequireFishingAPI()
+                if fishing and fishing.FindItemInBags then
+                    bag, slot = fishing.FindItemInBags(numeric)
+                end
             end
             self:SetAttribute("type2", "item")
             if bag and slot then

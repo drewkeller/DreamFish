@@ -254,11 +254,16 @@ local function GetNextDueBuffItem(requireAuraForCast, excludedItemIDs, requested
 end
 
 local function MaybeUseBuffItems()
+    if not addon.RequireFishingAPI then
+        error("DreamFisher: RequireFishingAPI helper is required for buff management")
+    end
+    local fishing = addon.RequireFishingAPI()
+
     if not addon.db or type(addon.db.buffItems) ~= "table" then
         return
     end
 
-    if not (addon.fishing and addon.fishing.IsFishingActiveSessionState) then
+    if not (fishing and fishing.IsFishingActiveSessionState) then
         error("DreamFisher: IsFishingActiveSessionState is required for buff management")
     end
 
@@ -267,11 +272,11 @@ local function MaybeUseBuffItems()
     end
     addon.state.lastBuffCheckTime = GetTime()
 
-    if not addon.state or not addon.fishing.IsFishingActiveSessionState() then
+    if not addon.state or not fishing.IsFishingActiveSessionState() then
         return
     end
 
-    if InCombatLockdown() or addon.fishing.IsFishingCast() then
+    if InCombatLockdown() or fishing.IsFishingCast() then
         return
     end
 

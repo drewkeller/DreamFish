@@ -12,10 +12,14 @@ local KNOWN_BOBBER_NPC_IDS = {
 }
 
 local function ApplySessionStateRequired(nextState, reason)
-    if not (addon.fishing and type(addon.fishing.ApplySessionState) == "function") then
+    if not addon.RequireFishingAPI then
+        error("DreamFisher: RequireFishingAPI helper is required for interact loot state transitions")
+    end
+    local fishing = addon.RequireFishingAPI()
+    if not (fishing and type(fishing.ApplySessionState) == "function") then
         error("DreamFisher: ApplySessionState is required for interact loot state transitions")
     end
-    addon.fishing.ApplySessionState(nextState, reason)
+    fishing.ApplySessionState(nextState, reason)
 end
 
 local function GetInteractOverrideFrame()
@@ -69,12 +73,16 @@ local function ArmNativeInteractOverride(durationSeconds)
         addon.state.interactOverrideExpiresAt = 0
     end
     owner:SetScript("OnUpdate", function(self)
+        if not addon.RequireFishingAPI then
+            error("DreamFisher: RequireFishingAPI helper is required for interact override upkeep")
+        end
+        local fishing = addon.RequireFishingAPI()
         if InCombatLockdown() then
             return
         end
         local t = (type(GetTime) == "function") and GetTime() or 0
         local moving = (type(IsPlayerMoving) == "function") and IsPlayerMoving() or false
-        local stillHooked = addon.fishing and addon.fishing.IsHookedLootMode and addon.fishing.IsHookedLootMode()
+        local stillHooked = fishing and fishing.IsHookedLootMode and fishing.IsHookedLootMode()
         local expiresAt = tonumber(addon.state.interactOverrideExpiresAt) or 0
         local expired = expiresAt > 0 and t >= expiresAt
         if moving or expired or not stillHooked then
@@ -190,21 +198,26 @@ local function FormatInteractDiagnostics(diag)
 end
 
 local function IsHookedLootMode()
+    if not addon.RequireFishingAPI then
+        error("DreamFisher: RequireFishingAPI helper is required for hooked loot mode")
+    end
+    local fishing = addon.RequireFishingAPI()
+
     if not addon.db or not addon.db.easyStrike or not addon.state then
         return false
     end
 
-    if not (addon.fishing and addon.fishing.IsHookedWindowSessionState and addon.fishing.IsSessionState) then
+    if not (fishing and fishing.IsHookedWindowSessionState and fishing.IsSessionState) then
         error("DreamFisher: IsHookedWindowSessionState and IsSessionState are required for hooked loot mode")
     end
 
     local now = (type(GetTime) == "function") and GetTime() or 0
     local graceUntil = tonumber(addon.state.fishingStartGraceUntil) or 0
 
-    local hookedWindowStateReady = addon.fishing.IsHookedWindowSessionState() and (now >= graceUntil)
+    local hookedWindowStateReady = fishing.IsHookedWindowSessionState() and (now >= graceUntil)
     local fallbackHookWindow = false
 
-    if addon.fishing.IsSessionState("CASTING") and not addon.fishing.IsSessionState("LOOTING") then
+    if fishing.IsSessionState("CASTING") and not fishing.IsSessionState("LOOTING") then
         -- Some clients do not reliably emit the expected hooked-window transition in secure-click hotkey paths.
         -- Treat post-cast state (after start grace) as a hooked-interact fallback window.
         fallbackHookWindow = now >= graceUntil

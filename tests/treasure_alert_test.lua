@@ -138,6 +138,8 @@ _G.DreamFisherDB = {}
 -- Load addon.
 dofile("core/init.lua")
 dofile("core/utils.lua")
+dofile("core/module_api.lua")
+dofile("core/api_resolver.lua")
 dofile("buff/tracking.lua")
 dofile("fishing/casting.lua")
 dofile("fishing/state.lua")

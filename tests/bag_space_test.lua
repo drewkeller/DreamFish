@@ -104,6 +104,8 @@ end
 -- Load addon file in mocked environment.
 dofile("core/init.lua")
 dofile("core/utils.lua")
+dofile("core/module_api.lua")
+dofile("core/api_resolver.lua")
 dofile("fishing/helpers.lua")
 dofile("DreamFisher.lua")
 

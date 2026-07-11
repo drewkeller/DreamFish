@@ -2,6 +2,7 @@
 
 local addonName = "DreamFisher"
 local addon = _G["DreamFisher"]
+local getAudioAPI = addon.GetAudioAPI
 local PrintMessage = addon.PrintMessage
 
 local function CreateTreasureAlertFrame()
@@ -159,7 +160,11 @@ local function ShowBagFullAlert(force)
         end
     end)
 
-    addon.audio.PlayWarningCue()
+    -- Warning cue is best-effort; alerts still display when audio module is unavailable.
+    local audio = getAudioAPI and getAudioAPI()
+    if audio and audio.PlayWarningCue then
+        audio.PlayWarningCue()
+    end
 end
 
 -- Export to addon
@@ -168,3 +173,7 @@ addon.alerts.CreateTreasureAlertFrame = CreateTreasureAlertFrame
 addon.alerts.ShowPatientTreasureAlert = ShowPatientTreasureAlert
 addon.alerts.CreateBagFullAlertFrame = CreateBagFullAlertFrame
 addon.alerts.ShowBagFullAlert = ShowBagFullAlert
+
+if addon.moduleAPI and addon.moduleAPI.Register then
+    addon.moduleAPI.Register("alerts", addon.alerts)
+end

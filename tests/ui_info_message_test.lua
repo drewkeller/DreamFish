@@ -88,6 +88,8 @@ _G.GetTime = function() return 100 end
 -- Load addon modules.
 dofile("core/init.lua")
 dofile("core/utils.lua")
+dofile("core/module_api.lua")
+dofile("core/api_resolver.lua")
 dofile("buff/tracking.lua")
 dofile("buff/timing.lua")
 dofile("buff/management.lua")

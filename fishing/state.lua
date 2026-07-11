@@ -4,8 +4,12 @@ local addon = _G["DreamFisher"]
 local PrintMessage = addon.PrintMessage
 local DebugMessage = addon.DebugMessage
 local DebugStateMessage = addon.DebugStateMessage or function() end
+local requireFishingAPI = addon.RequireFishingAPI
+local requireAudioAPI = addon.RequireAudioAPI
+local getUIFocusAPI = addon.GetUIFocusAPI
 local ignoredFailureDebugAtBySpell = {}
 local WATER_EXIT_SWAP_DELAY_SECONDS = 5.0
+
 local SESSION_STATES = {
     IDLE = "IDLE",
     PRE_CASTING = "PRE_CASTING",
@@ -62,18 +66,20 @@ local function ApplySessionState(nextState, reason, options)
 
     --print("Applying session state:", nextState, "reason:", reason, "previous state:", previousState)
 
-    if addon.uiFocus then
+    -- Focus visuals are optional; state transitions should still work without ui/focus_fade.lua loaded.
+    local uiFocus = (getUIFocusAPI and getUIFocusAPI()) or addon.uiFocus
+    if uiFocus then
         if nextState == SESSION_STATES.CANCELLING_FISHING_SESSION
-                and addon.uiFocus.ForceVisibleFocusVisuals then
-            addon.uiFocus.ForceVisibleFocusVisuals()
+                and uiFocus.ForceVisibleFocusVisuals then
+            uiFocus.ForceVisibleFocusVisuals()
         elseif nextState == SESSION_STATES.PRE_CASTING
-                and addon.uiFocus.FadeOutUI
+                and uiFocus.FadeOutUI
                 and addon.db
                 and addon.db.focusedVisuals then
-            addon.uiFocus.FadeOutUI()
+            uiFocus.FadeOutUI()
         elseif nextState == SESSION_STATES.STARTING_LINGER
-                and addon.uiFocus.RestoreFocusVisualsAfterLinger then
-            addon.uiFocus.RestoreFocusVisualsAfterLinger()
+                and uiFocus.RestoreFocusVisualsAfterLinger then
+            uiFocus.RestoreFocusVisualsAfterLinger()
         end
     end
 
@@ -178,8 +184,12 @@ local function GetHookedInteractEvidence()
     local hasAnyInteractUnit = false
     local hasSoftInteractNameOnly = false
 
-    if addon.fishing and addon.fishing.GetInteractDiagnostics then
-        local diag = addon.fishing.GetInteractDiagnostics()
+    if not requireFishingAPI then
+        error("DreamFisher: RequireFishingAPI helper is required for hooked interact evidence")
+    end
+    local fishing = requireFishingAPI()
+    if fishing and fishing.GetInteractDiagnostics then
+        local diag = fishing.GetInteractDiagnostics()
         hasAnyInteractUnit = diag and (diag.softExists or diag.targetExists or diag.mouseoverExists) and true or false
         hasSoftInteractNameOnly = diag
             and (not hasAnyInteractUnit)
@@ -259,13 +269,25 @@ local function RestoreOriginalAutoLoot()
 end
 
 local function MaybeEquipConfiguredUnderlight(reason)
-    if addon.fishing and addon.fishing.MaybeEquipConfiguredUnderlight then
-        addon.fishing.MaybeEquipConfiguredUnderlight(reason)
+    if not requireFishingAPI then
+        error("DreamFisher: RequireFishingAPI helper is required for configured pole sync")
+    end
+    local fishing = requireFishingAPI()
+    if fishing and fishing.MaybeEquipConfiguredUnderlight then
+        fishing.MaybeEquipConfiguredUnderlight(reason)
     end
 end
 
 local function RunSessionCloseEffects(options)
     local opts = options or {}
+    if not requireFishingAPI then
+        error("DreamFisher: RequireFishingAPI helper is required for session close effects")
+    end
+    if not requireAudioAPI then
+        error("DreamFisher: RequireAudioAPI helper is required for session close effects")
+    end
+    local fishing = requireFishingAPI()
+    local audio = requireAudioAPI()
 
     addon.state.lastFishingCastStopAt = 0
     addon.state.interactAcquireExpiresAt = 0
@@ -275,8 +297,8 @@ local function RunSessionCloseEffects(options)
         RestoreOriginalAutoLoot()
     end
 
-    if addon.fishing and addon.fishing.ClearNativeInteractOverride then
-        addon.fishing.ClearNativeInteractOverride()
+    if fishing and fishing.ClearNativeInteractOverride then
+        fishing.ClearNativeInteractOverride()
     else
         addon.state.interactOverrideActive = false
         addon.state.interactOverrideExpiresAt = 0
@@ -287,9 +309,13 @@ local function RunSessionCloseEffects(options)
     end
 
     if opts.useLingerAudio then
-        addon.audio.RestoreFishingAudioFocusAfterLinger()
+        if audio and audio.RestoreFishingAudioFocusAfterLinger then
+            audio.RestoreFishingAudioFocusAfterLinger()
+        end
     else
-        addon.audio.RestoreFishingAudioFocus()
+        if audio and audio.RestoreFishingAudioFocus then
+            audio.RestoreFishingAudioFocus()
+        end
     end
 
     if opts.syncPole ~= false then
@@ -326,6 +352,11 @@ local function StartLingerThenCloseSession(lingerReason, closeReason, options)
 end
 
 local function TryArmNativeInteractOverrideFromFishingState()
+    if not requireFishingAPI then
+        error("DreamFisher: RequireFishingAPI helper is required for interact override fallback")
+    end
+    local fishing = requireFishingAPI()
+
     if not addon.db or not addon.db.easyStrike then
         return
     end
@@ -335,7 +366,7 @@ local function TryArmNativeInteractOverrideFromFishingState()
     if addon.state.interactOverrideActive then
         return
     end
-    if not addon.fishing or not addon.fishing.ArmNativeInteractOverride then
+    if not fishing or not fishing.ArmNativeInteractOverride then
         return
     end
 
@@ -352,7 +383,7 @@ local function TryArmNativeInteractOverrideFromFishingState()
         return
     end
 
-    local armed = addon.fishing.ArmNativeInteractOverride()
+    local armed = fishing.ArmNativeInteractOverride()
     if armed then
         local lastLogAt = tonumber(addon.state.interactFallbackArmLastLogAt) or 0
         if lastLogAt <= 0 or (now - lastLogAt) >= 4 then
@@ -386,11 +417,15 @@ local function CreateSwimmingStateMonitor()
 
         local waterContext = nil
         local swimming = false
-        if addon.fishing and addon.fishing.GetWaterContextDiagnostics then
-            waterContext = addon.fishing.GetWaterContextDiagnostics()
+        if not requireFishingAPI then
+            error("DreamFisher: RequireFishingAPI helper is required for swimming state monitor")
+        end
+        local fishing = requireFishingAPI()
+        if fishing and fishing.GetWaterContextDiagnostics then
+            waterContext = fishing.GetWaterContextDiagnostics()
             swimming = waterContext and waterContext.result and true or false
-        elseif addon.fishing and addon.fishing.IsPlayerInWaterContext then
-            swimming = addon.fishing.IsPlayerInWaterContext() and true or false
+        elseif fishing and fishing.IsPlayerInWaterContext then
+            swimming = fishing.IsPlayerInWaterContext() and true or false
         elseif type(IsSwimming) == "function" then
             swimming = IsSwimming() and true or false
         end
@@ -473,6 +508,15 @@ local function CreateFishingStateFrame()
     frame:RegisterEvent("PLAYER_REGEN_DISABLED")
 
     frame:SetScript("OnEvent", function(self, event, unit, ...)
+        if not requireFishingAPI then
+            error("DreamFisher: RequireFishingAPI helper is required for fishing state events")
+        end
+        if not requireAudioAPI then
+            error("DreamFisher: RequireAudioAPI helper is required for fishing state events")
+        end
+        local fishing = requireFishingAPI()
+        local audio = requireAudioAPI()
+
         if event ~= "PLAYER_REGEN_DISABLED" and event ~= "PLAYER_STARTED_MOVING" and unit ~= "player" then
             return
         end
@@ -498,7 +542,9 @@ local function CreateFishingStateFrame()
                 addon.state.fishingStartGraceUntil = addon.state.fishingStartTime + 1.5
                 addon.state.lastFishingCastStopAt = 0
                 EnableTemporaryAutoLoot()
-                addon.audio.EnableFishingAudioFocus()
+                if audio and audio.EnableFishingAudioFocus then
+                    audio.EnableFishingAudioFocus()
+                end
                 frame:SetScript("OnUpdate", function()
                     TryArmNativeInteractOverrideFromFishingState()
                     addon.utils.CheckBagSpace()
@@ -544,8 +590,8 @@ local function CreateFishingStateFrame()
                     LogStateTransition("cast-phase-ended-enter-bobber-window", event, spellID, isFishingSpell)
                     ApplySessionState(SESSION_STATES.WAITING_FOR_STRIKE, "cast-phase-ended-enter-bobber-window")
                     addon.state.lastFishingCastStopAt = GetTime()
-                    if addon.fishing and addon.fishing.ArmNativeInteractOverride then
-                        addon.fishing.ArmNativeInteractOverride()
+                    if fishing and fishing.ArmNativeInteractOverride then
+                        fishing.ArmNativeInteractOverride()
                     end
                     frame:SetScript("OnUpdate", function()
                         TryArmNativeInteractOverrideFromFishingState()
@@ -612,11 +658,11 @@ local function CreateFishingStateFrame()
                 end
             end
         elseif event == "PLAYER_STARTED_MOVING" then
-            if addon.fishing and addon.fishing.ClearNativeInteractOverride then
+            if fishing and fishing.ClearNativeInteractOverride then
                 local acquireExpiresAt = tonumber(addon.state.interactAcquireExpiresAt) or 0
                 if addon.state.interactOverrideActive or acquireExpiresAt > GetTime() then
                     LogStateTransition("movement-clears-interact-override", event, spellID, isFishingSpell)
-                    addon.fishing.ClearNativeInteractOverride()
+                    fishing.ClearNativeInteractOverride()
                     addon.state.interactAcquireExpiresAt = 0
                     DebugStateMessage("Movement detected: cleared interact override")
                 end
@@ -668,6 +714,10 @@ addon.fishing.IsSessionState = IsSessionState
 addon.fishing.IsHookedWindowSessionState = IsHookedWindowSessionState
 addon.fishing.GetSessionFlagsForState = GetSessionFlagsForState
 addon.fishing.GetCurrentSessionFlags = GetCurrentSessionFlags
+
+if addon.moduleAPI and addon.moduleAPI.Register then
+    addon.moduleAPI.Register("fishing", addon.fishing)
+end
 
 -- Test hooks
 addon._test.EnableTemporaryAutoLoot = EnableTemporaryAutoLoot

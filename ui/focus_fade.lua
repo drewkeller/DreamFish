@@ -144,16 +144,25 @@ local function ResolveNamedFrame(name)
     return _G[name]
 end
 
+local function ResolveFishingAPIRequired()
+    if not addon or not addon.RequireFishingAPI then
+        error("DreamFisher: RequireFishingAPI helper is required for focus fade")
+    end
+    return addon.RequireFishingAPI()
+end
+
 local function IsFishingSessionActive()
     if not addon or not addon.state then
         return false
     end
 
-    if not (addon.fishing and addon.fishing.IsFishingActiveSessionState and addon.fishing.IsSessionState) then
+    local fishing = ResolveFishingAPIRequired()
+
+    if not (fishing and fishing.IsFishingActiveSessionState and fishing.IsSessionState) then
         error("DreamFisher: IsFishingActiveSessionState and IsSessionState are required for focus fade state checks")
     end
 
-    return addon.fishing.IsFishingActiveSessionState() or addon.fishing.IsSessionState("LOOTING")
+    return fishing.IsFishingActiveSessionState() or fishing.IsSessionState("LOOTING")
 end
 
 local function IsPreCastingSessionState()
@@ -161,11 +170,13 @@ local function IsPreCastingSessionState()
         return false
     end
 
-    if not (addon.fishing and addon.fishing.IsSessionState) then
+    local fishing = ResolveFishingAPIRequired()
+
+    if not (fishing and fishing.IsSessionState) then
         error("DreamFisher: IsSessionState is required for focus fade PRE_CASTING checks")
     end
 
-    return addon.fishing.IsSessionState("PRE_CASTING")
+    return fishing.IsSessionState("PRE_CASTING")
 end
 
 local function IsFadeFeatureEnabled()
@@ -584,6 +595,8 @@ ForceVisibleFocusVisuals = function()
 end
 
 local function RefreshFocusFadeState()
+    local fishing = ResolveFishingAPIRequired()
+
     if IsFadeFeatureEnabled() and IsPreCastingSessionState() then
         if not frameFader.isFaded then
             FadeOutUI()
@@ -598,8 +611,8 @@ local function RefreshFocusFadeState()
     if shouldFade and frameFader.restoreAt ~= nil then
         frameFader.restoreAt = nil
     elseif IsFadeFeatureEnabled()
-        and (addon.fishing and addon.fishing.IsSessionState
-            and (addon.fishing.IsSessionState("CANCELLING_FISHING_SESSION") or addon.fishing.IsSessionState("CLOSING_FISHING_SESSION")))
+        and (fishing and fishing.IsSessionState
+            and (fishing.IsSessionState("CANCELLING_FISHING_SESSION") or fishing.IsSessionState("CLOSING_FISHING_SESSION")))
         and frameFader.isFaded then
         RestoreFocusVisualsAfterLinger()
     elseif not shouldFade and frameFader.isFaded then
@@ -641,6 +654,11 @@ addon.uiFocus.FadeOutUI = FadeOutUI
 addon.uiFocus.FadeInUI = FadeInUI
 addon.uiFocus.RestoreFocusVisualsAfterLinger = RestoreFocusVisualsAfterLinger
 addon.uiFocus.ForceVisibleFocusVisuals = ForceVisibleFocusVisuals
+
+if addon.moduleAPI and addon.moduleAPI.Register then
+    addon.moduleAPI.Register("uiFocus", addon.uiFocus)
+end
+
 addon._test = addon._test or {}
 addon._test.GetFocusFadeRestoreAt = function()
     return frameFader.restoreAt

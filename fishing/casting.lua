@@ -4,6 +4,9 @@ local addon = _G["DreamFisher"]
 local PrintMessage = addon.PrintMessage
 local DebugMessage = addon.DebugMessage
 local DebugStateMessage = addon.DebugStateMessage or addon.DebugMessage
+local requireFishingAPI = addon.RequireFishingAPI
+-- Warning cue helpers remain optional so casting flow never hard-depends on audio module wiring.
+local getAudioAPI = addon.GetAudioAPI
 local OVERSIZED_BOBBER_ITEM_ID = 202207
 local DUE_BUFF_CATEGORY_ORDER = { "food_drink", "lure", "bait", "bobber", "other_consumable" }
 
@@ -755,17 +758,22 @@ local function GetDesiredConfiguredPoleItemID(inFishingSession)
 end
 
 local function MaybeEquipConfiguredUnderlight(reason, forcePrimary)
+    if not requireFishingAPI then
+        error("DreamFisher: RequireFishingAPI helper is required for configured pole sync")
+    end
+    local fishing = requireFishingAPI()
+
     if not addon.db then
         return false
     end
 
-    if not (addon.fishing and addon.fishing.IsFishingActiveSessionState) then
+    if not (fishing and fishing.IsFishingActiveSessionState) then
         error("DreamFisher: IsFishingActiveSessionState is required for configured pole sync")
     end
 
     local waterContext = GetWaterContextDiagnostics()
     local swimming = waterContext.result
-    local inFishingSession = addon.fishing.IsFishingActiveSessionState()
+    local inFishingSession = fishing.IsFishingActiveSessionState()
 
     if addon.db.debugMode and addon.db.debugState then
         DebugStateMessage("Water context check: result=" .. tostring(swimming)
@@ -823,8 +831,9 @@ local function WarnMissingProfessionFishingPoleForLure()
     if PrintMessage then
         PrintMessage(warningText)
     end
-    if addon.audio and type(addon.audio.PlayWarningCue) == "function" then
-        addon.audio.PlayWarningCue()
+    local audio = getAudioAPI and getAudioAPI()
+    if audio and type(audio.PlayWarningCue) == "function" then
+        audio.PlayWarningCue()
     end
 end
 
@@ -888,8 +897,9 @@ local function WarnTransientCastBlocked(itemID, transientRemaining)
         PrintMessage(warningText .. " (" .. GetDebugItemLabel(itemID)
             .. ", transient remaining " .. string.format("%.1fs", math.max(0, transientRemaining or 0)) .. ")")
     end
-    if addon.audio and type(addon.audio.PlayWarningCue) == "function" then
-        addon.audio.PlayWarningCue()
+    local audio = getAudioAPI and getAudioAPI()
+    if audio and type(audio.PlayWarningCue) == "function" then
+        audio.PlayWarningCue()
     end
 end
 
@@ -988,6 +998,11 @@ local function FinalizeSecureFishingAction(fishingFrame, macroLines, raftExclusi
 end
 
 ConfigureFishingClickAction = function()
+    if not requireFishingAPI then
+        error("DreamFisher: RequireFishingAPI helper is required for fishing click configuration")
+    end
+    local fishing = requireFishingAPI()
+
     local fishingFrame = addon.frames.fishing
     if not fishingFrame then
         return false
@@ -1014,9 +1029,9 @@ ConfigureFishingClickAction = function()
     end
 
     ResetFishingFrameState(fishingFrame)
-    if addon.fishing and addon.fishing.IsHookedLootMode and addon.fishing.IsHookedLootMode() then
-        if addon.fishing.ConfigureInteractLootAction then
-            addon.fishing.ConfigureInteractLootAction(fishingFrame)
+    if fishing and fishing.IsHookedLootMode and fishing.IsHookedLootMode() then
+        if fishing.ConfigureInteractLootAction then
+            fishing.ConfigureInteractLootAction(fishingFrame)
             return
         end
     elseif addon.db and addon.db.easyStrike then
@@ -1283,11 +1298,21 @@ local function TryUseBuffItemDirect(itemID)
 end
 
 local function StartFishingCastState()
-    addon.audio.StartFishingAudioFocus()
-    if addon.fishing and addon.fishing.ApplySessionState then
-        addon.fishing.ApplySessionState("PRE_CASTING", "direct-cast-start")
+    local audio = getAudioAPI and getAudioAPI()
+    if not requireFishingAPI then
+        error("DreamFisher: RequireFishingAPI helper is required for cast-state transitions")
     end
-    addon.fishing.EnableTemporaryAutoLoot()
+    local fishing = requireFishingAPI()
+
+    if audio and audio.StartFishingAudioFocus then
+        audio.StartFishingAudioFocus()
+    end
+    if fishing and fishing.ApplySessionState then
+        fishing.ApplySessionState("PRE_CASTING", "direct-cast-start")
+    end
+    if fishing and fishing.EnableTemporaryAutoLoot then
+        fishing.EnableTemporaryAutoLoot()
+    end
 end
 
 local function TryCastFishingDirect()
@@ -1476,31 +1501,46 @@ local function ClearRightClickFishingFrameState(fishingFrame, clearBeforeReset)
 end
 
 local function EnsureFishingSecureFrame(frame)
+    if not requireFishingAPI then
+        error("DreamFisher: RequireFishingAPI helper is required for secure fishing frame setup")
+    end
+    local fishing = requireFishingAPI()
+
     if frame then
         return frame
     end
-    if addon.fishing and addon.fishing.CreateSecureFishingFrame then
-        return addon.fishing.CreateSecureFishingFrame()
+    if fishing and fishing.CreateSecureFishingFrame then
+        return fishing.CreateSecureFishingFrame()
     end
     return frame
 end
 
 local function EnsureBuffSecureFrame(frame)
+    if not requireFishingAPI then
+        error("DreamFisher: RequireFishingAPI helper is required for secure buff frame setup")
+    end
+    local fishing = requireFishingAPI()
+
     if frame then
         return frame
     end
-    if addon.fishing and addon.fishing.CreateSecureBuffFrame then
-        return addon.fishing.CreateSecureBuffFrame()
+    if fishing and fishing.CreateSecureBuffFrame then
+        return fishing.CreateSecureBuffFrame()
     end
     return frame
 end
 
 local function GetInteractPresenceDiagnostics()
+    if not requireFishingAPI then
+        error("DreamFisher: RequireFishingAPI helper is required for interact diagnostics")
+    end
+    local fishing = requireFishingAPI()
+
     local hasAnyInteractUnit = false
     local hasSoftInteractNameOnly = false
 
-    if addon.fishing and addon.fishing.GetInteractDiagnostics then
-        local diag = addon.fishing.GetInteractDiagnostics()
+    if fishing and fishing.GetInteractDiagnostics then
+        local diag = fishing.GetInteractDiagnostics()
         hasAnyInteractUnit = diag and (diag.softExists or diag.targetExists or diag.mouseoverExists) and true or false
         hasSoftInteractNameOnly = diag
             and (not hasAnyInteractUnit)
@@ -1513,15 +1553,20 @@ local function GetInteractPresenceDiagnostics()
 end
 
 local function ExitFishingSessionForTargetSelection()
+    if not requireFishingAPI then
+        error("DreamFisher: RequireFishingAPI helper is required for target selection exit")
+    end
+    local fishing = requireFishingAPI()
+
     if not addon.state then
         return
     end
 
-    if not (addon.fishing and addon.fishing.CancelAndCloseFishingSession) then
+    if not (fishing and fishing.CancelAndCloseFishingSession) then
         error("DreamFisher: CancelAndCloseFishingSession is required for target selection exit")
     end
 
-    addon.fishing.CancelAndCloseFishingSession(
+    fishing.CancelAndCloseFishingSession(
         "target-selected",
         "target-selected-close",
         {
@@ -1533,15 +1578,20 @@ local function ExitFishingSessionForTargetSelection()
 end
 
 local function ExitFishingSessionForNoHookEvidence()
+    if not requireFishingAPI then
+        error("DreamFisher: RequireFishingAPI helper is required for no-hook-evidence exit")
+    end
+    local fishing = requireFishingAPI()
+
     if not addon.state then
         return
     end
 
-    if not (addon.fishing and addon.fishing.CancelAndCloseFishingSession) then
+    if not (fishing and fishing.CancelAndCloseFishingSession) then
         error("DreamFisher: CancelAndCloseFishingSession is required for no-hook-evidence exit")
     end
 
-    addon.fishing.CancelAndCloseFishingSession(
+    fishing.CancelAndCloseFishingSession(
         "no-hook-evidence",
         "no-hook-evidence-close",
         {
@@ -1553,6 +1603,12 @@ local function ExitFishingSessionForNoHookEvidence()
 end
 
 local function HandleWorldRightClick(forceImmediate)
+    if not requireFishingAPI then
+        error("DreamFisher: RequireFishingAPI helper is required for world right-click handling")
+    end
+    local fishing = requireFishingAPI()
+    local audio = getAudioAPI and getAudioAPI()
+
     if InCombatLockdown() then
         DebugMessage("Right click ignored: in combat lockdown")
         return
@@ -1575,8 +1631,8 @@ local function HandleWorldRightClick(forceImmediate)
 
     if addon.db and addon.db.easyStrike
         and addon.state and addon.state.interactOverrideActive
-        and addon.fishing and addon.fishing.IsHookedLootMode
-        and addon.fishing.IsHookedLootMode() then
+        and fishing and fishing.IsHookedLootMode
+        and fishing.IsHookedLootMode() then
         local hasAnyInteractUnit, hasSoftInteractNameOnly = GetInteractPresenceDiagnostics()
         local acquireExpiresAt = tonumber(addon.state.interactAcquireExpiresAt) or 0
         local inAcquireWindow = acquireExpiresAt > GetTime()
@@ -1587,10 +1643,10 @@ local function HandleWorldRightClick(forceImmediate)
         end
 
         DebugMessage("Stale hooked interact override with no target; clearing override and resuming cast flow")
-        if not (addon.fishing and addon.fishing.ClearNativeInteractOverride) then
+        if not (fishing and fishing.ClearNativeInteractOverride) then
             error("DreamFisher: ClearNativeInteractOverride is required for stale hooked override cleanup")
         end
-        addon.fishing.ClearNativeInteractOverride()
+        fishing.ClearNativeInteractOverride()
         addon.state.interactAcquireExpiresAt = 0
     end
 
@@ -1611,8 +1667,8 @@ local function HandleWorldRightClick(forceImmediate)
     end
 
     local hookedModeActive = easyStrike
-        and addon.fishing and addon.fishing.IsHookedLootMode
-        and addon.fishing.IsHookedLootMode()
+        and fishing and fishing.IsHookedLootMode
+        and fishing.IsHookedLootMode()
     local shouldRouteHookedInteract = easyStrike and hookedModeActive
     local noHookedEvidence = easyStrike
         and (not hasAnyInteractUnit)
@@ -1709,12 +1765,14 @@ local function HandleWorldRightClick(forceImmediate)
         if buffFrame then
             ClearRightClickBuffFrameState(buffFrame, false)
         end
-        addon.audio.StartFishingAudioFocus()
+        if audio and audio.StartFishingAudioFocus then
+            audio.StartFishingAudioFocus()
+        end
         local now = (type(GetTime) == "function") and GetTime() or 0
         -- Mark a pre-cast fishing session for audio/tests. Hooked mode is
         -- still blocked by grace-window gating until cast has transitioned.
-        if addon.fishing and addon.fishing.ApplySessionState then
-            addon.fishing.ApplySessionState("PRE_CASTING", "right-click-pre-cast")
+        if fishing and fishing.ApplySessionState then
+            fishing.ApplySessionState("PRE_CASTING", "right-click-pre-cast")
         end
         addon.state.fishingStartTime = now
         addon.state.fishingStartGraceUntil = now + 1.5

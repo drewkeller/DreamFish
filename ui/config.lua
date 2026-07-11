@@ -27,6 +27,8 @@ local OVERSIZED_BOBBER_ITEM_ID = 202207
 local HOTKEY_CLICK_BINDING = "CLICK DreamFisherSecureFishingButton:RightButton"
 local tacklePoleUI = {}
 local tackleToyUI = {}
+local requireFishingAPI = addon.RequireFishingAPI
+local requireAudioAPI = addon.RequireAudioAPI
 
 local function IsPositiveItemID(value)
     local numeric = tonumber(value)
@@ -739,6 +741,12 @@ local function LoadTackleBindings(isTackleActive)
 end
 
 local function SaveTackleBindings()
+    if not requireFishingAPI then
+        error("DreamFisher: RequireFishingAPI helper is required for tackle binding saves")
+    end
+    local fishing = requireFishingAPI()
+    local uiFocus = (addon.GetUIFocusAPI and addon.GetUIFocusAPI()) or addon.uiFocus
+
     if addon.oversizedBobberCheckbox then
         addon.db.useOversizedBobber = addon.oversizedBobberCheckbox:GetChecked()
     end
@@ -782,12 +790,12 @@ local function SaveTackleBindings()
 
     NormalizeTackleConfigValues()
 
-    if addon.fishing and addon.fishing.MaybeEquipConfiguredUnderlight then
-        addon.fishing.MaybeEquipConfiguredUnderlight("config-save")
+    if fishing and fishing.MaybeEquipConfiguredUnderlight then
+        fishing.MaybeEquipConfiguredUnderlight("config-save")
     end
 
-    if addon.uiFocus and addon.uiFocus.RefreshFocusFadeState then
-        addon.uiFocus.RefreshFocusFadeState()
+    if uiFocus and uiFocus.RefreshFocusFadeState then
+        uiFocus.RefreshFocusFadeState()
     end
 
     UpdateToyApplyButtons()
@@ -958,12 +966,13 @@ local function SaveConfigBindings()
         addon.db.focusedAudio = addon.focusedAudioCheckbox:GetChecked()
     end
     if addon.focusedVisualsCheckbox then
+        local uiFocus = (addon.GetUIFocusAPI and addon.GetUIFocusAPI()) or addon.uiFocus
         local newFocusedVisuals = addon.focusedVisualsCheckbox:GetChecked()
         local oldFocusedVisuals = addon.db.focusedVisuals and true or false
         addon.db.focusedVisuals = newFocusedVisuals
 
-        if oldFocusedVisuals and not newFocusedVisuals and addon.uiFocus and addon.uiFocus.FadeInUI then
-            addon.uiFocus.FadeInUI()
+        if oldFocusedVisuals and not newFocusedVisuals and uiFocus and uiFocus.FadeInUI then
+            uiFocus.FadeInUI()
         end
     end
     if addon.focusedVisualsLingerBox then
@@ -1147,8 +1156,12 @@ function config.SaveConfig(skipRefresh)
     end
 
     if addon.state.savedFishingAudioCVars ~= nil and addon.state.audioRestoreAt ~= nil then
-        if addon.audio and addon.audio.RestoreFishingAudioFocusAfterLinger then
-            addon.audio.RestoreFishingAudioFocusAfterLinger()
+        if not requireAudioAPI then
+            error("DreamFisher: RequireAudioAPI helper is required for delayed audio restore")
+        end
+        local audio = requireAudioAPI()
+        if audio and audio.RestoreFishingAudioFocusAfterLinger then
+            audio.RestoreFishingAudioFocusAfterLinger()
         end
     end
 

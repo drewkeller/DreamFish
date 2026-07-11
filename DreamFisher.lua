@@ -9,6 +9,10 @@ _G[addonName] = addon
 -- Create frame for event handling
 local frame = CreateFrame("Frame", addonName .. "Frame")
 addon.frame = frame
+local requireFishingAPI = addon.RequireFishingAPI
+local requireAudioAPI = addon.RequireAudioAPI
+local requireAlertsAPI = addon.RequireAlertsAPI
+local getUIFocusAPI = addon.GetUIFocusAPI
 
 -- Module initialization - these will be populated as modules load
 addon.state = addon.state or {}
@@ -91,25 +95,35 @@ frame:RegisterEvent("ADDON_LOADED")
 
 frame:SetScript("OnEvent", function(self, event, name)
     if event ~= "ADDON_LOADED" or name ~= addonName then return end
+    if not requireFishingAPI then
+        error("DreamFisher: RequireFishingAPI helper is required during addon initialization")
+    end
+    if not requireAudioAPI then
+        error("DreamFisher: RequireAudioAPI helper is required during addon initialization")
+    end
+    local fishing = requireFishingAPI()
+    local audio = requireAudioAPI()
+    -- Focus visuals are optional in reduced test/runtime bootstraps.
+    local uiFocus = (getUIFocusAPI and getUIFocusAPI()) or addon.uiFocus
 
     -- Load saved data
     _G[addonName .. "DB"] = _G[addonName .. "DB"] or {}
     addon.db = _G[addonName .. "DB"]
     addon.CopyDefaults(addon.defaults, addon.db)
 
-    if addon.audio and addon.audio.ResumePersistedAudioDuckingState then
-        addon.audio.ResumePersistedAudioDuckingState()
+    if audio and audio.ResumePersistedAudioDuckingState then
+        audio.ResumePersistedAudioDuckingState()
     end
 
-    if addon.uiFocus and addon.uiFocus.CreateFocusFadeFrame then
-        addon.uiFocus.CreateFocusFadeFrame()
-        if addon.uiFocus.RefreshFocusFadeState then
-            addon.uiFocus.RefreshFocusFadeState()
+    if uiFocus and uiFocus.CreateFocusFadeFrame then
+        uiFocus.CreateFocusFadeFrame()
+        if uiFocus.RefreshFocusFadeState then
+            uiFocus.RefreshFocusFadeState()
         end
     end
 
-    if addon.fishing and addon.fishing.MaybeEquipConfiguredUnderlight then
-        addon.fishing.MaybeEquipConfiguredUnderlight("addon-loaded")
+    if fishing and fishing.MaybeEquipConfiguredUnderlight then
+        fishing.MaybeEquipConfiguredUnderlight("addon-loaded")
     end
 
     -- Initialize buff config
@@ -119,10 +133,10 @@ frame:SetScript("OnEvent", function(self, event, name)
     end
 
     -- Create secure frames
-    if addon.fishing then
-        addon.fishing.CreateSecureFishingFrame()
-        addon.fishing.CreateSecureBuffFrame()
-        addon.fishing.CreateFishingStateFrame()
+    if fishing then
+        fishing.CreateSecureFishingFrame()
+        fishing.CreateSecureBuffFrame()
+        fishing.CreateFishingStateFrame()
     end
 
     -- Register slash commands
@@ -148,10 +162,14 @@ end)
 local lastRightClickDisabledDebugAt = 0
 if WorldFrame then
     WorldFrame:HookScript("OnMouseDown", function(_, button)
+        if not requireFishingAPI then
+            error("DreamFisher: RequireFishingAPI helper is required for world right-click handling")
+        end
+        local fishing = requireFishingAPI()
         if button == "RightButton" and not InCombatLockdown() then
-            if addon.fishing and addon.fishing.IsWorldRightClickActivationPressed then
-                if addon.fishing.IsWorldRightClickActivationPressed() then
-                    addon.fishing.HandleWorldRightClick()
+            if fishing and fishing.IsWorldRightClickActivationPressed then
+                if fishing.IsWorldRightClickActivationPressed() then
+                    fishing.HandleWorldRightClick()
                 elseif addon.db and addon.db.debugMode and addon.db.debugState then
                     local now = (type(GetTime) == "function") and GetTime() or 0
                     if (now - lastRightClickDisabledDebugAt) >= 1.0 then
@@ -176,23 +194,28 @@ lootTracker:RegisterEvent("LOOT_CLOSED")
 lootTracker:RegisterEvent("BAG_UPDATE")
 lootTracker:RegisterEvent("UI_INFO_MESSAGE")
 lootTracker:SetScript("OnEvent", function(_, event, ...)
+    if not requireFishingAPI then
+        error("DreamFisher: RequireFishingAPI helper is required for loot tracker")
+    end
+    local fishing = requireFishingAPI()
+
     if event == "LOOT_READY" then
-        if not (addon.fishing and addon.fishing.ApplySessionState and addon.fishing.IsLootReadySessionState) then
+        if not (fishing and fishing.ApplySessionState and fishing.IsLootReadySessionState) then
             error("DreamFisher: ApplySessionState and IsLootReadySessionState are required for loot-ready handling")
         end
-        if addon.fishing.IsLootReadySessionState() then
-            addon.fishing.ApplySessionState("LOOTING", "loot-ready")
+        if fishing.IsLootReadySessionState() then
+            fishing.ApplySessionState("LOOTING", "loot-ready")
         end
     elseif event == "LOOT_CLOSED" then
-        if not (addon.fishing and addon.fishing.IsSessionState) then
+        if not (fishing and fishing.IsSessionState) then
             error("DreamFisher: IsSessionState is required for loot-close handling")
         end
-        if addon.fishing.IsSessionState("LOOTING") then
+        if fishing.IsSessionState("LOOTING") then
             DebugBagMessage("Fishing loot in progress ended")
-            if not (addon.fishing and addon.fishing.StartLingerThenCloseSession) then
+            if not (fishing and fishing.StartLingerThenCloseSession) then
                 error("DreamFisher: StartLingerThenCloseSession is required for loot close handling")
             end
-            addon.fishing.StartLingerThenCloseSession(
+            fishing.StartLingerThenCloseSession(
                 "loot-closed-starting-linger",
                 "loot-closed",
                 {
@@ -206,10 +229,10 @@ lootTracker:SetScript("OnEvent", function(_, event, ...)
         end
         addon.state.lastBagWarning = 0
     elseif event == "BAG_UPDATE" then
-        if not (addon.fishing and addon.fishing.IsFishingActiveSessionState) then
+        if not (fishing and fishing.IsFishingActiveSessionState) then
             error("DreamFisher: IsFishingActiveSessionState is required for bag-update handling")
         end
-        if addon.fishing.IsFishingActiveSessionState() and addon.utils then
+        if fishing.IsFishingActiveSessionState() and addon.utils then
             addon.utils.CheckBagSpace()
         end
         if addon.utils then addon.utils.CheckBuffItemStockWarnings() end
@@ -238,10 +261,10 @@ lootTracker:SetScript("OnEvent", function(_, event, ...)
             local now = (type(GetTime) == "function") and GetTime() or 0
             local startedAt = tonumber(addon.state.fishingStartTime) or 0
             local elapsed = (startedAt > 0 and now >= startedAt) and (now - startedAt) or 0
-            if not (addon.fishing and addon.fishing.StartLingerThenCloseSession) then
+            if not (fishing and fishing.StartLingerThenCloseSession) then
                 error("DreamFisher: StartLingerThenCloseSession is required for no-fish-hooked handling")
             end
-            addon.fishing.StartLingerThenCloseSession(
+            fishing.StartLingerThenCloseSession(
                 "ui-info-no-fish-hooked-starting-linger",
                 "ui-info-no-fish-hooked-close",
                 { restoreAutoLoot = true, poleReason = "ui-info-no-fish-hooked" }
@@ -264,6 +287,10 @@ bagMonitor:RegisterEvent("BAG_UPDATE_DELAYED")
 bagMonitor:SetScript("OnEvent", function(_, event)
     if addon.utils then addon.utils.CheckBagSpace() end
     if event == "BAG_UPDATE_DELAYED" and addon.utils and addon.alerts then
+        if not requireAlertsAPI then
+            error("DreamFisher: RequireAlertsAPI helper is required for bag monitoring")
+        end
+        local alerts = requireAlertsAPI()
         local now = (type(GetTime) == "function") and GetTime() or 0
         if fishingLootBagCheckPendingUntil > 0 then
             if now <= fishingLootBagCheckPendingUntil then
@@ -280,7 +307,9 @@ bagMonitor:SetScript("OnEvent", function(_, event)
                 DebugBagMessage("BAG_UPDATE_DELAYED slots: regularFree=" .. tostring(regularFree) .. ", reagentFree=" .. tostring(reagentFree))
                 if isRegularLow or isReagentLow then
                     DebugBagMessage("Bag space low after loot close: regularFree=" .. tostring(regularFree) .. ", reagentFree=" .. tostring(reagentFree))
-                    addon.alerts.ShowBagFullAlert()
+                    if alerts and alerts.ShowBagFullAlert then
+                        alerts.ShowBagFullAlert()
+                    end
                     fishingLootBagCheckPendingUntil = 0
                 else
                     DebugBagMessage("Bag space not low yet; waiting for next BAG_UPDATE_DELAYED")
@@ -298,14 +327,24 @@ local auraTracker = CreateFrame("Frame")
 auraTracker:RegisterEvent("UNIT_AURA")
 auraTracker:SetScript("OnEvent", function(_, _, unit)
     if unit ~= "player" then return end
+    if not requireFishingAPI then
+        error("DreamFisher: RequireFishingAPI helper is required for aura tracking")
+    end
+    if not requireAlertsAPI then
+        error("DreamFisher: RequireAlertsAPI helper is required for aura tracking")
+    end
+    local fishing = requireFishingAPI()
+    local alerts = requireAlertsAPI()
 
     if addon.buff then addon.buff.UpdatePendingBuffObservation() end
 
-    if addon.fishing and addon.fishing.HasPatientlyRewardedAura then
-        local hasAura = addon.fishing.HasPatientlyRewardedAura()
+    if fishing and fishing.HasPatientlyRewardedAura then
+        local hasAura = fishing.HasPatientlyRewardedAura()
         if hasAura and not addon.state.patientAuraActive then
             addon.state.patientAuraActive = true
-            if addon.alerts then addon.alerts.ShowPatientTreasureAlert("Patiently Rewarded") end
+            if alerts and alerts.ShowPatientTreasureAlert then
+                alerts.ShowPatientTreasureAlert("Patiently Rewarded")
+            end
         elseif not hasAura then
             addon.state.patientAuraActive = false
         end

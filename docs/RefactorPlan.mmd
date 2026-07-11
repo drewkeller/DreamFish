@@ -1,0 +1,57 @@
+flowchart TD
+    Start[DreamFisher Refactoring Plan] --> Analysis[Phase 0: Current State Analysis]
+
+    Analysis --> PainPoints[Current Pain Points]
+    PainPoints --> PP1[Deep module coupling via globals]
+    PainPoints --> PP2[State machine spread across modules]
+    PainPoints --> PP3[Buff logic tightly coupled to config]
+    PainPoints --> PP4[Limited test isolation]
+    PainPoints --> PP5[Legacy flags still in use]
+
+    PP5 --> Phase1[Phase 1: Establish Clean Boundaries]
+    Phase1 --> P1A[Extract state machine interface]
+    Phase1 --> P1B[Canonicalize session state queries]
+    Phase1 --> P1C[Create module API registry]
+
+    P1C --> Phase1Out[Outcome: explicit module contracts]
+
+    Phase1Out --> Phase2[Phase 2: Decouple Buff System]
+    Phase2 --> P2A[Isolate buff tracking as pure logic]
+    Phase2 --> P2B[Separate buff timing scheduler]
+    Phase2 --> P2C[Create buff API surface]
+
+    P2C --> Phase2Out[Outcome: testable buff module]
+
+    Phase2Out --> Phase3[Phase 3: Refactor Casting Pipeline]
+    Phase3 --> P3A[Extract hooked interact module]
+    Phase3 --> P3B[Simplify casting branch flow]
+    Phase3 --> P3C[Add cast mode dispatcher]
+
+    P3C --> Phase3Out[Outcome: isolated cast mode behavior]
+
+    Phase3Out --> Phase4[Phase 4: Consolidate UI Layer]
+    Phase4 --> P4A[Refactor config to use module APIs]
+    Phase4 --> P4B[Add UI state binding layer]
+    Phase4 --> P4C[Route slash commands through APIs]
+
+    P4C --> Phase4Out[Outcome: thinner UI, easier maintenance]
+
+    Phase4Out --> Phase5[Phase 5: Expand Test Suite]
+    Phase5 --> P5A[Add state machine transition tests]
+    Phase5 --> P5B[Add buff edge case tests]
+    Phase5 --> P5C[Add config persistence integration tests]
+
+    P5C --> Phase5Out[Outcome: stronger regression safety]
+
+    Phase5Out --> Phase6[Phase 6: Measure and Validate]
+    Phase6 --> P6A[Track module dependency count]
+    Phase6 --> P6B[Track test runtime]
+    Phase6 --> P6C[Track per-module size]
+
+    P6C --> Success[Refactoring Complete]
+
+    Success --> Outcomes[Expected Outcomes]
+    Outcomes --> Out1[Faster onboarding from clear APIs]
+    Outcomes --> Out2[Fewer bugs from transition coverage]
+    Outcomes --> Out3[Safer feature work from lower coupling]
+    Outcomes --> Out4[More predictable behavior from canonical state logic]

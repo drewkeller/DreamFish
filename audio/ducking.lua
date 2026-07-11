@@ -182,14 +182,19 @@ local function EnableFishingAudioFocus(force)
 end
 
 local function RestoreFishingAudioFocus()
+    if not addon.RequireFishingAPI then
+        error("DreamFisher: RequireFishingAPI helper is required for audio diagnostics")
+    end
+    local fishing = addon.RequireFishingAPI()
+
     if addon.state.savedFishingAudioCVars == nil then
         return
     end
     if addon.db and addon.db.debugMode and DebugMessage then
-        if not (addon.fishing and addon.fishing.GetCurrentSessionFlags) then
+        if not (fishing and fishing.GetCurrentSessionFlags) then
             error("DreamFisher: GetCurrentSessionFlags is required for audio diagnostics")
         end
-        local flags = addon.fishing.GetCurrentSessionFlags()
+        local flags = fishing.GetCurrentSessionFlags()
         DebugMessage("Audio restore now: elapsed=" .. string.format("%.3f", GetFishingElapsedSeconds())
             .. " sessionState=" .. tostring(addon.state and addon.state.fishingSessionState)
             .. " flags={isFishing=" .. tostring(flags.isFishing)
@@ -289,6 +294,10 @@ addon.audio.RestoreFishingAudioFocusAfterLinger = RestoreFishingAudioFocusAfterL
 addon.audio.StartFishingAudioFocus = StartFishingAudioFocus
 addon.audio.PlayWarningCue = PlayWarningCue
 addon.audio.ResumePersistedAudioDuckingState = ResumePersistedAudioDuckingState
+
+if addon.moduleAPI and addon.moduleAPI.Register then
+    addon.moduleAPI.Register("audio", addon.audio)
+end
 
 -- Test hooks
 addon._test.EnableFishingAudioFocus = function(force)

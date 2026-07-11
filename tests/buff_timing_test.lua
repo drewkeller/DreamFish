@@ -68,6 +68,8 @@ _G.UIParent = {}
 -- Load the addon
 dofile("core/init.lua")
 dofile("core/utils.lua")
+dofile("core/module_api.lua")
+dofile("core/api_resolver.lua")
 dofile("fishing/helpers.lua")
 dofile("buff/tracking.lua")
 dofile("buff/timing.lua")

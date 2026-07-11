@@ -1,6 +1,7 @@
 -- DreamFisher: Fishing Helpers and Bag Management
 
 local addon = _G["DreamFisher"]
+local getAudioAPI = addon.GetAudioAPI
 
 local function GetOwnedToyItemIDs(candidateIDs)
     local owned = {}
@@ -199,8 +200,9 @@ local function CheckBuffItemStockWarnings()
             if previousCount and previousCount > 0 and count <= 0 then
                 local itemName = (type(GetItemInfo) == "function" and GetItemInfo(itemID)) or ("item:" .. tostring(itemID))
                 addon.PrintMessage("Buff item depleted: " .. tostring(itemName) .. " (" .. tostring(itemID) .. ", 0 left).")
-                if addon.audio and addon.audio.PlayWarningCue then
-                    addon.audio.PlayWarningCue()
+                    local audio = getAudioAPI and getAudioAPI()
+                if audio and audio.PlayWarningCue then
+                    audio.PlayWarningCue()
                 end
             end
         end

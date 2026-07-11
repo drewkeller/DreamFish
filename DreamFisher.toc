@@ -21,6 +21,8 @@ Libs/AceGUI-3.0/AceGUI-3.0.xml
 # Core modules (load first)
 core/init.lua
 core/utils.lua
+core/module_api.lua
+core/api_resolver.lua
 
 # Buff system (tracking, timing, management)
 buff/tracking.lua
