@@ -59,8 +59,28 @@ local DebugStateMessage = addon.DebugStateMessage or addon.DebugMessage
 
 local function DebugBagMessage(msg)
     if addon.db and addon.db.debugMode and addon.db.debugBags then
-        addon.DebugMessage(msg)
+        addon.DebugMessage("[bags] " .. tostring(msg))
     end
+end
+
+local function FormatJunkCountsForDebug(counts)
+    if type(counts) ~= "table" then
+        return "none"
+    end
+
+    local entries = {}
+    for itemID, count in pairs(counts) do
+        if tonumber(count) and tonumber(count) > 0 then
+            entries[#entries + 1] = tostring(itemID) .. "=" .. tostring(count)
+        end
+    end
+
+    table.sort(entries)
+    if #entries == 0 then
+        return "none"
+    end
+
+    return table.concat(entries, ",")
 end
 
 _G.BINDING_HEADER_DREAMFISHER = "DreamFisher"
@@ -315,36 +335,36 @@ end
 local function CaptureFishingJunkBaseline()
     if addon.db and addon.db.throwAwayJunk then
         fishingJunkBaselineCounts = GetJunkCountsByItemID()
+        DebugBagMessage("Captured fishing junk baseline: " .. FormatJunkCountsForDebug(fishingJunkBaselineCounts))
     else
         fishingJunkBaselineCounts = nil
+        DebugBagMessage("Skipped fishing junk baseline capture: throwAwayJunk disabled")
     end
 end
 
 local function ClearFishingJunkBaseline()
+    if fishingJunkBaselineCounts then
+        DebugBagMessage("Clearing fishing junk baseline: " .. FormatJunkCountsForDebug(fishingJunkBaselineCounts))
+    end
     fishingJunkBaselineCounts = nil
 end
 
-local function DeleteCursorItemIfPresent()
-    if type(DeleteCursorItem) ~= "function" then
-        return false
+addon.CaptureFishingJunkBaseline = CaptureFishingJunkBaseline
+addon.ClearFishingJunkBaseline = ClearFishingJunkBaseline
+addon._test.GetFishingJunkBaselineCounts = function()
+    if not fishingJunkBaselineCounts then
+        return nil
     end
-
-    local cursorType = (type(GetCursorInfo) == "function") and GetCursorInfo() or nil
-    if cursorType ~= "item" then
-        if type(ClearCursor) == "function" then
-            pcall(ClearCursor)
-        end
-        return false
-    end
-
-    return pcall(DeleteCursorItem)
+    return addon.DeepCopy(fishingJunkBaselineCounts)
 end
 
 local function TryDiscardNewlyLootedJunkFromBags()
     if not (addon.db and addon.db.throwAwayJunk) then
+        DebugBagMessage("Skipping junk discard: throwAwayJunk disabled")
         return false
     end
     if not fishingJunkBaselineCounts then
+        DebugBagMessage("Skipping junk discard: no fishing junk baseline recorded")
         return false
     end
 
@@ -360,45 +380,19 @@ local function TryDiscardNewlyLootedJunkFromBags()
         end
     end
 
+    DebugBagMessage("Junk discard counts: baseline=" .. FormatJunkCountsForDebug(fishingJunkBaselineCounts)
+        .. " current=" .. FormatJunkCountsForDebug(currentCounts)
+        .. " excess=" .. FormatJunkCountsForDebug(excessByItemID))
+
     if not hasExcess then
+        DebugBagMessage("No newly looted junk detected during pending discard window")
         return false
     end
 
-    local discardedCount = 0
-    for _, bag in ipairs(GetTrackedBagIDs()) do
-        local slotCount = ContainerNumSlotsCompat(bag)
-        for slot = slotCount, 1, -1 do
-            local itemID = ContainerItemIDCompat(bag, slot)
-            local remaining = itemID and excessByItemID[itemID] or nil
-            if remaining and remaining > 0 then
-                local stackCount = math.max(1, ContainerItemCountCompat(bag, slot))
-                local deleteCount = math.min(stackCount, remaining)
-                local deleted = false
-
-                if deleteCount == stackCount then
-                    local okPickup = ContainerPickupItemCompat(bag, slot)
-                    if okPickup then
-                        deleted = DeleteCursorItemIfPresent()
-                    end
-                else
-                    local okSplit = ContainerSplitItemCompat(bag, slot, deleteCount)
-                    if okSplit then
-                        deleted = DeleteCursorItemIfPresent()
-                    end
-                end
-
-                if deleted then
-                    discardedCount = discardedCount + deleteCount
-                    excessByItemID[itemID] = remaining - deleteCount
-                end
-            end
-        end
-    end
-
-    if discardedCount > 0 then
-        DebugBagMessage("Discarded newly looted junk item count=" .. tostring(discardedCount))
-        return true
-    end
+    DebugBagMessage("Junk discard would be attempted, but DeleteCursorItem is protected outside a secure hardware event; skipping actual delete")
+    DebugBagMessage("Junk discard counts: baseline=" .. FormatJunkCountsForDebug(fishingJunkBaselineCounts)
+        .. " current=" .. FormatJunkCountsForDebug(currentCounts)
+        .. " excess=" .. FormatJunkCountsForDebug(excessByItemID))
 
     return false
 end
@@ -428,14 +422,33 @@ end
 local function TryHandlePostLootJunkDiscard()
     ExpirePendingLootBagWindowIfNeeded()
     if not IsPendingLootBagWindow() then
+        DebugBagMessage("Skipping post-loot junk discard: pending window inactive")
         ClearFishingJunkBaseline()
         return
     end
     local didDiscard = TryDiscardNewlyLootedJunkFromBags()
     if didDiscard then
         ClearPendingLootBagWindow()
+    else
+        DebugBagMessage("Post-loot junk discard deferred: pending window remains active")
     end
 end
+
+local junkBaselineTracker = CreateFrame("Frame")
+junkBaselineTracker:RegisterEvent("UNIT_SPELLCAST_START")
+junkBaselineTracker:RegisterEvent("UNIT_SPELLCAST_CHANNEL_START")
+junkBaselineTracker:SetScript("OnEvent", function(_, event, unit, _, spellID)
+    if unit ~= "player" then
+        return
+    end
+    local numericSpellID = tonumber(spellID)
+    local fishingSpellID = addon.const and tonumber(addon.const.fishingSpellID) or nil
+    local fishingChannelSpellID = addon.const and tonumber(addon.const.fishingChannelSpellID) or nil
+    if numericSpellID ~= fishingSpellID and numericSpellID ~= fishingChannelSpellID then
+        return
+    end
+    CaptureFishingJunkBaseline()
+end)
 
 local lootTracker = CreateFrame("Frame")
 lootTracker:RegisterEvent("LOOT_READY")
@@ -453,8 +466,11 @@ lootTracker:SetScript("OnEvent", function(_, event, ...)
             error("DreamFisher: ApplySessionState and IsLootReadySessionState are required for loot-ready handling")
         end
         local isLootReadySession = fishing.IsLootReadySessionState()
-        if isLootReadySession then
+        if isLootReadySession and not fishingJunkBaselineCounts then
+            DebugBagMessage("LOOT_READY fallback baseline capture triggered")
             CaptureFishingJunkBaseline()
+        elseif isLootReadySession then
+            DebugBagMessage("LOOT_READY preserving earlier junk baseline")
         end
         if isLootReadySession and not (fishing.IsSessionState and fishing.IsSessionState("LOOTING")) then
             fishing.ApplySessionState("LOOTING", "loot-ready")
