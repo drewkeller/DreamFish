@@ -659,6 +659,109 @@ function tests.HotkeyConfiguresMacroWhenDueBuffReady()
     end
 end
 
+function tests.HotkeyDueBuffSecureClickStartsObservationAndBlocksImmediateReapply()
+    local originalCreateFrame = _G.CreateFrame
+    local originalFind = DreamFisher.buff.FindItemInBags
+    local originalFishingFrame = DreamFisher.frames.fishing
+
+    local function makeHookableFrame()
+        local attrs = {}
+        local hooks = {}
+        local shown = false
+        return {
+            RegisterEvent = function() end,
+            UnregisterEvent = function() end,
+            SetScript = function() end,
+            GetScript = function() return nil end,
+            HookScript = function(_, eventName, handler)
+                hooks[eventName] = handler
+            end,
+            SetAllPoints = function() end,
+            SetFrameStrata = function() end,
+            EnableMouse = function() end,
+            RegisterForClicks = function() end,
+            SetAttribute = function(_, key, value)
+                attrs[key] = value
+            end,
+            GetAttribute = function(_, key)
+                return attrs[key]
+            end,
+            SetSize = function() end,
+            SetPoint = function() end,
+            IsShown = function() return shown end,
+            Show = function() shown = true end,
+            Hide = function() shown = false end,
+            GetName = function() return "Frame" end,
+            _testHooks = hooks,
+        }
+    end
+
+    local ok, err = pcall(function()
+        _G.CreateFrame = function()
+            return makeHookableFrame()
+        end
+
+        DreamFisher.frames.fishing = nil
+        local fishingFrame = DreamFisher.fishing.CreateSecureFishingFrame()
+
+        _G.CreateFrame = originalCreateFrame
+
+        DreamFisher._test.SetDB({
+            castingModes = { castHotkey = true },
+            buffItems = { { itemID = 111 } },
+            buffAuraByItem = {},
+            useOversizedBobber = false,
+            selectedBobberToy = nil,
+        })
+        DreamFisher._test.SetBuffLastUseTime(111, 0)
+
+        DreamFisher.buff.FindItemInBags = function(itemID)
+            if itemID == 111 then return 0, 1 end
+            return nil, nil
+        end
+
+        DreamFisher.fishing.ConfigureFishingClickAction()
+        assertEquals(fishingFrame:GetAttribute("dreamfisher_duebuff"), 111,
+            "Due buff should be armed on secure fishing frame before click")
+
+        local onClick = fishingFrame._testHooks and fishingFrame._testHooks["OnClick"] or nil
+        assertTrue(type(onClick) == "function", "Secure fishing frame OnClick hook should be registered")
+
+        onClick()
+
+        local lastUsedAt = DreamFisher._test.GetBuffLastUseTime(111)
+        assertEquals(lastUsedAt, mockTime,
+            "Secure fishing due-buff click should stamp last-use time for due item")
+        assertTrue(type(DreamFisher.state.pendingBuffObservation) == "table",
+            "Secure fishing due-buff click should start pending observation")
+        assertEquals(tonumber(DreamFisher.state.pendingBuffObservation.itemID), 111,
+            "Pending observation should target the due buff item")
+
+        local isDue, _, reason = DreamFisher._test.IsBuffItemDue(111, 60, true)
+        assertEquals(isDue, false,
+            "Immediately after due-buff click, item should not be considered due again")
+        assertEquals(reason, "unknown_duration_observing",
+            "Immediate post-click due check should be gated by observation window")
+
+        DreamFisher.fishing.ConfigureFishingClickAction()
+        local secondMacro = fishingFrame:GetAttribute("macrotext") or ""
+        assertTrue(secondMacro:find("/use item:111", 1, true) == nil,
+            "Immediate follow-up configure should not re-arm same untracked due buff")
+    end)
+
+    _G.CreateFrame = originalCreateFrame
+    DreamFisher.buff.FindItemInBags = originalFind
+    DreamFisher.frames.fishing = originalFishingFrame
+    DreamFisher.state.pendingBuffObservation = nil
+    if DreamFisher.state and type(DreamFisher.state.buffItemLastUseAt) == "table" then
+        DreamFisher.state.buffItemLastUseAt[111] = nil
+    end
+
+    if not ok then
+        error(err, 0)
+    end
+end
+
 function tests.HotkeyLureDueBuffAppliesProfessionSlot()
     local capturedAttrs = {}
     local fishingFrame = DreamFisher.fishing.CreateSecureFishingFrame()

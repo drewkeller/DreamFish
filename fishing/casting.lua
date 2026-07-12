@@ -339,6 +339,7 @@ local function CreateSecureFishingFrame()
         local actionType = tostring(frame:GetAttribute("type") or "nil")
         local spell = tostring(frame:GetAttribute("spell") or "nil")
         local dueBuff = tostring(frame:GetAttribute("dreamfisher_duebuff") or "")
+        local dueBuffItemID = tonumber(dueBuff)
         local macrotext = tostring(frame:GetAttribute("macrotext") or "")
         if macrotext ~= "" then
             local firstLine, secondLine = macrotext:match("([^\n]+)\n([^\n]+)")
@@ -354,6 +355,17 @@ local function CreateSecureFishingFrame()
         end
         if actionType ~= "nil" and addon.state then
             addon.state.lastFishingSecureClickAt = (type(GetTime) == "function") and GetTime() or 0
+        end
+        if dueBuffItemID and dueBuffItemID > 0 and addon.state and addon.buff then
+            local now = (type(GetTime) == "function") and GetTime() or 0
+            addon.state.buffItemLastUseAt[dueBuffItemID] = now
+            if type(addon.buff.BuildHelpfulAuraSnapshot) == "function" then
+                addon.state.pendingBuffObservation = {
+                    itemID = dueBuffItemID,
+                    before = addon.buff.BuildHelpfulAuraSnapshot(),
+                    expiresAt = now + 20,
+                }
+            end
         end
         if not InCombatLockdown() then
             -- Right-click override path still uses this frame.

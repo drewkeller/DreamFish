@@ -875,6 +875,9 @@ local function LoadConfigBindings()
     if isFocusActive and addon.reagentBagAlertsCheckbox then
         addon.reagentBagAlertsCheckbox:SetChecked(addon.db.reagentBagAlerts)
     end
+    if isFocusActive and addon.throwAwayJunkCheckbox then
+        addon.throwAwayJunkCheckbox:SetChecked(addon.db.throwAwayJunk)
+    end
     if isModesActive and addon.escapeCloseCheckbox then
         addon.escapeCloseCheckbox:SetChecked(addon.db.closeWindowOnEscape)
     end
@@ -988,6 +991,9 @@ local function SaveConfigBindings()
     end
     if addon.reagentBagAlertsCheckbox then
         addon.db.reagentBagAlerts = addon.reagentBagAlertsCheckbox:GetChecked()
+    end
+    if addon.throwAwayJunkCheckbox then
+        addon.db.throwAwayJunk = addon.throwAwayJunkCheckbox:GetChecked()
     end
 
     local existingModes = (type(addon.db.castingModes) == "table") and addon.db.castingModes or {}
@@ -1347,6 +1353,9 @@ local function BuildFocusTab(focusPage, ui, onLiveChange)
         "Monitors your reagentbag space and alerts you when it is low.")
     addon.reagentBagAlertsThresholdBox = ui.FlowEditBox(focusSection, "Reagent Bag Threshold (slots)", 150, onLiveChange,
         "Minimum number of free reagent bag slots before an alert is triggered.")
+
+    addon.throwAwayJunkCheckbox = ui.FlowCheckbox(focusSection, "Automatically throw away junk items", onLiveChange,
+        "Automatically discards new junk-quality items when looting to prevent filling up bag space.")
 
     local audioSection = ui.FlowSection(root, "Audio")
     addon.focusedAudioCheckbox = ui.FlowCheckbox(audioSection, "Focused audio when fishing", onLiveChange,

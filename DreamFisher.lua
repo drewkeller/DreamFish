@@ -187,6 +187,255 @@ end
 
 -- Loot tracking
 local fishingLootBagCheckPendingUntil = 0
+local fishingJunkBaselineCounts = nil
+
+local function ContainerNumSlotsCompat(bag)
+    if C_Container and type(C_Container.GetContainerNumSlots) == "function" then
+        return C_Container.GetContainerNumSlots(bag) or 0
+    end
+    if type(GetContainerNumSlots) == "function" then
+        return GetContainerNumSlots(bag) or 0
+    end
+    return 0
+end
+
+local function ContainerItemIDCompat(bag, slot)
+    if C_Container and type(C_Container.GetContainerItemID) == "function" then
+        return C_Container.GetContainerItemID(bag, slot)
+    end
+    if type(GetContainerItemID) == "function" then
+        return GetContainerItemID(bag, slot)
+    end
+    return nil
+end
+
+local function ContainerItemQualityCompat(bag, slot, itemID)
+    if C_Container and type(C_Container.GetContainerItemInfo) == "function" then
+        local info = C_Container.GetContainerItemInfo(bag, slot)
+        if type(info) == "table" and info.quality ~= nil then
+            return tonumber(info.quality)
+        end
+    end
+
+    if type(GetContainerItemInfo) == "function" then
+        local info = GetContainerItemInfo(bag, slot)
+        if type(info) == "table" and info.quality ~= nil then
+            return tonumber(info.quality)
+        end
+        if type(info) ~= "table" then
+            local _, _, _, quality = GetContainerItemInfo(bag, slot)
+            if quality ~= nil then
+                return tonumber(quality)
+            end
+        end
+    end
+
+    if type(GetItemInfo) == "function" and itemID then
+        local _, _, quality = GetItemInfo(itemID)
+        if quality ~= nil then
+            return tonumber(quality)
+        end
+    end
+
+    return nil
+end
+
+local function ContainerItemCountCompat(bag, slot)
+    if C_Container and type(C_Container.GetContainerItemInfo) == "function" then
+        local info = C_Container.GetContainerItemInfo(bag, slot)
+        if type(info) == "table" then
+            return tonumber(info.stackCount or info.quantity or 1) or 1
+        end
+    end
+
+    if type(GetContainerItemInfo) == "function" then
+        local info = GetContainerItemInfo(bag, slot)
+        if type(info) == "table" then
+            return tonumber(info.stackCount or info.quantity or 1) or 1
+        end
+        if type(info) ~= "table" then
+            local _, itemCount = GetContainerItemInfo(bag, slot)
+            return tonumber(itemCount) or 1
+        end
+    end
+
+    return 1
+end
+
+local function ContainerPickupItemCompat(bag, slot)
+    if C_Container and type(C_Container.PickupContainerItem) == "function" then
+        return pcall(C_Container.PickupContainerItem, bag, slot)
+    end
+    if type(PickupContainerItem) == "function" then
+        return pcall(PickupContainerItem, bag, slot)
+    end
+    return false
+end
+
+local function ContainerSplitItemCompat(bag, slot, count)
+    if C_Container and type(C_Container.SplitContainerItem) == "function" then
+        return pcall(C_Container.SplitContainerItem, bag, slot, count)
+    end
+    if type(SplitContainerItem) == "function" then
+        return pcall(SplitContainerItem, bag, slot, count)
+    end
+    return false
+end
+
+local function GetTrackedBagIDs()
+    local ids = {}
+    local bagCount = tonumber(NUM_BAG_SLOTS) or 4
+    for bag = 0, bagCount do
+        ids[#ids + 1] = bag
+    end
+    if ContainerNumSlotsCompat(5) > 0 then
+        ids[#ids + 1] = 5
+    end
+    return ids
+end
+
+local function GetJunkCountsByItemID()
+    local counts = {}
+    for _, bag in ipairs(GetTrackedBagIDs()) do
+        local slotCount = ContainerNumSlotsCompat(bag)
+        for slot = 1, slotCount do
+            local itemID = ContainerItemIDCompat(bag, slot)
+            if itemID then
+                local quality = ContainerItemQualityCompat(bag, slot, itemID)
+                if quality == 0 then
+                    local stackCount = math.max(1, ContainerItemCountCompat(bag, slot))
+                    counts[itemID] = (counts[itemID] or 0) + stackCount
+                end
+            end
+        end
+    end
+    return counts
+end
+
+local function CaptureFishingJunkBaseline()
+    if addon.db and addon.db.throwAwayJunk then
+        fishingJunkBaselineCounts = GetJunkCountsByItemID()
+    else
+        fishingJunkBaselineCounts = nil
+    end
+end
+
+local function ClearFishingJunkBaseline()
+    fishingJunkBaselineCounts = nil
+end
+
+local function DeleteCursorItemIfPresent()
+    if type(DeleteCursorItem) ~= "function" then
+        return false
+    end
+
+    local cursorType = (type(GetCursorInfo) == "function") and GetCursorInfo() or nil
+    if cursorType ~= "item" then
+        if type(ClearCursor) == "function" then
+            pcall(ClearCursor)
+        end
+        return false
+    end
+
+    return pcall(DeleteCursorItem)
+end
+
+local function TryDiscardNewlyLootedJunkFromBags()
+    if not (addon.db and addon.db.throwAwayJunk) then
+        return false
+    end
+    if not fishingJunkBaselineCounts then
+        return false
+    end
+
+    local currentCounts = GetJunkCountsByItemID()
+    local excessByItemID = {}
+    local hasExcess = false
+    for itemID, currentCount in pairs(currentCounts) do
+        local baseline = tonumber(fishingJunkBaselineCounts[itemID]) or 0
+        local excess = (tonumber(currentCount) or 0) - baseline
+        if excess > 0 then
+            excessByItemID[itemID] = excess
+            hasExcess = true
+        end
+    end
+
+    if not hasExcess then
+        return false
+    end
+
+    local discardedCount = 0
+    for _, bag in ipairs(GetTrackedBagIDs()) do
+        local slotCount = ContainerNumSlotsCompat(bag)
+        for slot = slotCount, 1, -1 do
+            local itemID = ContainerItemIDCompat(bag, slot)
+            local remaining = itemID and excessByItemID[itemID] or nil
+            if remaining and remaining > 0 then
+                local stackCount = math.max(1, ContainerItemCountCompat(bag, slot))
+                local deleteCount = math.min(stackCount, remaining)
+                local deleted = false
+
+                if deleteCount == stackCount then
+                    local okPickup = ContainerPickupItemCompat(bag, slot)
+                    if okPickup then
+                        deleted = DeleteCursorItemIfPresent()
+                    end
+                else
+                    local okSplit = ContainerSplitItemCompat(bag, slot, deleteCount)
+                    if okSplit then
+                        deleted = DeleteCursorItemIfPresent()
+                    end
+                end
+
+                if deleted then
+                    discardedCount = discardedCount + deleteCount
+                    excessByItemID[itemID] = remaining - deleteCount
+                end
+            end
+        end
+    end
+
+    if discardedCount > 0 then
+        DebugBagMessage("Discarded newly looted junk item count=" .. tostring(discardedCount))
+        return true
+    end
+
+    return false
+end
+
+local function IsPendingLootBagWindow()
+    local now = (type(GetTime) == "function") and GetTime() or 0
+    return fishingLootBagCheckPendingUntil > 0 and now <= fishingLootBagCheckPendingUntil
+end
+
+local function ClearPendingLootBagWindow()
+    fishingLootBagCheckPendingUntil = 0
+    ClearFishingJunkBaseline()
+end
+
+local function QueuePendingLootBagWindow(seconds)
+    local now = (type(GetTime) == "function") and GetTime() or 0
+    fishingLootBagCheckPendingUntil = now + (seconds or 2)
+end
+
+local function ExpirePendingLootBagWindowIfNeeded()
+    local now = (type(GetTime) == "function") and GetTime() or 0
+    if fishingLootBagCheckPendingUntil > 0 and now > fishingLootBagCheckPendingUntil then
+        fishingLootBagCheckPendingUntil = 0
+    end
+end
+
+local function TryHandlePostLootJunkDiscard()
+    ExpirePendingLootBagWindowIfNeeded()
+    if not IsPendingLootBagWindow() then
+        ClearFishingJunkBaseline()
+        return
+    end
+    local didDiscard = TryDiscardNewlyLootedJunkFromBags()
+    if didDiscard then
+        ClearPendingLootBagWindow()
+    end
+end
 
 local lootTracker = CreateFrame("Frame")
 lootTracker:RegisterEvent("LOOT_READY")
@@ -203,7 +452,11 @@ lootTracker:SetScript("OnEvent", function(_, event, ...)
         if not (fishing and fishing.ApplySessionState and fishing.IsLootReadySessionState) then
             error("DreamFisher: ApplySessionState and IsLootReadySessionState are required for loot-ready handling")
         end
-        if fishing.IsLootReadySessionState() and not (fishing.IsSessionState and fishing.IsSessionState("LOOTING")) then
+        local isLootReadySession = fishing.IsLootReadySessionState()
+        if isLootReadySession then
+            CaptureFishingJunkBaseline()
+        end
+        if isLootReadySession and not (fishing.IsSessionState and fishing.IsSessionState("LOOTING")) then
             fishing.ApplySessionState("LOOTING", "loot-ready")
         end
     elseif event == "LOOT_CLOSED" then
@@ -223,12 +476,12 @@ lootTracker:SetScript("OnEvent", function(_, event, ...)
                 poleReason = "loot-closed",
                 }
             )
-            local now = (type(GetTime) == "function") and GetTime() or 0
-            fishingLootBagCheckPendingUntil = now + 2
+            QueuePendingLootBagWindow(2)
             DebugBagMessage("Queued bag-threshold check for BAG_UPDATE_DELAYED")
         end
         addon.state.lastBagWarning = 0
     elseif event == "BAG_UPDATE" then
+        TryHandlePostLootJunkDiscard()
         if not (fishing and fishing.IsFishingActiveSessionState) then
             error("DreamFisher: IsFishingActiveSessionState is required for bag-update handling")
         end
@@ -294,6 +547,7 @@ bagMonitor:SetScript("OnEvent", function(_, event)
         local now = (type(GetTime) == "function") and GetTime() or 0
         if fishingLootBagCheckPendingUntil > 0 then
             if now <= fishingLootBagCheckPendingUntil then
+                TryHandlePostLootJunkDiscard()
                 local shouldCheckRegular = addon.db and addon.db.bagAlerts
                 local shouldCheckReagent = addon.db and addon.db.reagentBagAlerts
                 local threshold = (addon.db and addon.db.bagAlertsThreshold) or addon.defaults.bagAlertsThreshold
@@ -310,13 +564,13 @@ bagMonitor:SetScript("OnEvent", function(_, event)
                     if alerts and alerts.ShowBagFullAlert then
                         alerts.ShowBagFullAlert()
                     end
-                    fishingLootBagCheckPendingUntil = 0
+                    ClearPendingLootBagWindow()
                 else
                     DebugBagMessage("Bag space not low yet; waiting for next BAG_UPDATE_DELAYED")
                 end
             else
                 DebugBagMessage("Bag-threshold check window expired")
-                fishingLootBagCheckPendingUntil = 0
+                ClearPendingLootBagWindow()
             end
         end
     end

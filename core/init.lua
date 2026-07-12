@@ -17,6 +17,7 @@ addon.defaults = {
     bagAlertsThreshold = 2,
     reagentBagAlerts = true,
     reagentBagAlertsThreshold = 2,
+    throwAwayJunk = false,
     focusedAudio = true,
     focusedAudioLinger = 10,
     focusedVisuals = false,
