@@ -1558,8 +1558,18 @@ local function HandlePlayerTrigger(source, allowSingleClick, fishing, audio, ski
     HandlePrecastTrigger(source, allowSingleClick, fishing, audio, buffFrame)
 end
 
-local function HandleWorldRightClick(source, forceImmediate)
-    source = tostring(source or "world-right-click")
+local function HandleWorldRightClick()
+    local now = GetTime()
+    local modes = GetCastingModes()
+    local allowSingleClick = modes.singleRightClick and addon.frames.config and addon.frames.config:IsShown() or false
+    local isDoubleRightClick = (now - addon.state.lastRightClickTime) <= (addon.state.doubleClickWindow + 0.001)
+    local isSingleRightClick = allowSingleClick and not isDoubleRightClick
+    local source = "unknown"
+    if isDoubleRightClick then
+        source = "world-double-right-click"
+    elseif isSingleRightClick then
+        source = "world-single-right-click"
+    end
 
     if not requireFishingAPI then
         error("DreamFisher: RequireFishingAPI helper is required for world right-click handling")
@@ -1572,9 +1582,14 @@ local function HandleWorldRightClick(source, forceImmediate)
         return
     end
 
-    if HasTargetSelected() then
+    local mounted = (type(IsMounted) == "function" and IsMounted()) or false
+    if HasTargetSelected() or (mounted and isSingleRightClick) then
         addon.state.lastRightClickTime = 0
-        DebugMessage("Target selected; ignoring fishing trigger: " .. source)
+        if mounted then
+            DebugMessage("Single right-click ignored while mounted")
+        else
+            DebugMessage("Target selected; ignoring fishing trigger: " .. source)
+        end
         ExitFishingSessionForTargetSelection()
         if not InCombatLockdown() then
             if addon.frames.fishing then

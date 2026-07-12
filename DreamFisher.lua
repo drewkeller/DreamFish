@@ -169,7 +169,7 @@ if WorldFrame then
         if button == "RightButton" and not InCombatLockdown() then
             if fishing and fishing.IsWorldRightClickActivationPressed then
                 if fishing.IsWorldRightClickActivationPressed() then
-                    fishing.HandleWorldRightClick("world-right-click")
+                    fishing.HandleWorldRightClick()
                 elseif addon.db and addon.db.debugMode and addon.db.debugState then
                     local now = (type(GetTime) == "function") and GetTime() or 0
                     if (now - lastRightClickDisabledDebugAt) >= 1.0 then

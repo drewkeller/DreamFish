@@ -153,6 +153,49 @@ function tests.SingleClickRecordsTime()
     assertEquals(lastTime, 1000, "Single right-click should record time")
 end
 
+function tests.SingleClickWhileMountedDoesNotTriggerFishing()
+    local originalIsMounted = _G.IsMounted
+    _G.IsMounted = function() return true end
+    local originalConfigFrame = DreamFisher.frames.config
+
+    local originalBindingClick = _G.SetOverrideBindingClick
+    local bindingCalls = 0
+    _G.SetOverrideBindingClick = function(...)
+        bindingCalls = bindingCalls + 1
+        if originalBindingClick then
+            return originalBindingClick(...)
+        end
+    end
+
+    DreamFisher._test.SetDB({
+        castingModes = {
+            doubleRightClick = false,
+            singleRightClick = true,
+            castHotkey = false,
+        },
+        buffItems = {},
+        buffAuraByItem = {},
+    })
+
+    DreamFisher.frames.config = {
+        IsShown = function() return true end,
+    }
+
+    DreamFisher._test.SetLastRightClickTime(0)
+    DreamFisher._test.HandleWorldRightClick()
+
+    assertEquals(bindingCalls, 0,
+        "Mounted single right-click should not arm secure fishing action")
+    assertEquals(DreamFisher._test.GetLastRightClickTime(), 0,
+        "Mounted single right-click should exit before click timing or trigger handling")
+    assertEquals(DreamFisher.state.lastFishingSecureClickAt, 0,
+        "Mounted single right-click should not set the secure click timestamp")
+
+    _G.SetOverrideBindingClick = originalBindingClick
+    _G.IsMounted = originalIsMounted
+    DreamFisher.frames.config = originalConfigFrame
+end
+
 function tests.SingleClickClearsBindings()
     -- Single right-click should clear override bindings (awaiting double-click)
     -- This is tested indirectly: if second click is within window, it processes double-click
