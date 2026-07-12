@@ -75,8 +75,8 @@ local panelNamesToFade = {
     "ElvUF_Boss",
     "ElvUF_Arena",
     -- Chat/Info panels
-    "ChatFrame1",    -- Chat frame text
-    "LeftChatPanel", -- Chat frame background
+    --"ChatFrame1",    -- Chat frame text
+    --"LeftChatPanel", -- Chat frame background
     "ChatFrame2",
     "ChatFrame3",
     --"ChatFrame4",      -- Loot frame text

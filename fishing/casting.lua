@@ -1666,8 +1666,7 @@ local function HandleWorldRightClick()
         end
     end
 
-    if forceImmediate
-        or allowSingleClick
+    if allowSingleClick
         or (now - addon.state.lastRightClickTime) <= (addon.state.doubleClickWindow + 0.001) then
         addon.state.lastRightClickTime = 0
         HandlePlayerTrigger(source, allowSingleClick, fishing, audio, hookedPhasePreHandled)
@@ -1699,11 +1698,20 @@ local function HandleHotkeyPress()
         error("DreamFisher: RequireFishingAPI helper is required for hotkey handling")
     end
     local fishing = requireFishingAPI()
-    local audio = getAudioAPI and getAudioAPI()
 
     -- Hotkey bypasses right-click timing logic and enters the shared trigger flow directly.
     HandlePlayerTrigger("hotkey", false, fishing, audio)
     return true
+end
+
+local function HandleSpellCastTrigger()
+    if not requireFishingAPI then
+        error("DreamFisher: RequireFishingAPI helper is required for spell cast trigger handling")
+    end
+    local fishing = requireFishingAPI()
+    local audio = getAudioAPI and getAudioAPI()
+
+    fishing.HandlePlayerTrigger("spell-cast", false, fishing, audio)
 end
 
 local function HandleCastCommand()

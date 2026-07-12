@@ -255,7 +255,7 @@ local function EnableTemporaryAutoLoot()
         if addon.state.savedAutoLoot == nil then
             addon.state.savedAutoLoot = current
         end
-        SetCVar("autoLootDefault", "1")
+        SetCVar("autoLootDefault", "0")
     end
 end
 
@@ -520,9 +520,14 @@ local function CreateFishingStateFrame()
         local stopLooksFishing = isFishingSpellStrict or IsFishingSpellByName()
 
         if event == "UNIT_SPELLCAST_START" or event == "UNIT_SPELLCAST_CHANNEL_START" then
+            local state = GetCurrentSessionState()
+            print(state .. ": Detected spellcast start: " .. tostring(spellID) .. " isFishingSpell=" .. tostring(isFishingSpell)
+             .. " isFishingSpellStrict=" .. tostring(isFishingSpellStrict))
             if isFishingSpell then
                 if not IsSessionState(SESSION_STATES.PRE_CASTING) then
+                    DebugStateMessage("Cast started without being in PRE_CASTING; applying PRE_CASTING first")
                     ApplySessionState(SESSION_STATES.PRE_CASTING, "cast-start-recover-pre-cast-from-closing")
+                    HandleSpellCastTrigger()
                 end
                 LogStateTransition("cast-start-fishing", event, spellID, isFishingSpell)
                 addon.state.audioLingerGeneration = addon.state.audioLingerGeneration + 1
@@ -684,6 +689,7 @@ end
 
 -- Export to addon
 addon.fishing = addon.fishing or {}
+addon.fishing.GetCurrentSessionState = GetCurrentSessionState
 addon.fishing.HasPatientlyRewardedAura = HasPatientlyRewardedAura
 addon.fishing.IsFishingSpellByName = IsFishingSpellByName
 addon.fishing.EnableTemporaryAutoLoot = EnableTemporaryAutoLoot

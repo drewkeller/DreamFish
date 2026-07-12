@@ -50,7 +50,8 @@ end
 
 local function DebugStateMessage(msg)
     if addon.db and addon.db.debugMode and addon.db.debugState then
-        DebugMessage(msg)
+        local state = addon.fishing.GetCurrentSessionState()
+        DebugMessage("|cFF9ACDFF[" .. state .. "]|r " .. tostring(msg))
     end
 end
 

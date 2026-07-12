@@ -108,24 +108,24 @@ local function resetState(autoLootSetting, userAutoLoot)
     cvars.autoLootDefault = tostring(userAutoLoot)
 end
 
--- Case 1: Addon setting enabled and user has auto-loot OFF -> force ON, then restore OFF.
+-- Case 1: Addon setting enabled and user has auto-loot OFF -> keep OFF during fishing, then restore OFF.
 resetState(true, "0")
 addon._test.EnableTemporaryAutoLoot()
-assertEquals(cvars.autoLootDefault, "1", "Should force auto-loot on while fishing")
+assertEquals(cvars.autoLootDefault, "0", "Should keep auto-loot off while fishing so loot window can be used")
 addon._test.RestoreOriginalAutoLoot()
 assertEquals(cvars.autoLootDefault, "0", "Should restore original auto-loot setting")
 
--- Case 2: Addon setting enabled and user already has auto-loot ON -> stays ON after restore.
+-- Case 2: Addon setting enabled and user already has auto-loot ON -> temporarily turn OFF, then restore ON.
 resetState(true, "1")
 addon._test.EnableTemporaryAutoLoot()
-assertEquals(cvars.autoLootDefault, "1", "Should keep auto-loot on")
+assertEquals(cvars.autoLootDefault, "0", "Should temporarily disable auto-loot while fishing")
 addon._test.RestoreOriginalAutoLoot()
 assertEquals(cvars.autoLootDefault, "1", "Should restore to original on state")
 
 -- Case 3: Addon setting disabled -> should not modify user CVar.
 resetState(false, "0")
 addon._test.EnableTemporaryAutoLoot()
-assertEquals(cvars.autoLootDefault, "0", "Should not change CVar when addon auto-loot is disabled")
+assertEquals(cvars.autoLootDefault, "0", "Should not change CVar when addon loot window mode is disabled")
 addon._test.RestoreOriginalAutoLoot()
 assertEquals(cvars.autoLootDefault, "0", "Restore should be a no-op when addon auto-loot is disabled")
 

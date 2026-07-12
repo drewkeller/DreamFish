@@ -59,29 +59,16 @@ local DebugStateMessage = addon.DebugStateMessage or addon.DebugMessage
 
 local function DebugBagMessage(msg)
     if addon.db and addon.db.debugMode and addon.db.debugBags then
-        addon.DebugMessage("[bags] " .. tostring(msg))
+        addon.DebugMessage("|cFF9ACDFF[bags]|r " .. tostring(msg))
     end
 end
 
-local function FormatJunkCountsForDebug(counts)
-    if type(counts) ~= "table" then
-        return "none"
+local function DebugLootMessage(msg)
+    if addon.db and addon.db.debugMode and addon.db.debugLoot then
+        addon.DebugMessage("|cFF9ACDFF[loot]|r " .. tostring(msg))
     end
-
-    local entries = {}
-    for itemID, count in pairs(counts) do
-        if tonumber(count) and tonumber(count) > 0 then
-            entries[#entries + 1] = tostring(itemID) .. "=" .. tostring(count)
-        end
-    end
-
-    table.sort(entries)
-    if #entries == 0 then
-        return "none"
-    end
-
-    return table.concat(entries, ",")
 end
+
 
 _G.BINDING_HEADER_DREAMFISHER = "DreamFisher"
 -- Label for CLICK DreamFisherSecureFishingButton:RightButton binding.
@@ -207,248 +194,135 @@ end
 
 -- Loot tracking
 local fishingLootBagCheckPendingUntil = 0
-local fishingJunkBaselineCounts = nil
 
-local function ContainerNumSlotsCompat(bag)
-    if C_Container and type(C_Container.GetContainerNumSlots) == "function" then
-        return C_Container.GetContainerNumSlots(bag) or 0
-    end
-    if type(GetContainerNumSlots) == "function" then
-        return GetContainerNumSlots(bag) or 0
-    end
-    return 0
+local function CreateLootItemInfo(slot)
+    return {
+        slot = slot,
+        icon = nil,
+        name = nil,
+        quantity = nil,
+        currencyID = nil,
+        quality = nil,
+        locked = nil,
+        isQuestItem = nil,
+        questID = nil,
+        isActive = nil,
+        isCoin = nil,
+        itemID = nil,
+        itemLink = nil,
+    }
 end
 
-local function ContainerItemIDCompat(bag, slot)
-    if C_Container and type(C_Container.GetContainerItemID) == "function" then
-        return C_Container.GetContainerItemID(bag, slot)
-    end
-    if type(GetContainerItemID) == "function" then
-        return GetContainerItemID(bag, slot)
-    end
-    return nil
-end
-
-local function ContainerItemQualityCompat(bag, slot, itemID)
-    if C_Container and type(C_Container.GetContainerItemInfo) == "function" then
-        local info = C_Container.GetContainerItemInfo(bag, slot)
-        if type(info) == "table" and info.quality ~= nil then
-            return tonumber(info.quality)
-        end
-    end
-
-    if type(GetContainerItemInfo) == "function" then
-        local info = GetContainerItemInfo(bag, slot)
-        if type(info) == "table" and info.quality ~= nil then
-            return tonumber(info.quality)
-        end
-        if type(info) ~= "table" then
-            local _, _, _, quality = GetContainerItemInfo(bag, slot)
-            if quality ~= nil then
-                return tonumber(quality)
-            end
-        end
-    end
-
-    if type(GetItemInfo) == "function" and itemID then
-        local _, _, quality = GetItemInfo(itemID)
-        if quality ~= nil then
-            return tonumber(quality)
-        end
-    end
-
-    return nil
-end
-
-local function ContainerItemCountCompat(bag, slot)
-    if C_Container and type(C_Container.GetContainerItemInfo) == "function" then
-        local info = C_Container.GetContainerItemInfo(bag, slot)
-        if type(info) == "table" then
-            return tonumber(info.stackCount or info.quantity or 1) or 1
-        end
-    end
-
-    if type(GetContainerItemInfo) == "function" then
-        local info = GetContainerItemInfo(bag, slot)
-        if type(info) == "table" then
-            return tonumber(info.stackCount or info.quantity or 1) or 1
-        end
-        if type(info) ~= "table" then
-            local _, itemCount = GetContainerItemInfo(bag, slot)
-            return tonumber(itemCount) or 1
-        end
-    end
-
-    return 1
-end
-
-local function ContainerPickupItemCompat(bag, slot)
-    if C_Container and type(C_Container.PickupContainerItem) == "function" then
-        return pcall(C_Container.PickupContainerItem, bag, slot)
-    end
-    if type(PickupContainerItem) == "function" then
-        return pcall(PickupContainerItem, bag, slot)
-    end
-    return false
-end
-
-local function ContainerSplitItemCompat(bag, slot, count)
-    if C_Container and type(C_Container.SplitContainerItem) == "function" then
-        return pcall(C_Container.SplitContainerItem, bag, slot, count)
-    end
-    if type(SplitContainerItem) == "function" then
-        return pcall(SplitContainerItem, bag, slot, count)
-    end
-    return false
-end
-
-local function GetTrackedBagIDs()
-    local ids = {}
-    local bagCount = tonumber(NUM_BAG_SLOTS) or 4
-    for bag = 0, bagCount do
-        ids[#ids + 1] = bag
-    end
-    if ContainerNumSlotsCompat(5) > 0 then
-        ids[#ids + 1] = 5
-    end
-    return ids
-end
-
-local function GetJunkCountsByItemID()
-    local counts = {}
-    for _, bag in ipairs(GetTrackedBagIDs()) do
-        local slotCount = ContainerNumSlotsCompat(bag)
-        for slot = 1, slotCount do
-            local itemID = ContainerItemIDCompat(bag, slot)
-            if itemID then
-                local quality = ContainerItemQualityCompat(bag, slot, itemID)
-                if quality == 0 then
-                    local stackCount = math.max(1, ContainerItemCountCompat(bag, slot))
-                    counts[itemID] = (counts[itemID] or 0) + stackCount
-                end
-            end
-        end
-    end
-    return counts
-end
-
-local function CaptureFishingJunkBaseline()
-    if addon.db and addon.db.throwAwayJunk then
-        fishingJunkBaselineCounts = GetJunkCountsByItemID()
-        DebugBagMessage("Captured fishing junk baseline: " .. FormatJunkCountsForDebug(fishingJunkBaselineCounts))
-    else
-        fishingJunkBaselineCounts = nil
-        DebugBagMessage("Skipped fishing junk baseline capture: throwAwayJunk disabled")
-    end
-end
-
-local function ClearFishingJunkBaseline()
-    if fishingJunkBaselineCounts then
-        DebugBagMessage("Clearing fishing junk baseline: " .. FormatJunkCountsForDebug(fishingJunkBaselineCounts))
-    end
-    fishingJunkBaselineCounts = nil
-end
-
-addon.CaptureFishingJunkBaseline = CaptureFishingJunkBaseline
-addon.ClearFishingJunkBaseline = ClearFishingJunkBaseline
-addon._test.GetFishingJunkBaselineCounts = function()
-    if not fishingJunkBaselineCounts then
+local function GetLootItemInfo(slot)
+    if type(GetLootSlotInfo) ~= "function" then
         return nil
     end
-    return addon.DeepCopy(fishingJunkBaselineCounts)
-end
 
-local function TryDiscardNewlyLootedJunkFromBags()
-    if not (addon.db and addon.db.throwAwayJunk) then
-        DebugBagMessage("Skipping junk discard: throwAwayJunk disabled")
-        return false
-    end
-    if not fishingJunkBaselineCounts then
-        DebugBagMessage("Skipping junk discard: no fishing junk baseline recorded")
-        return false
-    end
+    local info = CreateLootItemInfo(slot)
+    info.icon, info.name, info.quantity, info.currencyID, info.quality, info.locked, info.isQuestItem,
+        info.questID, info.isActive, info.isCoin = GetLootSlotInfo(slot)
 
-    local currentCounts = GetJunkCountsByItemID()
-    local excessByItemID = {}
-    local hasExcess = false
-    for itemID, currentCount in pairs(currentCounts) do
-        local baseline = tonumber(fishingJunkBaselineCounts[itemID]) or 0
-        local excess = (tonumber(currentCount) or 0) - baseline
-        if excess > 0 then
-            excessByItemID[itemID] = excess
-            hasExcess = true
+    DebugLootMessage("Got loot info for slot " .. tostring(slot) .. ": name=" .. tostring(info.name)
+        .. " quantity=" .. tostring(info.quantity)
+        .. " currencyID=" .. tostring(info.currencyID)
+        .. " quality=" .. tostring(info.quality)
+        .. " locked=" .. tostring(info.locked)
+        .. " isQuestItem=" .. tostring(info.isQuestItem)
+        .. " questID=" .. tostring(info.questID)
+        .. " isActive=" .. tostring(info.isActive)
+        .. " isCoin=" .. tostring(info.isCoin))
+
+    -- currency does not have itemID or link
+    if not info.currencyID then
+        local itemLink = GetLootSlotLink(slot)
+        info.itemLink = itemLink
+        if itemLink then
+            local itemID = tonumber(string.match(itemLink, "item:(%d+)"))
+            if itemID then
+                local _, itemQuality = C_Item.GetItemInfo(itemID)
+                if itemQuality then
+                    DebugLootMessage("Item " .. tostring(itemID) .. " quality=" .. tostring(itemQuality))
+                end
+            end
+        else
+            -- If the item is not cached yet, fetch it asynchronously
+            DebugLootMessage("Item in slot " .. tostring(slot) .. " is not cached; fetching info asynchronously")
+            local item = Item:CreateFromItemID(itemID)
+            item:ContinueOnItemLoad(function()
+                DebugLootMessage("Asynchronously loaded item: " .. tostring(item:GetItemLink()) .. " with quality " .. tostring(item:GetItemQuality()))
+            end)
         end
     end
 
-    DebugBagMessage("Junk discard counts: baseline=" .. FormatJunkCountsForDebug(fishingJunkBaselineCounts)
-        .. " current=" .. FormatJunkCountsForDebug(currentCounts)
-        .. " excess=" .. FormatJunkCountsForDebug(excessByItemID))
+    return info
+end
 
-    if not hasExcess then
-        DebugBagMessage("No newly looted junk detected during pending discard window")
+local function ShouldAutoLootItem(lootItemInfo)
+    -- Junk items have quality 0 or less; we want to auto-loot them if the user has disabled junk skipping,
+    -- but skip them if the user has enabled junk skipping.
+    local isJunk = lootItemInfo.quality ~= nil and lootItemInfo.quality <= 0
+    if isJunk then
+        DebugLootMessage("Item in slot " .. tostring(lootItemInfo.slot) .. " is junk")
+    end
+    if isJunk and addon.db and addon.db.throwAwayJunk then
+        return false
+    end
+    if lootItemInfo.locked then
+        DebugLootMessage("Item in slot " .. tostring(lootItemInfo.slot) .. " is locked")
+        return false
+    end
+    return true
+end
+
+local function LootItemInSlot(slot)
+    if type(LootSlot) ~= "function" then
+        return false
+    end
+    LootSlot(slot)
+    return true
+end
+
+local function HandleFishingLootWindow()
+    if not (addon.db and addon.db.autoLoot and addon.state and addon.state.savedAutoLoot ~= nil) then
+        return false
+    end
+    if type(GetNumLootItems) ~= "function" or type(LootSlot) ~= "function" then
         return false
     end
 
-    DebugBagMessage("Junk discard would be attempted, but DeleteCursorItem is protected outside a secure hardware event; skipping actual delete")
-    DebugBagMessage("Junk discard counts: baseline=" .. FormatJunkCountsForDebug(fishingJunkBaselineCounts)
-        .. " current=" .. FormatJunkCountsForDebug(currentCounts)
-        .. " excess=" .. FormatJunkCountsForDebug(excessByItemID))
+    local lootCount = tonumber(GetNumLootItems()) or 0
+    local shouldCloseLootWindow = true
 
-    return false
-end
-
-local function IsPendingLootBagWindow()
-    local now = (type(GetTime) == "function") and GetTime() or 0
-    return fishingLootBagCheckPendingUntil > 0 and now <= fishingLootBagCheckPendingUntil
-end
-
-local function ClearPendingLootBagWindow()
-    fishingLootBagCheckPendingUntil = 0
-    ClearFishingJunkBaseline()
-end
-
-local function QueuePendingLootBagWindow(seconds)
-    local now = (type(GetTime) == "function") and GetTime() or 0
-    fishingLootBagCheckPendingUntil = now + (seconds or 2)
-end
-
-local function ExpirePendingLootBagWindowIfNeeded()
-    local now = (type(GetTime) == "function") and GetTime() or 0
-    if fishingLootBagCheckPendingUntil > 0 and now > fishingLootBagCheckPendingUntil then
-        fishingLootBagCheckPendingUntil = 0
+    DebugLootMessage("Handling loot window with " .. tostring(lootCount) .. " items")
+    local itemsLooted = 0
+    local totalItems = lootCount
+    for slot = 1, lootCount do
+        local lootItemInfo = GetLootItemInfo(slot)
+        if not lootItemInfo then
+            DebugLootMessage("Failed to get info for loot slot " .. tostring(slot) .. "; skipping")
+            -- in the future, we may want to go ahead and loot unknown items due to player having selected "autoloot while fishing"
+            shouldCloseLootWindow = false
+            break
+        end
+        if ShouldAutoLootItem(lootItemInfo) then
+            DebugLootMessage("Looting item " .. (lootItemInfo.itemLink or lootItemInfo.name) .. " in loot slot " .. tostring(slot) .. " with quality " .. tostring(lootItemInfo.quality))
+            LootItemInSlot(slot)
+            itemsLooted = itemsLooted + 1
+            slot = slot - 1
+            lootCount = lootCount - 1
+        else
+            DebugLootMessage("Not looting item " .. (lootItemInfo.itemLink or lootItemInfo.name) .. " in loot slot " .. tostring(slot) .. " with quality " .. tostring(lootItemInfo.quality))
+            shouldCloseLootWindow = true
+        end
     end
-end
+    DebugLootMessage("Looted " .. tostring(itemsLooted) .. " of " .. tostring(totalItems) .. " items")
 
-local function TryHandlePostLootJunkDiscard()
-    ExpirePendingLootBagWindowIfNeeded()
-    if not IsPendingLootBagWindow() then
-        DebugBagMessage("Skipping post-loot junk discard: pending window inactive")
-        ClearFishingJunkBaseline()
-        return
+    if shouldCloseLootWindow and type(CloseLoot) == "function" then
+        CloseLoot()
     end
-    local didDiscard = TryDiscardNewlyLootedJunkFromBags()
-    if didDiscard then
-        ClearPendingLootBagWindow()
-    else
-        DebugBagMessage("Post-loot junk discard deferred: pending window remains active")
-    end
-end
 
-local junkBaselineTracker = CreateFrame("Frame")
-junkBaselineTracker:RegisterEvent("UNIT_SPELLCAST_START")
-junkBaselineTracker:RegisterEvent("UNIT_SPELLCAST_CHANNEL_START")
-junkBaselineTracker:SetScript("OnEvent", function(_, event, unit, _, spellID)
-    if unit ~= "player" then
-        return
-    end
-    local numericSpellID = tonumber(spellID)
-    local fishingSpellID = addon.const and tonumber(addon.const.fishingSpellID) or nil
-    local fishingChannelSpellID = addon.const and tonumber(addon.const.fishingChannelSpellID) or nil
-    if numericSpellID ~= fishingSpellID and numericSpellID ~= fishingChannelSpellID then
-        return
-    end
-    CaptureFishingJunkBaseline()
-end)
+    return true
+end
 
 local lootTracker = CreateFrame("Frame")
 lootTracker:RegisterEvent("LOOT_READY")
@@ -456,6 +330,10 @@ lootTracker:RegisterEvent("LOOT_CLOSED")
 lootTracker:RegisterEvent("BAG_UPDATE")
 lootTracker:RegisterEvent("UI_INFO_MESSAGE")
 lootTracker:SetScript("OnEvent", function(_, event, ...)
+    if event == "LOOT_READY" and (not IsFishingActiveSessionState or not IsFishingActiveSessionState()) then
+        DebugLootMessage("Received loot event " .. tostring(event) .. " but not in active fishing session; ignoring")
+        return
+    end
     if not requireFishingAPI then
         error("DreamFisher: RequireFishingAPI helper is required for loot tracker")
     end
@@ -465,22 +343,20 @@ lootTracker:SetScript("OnEvent", function(_, event, ...)
         if not (fishing and fishing.ApplySessionState and fishing.IsLootReadySessionState) then
             error("DreamFisher: ApplySessionState and IsLootReadySessionState are required for loot-ready handling")
         end
-        local isLootReadySession = fishing.IsLootReadySessionState()
-        if isLootReadySession and not fishingJunkBaselineCounts then
-            DebugBagMessage("LOOT_READY fallback baseline capture triggered")
-            CaptureFishingJunkBaseline()
-        elseif isLootReadySession then
-            DebugBagMessage("LOOT_READY preserving earlier junk baseline")
-        end
-        if isLootReadySession and not (fishing.IsSessionState and fishing.IsSessionState("LOOTING")) then
+        if fishing.IsLootReadySessionState() and not (fishing.IsSessionState and fishing.IsSessionState("LOOTING")) then
             fishing.ApplySessionState("LOOTING", "loot-ready")
         end
+        DebugLootMessage("LOOT_READY event received; scheduled loot handling")
+        C_Timer.After(0.5, function()
+            HandleFishingLootWindow()
+        end)
+
     elseif event == "LOOT_CLOSED" then
         if not (fishing and fishing.IsSessionState) then
             error("DreamFisher: IsSessionState is required for loot-close handling")
         end
         if fishing.IsSessionState("LOOTING") then
-            DebugBagMessage("Fishing loot in progress ended")
+            DebugLootMessage("Fishing loot in progress ended")
             if not (fishing and fishing.StartLingerThenCloseSession) then
                 error("DreamFisher: StartLingerThenCloseSession is required for loot close handling")
             end
@@ -492,12 +368,9 @@ lootTracker:SetScript("OnEvent", function(_, event, ...)
                 poleReason = "loot-closed",
                 }
             )
-            QueuePendingLootBagWindow(2)
-            DebugBagMessage("Queued bag-threshold check for BAG_UPDATE_DELAYED")
         end
         addon.state.lastBagWarning = 0
     elseif event == "BAG_UPDATE" then
-        TryHandlePostLootJunkDiscard()
         if not (fishing and fishing.IsFishingActiveSessionState) then
             error("DreamFisher: IsFishingActiveSessionState is required for bag-update handling")
         end
@@ -560,34 +433,24 @@ bagMonitor:SetScript("OnEvent", function(_, event)
             error("DreamFisher: RequireAlertsAPI helper is required for bag monitoring")
         end
         local alerts = requireAlertsAPI()
-        local now = (type(GetTime) == "function") and GetTime() or 0
-        if fishingLootBagCheckPendingUntil > 0 then
-            if now <= fishingLootBagCheckPendingUntil then
-                TryHandlePostLootJunkDiscard()
-                local shouldCheckRegular = addon.db and addon.db.bagAlerts
-                local shouldCheckReagent = addon.db and addon.db.reagentBagAlerts
-                local threshold = (addon.db and addon.db.bagAlertsThreshold) or addon.defaults.bagAlertsThreshold
-                local reagentThreshold = (addon.db and addon.db.reagentBagAlertsThreshold) or addon.defaults.reagentBagAlertsThreshold
-                local regularFree = shouldCheckRegular and addon.utils.GetFreeBagSlots(false) or nil
-                local reagentFree = shouldCheckReagent and addon.utils.GetFreeReagentBagSlots() or nil
-                local isRegularLow = regularFree ~= nil and regularFree <= threshold
-                local isReagentLow = reagentFree ~= nil and reagentFree <= reagentThreshold
-                DebugBagMessage("Low bag threshold set to bags=" .. tostring(threshold)
-                    .. " reagent=" .. tostring(reagentThreshold))
-                DebugBagMessage("BAG_UPDATE_DELAYED slots: regularFree=" .. tostring(regularFree) .. ", reagentFree=" .. tostring(reagentFree))
-                if isRegularLow or isReagentLow then
-                    DebugBagMessage("Bag space low after loot close: regularFree=" .. tostring(regularFree) .. ", reagentFree=" .. tostring(reagentFree))
-                    if alerts and alerts.ShowBagFullAlert then
-                        alerts.ShowBagFullAlert()
-                    end
-                    ClearPendingLootBagWindow()
-                else
-                    DebugBagMessage("Bag space not low yet; waiting for next BAG_UPDATE_DELAYED")
-                end
-            else
-                DebugBagMessage("Bag-threshold check window expired")
-                ClearPendingLootBagWindow()
+        local shouldCheckRegular = addon.db and addon.db.bagAlerts
+        local shouldCheckReagent = addon.db and addon.db.reagentBagAlerts
+        local threshold = (addon.db and addon.db.bagAlertsThreshold) or addon.defaults.bagAlertsThreshold
+        local reagentThreshold = (addon.db and addon.db.reagentBagAlertsThreshold) or addon.defaults.reagentBagAlertsThreshold
+        local regularFree = shouldCheckRegular and addon.utils.GetFreeBagSlots(false) or nil
+        local reagentFree = shouldCheckReagent and addon.utils.GetFreeReagentBagSlots() or nil
+        local isRegularLow = regularFree ~= nil and regularFree <= threshold
+        local isReagentLow = reagentFree ~= nil and reagentFree <= reagentThreshold
+        DebugBagMessage("Low bag threshold set to bags=" .. tostring(threshold)
+            .. " reagent=" .. tostring(reagentThreshold))
+        DebugBagMessage("BAG_UPDATE_DELAYED slots: regularFree=" .. tostring(regularFree) .. ", reagentFree=" .. tostring(reagentFree))
+        if isRegularLow or isReagentLow then
+            DebugBagMessage("Bag space low after loot close: regularFree=" .. tostring(regularFree) .. ", reagentFree=" .. tostring(reagentFree))
+            if alerts and alerts.ShowBagFullAlert then
+                alerts.ShowBagFullAlert()
             end
+        else
+            DebugBagMessage("Bag space not low yet")
         end
     end
 end)

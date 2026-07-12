@@ -1339,8 +1339,11 @@ local function BuildFocusTab(focusPage, ui, onLiveChange)
     local root = ui.FlowRoot(focusPage, 12)
 
     local focusSection = ui.FlowSection(root, "Focus")
-    addon.autoLootCheckbox = ui.FlowCheckbox(focusSection, "Temporary auto-loot", onLiveChange,
-        "Enables auto-loot while fishing and returns it to your previous setting when done.")
+    addon.autoLootCheckbox = ui.FlowCheckbox(focusSection, "Managed auto-loot while fishing", onLiveChange,
+        "If you normally have auto-loot enabled, this option temporarily disables it while fishing, so the addon can perform junk-filtering.")
+    addon.throwAwayJunkCheckbox = ui.FlowCheckbox(focusSection, "Automatically throw away junk items", onLiveChange,
+        "Junk-quality items are not automatically looted.")
+
     addon.treasureAlertsCheckbox = ui.FlowCheckbox(focusSection, "Patient Treasure notification", onLiveChange,
         "Notifies you if you catch a Patient Treasure by coloring the screen and playing a distinct sound.")
 
@@ -1353,9 +1356,6 @@ local function BuildFocusTab(focusPage, ui, onLiveChange)
         "Monitors your reagentbag space and alerts you when it is low.")
     addon.reagentBagAlertsThresholdBox = ui.FlowEditBox(focusSection, "Reagent Bag Threshold (slots)", 150, onLiveChange,
         "Minimum number of free reagent bag slots before an alert is triggered.")
-
-    addon.throwAwayJunkCheckbox = ui.FlowCheckbox(focusSection, "Automatically throw away junk items", onLiveChange,
-        "Automatically discards new junk-quality items when looting to prevent filling up bag space.")
 
     local audioSection = ui.FlowSection(root, "Audio")
     addon.focusedAudioCheckbox = ui.FlowCheckbox(audioSection, "Focused audio when fishing", onLiveChange,

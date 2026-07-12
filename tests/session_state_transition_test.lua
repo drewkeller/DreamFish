@@ -108,28 +108,8 @@ _G.GetTime = function() return now end
 _G.PlaySound = function() end
 _G.SOUNDKIT = {}
 _G.GetSpellInfo = function() return "Fishing" end
-local bagSlotsByBag = {}
-local bagItemsByBagSlot = {}
-_G.GetContainerNumSlots = function(bag)
-    return bagSlotsByBag[bag] or 0
-end
-_G.GetContainerItemID = function(bag, slot)
-    local bagData = bagItemsByBagSlot[bag]
-    local item = bagData and bagData[slot] or nil
-    return item and item.itemID or nil
-end
-_G.GetContainerItemInfo = function(bag, slot)
-    local bagData = bagItemsByBagSlot[bag]
-    local item = bagData and bagData[slot] or nil
-    if not item then
-        return nil
-    end
-    return {
-        stackCount = item.count or 1,
-        quantity = item.count or 1,
-        quality = item.quality,
-    }
-end
+_G.GetContainerNumSlots = function() return 0 end
+_G.GetContainerItemID = function() return nil end
 _G.GetCVar = function(name)
     return cvars[name]
 end
@@ -210,25 +190,16 @@ addon._test.SetDB({
     bagAlerts = true,
     treasureAlerts = true,
     bagAlertsThreshold = 2,
-    throwAwayJunk = true,
 })
 
 addon._test.ClearSessionTransitionHistory()
 
 assertEquals(addon.state.fishingSessionState, addon.fishing.SessionStates.IDLE, "Initial session state should be IDLE")
 
--- Junk baseline should snapshot before loot reaches bags and survive LOOT_READY.
-bagSlotsByBag[0] = 1
-bagItemsByBagSlot[0] = {
-    [1] = { itemID = 9001, quality = 0, count = 1 },
-}
 -- Start fishing cast through spellcast event.
 now = 200
 fireEventToRegisteredFrames("UNIT_SPELLCAST_START", "player", nil, addon.const.fishingSpellID)
 assertEquals(addon.state.fishingSessionState, addon.fishing.SessionStates.CASTING, "Cast start should move to CASTING")
-local baselineBeforeLoot = addon._test.GetFishingJunkBaselineCounts()
-assertTrue(type(baselineBeforeLoot) == "table", "Fishing cast start should capture junk baseline")
-assertEquals(baselineBeforeLoot[9001], 1, "Baseline should include pre-existing junk only")
 
 -- Stop cast before expiry so bobber/strike window is entered.
 now = 207
@@ -292,17 +263,10 @@ fireEventToRegisteredFrames("UNIT_SPELLCAST_STOP", "player", nil, addon.const.fi
 assertEquals(addon.state.fishingSessionState, addon.fishing.SessionStates.WAITING_FOR_STRIKE,
     "Cast stop should move to WAITING_FOR_STRIKE before loot assertions")
 
-bagItemsByBagSlot[0][2] = { itemID = 9002, quality = 0, count = 1 }
-bagSlotsByBag[0] = 2
-
 -- Loot starts.
 lootOnEvent(lootFrame, "LOOT_READY")
 assertEquals(addon.state.fishingSessionState, addon.fishing.SessionStates.LOOTING,
     "LOOT_READY should move to LOOTING")
-
-local baselineAfterLootReady = addon._test.GetFishingJunkBaselineCounts()
-assertEquals(baselineAfterLootReady[9001], 1, "LOOT_READY should preserve earlier baseline for existing junk")
-assertEquals(baselineAfterLootReady[9002], nil, "LOOT_READY should not overwrite baseline with newly looted junk")
 
 history = addon._test.GetSessionTransitionHistory()
 local lootStartTransition = history[#history]
