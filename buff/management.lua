@@ -200,6 +200,7 @@ local function GetNextDueBuffItem(requireAuraForCast, excludedItemIDs, requested
     end
 
     local hadUnavailableDueBuff = false
+    DebugBuffMessage("Checking due buff items for category: " .. tostring(requestedCategory or "any"))
 
     for _, entry in ipairs(addon.db.buffItems) do
         local itemID = tonumber(entry.itemID)
@@ -211,10 +212,10 @@ local function GetNextDueBuffItem(requireAuraForCast, excludedItemIDs, requested
                 if type(excludedItemIDs) == "table" and excludedItemIDs[itemID] then
                     DebugBuffMessage("Skipping excluded due buff item: " .. tostring(itemID))
                 elseif requestedCategory and itemCategory ~= requestedCategory then
-                    DebugBuffMessage("Skipping due buff item for category pass: "
-                        .. GetBuffItemLabel(itemID)
-                        .. " category=" .. tostring(itemCategory)
-                        .. " requested=" .. tostring(requestedCategory))
+                    -- DebugBuffMessage("Skipping due buff item for category pass: "
+                    --     .. GetBuffItemLabel(itemID)
+                    --     .. " category=" .. tostring(itemCategory)
+                    --     .. " requested=" .. tostring(requestedCategory))
                 else
                     local knownDuration = GetEntryKnownDuration(entry)
                     local isDue, remaining, reason = addon.buff.IsBuffItemDue(itemID, knownDuration, requireAuraForCast)

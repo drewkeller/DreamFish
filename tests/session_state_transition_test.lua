@@ -225,8 +225,8 @@ now = 206
 local stateOnUpdate = stateFrame:GetScript("OnUpdate")
 assertTrue(type(stateOnUpdate) == "function", "State frame OnUpdate should exist in waiting-for-strike window")
 stateOnUpdate(stateFrame, 0.2)
-assertEquals(addon.state.fishingSessionState, addon.fishing.SessionStates.CLOSING_FISHING_SESSION,
-    "No-hook-evidence timeout should finalize to CLOSING_FISHING_SESSION")
+assertEquals(addon.state.fishingSessionState, addon.fishing.SessionStates.IDLE,
+    "No-hook-evidence timeout should finalize to IDLE once linger starts")
 
 history = addon._test.GetSessionTransitionHistory()
 local noHookCloseTransition = history[#history]
@@ -242,8 +242,8 @@ assertEquals(noHookStartingLingerTransition.reason, "post-stop-no-hooked-evidenc
     "No-hook-evidence starting-linger transition should use canonical starting-linger reason")
 assertEquals(noHookCloseTransition.fromState, addon.fishing.SessionStates.STARTING_LINGER,
     "No-hook-evidence close transition should originate from STARTING_LINGER")
-assertEquals(noHookCloseTransition.toState, addon.fishing.SessionStates.CLOSING_FISHING_SESSION,
-    "No-hook-evidence close transition should move to CLOSING_FISHING_SESSION")
+assertEquals(noHookCloseTransition.toState, addon.fishing.SessionStates.IDLE,
+    "No-hook-evidence close transition should move to IDLE")
 assertEquals(noHookCloseTransition.reason, "post-stop-no-hooked-evidence-close",
     "No-hook-evidence close transition should use canonical close reason")
 
@@ -272,8 +272,8 @@ assertEquals(lootStartTransition.reason, "loot-ready",
 
 -- Loot closes.
 lootOnEvent(lootFrame, "LOOT_CLOSED")
-assertEquals(addon.state.fishingSessionState, addon.fishing.SessionStates.CLOSING_FISHING_SESSION,
-    "LOOT_CLOSED should finalize to CLOSING_FISHING_SESSION")
+assertEquals(addon.state.fishingSessionState, addon.fishing.SessionStates.IDLE,
+    "LOOT_CLOSED should finalize to IDLE once linger starts")
 
 history = addon._test.GetSessionTransitionHistory()
 local lootCloseTransition = history[#history]
@@ -290,8 +290,8 @@ assertEquals(lootStartingLingerTransition.reason, "loot-closed-starting-linger",
 
 assertEquals(lootCloseTransition.fromState, addon.fishing.SessionStates.STARTING_LINGER,
     "Loot-close transition should originate from STARTING_LINGER")
-assertEquals(lootCloseTransition.toState, addon.fishing.SessionStates.CLOSING_FISHING_SESSION,
-    "Loot-close transition should move to CLOSING_FISHING_SESSION")
+assertEquals(lootCloseTransition.toState, addon.fishing.SessionStates.IDLE,
+    "Loot-close transition should move to IDLE")
 assertEquals(lootCloseTransition.reason, "loot-closed",
     "Loot-close transition should use loot-closed reason")
 
@@ -307,8 +307,8 @@ local recoverPreCastTransition = history[#history - 1]
 assertTrue(castStartTransition ~= nil, "Transition history should include cast-start transition")
 assertTrue(recoverPreCastTransition ~= nil,
     "Transition history should include recover-pre-cast transition when starting from close")
-assertEquals(recoverPreCastTransition.fromState, addon.fishing.SessionStates.CLOSING_FISHING_SESSION,
-    "Recover-pre-cast transition should originate from CLOSING_FISHING_SESSION")
+assertEquals(recoverPreCastTransition.fromState, addon.fishing.SessionStates.IDLE,
+    "Recover-pre-cast transition should originate from IDLE")
 assertEquals(recoverPreCastTransition.toState, addon.fishing.SessionStates.PRE_CASTING,
     "Recover-pre-cast transition should move to PRE_CASTING")
 assertEquals(recoverPreCastTransition.reason, "cast-start-recover-pre-cast-from-closing",
@@ -321,8 +321,8 @@ assertEquals(castStartTransition.reason, "cast-start-fishing",
     "Cast-start transition should use cast-start-fishing reason")
 
 stateOnEvent(stateFrame, "PLAYER_REGEN_DISABLED")
-assertEquals(addon.state.fishingSessionState, addon.fishing.SessionStates.CLOSING_FISHING_SESSION,
-    "Combat cancellation should finalize to CLOSING_FISHING_SESSION state")
+assertEquals(addon.state.fishingSessionState, addon.fishing.SessionStates.IDLE,
+    "Combat cancellation should finalize to IDLE state")
 
 -- Linger zero should close immediately on cast stop.
 addon._test.SetDB({
@@ -341,7 +341,7 @@ assertEquals(addon.state.fishingSessionState, addon.fishing.SessionStates.CASTIN
 
 now = 401
 stateOnEvent(stateFrame, "UNIT_SPELLCAST_STOP", "player", nil, addon.const.fishingSpellID)
-assertEquals(addon.state.fishingSessionState, addon.fishing.SessionStates.CLOSING_FISHING_SESSION,
-    "Linger-zero cast stop should immediately move to CLOSING_FISHING_SESSION")
+assertEquals(addon.state.fishingSessionState, addon.fishing.SessionStates.WAITING_FOR_STRIKE,
+    "Linger-zero cast stop should enter waiting-for-strike until close conditions are met")
 
 print("PASS: session_state_transition_test")

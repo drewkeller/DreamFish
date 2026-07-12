@@ -20,7 +20,6 @@ local SESSION_STATES = {
     LOOTING = "LOOTING",
     STARTING_LINGER = "STARTING_LINGER",
     CANCELLING_FISHING_SESSION = "CANCELLING_FISHING_SESSION",
-    CLOSING_FISHING_SESSION = "CLOSING_FISHING_SESSION",
 }
 
 local SESSION_STATE_FLAGS = {
@@ -33,7 +32,6 @@ local SESSION_STATE_FLAGS = {
     [SESSION_STATES.LOOTING] = { isFishing = false, isBobberActive = false, fishingCastActive = false, fishingLootInProgress = true },
     [SESSION_STATES.STARTING_LINGER] = { isFishing = false, isBobberActive = false, fishingCastActive = false, fishingLootInProgress = false },
     [SESSION_STATES.CANCELLING_FISHING_SESSION] = { isFishing = false, isBobberActive = false, fishingCastActive = false, fishingLootInProgress = false },
-    [SESSION_STATES.CLOSING_FISHING_SESSION] = { isFishing = false, isBobberActive = false, fishingCastActive = false, fishingLootInProgress = false },
 }
 
 local GetSessionFlagsForState
@@ -326,12 +324,7 @@ end
 local function CancelAndCloseFishingSession(cancelReason, closeReason, options)
     ApplySessionState(SESSION_STATES.CANCELLING_FISHING_SESSION, cancelReason)
     RunSessionCloseEffects(options)
-    ApplySessionState(SESSION_STATES.CLOSING_FISHING_SESSION, closeReason)
-end
-
-local function CloseFishingSession(closeReason, options)
-    ApplySessionState(SESSION_STATES.CLOSING_FISHING_SESSION, closeReason)
-    RunSessionCloseEffects(options)
+    ApplySessionState(SESSION_STATES.IDLE, closeReason)
 end
 
 local function StartLingerThenCloseSession(lingerReason, closeReason, options)
@@ -348,7 +341,7 @@ local function StartLingerThenCloseSession(lingerReason, closeReason, options)
     }
     RunSessionCloseEffects(closeOpts)
 
-    ApplySessionState(SESSION_STATES.CLOSING_FISHING_SESSION, closeStateReason)
+    ApplySessionState(SESSION_STATES.IDLE, closeStateReason)
 end
 
 local function TryArmNativeInteractOverrideFromFishingState()
@@ -551,7 +544,7 @@ local function CreateFishingStateFrame()
                     addon.buff.MaybeUseBuffItems()
                     if IsHookedWindowSessionState() and addon.state.savedFishingAudioCVars ~= nil and addon.state.fishingStartTime > 0 and (GetTime() - addon.state.fishingStartTime) > addon.state.fishingExpireSeconds then
                         LogStateTransition("onupdate-expired-while-bobber", event, spellID, isFishingSpell)
-                        ApplySessionState(SESSION_STATES.CLOSING_FISHING_SESSION, "onupdate-expired-while-bobber")
+                        ApplySessionState(SESSION_STATES.STARTING_LINGER, "onupdate-expired-while-bobber")
                         RunSessionCloseEffects({ poleReason = "state-onupdate-expired-while-bobber" })
                         frame:SetScript("OnUpdate", nil)
                     end
@@ -571,14 +564,7 @@ local function CreateFishingStateFrame()
                 local linger = (addon.db and addon.db.focusedAudioLinger) or addon.defaults.focusedAudioLinger
                 local elapsed = (addon.state.fishingStartTime > 0) and (GetTime() - addon.state.fishingStartTime) or 0
                 LogStateTransition("cast-phase-ended-evaluating", event, spellID, isFishingSpell)
-                if linger <= 0 then
-                    LogStateTransition("cast-stop-restore-immediate-linger-zero", event, spellID, isFishingSpell)
-                    CloseFishingSession(
-                        "cast-stop-restore-immediate-linger-zero",
-                        { poleReason = "state-cast-stop-linger-zero" }
-                    )
-                    frame:SetScript("OnUpdate", nil)
-                elseif elapsed >= addon.state.fishingExpireSeconds and not IsSessionState(SESSION_STATES.LOOTING) then
+                if elapsed >= addon.state.fishingExpireSeconds and not IsSessionState(SESSION_STATES.LOOTING) then
                     LogStateTransition("cast-stop-restore-linger-after-expire", event, spellID, isFishingSpell)
                     StartLingerThenCloseSession(
                         "cast-stop-starting-linger-after-expire",
@@ -619,8 +605,9 @@ local function CreateFishingStateFrame()
                         end
                         if IsHookedWindowSessionState() and addon.state.savedFishingAudioCVars ~= nil and addon.state.fishingStartTime > 0 and (GetTime() - addon.state.fishingStartTime) > addon.state.fishingExpireSeconds then
                             LogStateTransition("onupdate-expired-after-cast-stop", event, spellID, isFishingSpell)
-                            ApplySessionState(SESSION_STATES.CLOSING_FISHING_SESSION, "onupdate-expired-after-cast-stop")
+                            ApplySessionState(SESSION_STATES.STARTING_LINGER, "onupdate-expired-after-cast-stop")
                             RunSessionCloseEffects({ useLingerAudio = true, poleReason = "state-onupdate-expired-after-stop" })
+                            ApplySessionState(SESSION_STATES.IDLE, "onupdate-expired-after-cast-stop")
                             frame:SetScript("OnUpdate", nil)
                         end
                     end)
@@ -706,7 +693,6 @@ addon.fishing.SessionStates = SESSION_STATES
 addon.fishing.ApplySessionState = ApplySessionState
 addon.fishing.RunSessionCloseEffects = RunSessionCloseEffects
 addon.fishing.CancelAndCloseFishingSession = CancelAndCloseFishingSession
-addon.fishing.CloseFishingSession = CloseFishingSession
 addon.fishing.StartLingerThenCloseSession = StartLingerThenCloseSession
 addon.fishing.IsFishingActiveSessionState = IsFishingActiveSessionState
 addon.fishing.IsLootReadySessionState = IsLootReadySessionState

@@ -169,7 +169,7 @@ if WorldFrame then
         if button == "RightButton" and not InCombatLockdown() then
             if fishing and fishing.IsWorldRightClickActivationPressed then
                 if fishing.IsWorldRightClickActivationPressed() then
-                    fishing.HandleWorldRightClick()
+                    fishing.HandleWorldRightClick("world-right-click")
                 elseif addon.db and addon.db.debugMode and addon.db.debugState then
                     local now = (type(GetTime) == "function") and GetTime() or 0
                     if (now - lastRightClickDisabledDebugAt) >= 1.0 then
@@ -203,7 +203,7 @@ lootTracker:SetScript("OnEvent", function(_, event, ...)
         if not (fishing and fishing.ApplySessionState and fishing.IsLootReadySessionState) then
             error("DreamFisher: ApplySessionState and IsLootReadySessionState are required for loot-ready handling")
         end
-        if fishing.IsLootReadySessionState() then
+        if fishing.IsLootReadySessionState() and not (fishing.IsSessionState and fishing.IsSessionState("LOOTING")) then
             fishing.ApplySessionState("LOOTING", "loot-ready")
         end
     elseif event == "LOOT_CLOSED" then

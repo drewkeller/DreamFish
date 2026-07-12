@@ -221,8 +221,8 @@ function tests.TargetSelectedRightClickExitsFishingSessionState()
 
     _G.UnitExists = originalUnitExists
 
-    assertEquals(DreamFisher._test.GetSessionState(), DreamFisher.fishing.SessionStates.CLOSING_FISHING_SESSION,
-        "Target-selected right-click should exit to CLOSING_FISHING_SESSION")
+    assertEquals(DreamFisher._test.GetSessionState(), DreamFisher.fishing.SessionStates.IDLE,
+        "Target-selected right-click should exit to IDLE")
     assertEquals(DreamFisher.state.interactAcquireExpiresAt, 0,
         "Target-selected right-click should clear interact acquire window")
     assertEquals(DreamFisher.state.savedFishingAudioCVars, nil,
@@ -274,10 +274,10 @@ function tests.DoubleClickDueBuffArmsProfessionSlotMacro()
     DreamFisher._test.SetBuffLastUseTime(111, mockTime - 100)
 
     local capturedAttrs = {}
-    local buffFrame = DreamFisher.fishing.CreateSecureBuffFrame()
-    if buffFrame then
-        local origSet = buffFrame.SetAttribute
-        buffFrame.SetAttribute = function(self, k, v)
+    local fishingFrame = DreamFisher.fishing.CreateSecureFishingFrame()
+    if fishingFrame then
+        local origSet = fishingFrame.SetAttribute
+        fishingFrame.SetAttribute = function(self, k, v)
             capturedAttrs[k] = v
             return origSet and origSet(self, k, v)
         end
@@ -296,11 +296,14 @@ function tests.DoubleClickDueBuffArmsProfessionSlotMacro()
 
     DreamFisher.buff.FindItemInBags = originalFind
 
-    if buffFrame then
+    if fishingFrame then
         assertEquals(capturedAttrs["type"], "macro", "Due buff arm should use secure macro action")
         local macrotext = capturedAttrs["macrotext"] or ""
-        assertTrue(macrotext:find("/use 1 18", 1, true) ~= nil, "Due buff arm macro should use bag slot source")
+        assertTrue(macrotext:find("/use item:111", 1, true) ~= nil,
+            "Due buff arm macro should reference the due item")
         assertTrue(macrotext:find("/use 28", 1, true) == nil, "Non-lure due buff arm should not apply profession slot")
+        assertTrue(macrotext:find("/cast Fishing", 1, true) == nil,
+            "Due buff prep click should not cast Fishing on same click")
     end
 end
 
@@ -572,7 +575,7 @@ function tests.HotkeyConfiguresFishingSpellWhenNoBuffItems()
 end
 
 function tests.HotkeyConfiguresMacroWhenDueBuffReady()
-    -- With a due buff item available, action should be a macro containing /use and /cast Fishing
+    -- With a due buff item available, action should stage /use and defer /cast to a follow-up click.
     local capturedAttrs = {}
     local fishingFrame = DreamFisher.fishing.CreateSecureFishingFrame()
     if fishingFrame then
@@ -609,7 +612,7 @@ function tests.HotkeyConfiguresMacroWhenDueBuffReady()
         local macrotext = capturedAttrs["macrotext"] or ""
         assertTrue(macrotext:find("111") ~= nil, "Due buff: macro should reference item 111")
         assertTrue(macrotext:find("/use 28", 1, true) == nil, "Non-lure due buff should not target fishing profession slot")
-        assertTrue(macrotext:find("/cast Fishing") ~= nil, "Due buff: macro should include /cast Fishing")
+        assertTrue(macrotext:find("/cast Fishing") == nil, "Due buff prep should not include /cast Fishing")
     end
 end
 
@@ -2307,8 +2310,8 @@ function tests.PostCastHookWindowRoutesHookedFallbackWithoutUnits()
         "Post-cast no-evidence state should not force hooked interact routing")
     assertEquals(DreamFisher._test.GetLastRightClickTime(), mockTime,
         "Post-cast no-evidence state should return to normal click timing flow")
-    assertEquals(DreamFisher._test.GetSessionState(), DreamFisher.fishing.SessionStates.CLOSING_FISHING_SESSION,
-        "Post-cast no-evidence fallback should finalize to closing session state")
+    assertEquals(DreamFisher._test.GetSessionState(), DreamFisher.fishing.SessionStates.IDLE,
+        "Post-cast no-evidence fallback should finalize to IDLE")
 
     DreamFisher.fishing.GetInteractDiagnostics = originalGetDiag
     _G.SetOverrideBindingClick = originalBindingClick

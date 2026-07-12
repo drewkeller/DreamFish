@@ -137,8 +137,8 @@ clearCalls = 0
 
 onEvent(nil, "UI_INFO_MESSAGE", 413, "No fish are hooked.")
 
-assertEquals(addon._test.GetSessionState(), addon.fishing.SessionStates.CLOSING_FISHING_SESSION,
-    "Type 413 should finalize to CLOSING_FISHING_SESSION")
+assertEquals(addon._test.GetSessionState(), addon.fishing.SessionStates.IDLE,
+    "Type 413 should finalize to IDLE once linger starts")
 assertEquals(addon.state.interactAcquireExpiresAt, 0, "Type 413 should reset interactAcquireExpiresAt")
 assertEquals(clearCalls, 1, "Type 413 should clear native interact override")
 
@@ -156,8 +156,8 @@ assertEquals(uiInfoStartingLingerTransition.reason, "ui-info-no-fish-hooked-star
     "UI 413 starting-linger transition should use canonical starting-linger reason")
 assertEquals(uiInfoCloseTransition.fromState, addon.fishing.SessionStates.STARTING_LINGER,
     "UI 413 close transition should originate from STARTING_LINGER")
-assertEquals(uiInfoCloseTransition.toState, addon.fishing.SessionStates.CLOSING_FISHING_SESSION,
-    "UI 413 close transition should move to CLOSING_FISHING_SESSION")
+assertEquals(uiInfoCloseTransition.toState, addon.fishing.SessionStates.IDLE,
+    "UI 413 close transition should move to IDLE")
 assertEquals(uiInfoCloseTransition.reason, "ui-info-no-fish-hooked-close",
     "UI 413 close transition should use canonical close reason")
 

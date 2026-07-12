@@ -612,7 +612,7 @@ local function RefreshFocusFadeState()
         frameFader.restoreAt = nil
     elseif IsFadeFeatureEnabled()
         and (fishing and fishing.IsSessionState
-            and (fishing.IsSessionState("CANCELLING_FISHING_SESSION") or fishing.IsSessionState("CLOSING_FISHING_SESSION")))
+            and (fishing.IsSessionState("CANCELLING_FISHING_SESSION") or fishing.IsSessionState("STARTING_LINGER")))
         and frameFader.isFaded then
         RestoreFocusVisualsAfterLinger()
     elseif not shouldFade and frameFader.isFaded then

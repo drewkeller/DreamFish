@@ -279,6 +279,7 @@ local function ResetFishingFrameState(frame)
     frame:SetAttribute("macrotext", nil)
     frame:SetAttribute("macrotext1", nil)
     frame:SetAttribute("macrotext2", nil)
+    frame:SetAttribute("dreamfisher_castarmed", nil)
 end
 
 local function ResetBuffFrameState(frame)
@@ -323,6 +324,11 @@ local function CreateSecureFishingFrame()
     frame:Show()
     frame:HookScript("PreClick", function()
         if InCombatLockdown() then
+            return
+        end
+        local now = (type(GetTime) == "function") and GetTime() or 0
+        local lastConfiguredAt = tonumber(addon.state and addon.state.lastFishingClickConfigAt) or 0
+        if lastConfiguredAt > 0 and (now - lastConfiguredAt) < 0.05 then
             return
         end
         if ConfigureFishingClickAction then
@@ -950,33 +956,40 @@ local function ApplyDueBuffToSecureMacro(fishingFrame, macroLines, dueBuffItemID
             .. GetDebugItemLabel(dueBuffItemID)
             .. " category=" .. tostring(dueBuffCategory)
             .. " " .. GetDebugCooldownText(dueBuffItemID))
+        return true
     else
         fishingFrame:SetAttribute("dreamfisher_duebuff", nil)
+        return false
     end
 end
 
-local function FinalizeSecureFishingAction(fishingFrame, macroLines, raftExclusiveWhileSwimming, bobberDecision)
+local function FinalizeSecureFishingAction(fishingFrame, macroLines, raftExclusiveWhileSwimming, bobberDecision, hasConsumableAction)
     if #macroLines > 0 then
-        if not raftExclusiveWhileSwimming then
+        local castArmed = (not raftExclusiveWhileSwimming) and (not hasConsumableAction)
+        if castArmed then
             table.insert(macroLines, "/cast Fishing")
         end
         fishingFrame:SetAttribute("type", "macro")
         fishingFrame:SetAttribute("macrotext", table.concat(macroLines, "\n"))
         fishingFrame:SetAttribute("spell", nil)
+        fishingFrame:SetAttribute("dreamfisher_castarmed", castArmed and true or false)
         if raftExclusiveWhileSwimming then
             DebugBuffMessage("Fishing click configured as raft-only pre-cast")
+        elseif not castArmed then
+            DebugBuffMessage("Fishing click configured with pre-cast item usage; cast will arm on next click")
         elseif bobberDecision.shouldApply then
             DebugBuffMessage("Fishing click configured to use bobber toy: "
                 .. GetDebugItemLabel(bobberDecision.toyID) .. " " .. GetDebugCooldownText(bobberDecision.toyID))
         else
             DebugBuffMessage("Fishing click configured with pre-cast items before Fishing")
         end
-        return
+        return castArmed and true or false
     end
 
     fishingFrame:SetAttribute("type", "spell")
     fishingFrame:SetAttribute("spell", "Fishing")
     fishingFrame:SetAttribute("macrotext", nil)
+    fishingFrame:SetAttribute("dreamfisher_castarmed", true)
     if bobberDecision.hasToy and bobberDecision.mounted then
         DebugBuffMessage("Skipping bobber toy while mounted: " .. GetDebugItemLabel(bobberDecision.toyID))
     elseif bobberDecision.hasToy and bobberDecision.swimming then
@@ -995,6 +1008,7 @@ local function FinalizeSecureFishingAction(fishingFrame, macroLines, raftExclusi
     else
         DebugMessage("Fishing click configured as spell cast only")
     end
+    return true
 end
 
 ConfigureFishingClickAction = function()
@@ -1047,6 +1061,7 @@ ConfigureFishingClickAction = function()
     local oversizedDecision = GetOversizedBobberDecision()
     local poleSelections = GetConfiguredPoleSelections()
     local macroLines = {}
+    local hasConsumableAction = false
     local raftExclusiveWhileSwimming = false
     local underlightItemID = poleSelections.underlight.itemID
     local underlightMounted = (type(IsMounted) == "function" and IsMounted()) or false
@@ -1063,6 +1078,7 @@ ConfigureFishingClickAction = function()
 
     if raftDecision.shouldApply then
         table.insert(macroLines, "/use item:" .. tostring(raftDecision.toyID))
+        hasConsumableAction = true
         DebugBuffMessage("Fishing click will apply raft: "
             .. GetDebugItemLabel(raftDecision.toyID) .. " " .. GetDebugCooldownText(raftDecision.toyID))
         if raftDecision.swimming then
@@ -1095,6 +1111,7 @@ ConfigureFishingClickAction = function()
 
     if (not raftExclusiveWhileSwimming) and bobberDecision.shouldApply then
         table.insert(macroLines, "/use item:" .. tostring(bobberDecision.toyID))
+        hasConsumableAction = true
         DebugBuffMessage("Fishing click will apply bobber toy: "
             .. GetDebugItemLabel(bobberDecision.toyID) .. " " .. GetDebugCooldownText(bobberDecision.toyID))
     end
@@ -1102,6 +1119,7 @@ ConfigureFishingClickAction = function()
     if (not raftExclusiveWhileSwimming) and oversizedDecision.enabled then
         if oversizedDecision.shouldApply then
             table.insert(macroLines, "/use item:" .. tostring(OVERSIZED_BOBBER_ITEM_ID))
+            hasConsumableAction = true
             DebugBuffMessage("Fishing click will apply oversized bobber: "
                 .. GetDebugItemLabel(OVERSIZED_BOBBER_ITEM_ID) .. " " .. GetDebugCooldownText(OVERSIZED_BOBBER_ITEM_ID))
         elseif oversizedDecision.auraRemaining and not oversizedDecision.needsRefreshForCast then
@@ -1120,9 +1138,21 @@ ConfigureFishingClickAction = function()
     end
 
     local dueBuffItemID, dueBuffCategory = ResolveSecurePreCastDueBuff(raftExclusiveWhileSwimming)
-    ApplyDueBuffToSecureMacro(fishingFrame, macroLines, dueBuffItemID, dueBuffCategory)
-    FinalizeSecureFishingAction(fishingFrame, macroLines, raftExclusiveWhileSwimming, bobberDecision)
-    return true
+    local hasDueBuffAction = ApplyDueBuffToSecureMacro(fishingFrame, macroLines, dueBuffItemID, dueBuffCategory)
+    if hasDueBuffAction then
+        hasConsumableAction = true
+    end
+    local castArmed = FinalizeSecureFishingAction(
+        fishingFrame,
+        macroLines,
+        raftExclusiveWhileSwimming,
+        bobberDecision,
+        hasConsumableAction
+    )
+    if addon.state then
+        addon.state.lastFishingClickConfigAt = (type(GetTime) == "function") and GetTime() or 0
+    end
+    return true, castArmed and true or false
 end
 
 local function GetNextReadyDueBuffItemForCategory(category, excludedBuffItemIDs)
@@ -1227,247 +1257,18 @@ local function IsHotkeyActivationPressed()
     return modes.castHotkey
 end
 
-local function TryUseItemDirect(itemID)
-    local numeric = tonumber(itemID)
-    if not numeric or numeric <= 0 then
-        return false
-    end
-
-    if C_Item and type(C_Item.UseItemByID) == "function" then
-        local ok = pcall(C_Item.UseItemByID, numeric)
-        if ok then
-            return true
-        end
-    end
-
-    if type(UseItemByName) == "function" then
-        local ok = pcall(UseItemByName, "item:" .. tostring(numeric))
-        if ok then
-            return true
-        end
-    end
-
-    return false
-end
-
-local function TryApplyFishingProfessionSlotDirect()
-    if type(UseInventoryItem) == "function" then
-        local ok = pcall(UseInventoryItem, 28)
-        return ok and true or false
-    end
-    return false
-end
-
-local function TryUseBuffItemDirect(itemID)
-    local numeric = tonumber(itemID)
-    if not numeric or numeric <= 0 then
-        return false
-    end
-
-    local bag, slot = addon.buff.FindItemInBags(numeric)
-    local used = false
-    if bag and slot then
-        if C_Container and type(C_Container.UseContainerItem) == "function" then
-            local ok = pcall(C_Container.UseContainerItem, bag, slot)
-            used = ok and true or false
-        elseif type(UseContainerItem) == "function" then
-            local ok = pcall(UseContainerItem, bag, slot)
-            used = ok and true or false
-        end
-    end
-
-    if not used then
-        used = TryUseItemDirect(numeric)
-    end
-
-    if used then
-        local now = GetTime()
-        addon.state.buffItemLastUseAt[numeric] = now
-        addon.state.pendingBuffObservation = {
-            itemID = numeric,
-            before = addon.buff.BuildHelpfulAuraSnapshot(),
-            expiresAt = now + 20,
-        }
-        addon.buff.AnnounceBuffUse(numeric)
-        DebugBuffMessage("Direct cast step used due buff: " .. GetDebugItemLabel(numeric))
-        return true
-    end
-
-    DebugBuffMessage("Direct cast step failed to use due buff: " .. GetDebugItemLabel(numeric))
-    return false
-end
-
-local function StartFishingCastState()
-    local audio = getAudioAPI and getAudioAPI()
-    if not requireFishingAPI then
-        error("DreamFisher: RequireFishingAPI helper is required for cast-state transitions")
-    end
-    local fishing = requireFishingAPI()
-
-    if audio and audio.StartFishingAudioFocus then
-        audio.StartFishingAudioFocus()
-    end
-    if fishing and fishing.ApplySessionState then
-        fishing.ApplySessionState("PRE_CASTING", "direct-cast-start")
-    end
-    if fishing and fishing.EnableTemporaryAutoLoot then
-        fishing.EnableTemporaryAutoLoot()
-    end
-end
-
-local function TryCastFishingDirect()
-    local casted = false
-    local fishingSpellID = (addon.const and addon.const.fishingSpellID) or 131474
-    local fishingSpellName = (addon.const and addon.const.fishingSpellName) or "Fishing"
-
-    if type(CastSpellByID) == "function" then
-        local ok = pcall(CastSpellByID, fishingSpellID)
-        casted = ok and true or false
-    end
-
-    if not casted and type(CastSpellByName) == "function" then
-        local ok = pcall(CastSpellByName, fishingSpellName)
-        casted = ok and true or false
-    end
-
-    if casted then
-        StartFishingCastState()
-        DebugMessage("Direct cast step started fishing cast")
-        return true
-    end
-
-    DebugMessage("Direct cast step could not cast Fishing")
-    return false
-end
-
-local function HandleDirectCastStep()
-    if InCombatLockdown() then
-        DebugMessage("Direct cast ignored: in combat lockdown")
-        return false
-    end
-
-    if ShouldAbortPreCastForTransientBuffInUse() then
-        DebugMessage("Direct cast aborted: transient buff in progress")
-        return true
-    end
-
-    local raftDecision = GetRaftUseDecision()
-    if raftDecision.shouldApply and raftDecision.toyID then
-        if TryUseItemDirect(raftDecision.toyID) then
-            DebugMessage("Direct cast step used raft: " .. GetDebugItemLabel(raftDecision.toyID))
-            return true
-        end
-        DebugMessage("Direct cast step failed raft use: " .. GetDebugItemLabel(raftDecision.toyID))
-    end
-
-    local bobberDecision = GetBobberUseDecision()
-    if bobberDecision.shouldApply and bobberDecision.toyID then
-        if TryUseItemDirect(bobberDecision.toyID) then
-            DebugMessage("Direct cast step used bobber toy: " .. GetDebugItemLabel(bobberDecision.toyID))
-            return true
-        end
-        DebugMessage("Direct cast step failed bobber toy use: " .. GetDebugItemLabel(bobberDecision.toyID))
-    end
-
-    local oversizedDecision = GetOversizedBobberDecision()
-    if oversizedDecision.enabled and oversizedDecision.shouldApply then
-        if TryUseItemDirect(OVERSIZED_BOBBER_ITEM_ID) then
-            DebugMessage("Direct cast step used oversized bobber: "
-                .. GetDebugItemLabel(OVERSIZED_BOBBER_ITEM_ID))
-            return true
-        end
-        DebugMessage("Direct cast step failed oversized bobber use: "
-            .. GetDebugItemLabel(OVERSIZED_BOBBER_ITEM_ID))
-    end
-
-    local hasConfiguredBuffItems = HasConfiguredBuffItems()
-    if hasConfiguredBuffItems then
-        local candidateItemID, hadUnavailableDueBuff, category = GetNextCastableDueBuffItem(
-            "Direct cast skipping lure due buff; no fishing pole equipped in profession slot"
-        )
-        if candidateItemID and TryUseBuffItemDirect(candidateItemID) then
-            if IsLureCategory(category) and not TryApplyFishingProfessionSlotDirect() then
-                DebugBuffMessage("Direct cast step could not apply lure to profession slot after item use")
-            end
-            return true
-        end
-        if hadUnavailableDueBuff then
-            DebugBuffMessage("Direct cast: due buff exists but unavailable")
-        end
-    end
-
-    return TryCastFishingDirect()
-end
-
-local function BuildDueBuffMacroText(itemID, category)
-    local bag, slot = addon.buff.FindItemInBags(itemID)
-    local macroLines = {}
-    if bag and slot then
-        table.insert(macroLines, "/use " .. tostring(bag) .. " " .. tostring(slot))
-    else
-        table.insert(macroLines, "/use item:" .. tostring(itemID))
-    end
-    if IsLureCategory(category) then
-        table.insert(macroLines, "/use 28")
-    end
-    return table.concat(macroLines, "\n")
-end
-
-local function ArmDueBuffRightClick(buffFrame, fishingFrame, pendingBuffItemID, pendingBuffCategory)
-    if not buffFrame then
-        DebugBuffMessage("No secure buff frame available; skipping due buff binding")
-        return false
-    end
-
-    local macrotext = BuildDueBuffMacroText(pendingBuffItemID, pendingBuffCategory)
-
-    buffFrame:SetAttribute("type", "macro")
-    buffFrame:SetAttribute("type2", "macro")
-    buffFrame:SetAttribute("macrotext", macrotext)
-    buffFrame:SetAttribute("macrotext2", macrotext)
-    buffFrame:SetAttribute("item", nil)
-    buffFrame:SetAttribute("item2", nil)
-    buffFrame:SetAttribute("dreamfisher_itemid", pendingBuffItemID)
-    DebugBuffMessage("Double-click arming due buff: " .. GetDebugItemLabel(pendingBuffItemID)
-        .. " category=" .. tostring(pendingBuffCategory)
-        .. " " .. GetDebugCooldownText(pendingBuffItemID)
-        .. " macro=" .. tostring(macrotext:gsub("\n", " | ")))
-
-    if not InCombatLockdown() then
-        if fishingFrame then
-            ClearOverrideBindings(fishingFrame)
-            fishingFrame:Hide()
-        end
-        SetOverrideBindingClick(buffFrame, true, "BUTTON2", buffFrame:GetName(), "RightButton")
-    end
-    buffFrame:Show()
-    return true
-end
-
-local function ResolveRightClickPendingDueBuff(hasConfiguredBuffItems)
-    if not hasConfiguredBuffItems then
-        DebugBuffMessage("No configured buff items in cast handler; skipping buff arm")
-        return nil, false, nil
-    end
-
-    return GetNextCastableDueBuffItem(
-        "Double-click skipping lure due buff; no fishing pole equipped in profession slot"
-    )
-end
-
 local function ArmFishingRightClickAction(fishingFrame)
     if not fishingFrame then
-        return false
+        return false, false
     end
-
-    local configured = ConfigureFishingClickAction()
+    local configured, castArmed = ConfigureFishingClickAction()
     if configured == false then
-        return false
+        return false, false
     end
     SetOverrideBindingClick(fishingFrame, true, "BUTTON2", fishingFrame:GetName(), "RightButton")
     -- Show the secure frame so the current click release can trigger the secure action.
     fishingFrame:Show()
-    return true
+    return true, castArmed and true or false
 end
 
 local function ClearRightClickBuffFrameState(buffFrame, clearBeforeHide)
@@ -1602,58 +1403,96 @@ local function ExitFishingSessionForNoHookEvidence()
     )
 end
 
-local function HandleWorldRightClick(forceImmediate)
-    if not requireFishingAPI then
-        error("DreamFisher: RequireFishingAPI helper is required for world right-click handling")
+local function HandleHookedPhaseTrigger(source, fishing, shouldRouteHookedInteract, noHookedEvidence, buffFrame, fishingFrame)
+    if not shouldRouteHookedInteract then
+        return false
     end
-    local fishing = requireFishingAPI()
-    local audio = getAudioAPI and getAudioAPI()
 
-    if InCombatLockdown() then
-        DebugMessage("Right click ignored: in combat lockdown")
+    if noHookedEvidence then
+        DebugMessage("Hooked route requested without interact evidence; clearing stale fishing session and resuming recast flow")
+        ExitFishingSessionForNoHookEvidence()
+        return false
+    end
+
+    addon.state.lastRightClickTime = 0
+    fishingFrame = EnsureFishingSecureFrame(fishingFrame)
+
+    if fishingFrame and not InCombatLockdown() then
+        if buffFrame then
+            ClearRightClickBuffFrameState(buffFrame, true)
+        end
+        ArmFishingRightClickAction(fishingFrame)
+        DebugMessage("Hooked phase trigger " .. source .. " routed to interact action")
+        return true
+    end
+
+    return false
+end
+
+local function HandlePrecastTrigger(source, allowSingleClick, fishing, audio, buffFrame)
+    if ShouldAbortPreCastForTransientBuffInUse() then
         return
     end
 
-    if HasTargetSelected() then
-        addon.state.lastRightClickTime = 0
-        DebugMessage("Target selected; ignoring fishing right-click")
-        ExitFishingSessionForTargetSelection()
+    local raftDecision = GetRaftUseDecision()
+    if raftDecision.shouldApply and raftDecision.swimming then
+        if allowSingleClick then
+            DebugMessage("Config window open: single right-click applying raft before cast")
+        end
+        DebugMessage("Fishing trigger " .. source .. " routing to raft-only pre-cast while swimming")
         if not InCombatLockdown() then
-            if addon.frames.fishing then
-                ClearRightClickFishingFrameState(addon.frames.fishing, true)
+            if buffFrame then
+                ClearRightClickBuffFrameState(buffFrame, true)
             end
-            if addon.frames.buff then
-                ClearRightClickBuffFrameState(addon.frames.buff, true)
+            local activeFishingFrame = addon.frames.fishing
+            if activeFishingFrame then
+                ArmFishingRightClickAction(activeFishingFrame)
             end
         end
         return
     end
 
-    if addon.db and addon.db.easyStrike
-        and addon.state and addon.state.interactOverrideActive
-        and fishing and fishing.IsHookedLootMode
-        and fishing.IsHookedLootMode() then
-        local hasAnyInteractUnit, hasSoftInteractNameOnly = GetInteractPresenceDiagnostics()
-        local acquireExpiresAt = tonumber(addon.state.interactAcquireExpiresAt) or 0
-        local inAcquireWindow = acquireExpiresAt > GetTime()
-
-        if hasAnyInteractUnit or inAcquireWindow or hasSoftInteractNameOnly then
-            DebugMessage("Hooked phase world right-click delegated to native interact override")
-            return
-        end
-
-        DebugMessage("Stale hooked interact override with no target; clearing override and resuming cast flow")
-        if not (fishing and fishing.ClearNativeInteractOverride) then
-            error("DreamFisher: ClearNativeInteractOverride is required for stale hooked override cleanup")
-        end
-        fishing.ClearNativeInteractOverride()
-        addon.state.interactAcquireExpiresAt = 0
+    if buffFrame then
+        ClearRightClickBuffFrameState(buffFrame, false)
     end
 
+    if not InCombatLockdown() then
+        buffFrame = addon.frames.buff
+        if buffFrame then
+            ClearRightClickBuffFrameState(buffFrame, true)
+        end
+        local fishingFrame = addon.frames.fishing
+        if fishingFrame then
+            local armed, castArmed = ArmFishingRightClickAction(fishingFrame)
+            if not armed then
+                return
+            end
+            if castArmed then
+                if audio and audio.StartFishingAudioFocus then
+                    audio.StartFishingAudioFocus()
+                end
+                local castNow = (type(GetTime) == "function") and GetTime() or 0
+                -- Mark a pre-cast fishing session for audio/tests. Hooked mode is
+                -- still blocked by grace-window gating until cast has transitioned.
+                if fishing and fishing.ApplySessionState then
+                    fishing.ApplySessionState("PRE_CASTING", "right-click-pre-cast")
+                end
+                addon.state.fishingStartTime = castNow
+                addon.state.fishingStartGraceUntil = castNow + 1.5
+                addon.state.interactAcquireExpiresAt = 0
+                DebugBuffMessage("No due buffs; starting fishing cast")
+                if allowSingleClick then
+                    DebugMessage("Config window open: single right-click starting fishing")
+                end
+            else
+                DebugBuffMessage("Prepared pre-cast item usage; cast will start on a follow-up click")
+            end
+        end
+    end
+end
+
+local function HandlePlayerTrigger(source, allowSingleClick, fishing, audio, skipHookedPhase)
     local now = GetTime()
-    DebugMessage("World right click: dt=" .. string.format("%.3f", now - addon.state.lastRightClickTime))
-    local modes = GetCastingModes()
-    local allowSingleClick = modes.singleRightClick and addon.frames.config and addon.frames.config:IsShown() or false
     local hasConfiguredBuffItems = HasConfiguredBuffItems()
     local easyStrike = addon.db and addon.db.easyStrike
 
@@ -1678,24 +1517,15 @@ local function HandleWorldRightClick(forceImmediate)
     local buffFrame = addon.frames.buff
     local fishingFrame = addon.frames.fishing
 
-    if shouldRouteHookedInteract then
-        if noHookedEvidence then
-            DebugMessage("Hooked route requested without interact evidence; clearing stale fishing session and resuming recast flow")
-            ExitFishingSessionForNoHookEvidence()
-            shouldRouteHookedInteract = false
-        end
-    end
-
-    if shouldRouteHookedInteract then
-        addon.state.lastRightClickTime = 0
-        fishingFrame = EnsureFishingSecureFrame(fishingFrame)
-
-        if fishingFrame and not InCombatLockdown() then
-            if buffFrame then
-                ClearRightClickBuffFrameState(buffFrame, true)
-            end
-            ArmFishingRightClickAction(fishingFrame)
-            DebugMessage("Hooked phase world right-click routed to interact action")
+    if not skipHookedPhase then
+        if HandleHookedPhaseTrigger(
+            source,
+            fishing,
+            shouldRouteHookedInteract,
+            noHookedEvidence,
+            buffFrame,
+            fishingFrame
+        ) then
             return
         end
     end
@@ -1725,87 +1555,104 @@ local function HandleWorldRightClick(forceImmediate)
         ClearRightClickFishingFrameState(fishingFrame, false)
     end
 
-    if forceImmediate or allowSingleClick or (now - addon.state.lastRightClickTime) <= (addon.state.doubleClickWindow + 0.001) then
+    HandlePrecastTrigger(source, allowSingleClick, fishing, audio, buffFrame)
+end
+
+local function HandleWorldRightClick(source, forceImmediate)
+    source = tostring(source or "world-right-click")
+
+    if not requireFishingAPI then
+        error("DreamFisher: RequireFishingAPI helper is required for world right-click handling")
+    end
+    local fishing = requireFishingAPI()
+    local audio = getAudioAPI and getAudioAPI()
+
+    if InCombatLockdown() then
+        DebugMessage("Fishing trigger " .. source .. " ignored: in combat lockdown")
+        return
+    end
+
+    if HasTargetSelected() then
         addon.state.lastRightClickTime = 0
-        if ShouldAbortPreCastForTransientBuffInUse() then
-            return
-        end
-        local raftDecision = GetRaftUseDecision()
-        if raftDecision.shouldApply and raftDecision.swimming then
-            if allowSingleClick then
-                DebugMessage("Config window open: single right-click applying raft before cast")
-            end
-            DebugMessage("Click-cast routing to raft-only pre-cast while swimming")
-            if not InCombatLockdown() then
-                if buffFrame then
-                    ClearRightClickBuffFrameState(buffFrame, true)
-                end
-                local activeFishingFrame = addon.frames.fishing
-                if activeFishingFrame then
-                    ArmFishingRightClickAction(activeFishingFrame)
-                end
-            end
-            return
-        end
-
-        local pendingBuffItemID, hadUnavailableDueBuff, pendingBuffCategory = ResolveRightClickPendingDueBuff(hasConfiguredBuffItems)
-
-        if pendingBuffItemID then
-            if allowSingleClick then
-                DebugBuffMessage("Config window open: single right-click using due buff")
-            end
-            buffFrame = addon.frames.buff
-            if not ArmDueBuffRightClick(buffFrame, fishingFrame, pendingBuffItemID, pendingBuffCategory) then
-                return
-            end
-            return
-        end
-
-        -- Double-click detected with no due buffs: initiate fishing
-        if buffFrame then
-            ClearRightClickBuffFrameState(buffFrame, false)
-        end
-        if audio and audio.StartFishingAudioFocus then
-            audio.StartFishingAudioFocus()
-        end
-        local now = (type(GetTime) == "function") and GetTime() or 0
-        -- Mark a pre-cast fishing session for audio/tests. Hooked mode is
-        -- still blocked by grace-window gating until cast has transitioned.
-        if fishing and fishing.ApplySessionState then
-            fishing.ApplySessionState("PRE_CASTING", "right-click-pre-cast")
-        end
-        addon.state.fishingStartTime = now
-        addon.state.fishingStartGraceUntil = now + 1.5
-        addon.state.interactAcquireExpiresAt = 0
-
-        if hadUnavailableDueBuff then
-            DebugBuffMessage("No usable due buffs; starting fishing cast")
-        else
-            DebugBuffMessage("No due buffs; starting fishing cast")
-        end
-        if allowSingleClick then
-            DebugMessage("Config window open: single right-click starting fishing")
-        end
+        DebugMessage("Target selected; ignoring fishing trigger: " .. source)
+        ExitFishingSessionForTargetSelection()
         if not InCombatLockdown() then
-            buffFrame = addon.frames.buff
-            if buffFrame then
-                ClearRightClickBuffFrameState(buffFrame, true)
+            if addon.frames.fishing then
+                ClearRightClickFishingFrameState(addon.frames.fishing, true)
             end
-            local fishingFrame = addon.frames.fishing
-            if fishingFrame then
-                ArmFishingRightClickAction(fishingFrame)
+            if addon.frames.buff then
+                ClearRightClickBuffFrameState(addon.frames.buff, true)
             end
         end
+        return
+    end
+
+    if addon.db and addon.db.easyStrike
+        and addon.state and addon.state.interactOverrideActive
+        and fishing and fishing.IsHookedLootMode
+        and fishing.IsHookedLootMode() then
+        local hasAnyInteractUnit, hasSoftInteractNameOnly = GetInteractPresenceDiagnostics()
+        local acquireExpiresAt = tonumber(addon.state.interactAcquireExpiresAt) or 0
+        local inAcquireWindow = acquireExpiresAt > GetTime()
+
+        if hasAnyInteractUnit or inAcquireWindow or hasSoftInteractNameOnly then
+            DebugMessage("Hooked phase trigger " .. source .. " delegated to native interact override")
+            return
+        end
+
+        DebugMessage("Stale hooked interact override with no target; clearing override and resuming cast flow")
+        if not (fishing and fishing.ClearNativeInteractOverride) then
+            error("DreamFisher: ClearNativeInteractOverride is required for stale hooked override cleanup")
+        end
+        fishing.ClearNativeInteractOverride()
+        addon.state.interactAcquireExpiresAt = 0
+    end
+
+    local now = GetTime()
+    DebugMessage("Fishing trigger " .. source .. ": dt=" .. string.format("%.3f", now - addon.state.lastRightClickTime))
+    local modes = GetCastingModes()
+    local allowSingleClick = modes.singleRightClick and addon.frames.config and addon.frames.config:IsShown() or false
+    local easyStrike = addon.db and addon.db.easyStrike
+    local hookedModeActive = easyStrike
+        and fishing and fishing.IsHookedLootMode
+        and fishing.IsHookedLootMode()
+    local hookedPhasePreHandled = false
+
+    if hookedModeActive then
+        local hasAnyInteractUnit, hasSoftInteractNameOnly = GetInteractPresenceDiagnostics()
+        local acquireExpiresAt = tonumber(addon.state and addon.state.interactAcquireExpiresAt) or 0
+        local inAcquireWindow = acquireExpiresAt > now
+        local noHookedEvidence = (not hasAnyInteractUnit)
+            and (not hasSoftInteractNameOnly)
+            and (not inAcquireWindow)
+
+        hookedPhasePreHandled = true
+        if HandleHookedPhaseTrigger(
+            source,
+            fishing,
+            true,
+            noHookedEvidence,
+            addon.frames.buff,
+            addon.frames.fishing
+        ) then
+            return
+        end
+    end
+
+    if forceImmediate
+        or allowSingleClick
+        or (now - addon.state.lastRightClickTime) <= (addon.state.doubleClickWindow + 0.001) then
+        addon.state.lastRightClickTime = 0
+        HandlePlayerTrigger(source, allowSingleClick, fishing, audio, hookedPhasePreHandled)
     else
         addon.state.lastRightClickTime = now
         DebugMessage("Single right-click: no addon action (awaiting second click)")
         if not InCombatLockdown() then
-            if fishingFrame then
-                ClearRightClickFishingFrameState(fishingFrame, true)
+            if addon.frames.fishing then
+                ClearRightClickFishingFrameState(addon.frames.fishing, true)
             end
-            buffFrame = addon.frames.buff
-            if buffFrame then
-                ClearRightClickBuffFrameState(buffFrame, true)
+            if addon.frames.buff then
+                ClearRightClickBuffFrameState(addon.frames.buff, true)
             end
         end
     end
@@ -1821,9 +1668,14 @@ local function HandleHotkeyPress()
         return true
     end
 
-    -- Legacy callback path. Real hotkey casting is now done through
-    -- CLICK DreamFisherSecureFishingButton:RightButton in Bindings.xml.
-    DebugMessage("Hotkey callback path is deprecated; use CLICK binding")
+    if not requireFishingAPI then
+        error("DreamFisher: RequireFishingAPI helper is required for hotkey handling")
+    end
+    local fishing = requireFishingAPI()
+    local audio = getAudioAPI and getAudioAPI()
+
+    -- Hotkey bypasses right-click timing logic and enters the shared trigger flow directly.
+    HandlePlayerTrigger("hotkey", false, fishing, audio)
     return true
 end
 

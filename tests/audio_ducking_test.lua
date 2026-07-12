@@ -315,7 +315,7 @@ now = 500.1
 addon._test.HandleWorldRightClick()
 currentCastName = nil
 onEvent(fishingStateFrame, "UNIT_SPELLCAST_STOP", "player", "cast-guid", addon.const.fishingSpellID)
-assertTrue(not addon._test.GetAudioDucked(), "Audio should restore immediately when fishing expires with zero linger")
+assertTrue(addon._test.GetAudioDucked(), "Audio should remain ducked until fishing session close is triggered")
 
 resetState()
 now = 700
@@ -344,13 +344,47 @@ assertEquals(currentSessionState, addon.fishing.SessionStates.WAITING_FOR_STRIKE
     "Post-stop should enter WAITING_FOR_STRIKE before stale-evidence check")
 driveOnUpdateUntil(813)
 currentSessionState = addon._test.GetSessionState()
-assertEquals(currentSessionState, addon.fishing.SessionStates.CLOSING_FISHING_SESSION,
-    "No-evidence bobber mode should self-clear to CLOSING_FISHING_SESSION")
+assertEquals(currentSessionState, addon.fishing.SessionStates.IDLE,
+    "No-evidence bobber mode should self-clear to IDLE once linger starts")
 local audioRestoreAt = addon._test.GetAudioRestoreAt()
 assertTrue(type(audioRestoreAt) == "number" and audioRestoreAt > now,
     "No-evidence bobber mode should schedule audio restore after linger")
 assertTrue(addon._test.GetAudioDucked(),
     "Audio should remain ducked until stale bobber linger expires")
+
+-- Case 13: Starting another cast during linger should clear the old linger timer and keep fishing state active.
+local previousRestoreAt = audioRestoreAt
+now = 814
+currentCastName = "Fishing"
+onEvent(fishingStateFrame, "UNIT_SPELLCAST_START", "player", "cast-guid", addon.const.fishingSpellID)
+assertEquals(addon._test.GetSessionState(), addon.fishing.SessionStates.CASTING,
+    "A new fishing cast should start immediately during linger")
+assertEquals(addon._test.GetAudioRestoreAt(), nil,
+    "Starting a new cast should clear the previous linger restore timer")
+driveOnUpdateUntil(previousRestoreAt + 1)
+assertEquals(addon._test.GetSessionState(), addon.fishing.SessionStates.CASTING,
+    "Expired prior linger timer should not affect active fishing state")
+assertTrue(addon._test.GetAudioDucked(),
+    "Audio should remain ducked for the new active cast after the old linger timer would have expired")
+
+resetState()
+addon.db.focusedAudioLinger = 10
+now = 800
+currentCastName = "Fishing"
+onEvent(fishingStateFrame, "UNIT_SPELLCAST_START", "player", "cast-guid", addon.const.fishingSpellID)
+currentCastName = nil
+now = 808
+currentCastName = "Fishing"
+onEvent(fishingStateFrame, "UNIT_SPELLCAST_CHANNEL_STOP", "player", "cast-guid", addon.const.fishingChannelSpellID)
+currentCastName = nil
+assertEquals(addon._test.GetSessionState(), addon.fishing.SessionStates.WAITING_FOR_STRIKE,
+    "Post-stop should enter WAITING_FOR_STRIKE before stale-evidence close")
+driveOnUpdateUntil(813)
+assertEquals(addon._test.GetSessionState(), addon.fishing.SessionStates.IDLE,
+    "No-evidence bobber mode should transition to IDLE before linger timer is consumed")
+audioRestoreAt = addon._test.GetAudioRestoreAt()
+assertTrue(type(audioRestoreAt) == "number" and audioRestoreAt > now,
+    "No-evidence bobber mode should schedule audio restore after linger")
 driveOnUpdateUntil(audioRestoreAt + 1)
 assertTrue(not addon._test.GetAudioDucked(),
     "Audio should restore after stale bobber linger expires")
