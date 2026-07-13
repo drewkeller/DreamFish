@@ -1,0 +1,35 @@
+flowchart TD
+    A1[World right-click event] --> B[Normalize trigger context]
+    A2[Hotkey binding event] --> B
+    A3[Spellcast recovery trigger] --> B
+
+    B --> C[SharedTriggerPipeline source, mode, skipHooked]
+    C --> D{Combat lockdown?}
+    D -- Yes --> Z1[Abort safely]
+    D -- No --> E{Target selected / invalid context?}
+
+    E -- Yes --> Z2[Exit fishing session and clear secure state]
+    E -- No --> F{Hooked interact mode active?}
+
+    F -- Yes --> G{Hook evidence present?}
+    G -- No --> H[Clear stale hooked state]
+    G -- Yes --> I[Configure interact loot secure action]
+    I --> S[Await hardware click]
+    H --> J[Continue pre-cast path]
+
+    F -- No --> J[Continue pre-cast path]
+
+    J --> K{Transient buff block?}
+    K -- Yes --> Z3[Warn and stop]
+    K -- No --> L[Ensure secure frames]
+
+    L --> M[ConfigureFishingClickAction]
+    M --> N[Build macro/action in strict order]
+    N --> O{Cast armed now?}
+    O -- No --> P[Pre-cast consumable step only]
+    O -- Yes --> Q[Pre-cast state and timers]
+
+    P --> S
+    Q --> S
+    S --> T[Secure button click executes action]
+    T --> U[State machine receives cast/loot events]

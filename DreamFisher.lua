@@ -219,8 +219,25 @@ local function GetLootItemInfo(slot)
     end
 
     local info = CreateLootItemInfo(slot)
-    info.icon, info.name, info.quantity, info.currencyID, info.quality, info.locked, info.isQuestItem,
-        info.questID, info.isActive, info.isCoin = GetLootSlotInfo(slot)
+    local icon, name, quantity, currencyID, quality, locked, isQuestItem, questID, isActive, isCoin = GetLootSlotInfo(slot)
+
+    -- Compatibility: some clients/mocks return quality as the 4th result for item slots.
+    if quality == nil and type(currencyID) == "number" and currencyID >= 0 and currencyID <= 7 then
+        quality = currencyID
+        currencyID = nil
+    end
+    info.icon = icon
+    info.name = name
+    info.quantity = quantity
+    info.currencyID = currencyID
+    info.locked = locked
+    info.isQuestItem = isQuestItem
+    info.questID = questID
+    info.isActive = isActive
+    info.isCoin = isCoin
+
+    -- Modern clients may not return quality directly from GetLootSlotInfo.
+    info.quality = tonumber(quality)
 
     DebugLootMessage("Got loot info for slot " .. tostring(slot) .. ": name=" .. tostring(info.name)
         .. " quantity=" .. tostring(info.quantity)
@@ -234,23 +251,37 @@ local function GetLootItemInfo(slot)
 
     -- currency does not have itemID or link
     if not info.currencyID then
-        local itemLink = GetLootSlotLink(slot)
+        local slotType = (type(GetLootSlotType) == "function") and tonumber(GetLootSlotType(slot)) or nil
+        local itemLink = nil
+        if type(GetLootSlotLink) == "function" then
+            itemLink = GetLootSlotLink(slot)
+        end
         info.itemLink = itemLink
         if itemLink then
             local itemID = tonumber(string.match(itemLink, "item:(%d+)"))
+            info.itemID = itemID
             if itemID then
-                local _, itemQuality = C_Item.GetItemInfo(itemID)
-                if itemQuality then
-                    DebugLootMessage("Item " .. tostring(itemID) .. " quality=" .. tostring(itemQuality))
+                if (slotType == 1 or slotType == nil) and type(GetItemInfo) == "function" then
+                    local _, _, itemQuality = GetItemInfo(itemID)
+                    if itemQuality ~= nil then
+                        info.quality = tonumber(itemQuality)
+                    end
+                end
+
+                if info.quality ~= nil then
+                    DebugLootMessage("Item " .. tostring(itemID) .. " quality=" .. tostring(info.quality))
                 end
             end
         else
             -- If the item is not cached yet, fetch it asynchronously
             DebugLootMessage("Item in slot " .. tostring(slot) .. " is not cached; fetching info asynchronously")
-            local item = Item:CreateFromItemID(itemID)
-            item:ContinueOnItemLoad(function()
-                DebugLootMessage("Asynchronously loaded item: " .. tostring(item:GetItemLink()) .. " with quality " .. tostring(item:GetItemQuality()))
-            end)
+            local itemID = (type(GetLootSlotType) == "function" and tonumber(GetLootSlotType(slot)) == 1 and type(GetLootSourceInfo) == "function") and nil or nil
+            if itemID and Item and Item.CreateFromItemID then
+                local item = Item:CreateFromItemID(itemID)
+                item:ContinueOnItemLoad(function()
+                    DebugLootMessage("Asynchronously loaded item: " .. tostring(item:GetItemLink()) .. " with quality " .. tostring(item:GetItemQuality()))
+                end)
+            end
         end
     end
 
@@ -312,7 +343,7 @@ local function HandleFishingLootWindow()
             lootCount = lootCount - 1
         else
             DebugLootMessage("Not looting item " .. (lootItemInfo.itemLink or lootItemInfo.name) .. " in loot slot " .. tostring(slot) .. " with quality " .. tostring(lootItemInfo.quality))
-            shouldCloseLootWindow = true
+            shouldCloseLootWindow = false
         end
     end
     DebugLootMessage("Looted " .. tostring(itemsLooted) .. " of " .. tostring(totalItems) .. " items")
@@ -330,16 +361,19 @@ lootTracker:RegisterEvent("LOOT_CLOSED")
 lootTracker:RegisterEvent("BAG_UPDATE")
 lootTracker:RegisterEvent("UI_INFO_MESSAGE")
 lootTracker:SetScript("OnEvent", function(_, event, ...)
-    if event == "LOOT_READY" and (not IsFishingActiveSessionState or not IsFishingActiveSessionState()) then
-        DebugLootMessage("Received loot event " .. tostring(event) .. " but not in active fishing session; ignoring")
-        return
-    end
     if not requireFishingAPI then
         error("DreamFisher: RequireFishingAPI helper is required for loot tracker")
     end
     local fishing = requireFishingAPI()
 
     if event == "LOOT_READY" then
+        if not (fishing and fishing.IsFishingActiveSessionState) then
+            error("DreamFisher: IsFishingActiveSessionState is required for loot-ready handling")
+        end
+        if not fishing.IsFishingActiveSessionState() then
+            DebugLootMessage("Received loot event " .. tostring(event) .. " but not in active fishing session; ignoring")
+            return
+        end
         if not (fishing and fishing.ApplySessionState and fishing.IsLootReadySessionState) then
             error("DreamFisher: ApplySessionState and IsLootReadySessionState are required for loot-ready handling")
         end
@@ -347,9 +381,13 @@ lootTracker:SetScript("OnEvent", function(_, event, ...)
             fishing.ApplySessionState("LOOTING", "loot-ready")
         end
         DebugLootMessage("LOOT_READY event received; scheduled loot handling")
-        C_Timer.After(0.5, function()
+        if C_Timer and type(C_Timer.After) == "function" then
+            C_Timer.After(0.5, function()
+                HandleFishingLootWindow()
+            end)
+        else
             HandleFishingLootWindow()
-        end)
+        end
 
     elseif event == "LOOT_CLOSED" then
         if not (fishing and fishing.IsSessionState) then
