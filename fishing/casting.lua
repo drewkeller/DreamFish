@@ -1704,16 +1704,6 @@ local function HandleHotkeyPress()
     return true
 end
 
-local function HandleSpellCastTrigger()
-    if not requireFishingAPI then
-        error("DreamFisher: RequireFishingAPI helper is required for spell cast trigger handling")
-    end
-    local fishing = requireFishingAPI()
-    local fishingFrame = EnsureFishingSecureFrame(addon.frames.fishing)
-    if not fishingFrame then
-        return true
-end
-
 local function HandleCastCommand()
     if PrintMessage then
         PrintMessage("Protected cast requires a secure click.")
