@@ -3,6 +3,8 @@
 local addon = _G["DreamFisher"]
 local Clamp = addon.Clamp
 
+local DebugBuffMessage = addon.buff.DebugBuffMessage or addon.DebugMessage
+
 local function GetBuffItemCategoryForDue(itemID)
     local numeric = tonumber(itemID)
     if not numeric or numeric <= 0 then
@@ -46,6 +48,10 @@ local function IsBuffItemDue(itemID, knownDuration, requireAuraForCast)
     local lastUsed = addon.state.buffItemLastUseAt[itemID] or 0
     local remaining = addon.buff.GetTrackedBuffRemaining(itemID)
     if remaining ~= nil then
+        if lastUsed == 0 then
+            lastUsed = GetTime() - (knownDuration - remaining)
+            addon.buff.DebugBuffMessage("Buff item " .. tostring(itemID) .. " assumed last used at " .. tostring(lastUsed) .. "; remaining=" .. tostring(remaining))
+        end
         local lead = GetBuffRefreshLead(knownDuration)
         return remaining <= lead, remaining, "tracked_remaining"
     end

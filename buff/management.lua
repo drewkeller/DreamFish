@@ -11,7 +11,7 @@ end
 
 local function DebugBuffMessage(message)
     if IsBuffDebugEnabled() then
-        DebugMessage(message)
+        addon.DebugMessage("|cFF9ACDFF[buff]|r " .. tostring(message))
     end
 end
 
@@ -368,6 +368,7 @@ end
 
 -- Export to addon
 addon.buff = addon.buff or {}
+addon.buff.DebugBuffMessage = DebugBuffMessage
 addon.buff.GetBuffTimingText = GetBuffTimingText
 addon.buff.AnnounceBuffUse = AnnounceBuffUse
 addon.buff.FindItemInBags = FindItemInBags
