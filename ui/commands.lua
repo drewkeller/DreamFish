@@ -45,7 +45,6 @@ local function RegisterSlashCommands()
             PrintMessage("  |cFF7FFFDAduckaudio, da|r - Manually start audio ducking")
             PrintMessage("  |cFF7FFFDArestoreaudio, ra|r - Manually restore audio from ducking")
             PrintMessage("  |cFF7FFFDAdebug, dbg|r - Toggle debug mode on/off")
-            PrintMessage("  |cFF7FFFDAcast|r - Show secure cast macro helper")
             PrintMessage("  |cFF7FFFDAinteractsetup, is|r - Show hooked-interact setup checklist")
             PrintMessage("  |cFF7FFFDAinteractdiag, id|r - Show live interact target diagnostics")
             PrintMessage("  |cFF7FFFDAforcevisible, fv|r - Force focus visuals visible once")
@@ -144,17 +143,6 @@ local function RegisterSlashCommands()
         if command == "debug" or command == "dbg" then
             addon.db.debugMode = not addon.db.debugMode
             PrintMessage("Debug mode: " .. (addon.db.debugMode and "ON" or "OFF"))
-            return
-        end
-        if command == "cast" then
-            if not requireFishingAPI then
-                error("DreamFisher: RequireFishingAPI helper is required for cast command")
-            end
-            local fishing = requireFishingAPI()
-            if fishing and fishing.HandleCastCommand then
-                fishing.HandleCastCommand()
-                PrintMessage("Use keybind or macro /click DreamFisherSecureFishingButton RightButton")
-            end
             return
         end
         if command == "interactsetup" or command == "is" then

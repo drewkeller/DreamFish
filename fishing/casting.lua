@@ -1709,9 +1709,9 @@ local function HandleSpellCastTrigger()
         error("DreamFisher: RequireFishingAPI helper is required for spell cast trigger handling")
     end
     local fishing = requireFishingAPI()
-    local audio = getAudioAPI and getAudioAPI()
-
-    fishing.HandlePlayerTrigger("spell-cast", false, fishing, audio)
+    local fishingFrame = EnsureFishingSecureFrame(addon.frames.fishing)
+    if not fishingFrame then
+        return true
 end
 
 local function HandleCastCommand()
@@ -1740,7 +1740,6 @@ addon.fishing.ApplySelectedRaftToy = ApplySelectedRaftToy
 addon.fishing.IsWorldRightClickActivationPressed = IsWorldRightClickActivationPressed
 addon.fishing.IsHotkeyActivationPressed = IsHotkeyActivationPressed
 addon.fishing.HandleHotkeyPress = HandleHotkeyPress
-addon.fishing.HandleCastCommand = HandleCastCommand
 addon.fishing.HandleWorldRightClick = HandleWorldRightClick
 addon.fishing.IsFishingCast = IsFishingCast
 addon.fishing.ConfigureFishingClickAction = ConfigureFishingClickAction
