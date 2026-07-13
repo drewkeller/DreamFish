@@ -1110,7 +1110,7 @@ function tests.HotkeyTeaTransientBlocksFallbackEvenIfTrackedAuraLooksActive()
     assertEquals(cueCalls, 1, "Tea transient cast block should play warning cue once")
 end
 
-function tests.PrecastAppliesRaftBeforeDueBuff()
+function tests.PrecastPrefersRaftOverDueBuff()
     local capturedAttrs = {}
     local fishingFrame = DreamFisher.fishing.CreateSecureFishingFrame()
     local origSet = fishingFrame.SetAttribute
@@ -1171,14 +1171,12 @@ function tests.PrecastAppliesRaftBeforeDueBuff()
     DreamFisher.buff.FindItemInBags = originalFind
 
     local macrotext = capturedAttrs["macrotext"] or ""
-    local raftIndex = macrotext:find("/use item:85500", 1, true)
-    local buffIndex = macrotext:find("/use item:111", 1, true)
-    assertTrue(raftIndex ~= nil, "Pre-cast should include raft toy use")
-    assertTrue(buffIndex ~= nil, "Pre-cast should include due buff use")
-    assertTrue(raftIndex < buffIndex, "Raft use should appear before due buff use")
+    assertTrue(macrotext:find("/use item:85500", 1, true) ~= nil, "Pre-cast should include raft toy use")
+    assertTrue(macrotext:find("/use item:111", 1, true) == nil,
+        "Due buff should be deferred to a later click when raft is used this click")
 end
 
-function tests.PrecastAppliesBobberBeforeDueBuff()
+function tests.PrecastPrefersBobberOverDueBuff()
     local capturedAttrs = {}
     local fishingFrame = DreamFisher.fishing.CreateSecureFishingFrame()
     local origSet = fishingFrame.SetAttribute
@@ -1210,11 +1208,9 @@ function tests.PrecastAppliesBobberBeforeDueBuff()
     DreamFisher.buff.FindItemInBags = originalFind
 
     local macrotext = capturedAttrs["macrotext"] or ""
-    local bobberIndex = macrotext:find("/use item:142531", 1, true)
-    local buffIndex = macrotext:find("/use item:111", 1, true)
-    assertTrue(bobberIndex ~= nil, "Pre-cast should include bobber use")
-    assertTrue(buffIndex ~= nil, "Pre-cast should include due buff use")
-    assertTrue(bobberIndex < buffIndex, "Bobber use should appear before due buff use")
+    assertTrue(macrotext:find("/use item:142531", 1, true) ~= nil, "Pre-cast should include bobber use")
+    assertTrue(macrotext:find("/use item:111", 1, true) == nil,
+        "Due buff should be deferred to a later click when bobber is used this click")
 end
 
 function tests.PrecastEquipsSelectedFishingPoleBeforeBobber()
@@ -1538,8 +1534,7 @@ function tests.PrecastAppliesBobberWhenAuraExpiring()
     local bobberIndex = macrotext:find("/use item:142529", 1, true)
     local buffIndex = macrotext:find("/use item:111", 1, true)
     assertTrue(bobberIndex ~= nil, "Bobber should be reapplied when aura is expiring")
-    assertTrue(buffIndex ~= nil, "Due buff should still be included when bobber aura is expiring")
-    assertTrue(bobberIndex < buffIndex, "Bobber should remain ordered before due buff")
+    assertTrue(buffIndex == nil, "Due buff should be deferred when bobber is reapplied this click")
 end
 
 function tests.PrecastBobberFallsBackToCooldownWhenAuraUnavailable()
@@ -1584,8 +1579,7 @@ function tests.PrecastBobberFallsBackToCooldownWhenAuraUnavailable()
     local bobberIndex = macrotext:find("/use item:142529", 1, true)
     local buffIndex = macrotext:find("/use item:111", 1, true)
     assertTrue(bobberIndex ~= nil, "Bobber should still apply when aura cannot be observed and cooldown is ready")
-    assertTrue(buffIndex ~= nil, "Due buff should still be included when bobber falls back to cooldown")
-    assertTrue(bobberIndex < buffIndex, "Fallback bobber use should remain ordered before due buff")
+    assertTrue(buffIndex == nil, "Due buff should be deferred when fallback bobber use occurs this click")
 end
 
 function tests.PrecastPrioritizesBaitAfterLureBeforeFoodDrink()

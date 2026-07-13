@@ -488,6 +488,55 @@ function tests.FoodDrinkTransientWindowSuppressesDueAction()
     _G.AuraUtil = originalAuraUtil
 end
 
+function tests.PendingObservationPrefersKnownSpellOverLongerBobberAura()
+    local originalCUnitAuras = _G.C_UnitAuras
+    local originalAuraUtil = _G.AuraUtil
+
+    DreamFisher._test.SetDB({
+        buffItems = { { itemID = 238381 } },
+        buffAuraByItem = {},
+    })
+
+    DreamFisher.state.pendingBuffObservation = {
+        itemID = 238381,
+        before = {},
+        expiresAt = mockTime + 10,
+    }
+
+    _G.C_UnitAuras = {
+        GetPlayerAuraBySpellID = function() return nil end,
+        GetAuraDataByIndex = function(unit, index, filter)
+            if index == 1 then
+                return {
+                    spellId = 231341,
+                    duration = 3600,
+                    expirationTime = mockTime + 3600,
+                }
+            end
+            if index == 2 then
+                return {
+                    spellId = 1237942,
+                    duration = 30,
+                    expirationTime = mockTime + 30,
+                }
+            end
+            return nil
+        end,
+    }
+    _G.AuraUtil = nil
+
+    DreamFisher.buff.UpdatePendingBuffObservation()
+
+    local tracked = DreamFisher.db.buffAuraByItem["238381"]
+    assertTrue(type(tracked) == "table", "Pending observation should learn a mapping for Hollow Grouper")
+    assertEquals(tracked.spellID, 1237942, "Pending observation should prefer the item's known spell over bobber aura")
+    assertEquals(tracked.duration, 30, "Pending observation should preserve the short consumable duration")
+    assertEquals(DreamFisher.state.pendingBuffObservation, nil, "Pending observation should clear after matching known spell")
+
+    _G.C_UnitAuras = originalCUnitAuras
+    _G.AuraUtil = originalAuraUtil
+end
+
 -- ============================================================================
 -- Tests: Get Next Due Buff Item
 -- ============================================================================

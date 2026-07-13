@@ -1074,6 +1074,7 @@ ConfigureFishingClickAction = function()
     local poleSelections = GetConfiguredPoleSelections()
     local macroLines = {}
     local hasConsumableAction = false
+    local hasItemUseAction = false
     local raftExclusiveWhileSwimming = false
     local underlightItemID = poleSelections.underlight.itemID
     local underlightMounted = (type(IsMounted) == "function" and IsMounted()) or false
@@ -1091,6 +1092,7 @@ ConfigureFishingClickAction = function()
     if raftDecision.shouldApply then
         table.insert(macroLines, "/use item:" .. tostring(raftDecision.toyID))
         hasConsumableAction = true
+        hasItemUseAction = true
         DebugBuffMessage("Fishing click will apply raft: "
             .. GetDebugItemLabel(raftDecision.toyID) .. " " .. GetDebugCooldownText(raftDecision.toyID))
         if raftDecision.swimming then
@@ -1121,17 +1123,19 @@ ConfigureFishingClickAction = function()
             .. GetDebugItemLabel(underlightItemID))
     end
 
-    if (not raftExclusiveWhileSwimming) and bobberDecision.shouldApply then
+    if (not raftExclusiveWhileSwimming) and (not hasItemUseAction) and bobberDecision.shouldApply then
         table.insert(macroLines, "/use item:" .. tostring(bobberDecision.toyID))
         hasConsumableAction = true
+        hasItemUseAction = true
         DebugBuffMessage("Fishing click will apply bobber toy: "
             .. GetDebugItemLabel(bobberDecision.toyID) .. " " .. GetDebugCooldownText(bobberDecision.toyID))
     end
 
-    if (not raftExclusiveWhileSwimming) and oversizedDecision.enabled then
+    if (not raftExclusiveWhileSwimming) and (not hasItemUseAction) and oversizedDecision.enabled then
         if oversizedDecision.shouldApply then
             table.insert(macroLines, "/use item:" .. tostring(OVERSIZED_BOBBER_ITEM_ID))
             hasConsumableAction = true
+            hasItemUseAction = true
             DebugBuffMessage("Fishing click will apply oversized bobber: "
                 .. GetDebugItemLabel(OVERSIZED_BOBBER_ITEM_ID) .. " " .. GetDebugCooldownText(OVERSIZED_BOBBER_ITEM_ID))
         elseif oversizedDecision.auraRemaining and not oversizedDecision.needsRefreshForCast then
@@ -1149,10 +1153,16 @@ ConfigureFishingClickAction = function()
         end
     end
 
-    local dueBuffItemID, dueBuffCategory = ResolveSecurePreCastDueBuff(raftExclusiveWhileSwimming)
+    local dueBuffItemID, dueBuffCategory = nil, nil
+    if not hasItemUseAction then
+        dueBuffItemID, dueBuffCategory = ResolveSecurePreCastDueBuff(raftExclusiveWhileSwimming)
+    else
+        fishingFrame:SetAttribute("dreamfisher_duebuff", nil)
+    end
     local hasDueBuffAction = ApplyDueBuffToSecureMacro(fishingFrame, macroLines, dueBuffItemID, dueBuffCategory)
     if hasDueBuffAction then
         hasConsumableAction = true
+        hasItemUseAction = true
     end
     local castArmed = FinalizeSecureFishingAction(
         fishingFrame,

@@ -80,23 +80,47 @@ local function UpdatePendingBuffObservation()
 
     local before = addon.state.pendingBuffObservation.before or {}
     local current = BuildHelpfulAuraSnapshot()
+    local pendingItemID = tonumber(addon.state.pendingBuffObservation.itemID)
+    local pendingKnown = pendingItemID
+        and addon.const
+        and type(addon.const.knownBuffItems) == "table"
+        and addon.const.knownBuffItems[pendingItemID]
+        or nil
+    local pendingKnownSpellID = type(pendingKnown) == "table" and tonumber(pendingKnown.spellID) or nil
     local bestSpellID = nil
     local bestDuration = 0
     local bestExpirationTime = nil
 
-    for spellID, aura in pairs(current) do
-        local previous = before[spellID]
-        local isNewAura = previous == nil
-        local refreshedAura = previous and aura.expirationTime and previous.expirationTime and aura.expirationTime > previous.expirationTime + 0.5
-        if (isNewAura or refreshedAura) and aura.duration and aura.duration > bestDuration then
-            bestSpellID = spellID
-            bestDuration = aura.duration
-            bestExpirationTime = aura.expirationTime
+    if pendingKnownSpellID and current[pendingKnownSpellID] then
+        local knownAura = current[pendingKnownSpellID]
+        local previousKnownAura = before[pendingKnownSpellID]
+        local isNewKnownAura = previousKnownAura == nil
+        local refreshedKnownAura = previousKnownAura
+            and knownAura.expirationTime
+            and previousKnownAura.expirationTime
+            and knownAura.expirationTime > previousKnownAura.expirationTime + 0.5
+        if (isNewKnownAura or refreshedKnownAura) and knownAura.duration then
+            bestSpellID = pendingKnownSpellID
+            bestDuration = knownAura.duration
+            bestExpirationTime = knownAura.expirationTime
+        end
+    end
+
+    if not bestSpellID then
+        for spellID, aura in pairs(current) do
+            local previous = before[spellID]
+            local isNewAura = previous == nil
+            local refreshedAura = previous and aura.expirationTime and previous.expirationTime and aura.expirationTime > previous.expirationTime + 0.5
+            if (isNewAura or refreshedAura) and aura.duration and aura.duration > bestDuration then
+                bestSpellID = spellID
+                bestDuration = aura.duration
+                bestExpirationTime = aura.expirationTime
+            end
         end
     end
 
     if bestSpellID then
-        local itemID = tonumber(addon.state.pendingBuffObservation.itemID)
+        local itemID = pendingItemID
         local key = tostring(itemID)
         local existingTracked = addon.db.buffAuraByItem[key]
         local existingDuration = type(existingTracked) == "table" and tonumber(existingTracked.duration) or 0
@@ -105,6 +129,11 @@ local function UpdatePendingBuffObservation()
             and addon.const.knownBuffItems[itemID]
             or nil
         local knownDuration = type(known) == "table" and tonumber(known.duration) or 0
+
+        if pendingKnownSpellID and bestSpellID ~= pendingKnownSpellID then
+            addon.state.pendingBuffObservation = nil
+            return
+        end
 
         local category = nil
         if type(known) == "table" and type(known.category) == "string" and known.category ~= "" then

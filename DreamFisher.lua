@@ -314,10 +314,16 @@ local function LootItemInSlot(slot)
 end
 
 local function HandleFishingLootWindow()
-    if not (addon.db and addon.db.autoLoot and addon.state and addon.state.savedAutoLoot ~= nil) then
+    if not (addon.db and addon.db.autoLoot) then
+        DebugLootMessage("Auto-loot is disabled in settings; skipping loot handling")
         return false
     end
+    -- if not (addon.state and addon.state.savedAutoLoot ~= nil) then
+    --     DebugLootMessage("Auto-loot state is not properly saved; skipping loot handling")
+    --     return false
+    -- end
     if type(GetNumLootItems) ~= "function" or type(LootSlot) ~= "function" then
+        DebugLootMessage("Required loot functions are not available; skipping loot handling")
         return false
     end
 
@@ -370,10 +376,10 @@ lootTracker:SetScript("OnEvent", function(_, event, ...)
         if not (fishing and fishing.IsFishingActiveSessionState) then
             error("DreamFisher: IsFishingActiveSessionState is required for loot-ready handling")
         end
-        if not fishing.IsFishingActiveSessionState() then
-            DebugLootMessage("Received loot event " .. tostring(event) .. " but not in active fishing session; ignoring")
-            return
-        end
+        -- if not fishing.IsFishingActiveSessionState() then
+        --     DebugLootMessage("Received loot event " .. tostring(event) .. " but not in active fishing session; ignoring")
+        --     return
+        -- end
         if not (fishing and fishing.ApplySessionState and fishing.IsLootReadySessionState) then
             error("DreamFisher: ApplySessionState and IsLootReadySessionState are required for loot-ready handling")
         end
@@ -382,7 +388,7 @@ lootTracker:SetScript("OnEvent", function(_, event, ...)
         end
         DebugLootMessage("LOOT_READY event received; scheduled loot handling")
         if C_Timer and type(C_Timer.After) == "function" then
-            C_Timer.After(0.5, function()
+            C_Timer.After(1.5, function()
                 HandleFishingLootWindow()
             end)
         else
