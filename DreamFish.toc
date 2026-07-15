@@ -3,7 +3,7 @@
 ## Title: DreamFish
 ## Notes: Fishing quality-of-life helper for World of Warcraft.
 ## Author: Drew Keller with Copilot
-## Version: 0.0.1
+## Version: 0.0.2
 ## SavedVariables: DreamFishDB
 
 # Embedded libraries (Ace3)
