@@ -1,4 +1,4 @@
--- Unit tests for DreamFisher auto-loot behavior.
+-- Unit tests for DreamFisher managed-loot behavior.
 -- Run with: lua tests/autoloot_test.lua
 
 local function assertEquals(actual, expected, message)
@@ -102,29 +102,29 @@ local addon = _G.DreamFisher
 assertEquals(type(addon), "table", "Addon table should exist")
 assertEquals(type(addon._test), "table", "Test hooks should exist")
 
-local function resetState(autoLootSetting, userAutoLoot)
+local function resetState(managedLootSetting, userAutoLoot)
     addon._test.ResetAutoLootState()
-    addon._test.SetDB({ autoLoot = autoLootSetting })
+    addon._test.SetDB({ managedLoot = managedLootSetting })
     cvars.autoLootDefault = tostring(userAutoLoot)
 end
 
--- Case 1: Addon setting enabled and user has auto-loot OFF -> keep OFF during fishing, then restore OFF.
+-- Case 1: Addon setting enabled and user has Blizzard auto-loot OFF -> keep OFF during fishing, then restore OFF.
 resetState(true, "0")
-addon._test.EnableTemporaryAutoLoot()
+addon._test.EnableTemporaryManagedLoot()
 assertEquals(cvars.autoLootDefault, "0", "Should keep auto-loot off while fishing so loot window can be used")
 addon._test.RestoreOriginalAutoLoot()
 assertEquals(cvars.autoLootDefault, "0", "Should restore original auto-loot setting")
 
--- Case 2: Addon setting enabled and user already has auto-loot ON -> temporarily turn OFF, then restore ON.
+-- Case 2: Addon setting enabled and user already has Blizzard auto-loot ON -> temporarily turn OFF, then restore ON.
 resetState(true, "1")
-addon._test.EnableTemporaryAutoLoot()
+addon._test.EnableTemporaryManagedLoot()
 assertEquals(cvars.autoLootDefault, "0", "Should temporarily disable auto-loot while fishing")
 addon._test.RestoreOriginalAutoLoot()
 assertEquals(cvars.autoLootDefault, "1", "Should restore to original on state")
 
 -- Case 3: Addon setting disabled -> should not modify user CVar.
 resetState(false, "0")
-addon._test.EnableTemporaryAutoLoot()
+addon._test.EnableTemporaryManagedLoot()
 assertEquals(cvars.autoLootDefault, "0", "Should not change CVar when addon loot window mode is disabled")
 addon._test.RestoreOriginalAutoLoot()
 assertEquals(cvars.autoLootDefault, "0", "Restore should be a no-op when addon auto-loot is disabled")

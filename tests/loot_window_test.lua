@@ -204,7 +204,7 @@ local lootOnEvent = lootFrame:GetScript("OnEvent")
 assertTrue(type(lootOnEvent) == "function", "Loot tracker OnEvent should exist")
 
 local function startFishingSession()
-    addon._test.SetDB({ autoLoot = true, throwAwayJunk = false })
+    addon._test.SetDB({ managedLoot = true, throwAwayJunk = false })
     addon._test.ResetAutoLootState()
     now = 100
     fireEventToRegisteredFrames("UNIT_SPELLCAST_START", "player", nil, addon.const.fishingSpellID)
@@ -237,7 +237,7 @@ setLootSlots({
     [2] = { name = "Broken Tackle", count = 1, quality = 0 },
     [3] = { name = "Old Boot", count = 1, quality = 0 },
 })
-addon._test.SetDB({ autoLoot = true, throwAwayJunk = true })
+addon._test.SetDB({ managedLoot = true, throwAwayJunk = true })
 addon._test.ResetAutoLootState()
 now = 200
 fireEventToRegisteredFrames("UNIT_SPELLCAST_START", "player", nil, addon.const.fishingSpellID)
@@ -256,7 +256,7 @@ assertEquals(closeLootCalls, 0, "Should leave the loot window open when junk is 
 setLootSlots({
     [1] = { name = "Torn Fin", count = 1, quality = 0 },
 })
-addon._test.SetDB({ autoLoot = true, throwAwayJunk = true })
+addon._test.SetDB({ managedLoot = true, throwAwayJunk = true })
 addon._test.ResetAutoLootState()
 now = 300
 fireEventToRegisteredFrames("UNIT_SPELLCAST_START", "player", nil, addon.const.fishingSpellID)

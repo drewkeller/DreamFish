@@ -186,7 +186,7 @@ local function driveOnUpdateUntil(targetTime)
 end
 
 -- Initialize addon state.
-addon._test.SetDB({ focusedAudio = true, focusedAudioLinger = 10, autoLoot = true, bagAlerts = true, reagentBagAlerts = true, treasureAlerts = true, bagAlertsThreshold = 2, reagentBagAlertsThreshold = 2 })
+addon._test.SetDB({ focusedAudio = true, focusedAudioLinger = 10, managedLoot = true, bagAlerts = true, reagentBagAlerts = true, treasureAlerts = true, bagAlertsThreshold = 2, reagentBagAlertsThreshold = 2 })
 local fishingStateFrame = addon._test.GetFishingStateFrame()
 local onEvent = fishingStateFrame and fishingStateFrame:GetScript("OnEvent")
 assertTrue(type(onEvent) == "function", "Fishing state frame OnEvent should exist")

@@ -186,7 +186,7 @@ assertTrue(type(lootOnEvent) == "function", "Loot tracker OnEvent should exist")
 addon._test.SetDB({
     focusedAudio = true,
     focusedAudioLinger = 10,
-    autoLoot = true,
+    managedLoot = true,
     bagAlerts = true,
     treasureAlerts = true,
     bagAlertsThreshold = 2,
@@ -336,7 +336,7 @@ assertEquals(addon.state.fishingSessionState, addon.fishing.SessionStates.IDLE,
 addon._test.SetDB({
     focusedAudio = true,
     focusedAudioLinger = 0,
-    autoLoot = true,
+    managedLoot = true,
     bagAlerts = true,
     treasureAlerts = true,
     bagAlertsThreshold = 2,

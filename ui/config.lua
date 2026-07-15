@@ -854,8 +854,8 @@ local function LoadConfigBindings()
         buffBagCountSnapshot = nil
     end
 
-    if isFocusActive and addon.autoLootCheckbox then
-        addon.autoLootCheckbox:SetChecked(addon.db.autoLoot)
+    if isFocusActive and addon.managedLootCheckbox then
+        addon.managedLootCheckbox:SetChecked(addon.db.managedLoot)
     end
     if isFocusActive and addon.focusedAudioCheckbox then
         addon.focusedAudioCheckbox:SetChecked(addon.db.focusedAudio)
@@ -962,8 +962,8 @@ local function SaveConfigBindings()
         addon.db.focusedAudioLinger = addon.Clamp(tonumber(addon.db.focusedAudioLinger) or defaults.focusedAudioLinger, 0, 60)
     end
 
-    if addon.autoLootCheckbox then
-        addon.db.autoLoot = addon.autoLootCheckbox:GetChecked()
+    if addon.managedLootCheckbox then
+        addon.db.managedLoot = addon.managedLootCheckbox:GetChecked()
     end
     if addon.focusedAudioCheckbox then
         addon.db.focusedAudio = addon.focusedAudioCheckbox:GetChecked()
@@ -1339,7 +1339,7 @@ local function BuildFocusTab(focusPage, ui, onLiveChange)
     local root = ui.FlowRoot(focusPage, 12)
 
     local focusSection = ui.FlowSection(root, "Focus")
-    addon.autoLootCheckbox = ui.FlowCheckbox(focusSection, "Managed auto-loot while fishing", onLiveChange,
+    addon.managedLootCheckbox = ui.FlowCheckbox(focusSection, "Managed auto-loot while fishing", onLiveChange,
         "If you normally have auto-loot enabled, this option temporarily disables it while fishing, so the addon can perform junk-filtering.")
     addon.throwAwayJunkCheckbox = ui.FlowCheckbox(focusSection, "Ignore junk items in loot", onLiveChange,
         "Junk-quality items are not automatically looted.")

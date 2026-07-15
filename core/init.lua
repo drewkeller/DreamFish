@@ -11,7 +11,7 @@ addon.frame = frame
 -- Default configuration
 addon.defaults = {
     -- Focus
-    autoLoot = true,
+    managedLoot = true,
     treasureAlerts = true,
     bagAlerts = true,
     bagAlertsThreshold = 2,
@@ -79,7 +79,7 @@ addon.defaults = {
 -- Global state variables
 addon.state = {
     -- Auto-loot
-    savedAutoLoot = nil,
+    savedAutoLootDefault = nil,
 
     -- Fishing
     fishingSessionState = "IDLE",

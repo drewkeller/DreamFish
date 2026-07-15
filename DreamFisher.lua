@@ -275,11 +275,11 @@ local function LootItemInSlot(slot)
 end
 
 local function HandleFishingLootWindow()
-    if not (addon.db and addon.db.autoLoot) then
-        DebugLootMessage("Auto-loot is disabled in settings; skipping loot handling")
+    if not (addon.db and addon.db.managedLoot) then
+        DebugLootMessage("Managed loot is disabled in settings; skipping loot handling")
         return false
     end
-    -- if not (addon.state and addon.state.savedAutoLoot ~= nil) then
+    -- if not (addon.state and addon.state.savedAutoLootDefault ~= nil) then
     --     DebugLootMessage("Auto-loot state is not properly saved; skipping loot handling")
     --     return false
     -- end
@@ -294,12 +294,11 @@ local function HandleFishingLootWindow()
     end
 
     local lootCount = tonumber(GetNumLootItems()) or 0
-    local shouldCloseLootWindow = false
+    local shouldCloseLootWindow = lootCount > 0
 
     DebugLootMessage("Handling loot window with " .. tostring(lootCount) .. " items")
     local itemsLooted = 0
     local totalItems = lootCount
-    local itemsToLoot = {}
     for slot = 1, lootCount do
         local lootItemInfo = GetLootItemInfo(slot)
         if not lootItemInfo then

@@ -249,8 +249,8 @@ local function IsFishingSpellByName()
     return false
 end
 
-local function EnableTemporaryAutoLoot()
-    if addon.db and addon.db.autoLoot then
+local function EnableTemporaryManagedLoot()
+    if addon.db and addon.db.managedLoot then
         local current = GetCVar("autoLootDefault")
         if addon.state.savedAutoLoot == nil then
             addon.state.savedAutoLoot = current
@@ -260,7 +260,7 @@ local function EnableTemporaryAutoLoot()
 end
 
 local function RestoreOriginalAutoLoot()
-    if addon.db and addon.db.autoLoot and addon.state.savedAutoLoot ~= nil then
+    if addon.db and addon.db.managedLoot and addon.state.savedAutoLoot ~= nil then
         SetCVar("autoLootDefault", addon.state.savedAutoLoot)
         addon.state.savedAutoLoot = nil
     end
@@ -540,7 +540,7 @@ local function CreateFishingStateFrame()
                 addon.state.fishingStartTime = GetTime()
                 addon.state.fishingStartGraceUntil = addon.state.fishingStartTime + 1.5
                 addon.state.lastFishingCastStopAt = 0
-                EnableTemporaryAutoLoot()
+                EnableTemporaryManagedLoot()
                 if audio and audio.EnableFishingAudioFocus then
                     audio.EnableFishingAudioFocus()
                 end
@@ -693,7 +693,7 @@ addon.fishing = addon.fishing or {}
 addon.fishing.GetCurrentSessionState = GetCurrentSessionState
 addon.fishing.HasPatientlyRewardedAura = HasPatientlyRewardedAura
 addon.fishing.IsFishingSpellByName = IsFishingSpellByName
-addon.fishing.EnableTemporaryAutoLoot = EnableTemporaryAutoLoot
+addon.fishing.EnableTemporaryManagedLoot = EnableTemporaryManagedLoot
 addon.fishing.RestoreOriginalAutoLoot = RestoreOriginalAutoLoot
 addon.fishing.CreateFishingStateFrame = CreateFishingStateFrame
 addon.fishing.SessionStates = SESSION_STATES
@@ -713,7 +713,7 @@ if addon.moduleAPI and addon.moduleAPI.Register then
 end
 
 -- Test hooks
-addon._test.EnableTemporaryAutoLoot = EnableTemporaryAutoLoot
+addon._test.EnableTemporaryManagedLoot = EnableTemporaryManagedLoot
 addon._test.RestoreOriginalAutoLoot = RestoreOriginalAutoLoot
 addon._test.ResetAutoLootState = function()
     addon.state.savedAutoLoot = nil

@@ -142,7 +142,7 @@ addon._test.SetDB({
     bagAlertsThreshold = 2,
     reagentBagAlerts = true,
     reagentBagAlertsThreshold = 2,
-    autoLoot = true,
+    managedLoot = true,
     treasureAlerts = true,
     easyStrike = false,
     closeWindowOnEscape = true,
@@ -189,7 +189,7 @@ addon.state.audioRestoreAt = 105
 addon.bagAlertsThresholdBox = { GetText = function() return "7" end }
 addon.reagentBagAlertsThresholdBox = { GetText = function() return "4" end }
 addon.audioLingerBox = { GetText = function() return "12" end }
-addon.autoLootCheckbox = { GetChecked = function() return false end }
+addon.managedLootCheckbox = { GetChecked = function() return false end }
 addon.focusedAudioCheckbox = { GetChecked = function() return true end }
 addon.focusedVisualsCheckbox = { GetChecked = function() return false end }
 addon.focusedVisualsLingerBox = { GetText = function() return "9" end }
@@ -230,7 +230,7 @@ assertEquals(addon.db.bagAlertsThreshold, 7, "Bag alert threshold should persist
 assertEquals(addon.db.reagentBagAlertsThreshold, 4, "Reagent bag alert threshold should persist from UI control")
 assertEquals(addon.db.focusedAudioLinger, 12, "Focused audio linger should persist from UI control")
 assertEquals(addon.db.focusedVisualsLinger, 9, "Focused visuals linger should persist from UI control")
-assertEquals(addon.db.autoLoot, false, "Auto-loot checkbox should persist")
+assertEquals(addon.db.managedLoot, false, "Auto-loot checkbox should persist")
 assertEquals(addon.db.focusedAudio, true, "Focused audio checkbox should persist")
 assertEquals(addon.db.focusedVisuals, false, "Focused visuals checkbox should persist")
 assertEquals(addon.db.treasureAlerts, false, "Treasure alert checkbox should persist")
