@@ -1,0 +1,10 @@
+ignore:
+  - .github/
+  - .vscode/
+  - docs/
+  - scripts/
+  - tests/
+  - .gitignore
+  - .pkgmeta
+  - README.md
+  - *_Tests.lua
