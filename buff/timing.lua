@@ -47,13 +47,17 @@ local function IsBuffItemDue(itemID, knownDuration, requireAuraForCast)
 
     local lastUsed = addon.state.buffItemLastUseAt[itemID] or 0
     local remaining = addon.buff.GetTrackedBuffRemaining(itemID)
+    local elapsed = GetTime() - lastUsed
+    if lastUsed > 0 and elapsed <= 5 then
+        addon.buff.DebugBuffMessage("Buff item " .. tostring(itemID) .. " last used " .. tostring(elapsed) .. " ago; known duration=" .. tostring(knownDuration) .. "; remaining=" .. tostring(remaining))
+        return false, remaining, "too_soon_to_use"
+    end
     if remaining ~= nil then
         if lastUsed == 0 then
             local assumedElapsed = knownDuration - remaining
             lastUsed = GetTime() - assumedElapsed
             addon.buff.DebugBuffMessage("Buff item " .. tostring(itemID) .. " assumed last used " .. tostring(assumedElapsed) .. " ago; remaining=" .. tostring(remaining))
         else
-            local elapsed = GetTime() - lastUsed
             addon.buff.DebugBuffMessage("Buff item " .. tostring(itemID) .. " last used " .. tostring(elapsed) .. " ago; remaining=" .. tostring(remaining))
         end
         local lead = GetBuffRefreshLead(knownDuration)
