@@ -1188,8 +1188,8 @@ local function GetNextReadyDueBuffItemForCategory(category, excludedBuffItemIDs)
         if IsItemReadyForUse(candidateItemID) then
             return candidateItemID, hadUnavailableDueBuff
         end
-        DebugBuffMessage("Skipping due buff on cooldown this click: "
-            .. GetDebugItemLabel(candidateItemID) .. " " .. GetDebugCooldownText(candidateItemID))
+        -- DebugBuffMessage("Skipping due buff on cooldown this click: "
+        --     .. GetDebugItemLabel(candidateItemID) .. " " .. GetDebugCooldownText(candidateItemID))
         excludedBuffItemIDs[candidateItemID] = true
     end
 end

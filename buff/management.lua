@@ -206,7 +206,7 @@ local function GetNextDueBuffItem(requireAuraForCast, excludedItemIDs, requested
         local itemID = tonumber(entry.itemID)
         if itemID and itemID > 0 then
             if type(entry) == "table" and entry.enabled == false then
-                DebugBuffMessage("Skipping disabled due buff item: " .. tostring(itemID))
+                --DebugBuffMessage("Skipping disabled due buff item: " .. tostring(itemID))
             else
                 local itemCategory = GetBuffItemCategory(itemID)
                 if type(excludedItemIDs) == "table" and excludedItemIDs[itemID] then
