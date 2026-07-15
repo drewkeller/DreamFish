@@ -1,9 +1,8 @@
 ## Interface: 120007
-## AllowLoadGameType: standard, mainline
 ## Title: DreamFish
 ## Notes: Fishing quality-of-life helper for World of Warcraft.
-## Author: Drew Keller with Copilot
-## Version: 0.0.3
+## Version: @project-version@
+## Author: Drew Keller
 ## SavedVariables: DreamFishDB
 
 # Embedded libraries (Ace3)
