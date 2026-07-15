@@ -3,7 +3,7 @@ name: Package and Release Addon
 on:
   push:
     tags:
-      - '**'
+      - 'v*'
   workflow_dispatch: # Allows manual triggering of the workflow on GitHub Actions page
 
 jobs:
