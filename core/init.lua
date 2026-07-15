@@ -192,7 +192,9 @@ addon.const = {
         [241317] = { spellID = 1236763, duration = 1800, category = "other_consumable", }, -- Haranir Phial of Perception (1)
         [242299] = { spellID = 1269152, duration = 3600, category = "food_drink", }, -- Sanguithorn Tea
         [262651] = { spellID = 1284999, duration = 600, category = "lure", }, -- Pointed Spikesnail
+        [241145] = { spellID = 1237964, duration = 1800, category = "bait", }, -- Lucky Loa Lure
         [241147] = { spellID = 1237974, duration = 1800, category = "bait", }, -- Blood Hunter Lure
+        [241149] = { spellID = 1237965, duration = 1800, category = "bait", }, -- Ominous Octopus Lure
         -- War Within fishing consumables
         [220137] = { spellID = 456156, duration = 30, category = "other_consumable", }, -- Bismuth Bitterling
         [220135] = { spellID = 456157, duration = 30, category = "other_consumable", }, -- Bloody Perch

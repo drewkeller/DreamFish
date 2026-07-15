@@ -110,9 +110,8 @@ local panelNamesToFade = {
     "ElvUI_DataTextPanel_MiniMapDataPanelSlot2",
     "ElvUI_DataTextPanel_MiniMapDataPanelSlot3",
     "AddonCompartmentFrame",
-    "JustACFrame", -- not working
+    -- Common third-party addons
     "TomTomCrazyArrow",
-    "TomTomCrazyArrowModernArrow",
     "FTA_GuideArrow",
 }
 

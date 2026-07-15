@@ -326,7 +326,7 @@ function tests.BuffDueUntrackedWithTimerExpired()
 end
 
 function tests.BuffDueUntrackedForCastIsAlwaysDue()
-    -- Untracked buff for cast is probed so it can be observed.
+    -- Very recent use should block immediate reuse even on cast.
     DreamFisher._test.SetDB({
         buffItems = { { itemID = 333 } },
         buffAuraByItem = {},  -- Untracked
@@ -336,8 +336,8 @@ function tests.BuffDueUntrackedForCastIsAlwaysDue()
     DreamFisher._test.SetBuffLastUseTime(333, mockTime - 5)
 
     local isDue, remaining, reason = DreamFisher._test.IsBuffItemDue(333, 60, true)
-    assertEquals(isDue, true, "Untracked buff for cast should be probe-due")
-    assertTrue(reason == "unknown_duration_probe" or reason == "untracked_no_history_due_cast", "Should cite unknown probe or first-use cast reason")
+    assertEquals(isDue, false, "Very recently used buff should not be immediately reusable on cast")
+    assertEquals(reason, "too_soon_to_use", "Recent-use guard should take precedence over probe-due logic")
 end
 
 function tests.BuffDueUntrackedNoHistoryForCast()

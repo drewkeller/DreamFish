@@ -740,8 +740,8 @@ function tests.HotkeyDueBuffSecureClickStartsObservationAndBlocksImmediateReappl
         local isDue, _, reason = DreamFisher._test.IsBuffItemDue(111, 60, true)
         assertEquals(isDue, false,
             "Immediately after due-buff click, item should not be considered due again")
-        assertEquals(reason, "unknown_duration_observing",
-            "Immediate post-click due check should be gated by observation window")
+        assertEquals(reason, "too_soon_to_use",
+            "Immediate post-click due check should be gated by recent-use guard")
 
         DreamFisher.fishing.ConfigureFishingClickAction()
         local secondMacro = fishingFrame:GetAttribute("macrotext") or ""
@@ -866,6 +866,7 @@ function tests.HotkeyFallsBackToOtherConsumableWhenLureBlockedByMissingPole()
     local fishingFrame = DreamFisher.fishing.CreateSecureFishingFrame()
     if fishingFrame then
         local origSet = fishingFrame.SetAttribute
+
         fishingFrame.SetAttribute = function(self, k, v)
             capturedAttrs[k] = v
             return origSet and origSet(self, k, v)
@@ -1108,6 +1109,76 @@ function tests.HotkeyTeaTransientBlocksFallbackEvenIfTrackedAuraLooksActive()
             "Hollow Grouper should not be used while tea transient is active")
     end
     assertEquals(cueCalls, 1, "Tea transient cast block should play warning cue once")
+end
+
+function tests.HotkeyTeaTransientBlocksFallbackEvenIfLastingAuraIsActive()
+    local capturedAttrs = {}
+    local fishingFrame = DreamFisher.fishing.CreateSecureFishingFrame()
+    if fishingFrame then
+        local origSet = fishingFrame.SetAttribute
+        fishingFrame.SetAttribute = function(self, k, v)
+            capturedAttrs[k] = v
+            return origSet and origSet(self, k, v)
+        end
+    end
+
+    DreamFisher._test.SetDB({
+        castingModes = { castHotkey = true },
+        buffItems = {
+            { itemID = 242299, expectedDuration = 3600 },
+            { itemID = 238370, expectedDuration = 30 },
+        },
+        buffAuraByItem = {
+            ["242299"] = { spellID = 1269152, duration = 3600 },
+            ["238370"] = { spellID = 1237942, duration = 30 },
+        },
+        useOversizedBobber = false,
+        selectedBobberToy = nil,
+    })
+
+    local originalFind = DreamFisher.buff.FindItemInBags
+    DreamFisher.buff.FindItemInBags = function(itemID)
+        if itemID == 242299 then return 1, 18 end
+        if itemID == 238370 then return 3, 31 end
+        return nil, nil
+    end
+
+    local originalCUnitAuras = _G.C_UnitAuras
+    _G.C_UnitAuras = {
+        GetPlayerAuraBySpellID = function(spellID)
+            if spellID == 1269152 then
+                return {
+                    spellId = 1269152,
+                    duration = 3600,
+                    expirationTime = mockTime + 3500,
+                }
+            end
+            return nil
+        end,
+        GetAuraDataByIndex = function() return nil end,
+    }
+
+    DreamFisher.state.buffItemTransientUntil[242299] = mockTime + 10
+
+    local cueCalls = 0
+    local originalWarningCue = DreamFisher.audio.PlayWarningCue
+    DreamFisher.audio.PlayWarningCue = function()
+        cueCalls = cueCalls + 1
+    end
+
+    DreamFisher.fishing.ConfigureFishingClickAction()
+
+    DreamFisher.audio.PlayWarningCue = originalWarningCue
+    DreamFisher.buff.FindItemInBags = originalFind
+    _G.C_UnitAuras = originalCUnitAuras
+
+    if fishingFrame then
+        local macrotext = capturedAttrs["macrotext"] or ""
+        assertEquals(capturedAttrs["type"], nil, "Tea transient should abort pre-cast action even if lasting aura is active")
+        assertTrue(macrotext:find("/use item:238370", 1, true) == nil,
+            "Other consumable should not be used while tea transient is active")
+    end
+    assertEquals(cueCalls, 1, "Tea transient cast block with active aura should still play warning cue once")
 end
 
 function tests.PrecastPrefersRaftOverDueBuff()
