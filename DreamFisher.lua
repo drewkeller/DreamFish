@@ -193,21 +193,34 @@ if WorldFrame then
 end
 
 -- Loot tracking
-local fishingLootBagCheckPendingUntil = 0
-
-local function CreateLootItemInfo(slot)
+local function CreateLootItemInfo(slot, icon, name, quantity, currencyID, quality, locked, isQuestItem, questID, isActive, isCoin)
+    -- Compatibility: some clients/mocks return quality as the 4th result for item slots.
+    if quality == nil and type(currencyID) == "number" and currencyID >= 0 and currencyID <= 7 then
+        quality = currencyID
+        currencyID = nil
+    end
+    DebugLootMessage("Got loot info for slot " .. tostring(slot) .. ": name=" .. tostring(name)
+        .. " quantity=" .. tostring(quantity)
+        .. " currencyID=" .. tostring(currencyID)
+        .. " quality=" .. tostring(quality)
+        .. " locked=" .. tostring(locked)
+        .. " isQuestItem=" .. tostring(isQuestItem)
+        .. " questID=" .. tostring(questID)
+        .. " isActive=" .. tostring(isActive)
+        .. " isCoin=" .. tostring(isCoin))
     return {
         slot = slot,
-        icon = nil,
-        name = nil,
-        quantity = nil,
-        currencyID = nil,
-        quality = nil,
-        locked = nil,
-        isQuestItem = nil,
-        questID = nil,
-        isActive = nil,
-        isCoin = nil,
+        icon = icon,
+        name = name,
+        quantity = quantity,
+        currencyID = currencyID,
+        -- Modern clients may not return quality directly from GetLootSlotInfo.
+        quality = tonumber(quality),
+        locked = locked,
+        isQuestItem = isQuestItem,
+        questID = questID,
+        isActive = isActive,
+        isCoin = isCoin,
         itemID = nil,
         itemLink = nil,
     }
@@ -218,69 +231,17 @@ local function GetLootItemInfo(slot)
         return nil
     end
 
-    local info = CreateLootItemInfo(slot)
-    local icon, name, quantity, currencyID, quality, locked, isQuestItem, questID, isActive, isCoin = GetLootSlotInfo(slot)
+    local info = CreateLootItemInfo(slot, GetLootSlotInfo(slot))
 
-    -- Compatibility: some clients/mocks return quality as the 4th result for item slots.
-    if quality == nil and type(currencyID) == "number" and currencyID >= 0 and currencyID <= 7 then
-        quality = currencyID
-        currencyID = nil
-    end
-    info.icon = icon
-    info.name = name
-    info.quantity = quantity
-    info.currencyID = currencyID
-    info.locked = locked
-    info.isQuestItem = isQuestItem
-    info.questID = questID
-    info.isActive = isActive
-    info.isCoin = isCoin
 
-    -- Modern clients may not return quality directly from GetLootSlotInfo.
-    info.quality = tonumber(quality)
-
-    DebugLootMessage("Got loot info for slot " .. tostring(slot) .. ": name=" .. tostring(info.name)
-        .. " quantity=" .. tostring(info.quantity)
-        .. " currencyID=" .. tostring(info.currencyID)
-        .. " quality=" .. tostring(info.quality)
-        .. " locked=" .. tostring(info.locked)
-        .. " isQuestItem=" .. tostring(info.isQuestItem)
-        .. " questID=" .. tostring(info.questID)
-        .. " isActive=" .. tostring(info.isActive)
-        .. " isCoin=" .. tostring(info.isCoin))
-
+    -- Parse the itemID from the itemLink's tooltip
     -- currency does not have itemID or link
-    if not info.currencyID then
-        local slotType = (type(GetLootSlotType) == "function") and tonumber(GetLootSlotType(slot)) or nil
-        local itemLink = nil
+    if not info.currencyID and not info.isCoin then
+        --local slotType = (type(GetLootSlotType) == "function") and tonumber(GetLootSlotType(slot)) or nil
         if type(GetLootSlotLink) == "function" then
-            itemLink = GetLootSlotLink(slot)
-        end
-        info.itemLink = itemLink
-        if itemLink then
-            local itemID = tonumber(string.match(itemLink, "item:(%d+)"))
-            info.itemID = itemID
-            if itemID then
-                if (slotType == 1 or slotType == nil) and type(GetItemInfo) == "function" then
-                    local _, _, itemQuality = GetItemInfo(itemID)
-                    if itemQuality ~= nil then
-                        info.quality = tonumber(itemQuality)
-                    end
-                end
-
-                if info.quality ~= nil then
-                    DebugLootMessage("Item " .. tostring(itemID) .. " quality=" .. tostring(info.quality))
-                end
-            end
-        else
-            -- If the item is not cached yet, fetch it asynchronously
-            DebugLootMessage("Item in slot " .. tostring(slot) .. " is not cached; fetching info asynchronously")
-            local itemID = (type(GetLootSlotType) == "function" and tonumber(GetLootSlotType(slot)) == 1 and type(GetLootSourceInfo) == "function") and nil or nil
-            if itemID and Item and Item.CreateFromItemID then
-                local item = Item:CreateFromItemID(itemID)
-                item:ContinueOnItemLoad(function()
-                    DebugLootMessage("Asynchronously loaded item: " .. tostring(item:GetItemLink()) .. " with quality " .. tostring(item:GetItemQuality()))
-                end)
+            info.itemLink = GetLootSlotLink(slot)
+            if info.itemLink then
+                info.itemID = tonumber(string.match(info.itemLink, "item:(%d+)"))
             end
         end
     end
@@ -322,24 +283,30 @@ local function HandleFishingLootWindow()
     --     DebugLootMessage("Auto-loot state is not properly saved; skipping loot handling")
     --     return false
     -- end
+    local blizzardAutoLootEnabled = (type(GetCVar) == "function" and GetCVar("autoLootDefault") == "1")
+    if blizzardAutoLootEnabled then
+        addon.PrintMessage("Auto-loot is already enabled in Blizzard settings; skipping loot handling to avoid interference")
+        return false
+    end
     if type(GetNumLootItems) ~= "function" or type(LootSlot) ~= "function" then
         DebugLootMessage("Required loot functions are not available; skipping loot handling")
         return false
     end
 
     local lootCount = tonumber(GetNumLootItems()) or 0
-    local shouldCloseLootWindow = true
+    local shouldCloseLootWindow = false
 
     DebugLootMessage("Handling loot window with " .. tostring(lootCount) .. " items")
     local itemsLooted = 0
     local totalItems = lootCount
+    local itemsToLoot = {}
     for slot = 1, lootCount do
         local lootItemInfo = GetLootItemInfo(slot)
         if not lootItemInfo then
             DebugLootMessage("Failed to get info for loot slot " .. tostring(slot) .. "; skipping")
             -- in the future, we may want to go ahead and loot unknown items due to player having selected "autoloot while fishing"
             shouldCloseLootWindow = false
-            break
+            return
         end
         if ShouldAutoLootItem(lootItemInfo) then
             DebugLootMessage("Looting item " .. (lootItemInfo.itemLink or lootItemInfo.name) .. " in loot slot " .. tostring(slot) .. " with quality " .. tostring(lootItemInfo.quality))
@@ -352,6 +319,7 @@ local function HandleFishingLootWindow()
             shouldCloseLootWindow = false
         end
     end
+
     DebugLootMessage("Looted " .. tostring(itemsLooted) .. " of " .. tostring(totalItems) .. " items")
 
     if shouldCloseLootWindow and type(CloseLoot) == "function" then
@@ -364,8 +332,6 @@ end
 local lootTracker = CreateFrame("Frame")
 lootTracker:RegisterEvent("LOOT_READY")
 lootTracker:RegisterEvent("LOOT_CLOSED")
-lootTracker:RegisterEvent("BAG_UPDATE")
-lootTracker:RegisterEvent("UI_INFO_MESSAGE")
 lootTracker:SetScript("OnEvent", function(_, event, ...)
     if not requireFishingAPI then
         error("DreamFisher: RequireFishingAPI helper is required for loot tracker")
@@ -387,13 +353,13 @@ lootTracker:SetScript("OnEvent", function(_, event, ...)
             fishing.ApplySessionState("LOOTING", "loot-ready")
         end
         DebugLootMessage("LOOT_READY event received; scheduled loot handling")
-        if C_Timer and type(C_Timer.After) == "function" then
-            C_Timer.After(1.5, function()
-                HandleFishingLootWindow()
-            end)
-        else
-            HandleFishingLootWindow()
-        end
+        -- if C_Timer and type(C_Timer.After) == "function" then
+        --     C_Timer.After(0.5, function()
+        --         HandleFishingLootWindow()
+        --     end)
+        -- else
+             HandleFishingLootWindow()
+        -- end
 
     elseif event == "LOOT_CLOSED" then
         if not (fishing and fishing.IsSessionState) then
@@ -414,6 +380,44 @@ lootTracker:SetScript("OnEvent", function(_, event, ...)
             )
         end
         addon.state.lastBagWarning = 0
+    end
+end)
+
+-- Bag monitoring
+local bagMonitor = CreateFrame("Frame")
+bagMonitor:RegisterEvent("PLAYER_ENTERING_WORLD")
+bagMonitor:RegisterEvent("BAG_UPDATE")
+bagMonitor:RegisterEvent("BAG_UPDATE_DELAYED")
+bagMonitor:SetScript("OnEvent", function(_, event)
+    if addon.utils then addon.utils.CheckBagSpace() end
+
+    local fishing = requireFishingAPI()
+    local alerts = requireAlertsAPI()
+
+    if event == "BAG_UPDATE_DELAYED" and addon.utils and addon.alerts then
+        if not requireAlertsAPI then
+            error("DreamFisher: RequireAlertsAPI helper is required for bag monitoring")
+        end
+        local alerts = requireAlertsAPI()
+        local shouldCheckRegular = addon.db and addon.db.bagAlerts
+        local shouldCheckReagent = addon.db and addon.db.reagentBagAlerts
+        local threshold = (addon.db and addon.db.bagAlertsThreshold) or addon.defaults.bagAlertsThreshold
+        local reagentThreshold = (addon.db and addon.db.reagentBagAlertsThreshold) or addon.defaults.reagentBagAlertsThreshold
+        local regularFree = shouldCheckRegular and addon.utils.GetFreeBagSlots(false) or nil
+        local reagentFree = shouldCheckReagent and addon.utils.GetFreeReagentBagSlots() or nil
+        local isRegularLow = regularFree ~= nil and regularFree <= threshold
+        local isReagentLow = reagentFree ~= nil and reagentFree <= reagentThreshold
+        DebugBagMessage("Low bag threshold set to bags=" .. tostring(threshold)
+            .. " reagent=" .. tostring(reagentThreshold))
+        DebugBagMessage("BAG_UPDATE_DELAYED slots: regularFree=" .. tostring(regularFree) .. ", reagentFree=" .. tostring(reagentFree))
+        if isRegularLow or isReagentLow then
+            DebugBagMessage("Bag space low after loot close: regularFree=" .. tostring(regularFree) .. ", reagentFree=" .. tostring(reagentFree))
+            if alerts and alerts.ShowBagFullAlert then
+                alerts.ShowBagFullAlert()
+            end
+        else
+            DebugBagMessage("Bag space not low yet")
+        end
     elseif event == "BAG_UPDATE" then
         if not (fishing and fishing.IsFishingActiveSessionState) then
             error("DreamFisher: IsFishingActiveSessionState is required for bag-update handling")
@@ -429,8 +433,40 @@ lootTracker:SetScript("OnEvent", function(_, event, ...)
                 end
             end
         end
+    end
+end)
+
+-- Aura tracking
+local auraTracker = CreateFrame("Frame")
+auraTracker:RegisterEvent("UNIT_AURA")
+auraTracker:RegisterEvent("UI_INFO_MESSAGE")
+auraTracker:SetScript("OnEvent", function(_, event, ...)
+    local arg1, arg2 = ...
+    local fishing = requireFishingAPI()
+    local alerts = requireAlertsAPI()
+    if event == "UNIT_AURA" then
+        if type(arg1) ~= "string" or arg1 ~= "player" then return end
+        if not requireFishingAPI then
+            error("DreamFisher: RequireFishingAPI helper is required for aura tracking")
+        end
+        if not requireAlertsAPI then
+            error("DreamFisher: RequireAlertsAPI helper is required for aura tracking")
+        end
+
+        if addon.buff then addon.buff.UpdatePendingBuffObservation() end
+
+        if fishing and fishing.HasPatientlyRewardedAura then
+            local hasAura = fishing.HasPatientlyRewardedAura()
+            if hasAura and not addon.state.patientAuraActive then
+                addon.state.patientAuraActive = true
+                if alerts and alerts.ShowPatientTreasureAlert then
+                    alerts.ShowPatientTreasureAlert("Patiently Rewarded")
+                end
+            elseif not hasAura then
+                addon.state.patientAuraActive = false
+            end
+        end
     elseif event == "UI_INFO_MESSAGE" then
-        local arg1, arg2 = ...
         local errType = arg1
         local msg = nil
         if type(arg2) == "string" and arg2 ~= "" then
@@ -462,68 +498,6 @@ lootTracker:SetScript("OnEvent", function(_, event, ...)
                     .. " audioDucked=" .. tostring(addon.state.savedFishingAudioCVars ~= nil)
                     .. " interactOverrideActive=" .. tostring(addon.state.interactOverrideActive))
             end
-        end
-    end
-end)
-
--- Bag monitoring
-local bagMonitor = CreateFrame("Frame")
-bagMonitor:RegisterEvent("PLAYER_ENTERING_WORLD")
-bagMonitor:RegisterEvent("BAG_UPDATE_DELAYED")
-bagMonitor:SetScript("OnEvent", function(_, event)
-    if addon.utils then addon.utils.CheckBagSpace() end
-    if event == "BAG_UPDATE_DELAYED" and addon.utils and addon.alerts then
-        if not requireAlertsAPI then
-            error("DreamFisher: RequireAlertsAPI helper is required for bag monitoring")
-        end
-        local alerts = requireAlertsAPI()
-        local shouldCheckRegular = addon.db and addon.db.bagAlerts
-        local shouldCheckReagent = addon.db and addon.db.reagentBagAlerts
-        local threshold = (addon.db and addon.db.bagAlertsThreshold) or addon.defaults.bagAlertsThreshold
-        local reagentThreshold = (addon.db and addon.db.reagentBagAlertsThreshold) or addon.defaults.reagentBagAlertsThreshold
-        local regularFree = shouldCheckRegular and addon.utils.GetFreeBagSlots(false) or nil
-        local reagentFree = shouldCheckReagent and addon.utils.GetFreeReagentBagSlots() or nil
-        local isRegularLow = regularFree ~= nil and regularFree <= threshold
-        local isReagentLow = reagentFree ~= nil and reagentFree <= reagentThreshold
-        DebugBagMessage("Low bag threshold set to bags=" .. tostring(threshold)
-            .. " reagent=" .. tostring(reagentThreshold))
-        DebugBagMessage("BAG_UPDATE_DELAYED slots: regularFree=" .. tostring(regularFree) .. ", reagentFree=" .. tostring(reagentFree))
-        if isRegularLow or isReagentLow then
-            DebugBagMessage("Bag space low after loot close: regularFree=" .. tostring(regularFree) .. ", reagentFree=" .. tostring(reagentFree))
-            if alerts and alerts.ShowBagFullAlert then
-                alerts.ShowBagFullAlert()
-            end
-        else
-            DebugBagMessage("Bag space not low yet")
-        end
-    end
-end)
-
--- Aura tracking
-local auraTracker = CreateFrame("Frame")
-auraTracker:RegisterEvent("UNIT_AURA")
-auraTracker:SetScript("OnEvent", function(_, _, unit)
-    if unit ~= "player" then return end
-    if not requireFishingAPI then
-        error("DreamFisher: RequireFishingAPI helper is required for aura tracking")
-    end
-    if not requireAlertsAPI then
-        error("DreamFisher: RequireAlertsAPI helper is required for aura tracking")
-    end
-    local fishing = requireFishingAPI()
-    local alerts = requireAlertsAPI()
-
-    if addon.buff then addon.buff.UpdatePendingBuffObservation() end
-
-    if fishing and fishing.HasPatientlyRewardedAura then
-        local hasAura = fishing.HasPatientlyRewardedAura()
-        if hasAura and not addon.state.patientAuraActive then
-            addon.state.patientAuraActive = true
-            if alerts and alerts.ShowPatientTreasureAlert then
-                alerts.ShowPatientTreasureAlert("Patiently Rewarded")
-            end
-        elseif not hasAura then
-            addon.state.patientAuraActive = false
         end
     end
 end)
