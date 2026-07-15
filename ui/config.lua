@@ -1341,7 +1341,7 @@ local function BuildFocusTab(focusPage, ui, onLiveChange)
     local focusSection = ui.FlowSection(root, "Focus")
     addon.autoLootCheckbox = ui.FlowCheckbox(focusSection, "Managed auto-loot while fishing", onLiveChange,
         "If you normally have auto-loot enabled, this option temporarily disables it while fishing, so the addon can perform junk-filtering.")
-    addon.throwAwayJunkCheckbox = ui.FlowCheckbox(focusSection, "Automatically throw away junk items", onLiveChange,
+    addon.throwAwayJunkCheckbox = ui.FlowCheckbox(focusSection, "Ignore junk items in loot", onLiveChange,
         "Junk-quality items are not automatically looted.")
 
     addon.treasureAlertsCheckbox = ui.FlowCheckbox(focusSection, "Patient Treasure notification", onLiveChange,

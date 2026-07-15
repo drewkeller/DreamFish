@@ -175,3 +175,25 @@ Only one lure can be applied to the fishing pole at a time.
 ## Bobber Selection
 A bobber can be selected from a list. The first item on the list is not an actual item, but is the "Standard Bobber" in the game, which is what you get if you aren't applying a bobber. The rest of the list is dynamically created, based on what "Crate of Bobber" toys the player owns. The Reusable Oversized Bobber toy can be applied to any bobber, including the standard one, so applying the oversized bobber is offered as a separate option.
 
+
+## Loot sound effects
+The Core LootingSounds
+* Gold / Coins: Triggers the iconic cha-ching jingle.
+    SoundKit ID: 120 (Internal Constant: SOUNDKIT.LOOT_WINDOW_COIN_SOUND)
+    File Path: sound/interface/lootwindowcoins.ogg
+* Standard Items (Gear/Trash/Mats): Triggers a soft, leather-like sliding rustle.
+    SoundKit ID: 118
+    File Path: sound/interface/lootwindowopen.ogg
+Specialized Looting & Collection Sounds
+* Quest Item Pickup: A heavy metallic thud when gathering a physical object needed for a quest.
+    SoundKit ID: 5115
+* Transmog / Appearance Learned: A booming, magical echoing chime.
+    SoundKit ID: 72097
+* Toy Learned: A whimsical, magical popping sound.
+    SoundKit ID: 65225
+* Mount Learned: A triumphant horn blast.
+    SoundKit ID: 43472
+* Pet Learned: A short, upbeat magical twinkle.
+    SoundKit ID: 39515
+Mute:   /run MuteSoundFile(569593) MuteSoundFile(567431) print("Loot sounds suppressed!")
+Unmute: /run UnmuteSoundFile(569593) UnmuteSoundFile(567431) print("Loot sounds restored!")

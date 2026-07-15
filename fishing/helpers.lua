@@ -199,7 +199,9 @@ local function CheckBuffItemStockWarnings()
 
             if previousCount and previousCount > 0 and count <= 0 then
                 local itemName = (type(GetItemInfo) == "function" and GetItemInfo(itemID)) or ("item:" .. tostring(itemID))
-                addon.PrintMessage("Buff item depleted: " .. tostring(itemName) .. " (" .. tostring(itemID) .. ", 0 left).")
+                local msg = "Buff item depleted: " .. tostring(itemName) .. " (" .. tostring(itemID) .. ", 0 left)."
+                RaidNotice_AddMessage(RaidWarningFrame, msg, ChatTypeInfo["SYSTEM"])
+                addon.PrintMessage(msg)
                     local audio = getAudioAPI and getAudioAPI()
                 if audio and audio.PlayWarningCue then
                     audio.PlayWarningCue()

@@ -46,6 +46,9 @@ local panelNamesToFade = {
     -- Stance bar frames
     "StanceBar",
     "StanceBarFrame",
+    --Other frames
+    "DamageMeter",
+    "DamageMeterSessionWindow1",
     "ElvUI_Bar1",
     "ElvUI_Bar2",
     "ElvUI_Bar3",
@@ -107,6 +110,10 @@ local panelNamesToFade = {
     "ElvUI_DataTextPanel_MiniMapDataPanelSlot2",
     "ElvUI_DataTextPanel_MiniMapDataPanelSlot3",
     "AddonCompartmentFrame",
+    "JustACFrame", -- not working
+    "TomTomCrazyArrow",
+    "TomTomCrazyArrowModernArrow",
+    "FTA_GuideArrow",
 }
 
 local frameFader = {
