@@ -15,7 +15,7 @@ Implement an opt-in hooked-fish interact mode with minimal touch points: add a s
 5. Add fishing/interactloot.lua to own only hooked-loot gating and secure-frame interact action setup.
 6. Export minimal API through addon.fishing for the cast module to call. Parallel with Step 7.
 7. Add default feature flag in core/init.lua with safe default false. Parallel with Step 6.
-8. Register new module in DreamFisher.toc in deterministic load order. Depends on Step 5.
+8. Register new module in DreamFish.toc in deterministic load order. Depends on Step 5.
 9. Phase 3: Minimal integration
 10. Add one early guarded branch in fishing/casting.lua inside ConfigureFishingClickAction to delegate to interact setup and return.
 11. Leave all non-hooked cast, buff, and timing logic unchanged.
@@ -33,16 +33,16 @@ Implement an opt-in hooked-fish interact mode with minimal touch points: add a s
 23. Validate Setup instructions by following them on a clean profile and confirming expected behavior.
 
 **Relevant files**
-- f:/Games/World of Warcraft/Addons/DreamFisher/fishing/casting.lua — single guarded handoff in ConfigureFishingClickAction.
-- f:/Games/World of Warcraft/Addons/DreamFisher/fishing/interactloot.lua — new isolated interact setup logic.
-- f:/Games/World of Warcraft/Addons/DreamFisher/fishing/state.lua — reuse existing bobber-active lifecycle only.
-- f:/Games/World of Warcraft/Addons/DreamFisher/core/init.lua — default feature flag.
-- f:/Games/World of Warcraft/Addons/DreamFisher/DreamFisher.toc — load order registration.
-- f:/Games/World of Warcraft/Addons/DreamFisher/ui/config.lua — UI toggle.
-- f:/Games/World of Warcraft/Addons/DreamFisher/ui/commands.lua — optional setup/help discoverability.
-- f:/Games/World of Warcraft/Addons/DreamFisher/UI requirements.md — add setup guidance section.
-- f:/Games/World of Warcraft/Addons/DreamFisher/Requirements.md — reflect setup prerequisites in feature requirements.
-- f:/Games/World of Warcraft/Addons/DreamFisher/tests/casting_modes_test.lua — branch behavior tests.
+- f:/Games/World of Warcraft/Addons/DreamFish/fishing/casting.lua — single guarded handoff in ConfigureFishingClickAction.
+- f:/Games/World of Warcraft/Addons/DreamFish/fishing/interactloot.lua — new isolated interact setup logic.
+- f:/Games/World of Warcraft/Addons/DreamFish/fishing/state.lua — reuse existing bobber-active lifecycle only.
+- f:/Games/World of Warcraft/Addons/DreamFish/core/init.lua — default feature flag.
+- f:/Games/World of Warcraft/Addons/DreamFish/DreamFish.toc — load order registration.
+- f:/Games/World of Warcraft/Addons/DreamFish/ui/config.lua — UI toggle.
+- f:/Games/World of Warcraft/Addons/DreamFish/ui/commands.lua — optional setup/help discoverability.
+- f:/Games/World of Warcraft/Addons/DreamFish/UI requirements.md — add setup guidance section.
+- f:/Games/World of Warcraft/Addons/DreamFish/Requirements.md — reflect setup prerequisites in feature requirements.
+- f:/Games/World of Warcraft/Addons/DreamFish/tests/casting_modes_test.lua — branch behavior tests.
 
 **Verification**
 1. Execute run_tests.sh and confirm full pass.
@@ -80,7 +80,7 @@ Implemented the plan end-to-end in code, UI/help text, docs, and tests.
     * New default: enableHookedLoot = false
 
 4. Registered new module in load order:
-    `DreamFisher.toc`
+    `DreamFish.toc`
 
 5. Added UI toggle and setup hint text in Modes tab:
     `config.lua`

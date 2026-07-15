@@ -1,6 +1,6 @@
--- DreamFisher: Audio Ducking and Focus
+-- DreamFish: Audio Ducking and Focus
 
-local addon = _G["DreamFisher"]
+local addon = _G["DreamFish"]
 local Clamp = addon.Clamp
 local PrintMessage = addon.PrintMessage
 local DebugMessage = addon.DebugMessage
@@ -183,7 +183,7 @@ end
 
 local function RestoreFishingAudioFocus()
     if not addon.RequireFishingAPI then
-        error("DreamFisher: RequireFishingAPI helper is required for audio diagnostics")
+        error("DreamFish: RequireFishingAPI helper is required for audio diagnostics")
     end
     local fishing = addon.RequireFishingAPI()
 
@@ -192,7 +192,7 @@ local function RestoreFishingAudioFocus()
     end
     if addon.db and addon.db.debugMode and DebugMessage then
         if not (fishing and fishing.GetCurrentSessionFlags) then
-            error("DreamFisher: GetCurrentSessionFlags is required for audio diagnostics")
+            error("DreamFish: GetCurrentSessionFlags is required for audio diagnostics")
         end
         local flags = fishing.GetCurrentSessionFlags()
         DebugMessage("Audio restore now: elapsed=" .. string.format("%.3f", GetFishingElapsedSeconds())

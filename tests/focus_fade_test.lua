@@ -1,4 +1,4 @@
--- Unit tests for DreamFisher visual focus fading state behavior.
+-- Unit tests for DreamFish visual focus fading state behavior.
 -- Run with: lua tests/focus_fade_test.lua
 
 local function assertEquals(actual, expected, message)
@@ -132,9 +132,9 @@ dofile("ui/ace_widget_factory.lua")
 dofile("ui/buff_item_drop_box.lua")
 dofile("ui/focus_fade.lua")
 dofile("ui/config.lua")
-dofile("DreamFisher.lua")
+dofile("DreamFish.lua")
 
-local addon = _G.DreamFisher
+local addon = _G.DreamFish
 assertTrue(type(addon) == "table", "Addon should load")
 addon.commands.RegisterSlashCommands()
 

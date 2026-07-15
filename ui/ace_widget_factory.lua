@@ -1,7 +1,7 @@
--- DreamFisher Ace widget factory helpers
+-- DreamFish Ace widget factory helpers
 -- Builds simple adapters used by config UI tab builders.
 
-local addonName = "DreamFisher"
+local addonName = "DreamFish"
 local addon = _G[addonName]
 
 addon.ui = addon.ui or {}
@@ -111,6 +111,16 @@ function addon.ui.CreateAceWidgetAdapters(aceGUIInstance, panel)
             GetChecked = function()
                 return widget:GetValue() and true or false
             end,
+            SetDisabled = function(_, disabled)
+                if widget and widget.SetDisabled then
+                    widget:SetDisabled(disabled and true or false)
+                end
+            end,
+            SetCallback = function(_, eventName, callback)
+                if widget and widget.SetCallback then
+                    widget:SetCallback(eventName, callback)
+                end
+            end,
         }
     end
 
@@ -140,6 +150,43 @@ function addon.ui.CreateAceWidgetAdapters(aceGUIInstance, panel)
             end,
             GetText = function()
                 return widget:GetText() or ""
+            end,
+            SetDisabled = function(_, disabled)
+                if widget and widget.SetDisabled then
+                    widget:SetDisabled(disabled and true or false)
+                end
+            end,
+        }
+    end
+
+    local function CreateAceFlowSlider(parent, label, width, minValue, maxValue, stepValue, onLiveChange, tooltipText)
+        local widget = aceGUIInstance:Create("Slider")
+        widget:SetLabel(label)
+        widget:SetSliderValues(tonumber(minValue) or 0, tonumber(maxValue) or 100, tonumber(stepValue) or 1)
+        if width then
+            widget:SetWidth(width)
+        else
+            widget:SetFullWidth(true)
+        end
+        if onLiveChange then
+            widget:SetCallback("OnValueChanged", function()
+                onLiveChange()
+            end)
+        end
+        widget = RegisterAndAttachChild(parent, widget)
+        AttachTooltip(widget.frame, label, tooltipText)
+
+        return {
+            SetText = function(_, value)
+                widget:SetValue(tonumber(value) or 0)
+            end,
+            GetText = function()
+                return tostring(widget:GetValue() or "")
+            end,
+            SetDisabled = function(_, disabled)
+                if widget and widget.SetDisabled then
+                    widget:SetDisabled(disabled and true or false)
+                end
             end,
         }
     end
@@ -438,7 +485,7 @@ function addon.ui.CreateAceWidgetAdapters(aceGUIInstance, panel)
         local opts = noteOptions or {}
         local fixedHeight = tonumber(opts.noteHeight)
         local minHeight = tonumber(opts.minHeight) or 1
-        local leftIndent = tonumber(opts.leftIndent) or 24
+        local leftIndent = tonumber(opts.leftIndent) or 20
         local rightInset = tonumber(opts.rightInset) or 8
         local topInset = tonumber(opts.topInset) or 2
         local bottomInset = tonumber(opts.bottomInset) or 3
@@ -642,6 +689,22 @@ function addon.ui.CreateAceWidgetAdapters(aceGUIInstance, panel)
         }
     end
 
+    local function CreateAceFlowInsetHost(parent, leftInset)
+        local host = aceGUIInstance:Create("SimpleGroup")
+        host:SetLayout("List")
+        host:SetFullWidth(true)
+        host = RegisterAndAttachChild(parent, host)
+
+        local inset = tonumber(leftInset) or 0
+        if inset ~= 0 and host.content and host.frame then
+            host.content:ClearAllPoints()
+            host.content:SetPoint("TOPLEFT", host.frame, "TOPLEFT", inset, 0)
+            host.content:SetPoint("BOTTOMRIGHT", host.frame, "BOTTOMRIGHT", 0, 0)
+        end
+
+        return host
+    end
+
     return {
         Checkbox = CreateAceCheckbox,
         EditBox = CreateAceEditBox,
@@ -654,6 +717,7 @@ function addon.ui.CreateAceWidgetAdapters(aceGUIInstance, panel)
         FlowSection = CreateAceFlowSection,
         FlowCheckbox = CreateAceFlowCheckbox,
         FlowEditBox = CreateAceFlowEditBox,
+        FlowSlider = CreateAceFlowSlider,
         FlowTitle = CreateAceFlowTitle,
         FlowNote = CreateAceFlowNote,
         FlowColumns = CreateAceFlowColumns,
@@ -663,5 +727,6 @@ function addon.ui.CreateAceWidgetAdapters(aceGUIInstance, panel)
         FlowSecureToyActionButton = CreateAceFlowSecureToyActionButton,
         FlowRowHost = CreateAceFlowRowHost,
         FlowCheckboxWithNote = CreateAceFlowCheckboxWithNote,
+        FlowInsetHost = CreateAceFlowInsetHost,
     }
 end

@@ -1,4 +1,4 @@
--- DreamFisher Unit Tests
+-- DreamFish Unit Tests
 -- Tests for buff timing logic and casting modes
 
 -- ============================================================================
@@ -131,7 +131,7 @@ function RunTest(name, testFn)
 
     local success, err = pcall(function()
         -- Setup: Create a minimal addon database
-        DreamFisher._test.SetDB({
+        DreamFish._test.SetDB({
             buffItems = {},
             buffAuraByItem = {},
         })
@@ -159,25 +159,25 @@ end
 
 function TestBuffRefreshLeadMinimum()
     -- Buff refresh lead should be at least max(10% of refresh, 20s + 2s safety)
-    local lead30 = DreamFisher._test.GetBuffRefreshLead(30)  -- 10% = 3s, min 3s, cast = 22s → 22s
+    local lead30 = DreamFish._test.GetBuffRefreshLead(30)  -- 10% = 3s, min 3s, cast = 22s → 22s
     AssertEqual(lead30, 22, "30s refresh should give 22s lead (max of 3s and 22s cast)")
 
-    local lead180 = DreamFisher._test.GetBuffRefreshLead(180)  -- 10% = 18s, capped at 15s, cast = 22s → 22s
+    local lead180 = DreamFish._test.GetBuffRefreshLead(180)  -- 10% = 18s, capped at 15s, cast = 22s → 22s
     AssertEqual(lead180, 22, "180s refresh should give 22s lead (max of 15s cap and 22s cast)")
 
-    local lead3600 = DreamFisher._test.GetBuffRefreshLead(3600)  -- 10% = 360s, capped at 15s, cast = 22s → 22s
+    local lead3600 = DreamFish._test.GetBuffRefreshLead(3600)  -- 10% = 360s, capped at 15s, cast = 22s → 22s
     AssertEqual(lead3600, 22, "3600s refresh should give 22s lead (max of 15s cap and 22s cast)")
 end
 
 function TestBuffRefreshLeadEnsuresPreCastCompletion()
     -- The lead time must be at least 20s (fishing cast) + 2s (safety margin)
-    local lead = DreamFisher._test.GetBuffRefreshLead(60)
+    local lead = DreamFish._test.GetBuffRefreshLead(60)
     AssertGreater(lead, 20, "Lead should be > 20s to accommodate fishing cast")
 end
 
 function TestBuffItemDueWithTrackedAuraPresent()
     -- When aura is actively tracked and present, buff is due when remaining <= lead
-    DreamFisher._test.SetDB({
+    DreamFish._test.SetDB({
         buffItems = { { itemID = 12345 } },
         buffAuraByItem = { ["12345"] = { spellID = 99999, duration = 30 } },
     })
@@ -189,20 +189,20 @@ function TestBuffItemDueWithTrackedAuraPresent()
         expirationTime = mockTime + 25,
     }
 
-    local isDue, remaining, reason = DreamFisher._test.IsBuffItemDue(12345, 180, false)
+    local isDue, remaining, reason = DreamFish._test.IsBuffItemDue(12345, 180, false)
     AssertEqual(isDue, true, "Buff should be due when remaining 25s < lead 22s")
     AssertEqual(reason, "tracked_remaining", "Reason should be tracked_remaining")
 end
 
 function TestBuffItemDueWithTrackedAuraMissing()
     -- When aura is tracked but missing (not active), buff is due immediately
-    DreamFisher._test.SetDB({
+    DreamFish._test.SetDB({
         buffItems = { { itemID = 12345 } },
         buffAuraByItem = { ["12345"] = { spellID = 99999, duration = 30 } },
     })
 
     -- No auras active (mockAuras is empty)
-    local isDue, remaining, reason = DreamFisher._test.IsBuffItemDue(12345, 180, false)
+    local isDue, remaining, reason = DreamFish._test.IsBuffItemDue(12345, 180, false)
     AssertEqual(isDue, true, "Buff should be due when tracked aura is missing")
     AssertEqual(remaining, 0, "Remaining should be 0 when aura is missing")
     AssertEqual(reason, "tracked_missing_aura", "Reason should be tracked_missing_aura")
@@ -210,27 +210,27 @@ end
 
 function TestBuffItemDueUntrackedWithoutCastRequirement()
     -- When buff is untracked and not casting, fall back to timer
-    DreamFisher._test.SetDB({
+    DreamFish._test.SetDB({
         buffItems = { { itemID = 12345 } },
         buffAuraByItem = {},  -- No tracking
     })
 
     -- Set last use time to be within the refresh window
-    DreamFisher._test.SetBuffLastUseTime(12345, mockTime - 30)  -- Used 30s ago
+    DreamFish._test.SetBuffLastUseTime(12345, mockTime - 30)  -- Used 30s ago
 
-    local isDue, remaining, reason = DreamFisher._test.IsBuffItemDue(12345, 60, false)
+    local isDue, remaining, reason = DreamFish._test.IsBuffItemDue(12345, 60, false)
     AssertEqual(isDue, false, "Buff should not be due within 60s of last use")
     AssertEqual(reason, "timer_elapsed=30.0", "Should track elapsed time")
 end
 
 function TestBuffItemDueUntrackedForCast()
     -- When buff is untracked and we're about to cast, treat as due
-    DreamFisher._test.SetDB({
+    DreamFish._test.SetDB({
         buffItems = { { itemID = 12345 } },
         buffAuraByItem = {},  -- No tracking
     })
 
-    local isDue, remaining, reason = DreamFisher._test.IsBuffItemDue(12345, 60, true)
+    local isDue, remaining, reason = DreamFish._test.IsBuffItemDue(12345, 60, true)
     AssertEqual(isDue, true, "Untracked buff should be due when casting is imminent")
     AssertEqual(reason, "untracked_assume_due_for_cast", "Should assume due for cast")
 end
@@ -240,7 +240,7 @@ function TestGetNextDueBuffItemSelectsFirst()
     local item1 = 12345
     local item2 = 67890
 
-    DreamFisher._test.SetDB({
+    DreamFish._test.SetDB({
         buffItems = {
             { itemID = item1 },
             { itemID = item2 },
@@ -249,13 +249,13 @@ function TestGetNextDueBuffItemSelectsFirst()
     })
 
     -- First item was used 40s ago (due), second was used 20s ago (not due)
-    DreamFisher._test.SetBuffLastUseTime(item1, mockTime - 40)
-    DreamFisher._test.SetBuffLastUseTime(item2, mockTime - 20)
+    DreamFish._test.SetBuffLastUseTime(item1, mockTime - 40)
+    DreamFish._test.SetBuffLastUseTime(item2, mockTime - 20)
 
     -- Add items to bags
     mockBagItems[0] = { [1] = item1, [2] = item2 }
 
-    local nextItem = DreamFisher._test.GetNextDueBuffItem(false)
+    local nextItem = DreamFish._test.GetNextDueBuffItem(false)
     AssertEqual(nextItem, item1, "Should return first due buff item")
 end
 
@@ -264,7 +264,7 @@ function TestGetNextDueBuffItemSkipsUnavailable()
     local item1 = 12345
     local item2 = 67890
 
-    DreamFisher._test.SetDB({
+    DreamFish._test.SetDB({
         buffItems = {
             { itemID = item1 },
             { itemID = item2 },
@@ -273,13 +273,13 @@ function TestGetNextDueBuffItemSkipsUnavailable()
     })
 
     -- Both due, but item1 not in bags
-    DreamFisher._test.SetBuffLastUseTime(item1, mockTime - 100)
-    DreamFisher._test.SetBuffLastUseTime(item2, mockTime - 100)
+    DreamFish._test.SetBuffLastUseTime(item1, mockTime - 100)
+    DreamFish._test.SetBuffLastUseTime(item2, mockTime - 100)
 
     -- Only item2 in bags
     mockBagItems[0] = { [1] = nil, [2] = item2 }
 
-    local nextItem = DreamFisher._test.GetNextDueBuffItem(false)
+    local nextItem = DreamFish._test.GetNextDueBuffItem(false)
     AssertEqual(nextItem, item2, "Should skip unavailable buff and return second item")
 end
 
@@ -289,107 +289,107 @@ end
 
 function TestSingleRightClickRecordsTime()
     -- Single right-click should record time and clear bindings, no action
-    DreamFisher._test.SetDB({
+    DreamFish._test.SetDB({
         buffItems = {},
         buffAuraByItem = {},
     })
 
     -- First click at time 1000
     mockTime = 1000
-    DreamFisher._test.HandleWorldRightClick()
+    DreamFish._test.HandleWorldRightClick()
 
-    local lastTime = DreamFisher._test.GetLastRightClickTime()
+    local lastTime = DreamFish._test.GetLastRightClickTime()
     AssertEqual(lastTime, 1000, "Single right-click should record click time")
 end
 
 function TestDoubleClickWithDueBuffUsesBuff()
     -- Double-click within window + due buff should use the buff
-    DreamFisher._test.SetDB({
+    DreamFish._test.SetDB({
         buffItems = { { itemID = 12345 } },
         buffAuraByItem = {},
     })
 
     -- Buff is due (used long ago)
-    DreamFisher._test.SetBuffLastUseTime(12345, mockTime - 100)
+    DreamFish._test.SetBuffLastUseTime(12345, mockTime - 100)
 
     -- Item in bags
     mockBagItems[0] = { [1] = 12345 }
 
     -- First click
     mockTime = 1000
-    DreamFisher._test.HandleWorldRightClick()
+    DreamFish._test.HandleWorldRightClick()
 
     -- Second click within window
     mockTime = 1000.1
-    DreamFisher._test.HandleWorldRightClick()
+    DreamFish._test.HandleWorldRightClick()
 
     -- Verify buff action was triggered (time was reset)
-    local lastTime = DreamFisher._test.GetLastRightClickTime()
+    local lastTime = DreamFish._test.GetLastRightClickTime()
     AssertEqual(lastTime, 0, "Double-click with due buff should reset click time")
 end
 
 function TestDoubleClickWithoutDueBuffStartsFishing()
     -- Double-click without due buff should start fishing cast
-    DreamFisher._test.SetDB({
+    DreamFish._test.SetDB({
         buffItems = { { itemID = 12345 } },
         buffAuraByItem = {},
     })
 
     -- Buff not due (used recently)
-    DreamFisher._test.SetBuffLastUseTime(12345, mockTime - 10)
+    DreamFish._test.SetBuffLastUseTime(12345, mockTime - 10)
 
     -- Item in bags
     mockBagItems[0] = { [1] = 12345 }
 
     -- First click
     mockTime = 1000
-    DreamFisher._test.HandleWorldRightClick()
+    DreamFish._test.HandleWorldRightClick()
 
     -- Second click within window
     mockTime = 1000.1
-    DreamFisher._test.HandleWorldRightClick()
+    DreamFish._test.HandleWorldRightClick()
 
     -- Verify fishing was started (time was reset)
-    local lastTime = DreamFisher._test.GetLastRightClickTime()
+    local lastTime = DreamFish._test.GetLastRightClickTime()
     AssertEqual(lastTime, 0, "Double-click without due buff should reset click time and start fishing")
 end
 
 function TestDoubleClickWindowExpiration()
     -- Clicks outside the double-click window should not count as double-click
-    DreamFisher._test.SetDB({
+    DreamFish._test.SetDB({
         buffItems = {},
         buffAuraByItem = {},
     })
 
-    local window = DreamFisher._test.GetDoubleClickWindow()
+    local window = DreamFish._test.GetDoubleClickWindow()
 
     -- First click
     mockTime = 1000
-    DreamFisher._test.HandleWorldRightClick()
-    AssertEqual(DreamFisher._test.GetLastRightClickTime(), 1000, "First click recorded")
+    DreamFish._test.HandleWorldRightClick()
+    AssertEqual(DreamFish._test.GetLastRightClickTime(), 1000, "First click recorded")
 
     -- Second click outside window
     mockTime = 1000 + window + 0.1
-    DreamFisher._test.HandleWorldRightClick()
+    DreamFish._test.HandleWorldRightClick()
 
     -- Should have recorded a new single click, not processed as double
-    local lastTime = DreamFisher._test.GetLastRightClickTime()
+    local lastTime = DreamFish._test.GetLastRightClickTime()
     AssertLessOrEqual(lastTime - 1000, window + 0.1, "Click outside window should be new single click")
 end
 
 function TestCombatLockdownPreventsAction()
     -- Right-click in combat should be ignored
-    DreamFisher._test.SetDB({
+    DreamFish._test.SetDB({
         buffItems = { { itemID = 12345, } },
         buffAuraByItem = {},
     })
 
     mockInCombat = true
     mockTime = 1000
-    DreamFisher._test.HandleWorldRightClick()
+    DreamFish._test.HandleWorldRightClick()
 
     -- Time should not be recorded
-    local lastTime = DreamFisher._test.GetLastRightClickTime()
+    local lastTime = DreamFish._test.GetLastRightClickTime()
     AssertEqual(lastTime, 0, "Combat should prevent any action")
 end
 
@@ -398,7 +398,7 @@ end
 -- ============================================================================
 
 function RunAllTests()
-    print("\n=== DreamFisher Unit Tests ===\n")
+    print("\n=== DreamFish Unit Tests ===\n")
 
     print("--- Buff Timing Tests ---")
     RunTest("GetBuffRefreshLead minimum", TestBuffRefreshLeadMinimum)
@@ -431,9 +431,9 @@ function RunAllTests()
 end
 
 -- Run tests if this file is executed
-if type(_G.DreamFisher) == "table" then
+if type(_G.DreamFish) == "table" then
     RunAllTests()
 else
-    print("Warning: DreamFisher addon not loaded. Cannot run tests.")
-    print("Load the addon with: dofile('path/to/DreamFisher.lua')")
+    print("Warning: DreamFish addon not loaded. Cannot run tests.")
+    print("Load the addon with: dofile('path/to/DreamFish.lua')")
 end

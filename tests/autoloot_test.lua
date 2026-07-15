@@ -1,4 +1,4 @@
--- Unit tests for DreamFisher managed-loot behavior.
+-- Unit tests for DreamFish managed-loot behavior.
 -- Run with: lua tests/autoloot_test.lua
 
 local function assertEquals(actual, expected, message)
@@ -40,7 +40,7 @@ local function makeNoopFrame()
         StartMoving = function() end,
         StopMovingOrSizing = function() end,
         UnregisterEvent = function() end,
-        GetName = function() return "DreamFisherSecureFishingButton" end,
+        GetName = function() return "DreamFishSecureFishingButton" end,
     }
 end
 
@@ -96,9 +96,9 @@ dofile("ui/buff_item_drop_box.lua")
 dofile("ui/config.lua")
 
 -- Load addon file in this mocked environment.
-dofile("DreamFisher.lua")
+dofile("DreamFish.lua")
 
-local addon = _G.DreamFisher
+local addon = _G.DreamFish
 assertEquals(type(addon), "table", "Addon table should exist")
 assertEquals(type(addon._test), "table", "Test hooks should exist")
 

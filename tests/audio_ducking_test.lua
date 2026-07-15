@@ -1,4 +1,4 @@
--- Unit tests for DreamFisher audio ducking state behavior.
+-- Unit tests for DreamFish audio ducking state behavior.
 -- Run with: lua tests/audio_ducking_test.lua
 
 local function assertEquals(actual, expected, message)
@@ -134,9 +134,9 @@ dofile("audio/ducking.lua")
 dofile("ui/ace_widget_factory.lua")
 dofile("ui/buff_item_drop_box.lua")
 dofile("ui/config.lua")
-dofile("DreamFisher.lua")
+dofile("DreamFish.lua")
 
-local addon = _G.DreamFisher
+local addon = _G.DreamFish
 assertEquals(type(addon), "table", "Addon table should exist")
 assertEquals(type(addon._test), "table", "Audio test hooks should exist")
 
@@ -144,7 +144,7 @@ assertEquals(type(addon._test), "table", "Audio test hooks should exist")
 local rootFrame = nil
 for _, frame in ipairs(createdFrames) do
     local onEventScript = frame.GetScript and frame:GetScript("OnEvent")
-    if frame.GetName and frame:GetName() == "DreamFisherFrame" and type(onEventScript) == "function" then
+    if frame.GetName and frame:GetName() == "DreamFishFrame" and type(onEventScript) == "function" then
         rootFrame = frame
     end
 end
@@ -153,7 +153,7 @@ if not rootFrame then
 end
 local rootOnEvent = rootFrame and rootFrame:GetScript("OnEvent")
 assertTrue(type(rootOnEvent) == "function", "Root OnEvent should exist")
-rootOnEvent(rootFrame, "ADDON_LOADED", "DreamFisher")
+rootOnEvent(rootFrame, "ADDON_LOADED", "DreamFish")
 
 local function resetAudioCVars()
     cvars.Sound_AmbienceVolume = "0.4"

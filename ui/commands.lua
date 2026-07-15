@@ -1,6 +1,6 @@
--- DreamFisher: Slash Commands
+-- DreamFish: Slash Commands
 
-local addon = _G["DreamFisher"]
+local addon = _G["DreamFish"]
 local PrintMessage = addon.PrintMessage
 local requireFishingAPI = addon.RequireFishingAPI
 local requireAudioAPI = addon.RequireAudioAPI
@@ -15,12 +15,12 @@ end
 
 local function GetCurrentSessionFlagsRequired()
     if not addon.RequireFishingAPI then
-        error("DreamFisher: RequireFishingAPI helper is required for command diagnostics")
+        error("DreamFish: RequireFishingAPI helper is required for command diagnostics")
     end
     local fishingAPI = addon.RequireFishingAPI()
 
     if not (fishingAPI and fishingAPI.GetCurrentSessionFlags) then
-        error("DreamFisher: GetCurrentSessionFlags is required for command diagnostics")
+        error("DreamFish: GetCurrentSessionFlags is required for command diagnostics")
     end
     return fishingAPI.GetCurrentSessionFlags()
 end
@@ -54,7 +54,7 @@ local function RegisterSlashCommands()
         end
         if command == "testtreasure" or command == "tt" then
             if not requireAlertsAPI then
-                error("DreamFisher: RequireAlertsAPI helper is required for testtreasure")
+                error("DreamFish: RequireAlertsAPI helper is required for testtreasure")
             end
             local alerts = requireAlertsAPI()
             if alerts and alerts.ShowPatientTreasureAlert then
@@ -65,7 +65,7 @@ local function RegisterSlashCommands()
         end
         if command == "testbagsfull" or command == "tbf" then
             if not requireAlertsAPI then
-                error("DreamFisher: RequireAlertsAPI helper is required for testbagsfull")
+                error("DreamFish: RequireAlertsAPI helper is required for testbagsfull")
             end
             local alerts = requireAlertsAPI()
             if alerts and alerts.ShowBagFullAlert then
@@ -76,7 +76,7 @@ local function RegisterSlashCommands()
         end
         if command == "testaudio" or command == "ta" then
             if not requireAudioAPI then
-                error("DreamFisher: RequireAudioAPI helper is required for testaudio")
+                error("DreamFish: RequireAudioAPI helper is required for testaudio")
             end
             local audio = requireAudioAPI()
             local amb = GetCVar("Sound_AmbienceVolume")
@@ -113,7 +113,7 @@ local function RegisterSlashCommands()
         end
         if command == "duckaudio" or command == "da" then
             if not requireAudioAPI then
-                error("DreamFisher: RequireAudioAPI helper is required for duckaudio")
+                error("DreamFish: RequireAudioAPI helper is required for duckaudio")
             end
             local audio = requireAudioAPI()
             if audio and audio.EnableFishingAudioFocus then
@@ -128,7 +128,7 @@ local function RegisterSlashCommands()
         end
         if command == "restoreaudio" or command == "ra" then
             if not requireAudioAPI then
-                error("DreamFisher: RequireAudioAPI helper is required for restoreaudio")
+                error("DreamFish: RequireAudioAPI helper is required for restoreaudio")
             end
             local audio = requireAudioAPI()
             if audio and audio.RestoreFishingAudioFocus then
@@ -155,7 +155,7 @@ local function RegisterSlashCommands()
         end
         if command == "interactdiag" or command == "id" then
             if not requireFishingAPI then
-                error("DreamFisher: RequireFishingAPI helper is required for interact diagnostics")
+                error("DreamFish: RequireFishingAPI helper is required for interact diagnostics")
             end
             local fishing = requireFishingAPI()
             if fishing and fishing.GetInteractDiagnostics and fishing.FormatInteractDiagnostics then

@@ -1,4 +1,4 @@
--- Unit tests for DreamFisher casting modes (right-click double-click behavior).
+-- Unit tests for DreamFish casting modes (right-click double-click behavior).
 -- Run with: lua tests/casting_modes_test.lua
 
 local function assertEquals(actual, expected, message)
@@ -101,7 +101,7 @@ dofile("ui/buff_item_drop_box.lua")
 dofile("ui/config.lua")
 
 -- Load the addon
-dofile("DreamFisher.lua")
+dofile("DreamFish.lua")
 
 local tests = {}
 local testsPassed = 0
@@ -112,20 +112,20 @@ function RunTest(name, testFn)
     mockInCombat = false
 
     local success, err = pcall(function()
-        DreamFisher._test.SetDB({
+        DreamFish._test.SetDB({
             buffItems = {},
             buffAuraByItem = {},
         })
-        DreamFisher.state.buffItemTransientUntil = {}
-        DreamFisher.state.buffCastBlockWarningAt = 0
-        DreamFisher.state.foodDrinkCastBlockWarningAt = 0
-        DreamFisher._test.SetLastRightClickTime(0)  -- Clear click state
-        DreamFisher.state.lastFishingSecureClickAt = 0
-        DreamFisher._test.SetSessionState(DreamFisher.fishing.SessionStates.IDLE, "test-run-setup-reset")
-        DreamFisher.state.fishingStartGraceUntil = 0
-        DreamFisher.state.interactAcquireExpiresAt = 0
-        DreamFisher.state.interactOverrideActive = false
-        DreamFisher.state.interactOverrideExpiresAt = 0
+        DreamFish.state.buffItemTransientUntil = {}
+        DreamFish.state.buffCastBlockWarningAt = 0
+        DreamFish.state.foodDrinkCastBlockWarningAt = 0
+        DreamFish._test.SetLastRightClickTime(0)  -- Clear click state
+        DreamFish.state.lastFishingSecureClickAt = 0
+        DreamFish._test.SetSessionState(DreamFish.fishing.SessionStates.IDLE, "test-run-setup-reset")
+        DreamFish.state.fishingStartGraceUntil = 0
+        DreamFish.state.interactAcquireExpiresAt = 0
+        DreamFish.state.interactOverrideActive = false
+        DreamFish.state.interactOverrideExpiresAt = 0
         testFn()
     end)
 
@@ -144,19 +144,19 @@ end
 
 function tests.SingleClickRecordsTime()
     -- First right-click should record the time
-    DreamFisher._test.SetLastRightClickTime(0)
+    DreamFish._test.SetLastRightClickTime(0)
     mockTime = 1000
 
-    DreamFisher._test.HandleWorldRightClick()
+    DreamFish._test.HandleWorldRightClick()
 
-    local lastTime = DreamFisher._test.GetLastRightClickTime()
+    local lastTime = DreamFish._test.GetLastRightClickTime()
     assertEquals(lastTime, 1000, "Single right-click should record time")
 end
 
 function tests.SingleClickWhileMountedDoesNotTriggerFishing()
     local originalIsMounted = _G.IsMounted
     _G.IsMounted = function() return true end
-    local originalConfigFrame = DreamFisher.frames.config
+    local originalConfigFrame = DreamFish.frames.config
 
     local originalBindingClick = _G.SetOverrideBindingClick
     local bindingCalls = 0
@@ -167,7 +167,7 @@ function tests.SingleClickWhileMountedDoesNotTriggerFishing()
         end
     end
 
-    DreamFisher._test.SetDB({
+    DreamFish._test.SetDB({
         castingModes = {
             doubleRightClick = false,
             singleRightClick = true,
@@ -177,55 +177,55 @@ function tests.SingleClickWhileMountedDoesNotTriggerFishing()
         buffAuraByItem = {},
     })
 
-    DreamFisher.frames.config = {
+    DreamFish.frames.config = {
         IsShown = function() return true end,
     }
 
-    DreamFisher._test.SetLastRightClickTime(0)
-    DreamFisher._test.HandleWorldRightClick()
+    DreamFish._test.SetLastRightClickTime(0)
+    DreamFish._test.HandleWorldRightClick()
 
     assertEquals(bindingCalls, 0,
         "Mounted single right-click should not arm secure fishing action")
-    assertEquals(DreamFisher._test.GetLastRightClickTime(), 0,
+    assertEquals(DreamFish._test.GetLastRightClickTime(), 0,
         "Mounted single right-click should exit before click timing or trigger handling")
-    assertEquals(DreamFisher.state.lastFishingSecureClickAt, 0,
+    assertEquals(DreamFish.state.lastFishingSecureClickAt, 0,
         "Mounted single right-click should not set the secure click timestamp")
 
     _G.SetOverrideBindingClick = originalBindingClick
     _G.IsMounted = originalIsMounted
-    DreamFisher.frames.config = originalConfigFrame
+    DreamFish.frames.config = originalConfigFrame
 end
 
 function tests.SingleClickClearsBindings()
     -- Single right-click should clear override bindings (awaiting double-click)
     -- This is tested indirectly: if second click is within window, it processes double-click
-    DreamFisher._test.SetDB({
+    DreamFish._test.SetDB({
         buffItems = { { itemID = 111 } },
         buffAuraByItem = {},
     })
 
     -- Buff is due
-    DreamFisher._test.SetBuffLastUseTime(111, mockTime - 100)
+    DreamFish._test.SetBuffLastUseTime(111, mockTime - 100)
 
     -- Mock FindItemInBags
-    local originalFind = DreamFisher.buff.FindItemInBags
-    DreamFisher.buff.FindItemInBags = function() return 0, 1 end
+    local originalFind = DreamFish.buff.FindItemInBags
+    DreamFish.buff.FindItemInBags = function() return 0, 1 end
 
     -- First click
     mockTime = 1000
-    DreamFisher._test.HandleWorldRightClick()
-    local firstTime = DreamFisher._test.GetLastRightClickTime()
+    DreamFish._test.HandleWorldRightClick()
+    local firstTime = DreamFish._test.GetLastRightClickTime()
     assertEquals(firstTime, 1000, "First click recorded")
 
     -- Second click within window should be double-click
     mockTime = 1000.1
-    DreamFisher._test.HandleWorldRightClick()
+    DreamFish._test.HandleWorldRightClick()
 
     -- Double-click should reset time to 0 (processed)
-    local secondTime = DreamFisher._test.GetLastRightClickTime()
+    local secondTime = DreamFish._test.GetLastRightClickTime()
     assertEquals(secondTime, 0, "Double-click should reset time after processing")
 
-    DreamFisher.buff.FindItemInBags = originalFind
+    DreamFish.buff.FindItemInBags = originalFind
 end
 
 function tests.TargetSelectedRightClickDoesNotStartFishingFlow()
@@ -234,12 +234,12 @@ function tests.TargetSelectedRightClickDoesNotStartFishingFlow()
         return unit == "target"
     end
 
-    DreamFisher._test.SetLastRightClickTime(mockTime - 0.1)
-    DreamFisher._test.HandleWorldRightClick()
+    DreamFish._test.SetLastRightClickTime(mockTime - 0.1)
+    DreamFish._test.HandleWorldRightClick()
 
     _G.UnitExists = originalUnitExists
 
-    assertEquals(DreamFisher._test.GetLastRightClickTime(), 0,
+    assertEquals(DreamFish._test.GetLastRightClickTime(), 0,
         "Target-selected right-click should clear pending click timing")
 end
 
@@ -249,26 +249,26 @@ function tests.TargetSelectedRightClickExitsFishingSessionState()
         return unit == "target"
     end
 
-    DreamFisher._test.SetSessionState(
-        DreamFisher.fishing.SessionStates.LOOTING,
+    DreamFish._test.SetSessionState(
+        DreamFish.fishing.SessionStates.LOOTING,
         "test-target-selected-exit"
     )
-    DreamFisher.state.interactAcquireExpiresAt = mockTime + 5
-    DreamFisher.state.savedFishingAudioCVars = {
+    DreamFish.state.interactAcquireExpiresAt = mockTime + 5
+    DreamFish.state.savedFishingAudioCVars = {
         ambience = "0.4",
         music = "0.3",
         dialog = "0.8",
     }
 
-    DreamFisher._test.HandleWorldRightClick()
+    DreamFish._test.HandleWorldRightClick()
 
     _G.UnitExists = originalUnitExists
 
-    assertEquals(DreamFisher._test.GetSessionState(), DreamFisher.fishing.SessionStates.IDLE,
+    assertEquals(DreamFish._test.GetSessionState(), DreamFish.fishing.SessionStates.IDLE,
         "Target-selected right-click should exit to IDLE")
-    assertEquals(DreamFisher.state.interactAcquireExpiresAt, 0,
+    assertEquals(DreamFish.state.interactAcquireExpiresAt, 0,
         "Target-selected right-click should clear interact acquire window")
-    assertEquals(DreamFisher.state.savedFishingAudioCVars, nil,
+    assertEquals(DreamFish.state.savedFishingAudioCVars, nil,
         "Target-selected right-click should restore and clear ducked audio state")
 end
 
@@ -278,46 +278,46 @@ end
 
 function tests.DoubleClickDueBuff()
     -- Double-click with due buff should use the buff
-    DreamFisher._test.SetDB({
+    DreamFish._test.SetDB({
         buffItems = { { itemID = 111 } },
         buffAuraByItem = {},
     })
 
     -- Buff is due (used long ago)
-    DreamFisher._test.SetBuffLastUseTime(111, mockTime - 100)
+    DreamFish._test.SetBuffLastUseTime(111, mockTime - 100)
 
     -- Mock FindItemInBags
-    local originalFind = DreamFisher.buff.FindItemInBags
-    DreamFisher.buff.FindItemInBags = function(itemID)
+    local originalFind = DreamFish.buff.FindItemInBags
+    DreamFish.buff.FindItemInBags = function(itemID)
         if itemID == 111 then return 0, 1 end
         return nil, nil
     end
 
     -- First click
     mockTime = 1000
-    DreamFisher._test.HandleWorldRightClick()
+    DreamFish._test.HandleWorldRightClick()
 
     -- Second click within window (0.25s)
     mockTime = 1000.1
-    DreamFisher._test.HandleWorldRightClick()
+    DreamFish._test.HandleWorldRightClick()
 
     -- After double-click with due buff, time should be reset
-    local finalTime = DreamFisher._test.GetLastRightClickTime()
+    local finalTime = DreamFish._test.GetLastRightClickTime()
     assertEquals(finalTime, 0, "Double-click with due buff should reset time (buff processed)")
 
-    DreamFisher.buff.FindItemInBags = originalFind
+    DreamFish.buff.FindItemInBags = originalFind
 end
 
 function tests.DoubleClickDueBuffArmsProfessionSlotMacro()
-    DreamFisher._test.SetDB({
+    DreamFish._test.SetDB({
         buffItems = { { itemID = 111 } },
         buffAuraByItem = {},
     })
 
-    DreamFisher._test.SetBuffLastUseTime(111, mockTime - 100)
+    DreamFish._test.SetBuffLastUseTime(111, mockTime - 100)
 
     local capturedAttrs = {}
-    local fishingFrame = DreamFisher.fishing.CreateSecureFishingFrame()
+    local fishingFrame = DreamFish.fishing.CreateSecureFishingFrame()
     if fishingFrame then
         local origSet = fishingFrame.SetAttribute
         fishingFrame.SetAttribute = function(self, k, v)
@@ -326,18 +326,18 @@ function tests.DoubleClickDueBuffArmsProfessionSlotMacro()
         end
     end
 
-    local originalFind = DreamFisher.buff.FindItemInBags
-    DreamFisher.buff.FindItemInBags = function(itemID)
+    local originalFind = DreamFish.buff.FindItemInBags
+    DreamFish.buff.FindItemInBags = function(itemID)
         if itemID == 111 then return 1, 18 end
         return nil, nil
     end
 
     mockTime = 1000
-    DreamFisher._test.HandleWorldRightClick()
+    DreamFish._test.HandleWorldRightClick()
     mockTime = 1000.1
-    DreamFisher._test.HandleWorldRightClick()
+    DreamFish._test.HandleWorldRightClick()
 
-    DreamFisher.buff.FindItemInBags = originalFind
+    DreamFish.buff.FindItemInBags = originalFind
 
     if fishingFrame then
         assertEquals(capturedAttrs["type"], "macro", "Due buff arm should use secure macro action")
@@ -352,7 +352,7 @@ end
 
 function tests.DoubleClickSelectsFirstDueBuff()
     -- When multiple buffs are due, double-click uses first one
-    DreamFisher._test.SetDB({
+    DreamFish._test.SetDB({
         buffItems = {
             { itemID = 111 },
             { itemID = 222 },
@@ -361,13 +361,13 @@ function tests.DoubleClickSelectsFirstDueBuff()
     })
 
     -- Both due
-    DreamFisher._test.SetBuffLastUseTime(111, mockTime - 100)
-    DreamFisher._test.SetBuffLastUseTime(222, mockTime - 100)
+    DreamFish._test.SetBuffLastUseTime(111, mockTime - 100)
+    DreamFish._test.SetBuffLastUseTime(222, mockTime - 100)
 
     -- Mock FindItemInBags
-    local originalFind = DreamFisher.buff.FindItemInBags
+    local originalFind = DreamFish.buff.FindItemInBags
     local findCalls = {}
-    DreamFisher.buff.FindItemInBags = function(itemID)
+    DreamFish.buff.FindItemInBags = function(itemID)
         table.insert(findCalls, itemID)
         if itemID == 111 then return 0, 1 end
         if itemID == 222 then return 0, 2 end
@@ -376,16 +376,16 @@ function tests.DoubleClickSelectsFirstDueBuff()
 
     -- First click
     mockTime = 1000
-    DreamFisher._test.HandleWorldRightClick()
+    DreamFish._test.HandleWorldRightClick()
 
     -- Second click within window
     mockTime = 1000.1
-    DreamFisher._test.HandleWorldRightClick()
+    DreamFish._test.HandleWorldRightClick()
 
     -- Should have searched for item 111 first
     assertTrue(findCalls[1] == 111, "Should search for first buff item first")
 
-    DreamFisher.buff.FindItemInBags = originalFind
+    DreamFish.buff.FindItemInBags = originalFind
 end
 
 -- ============================================================================
@@ -394,31 +394,31 @@ end
 
 function tests.DoubleClickNoDueBuff()
     -- Double-click without due buff should start fishing
-    DreamFisher._test.SetDB({
+    DreamFish._test.SetDB({
         buffItems = { { itemID = 111 } },
         buffAuraByItem = {},
     })
 
     -- Buff NOT due (used recently)
-    DreamFisher._test.SetBuffLastUseTime(111, mockTime - 10)
+    DreamFish._test.SetBuffLastUseTime(111, mockTime - 10)
 
     -- Mock FindItemInBags
-    local originalFind = DreamFisher.buff.FindItemInBags
-    DreamFisher.buff.FindItemInBags = function() return 0, 1 end
+    local originalFind = DreamFish.buff.FindItemInBags
+    DreamFish.buff.FindItemInBags = function() return 0, 1 end
 
     -- First click
     mockTime = 1000
-    DreamFisher._test.HandleWorldRightClick()
+    DreamFish._test.HandleWorldRightClick()
 
     -- Second click within window
     mockTime = 1000.1
-    DreamFisher._test.HandleWorldRightClick()
+    DreamFish._test.HandleWorldRightClick()
 
     -- After double-click without due buff, time should be reset (fishing started)
-    local finalTime = DreamFisher._test.GetLastRightClickTime()
+    local finalTime = DreamFish._test.GetLastRightClickTime()
     assertEquals(finalTime, 0, "Double-click without due buff should reset time (fishing started)")
 
-    DreamFisher.buff.FindItemInBags = originalFind
+    DreamFish.buff.FindItemInBags = originalFind
 end
 
 -- ============================================================================
@@ -427,53 +427,53 @@ end
 
 function tests.DoubleClickWindowWithinTimeframe()
     -- Clicks within double-click window (0.25s) should form double-click
-    local window = DreamFisher._test.GetDoubleClickWindow()
+    local window = DreamFish._test.GetDoubleClickWindow()
     assertEquals(window, 0.33, "Double-click window should be 0.33s")
 
-    DreamFisher._test.SetDB({
+    DreamFish._test.SetDB({
         buffItems = { { itemID = 111 } },
         buffAuraByItem = {},
     })
 
-    DreamFisher._test.SetBuffLastUseTime(111, mockTime - 100)
+    DreamFish._test.SetBuffLastUseTime(111, mockTime - 100)
 
-    local originalFind = DreamFisher.buff.FindItemInBags
-    DreamFisher.buff.FindItemInBags = function() return 0, 1 end
+    local originalFind = DreamFish.buff.FindItemInBags
+    DreamFish.buff.FindItemInBags = function() return 0, 1 end
 
     -- First click
     mockTime = 1000
-    DreamFisher._test.HandleWorldRightClick()
+    DreamFish._test.HandleWorldRightClick()
 
     -- Second click at window edge (0.25s later)
     mockTime = 1000 + window
-    DreamFisher._test.HandleWorldRightClick()
+    DreamFish._test.HandleWorldRightClick()
 
     -- Should still be double-click (within window)
-    local finalTime = DreamFisher._test.GetLastRightClickTime()
+    local finalTime = DreamFish._test.GetLastRightClickTime()
     assertEquals(finalTime, 0, "Clicks at window edge should be double-click")
 
-    DreamFisher.buff.FindItemInBags = originalFind
+    DreamFish.buff.FindItemInBags = originalFind
 end
 
 function tests.DoubleClickWindowExpired()
     -- Clicks outside double-click window should NOT form double-click
-    local window = DreamFisher._test.GetDoubleClickWindow()
+    local window = DreamFish._test.GetDoubleClickWindow()
 
-    DreamFisher._test.SetDB({
+    DreamFish._test.SetDB({
         buffItems = {},
         buffAuraByItem = {},
     })
 
     -- First click
     mockTime = 1000
-    DreamFisher._test.HandleWorldRightClick()
+    DreamFish._test.HandleWorldRightClick()
 
     -- Second click past window
     mockTime = 1000 + window + 0.01
-    DreamFisher._test.HandleWorldRightClick()
+    DreamFish._test.HandleWorldRightClick()
 
     -- Should be recorded as new single click, not double-click
-    local finalTime = DreamFisher._test.GetLastRightClickTime()
+    local finalTime = DreamFish._test.GetLastRightClickTime()
     assertTrue(finalTime > 1000 + window, "Click past window should be new single click")
 end
 
@@ -485,16 +485,16 @@ function tests.CombatLockdownPreventsAction()
     -- Right-click in combat should be ignored completely
     mockInCombat = true
 
-    DreamFisher._test.SetDB({
+    DreamFish._test.SetDB({
         buffItems = { { itemID = 111 } },
         buffAuraByItem = {},
     })
 
     mockTime = 1000
-    DreamFisher._test.HandleWorldRightClick()
+    DreamFish._test.HandleWorldRightClick()
 
     -- Time should not have been recorded
-    local lastTime = DreamFisher._test.GetLastRightClickTime()
+    local lastTime = DreamFish._test.GetLastRightClickTime()
     assertEquals(lastTime, 0, "Combat should prevent any right-click action")
 end
 
@@ -502,7 +502,7 @@ function tests.CombatLockdownDoesNotResetWindow()
     -- Multiple clicks in combat should not affect the window
     mockInCombat = true
 
-    DreamFisher._test.SetDB({
+    DreamFish._test.SetDB({
         buffItems = {},
         buffAuraByItem = {},
     })
@@ -510,16 +510,16 @@ function tests.CombatLockdownDoesNotResetWindow()
     -- Try several clicks - none should register
     for i = 1, 5 do
         mockTime = 1000 + i * 0.05
-        DreamFisher._test.HandleWorldRightClick()
+        DreamFish._test.HandleWorldRightClick()
     end
 
     -- Time should still be 0
-    local lastTime = DreamFisher._test.GetLastRightClickTime()
+    local lastTime = DreamFish._test.GetLastRightClickTime()
     assertEquals(lastTime, 0, "Multiple combat clicks should not register")
 end
 
 function tests.HotkeyModeDoesNotActivateWorldClick()
-    DreamFisher._test.SetDB({
+    DreamFish._test.SetDB({
         castingModes = {
             doubleRightClick = false,
             singleRightClick = false,
@@ -529,12 +529,12 @@ function tests.HotkeyModeDoesNotActivateWorldClick()
         buffAuraByItem = {},
     })
 
-    local active = DreamFisher.fishing.IsWorldRightClickActivationPressed()
+    local active = DreamFish.fishing.IsWorldRightClickActivationPressed()
     assertFalse(active, "Hotkey mode should not activate world right-click handling")
 end
 
 function tests.HotkeyModeCanBeActivated()
-    DreamFisher._test.SetDB({
+    DreamFish._test.SetDB({
         castingModes = {
             doubleRightClick = false,
             singleRightClick = false,
@@ -544,11 +544,11 @@ function tests.HotkeyModeCanBeActivated()
         buffAuraByItem = {},
     })
 
-    assertTrue(DreamFisher.fishing.IsHotkeyActivationPressed(), "Hotkey mode should be active when enabled")
+    assertTrue(DreamFish.fishing.IsHotkeyActivationPressed(), "Hotkey mode should be active when enabled")
 end
 
 function tests.HotkeyModeDisabledReturnsFalse()
-    DreamFisher._test.SetDB({
+    DreamFish._test.SetDB({
         castingModes = {
             doubleRightClick = true,
             singleRightClick = false,
@@ -558,7 +558,7 @@ function tests.HotkeyModeDisabledReturnsFalse()
         buffAuraByItem = {},
     })
 
-    assertFalse(DreamFisher.fishing.IsHotkeyActivationPressed(), "Hotkey mode should be inactive when disabled")
+    assertFalse(DreamFish.fishing.IsHotkeyActivationPressed(), "Hotkey mode should be inactive when disabled")
 end
 
 -- ============================================================================
@@ -567,7 +567,7 @@ end
 
 function tests.TargetSelectedSkipsSecureFishingConfiguration()
     local capturedAttrs = {}
-    local fishingFrame = DreamFisher.fishing.CreateSecureFishingFrame()
+    local fishingFrame = DreamFish.fishing.CreateSecureFishingFrame()
     local origSet = fishingFrame.SetAttribute
     fishingFrame.SetAttribute = function(self, k, v)
         capturedAttrs[k] = v
@@ -579,7 +579,7 @@ function tests.TargetSelectedSkipsSecureFishingConfiguration()
         return unit == "target"
     end
 
-    local configured = DreamFisher.fishing.ConfigureFishingClickAction()
+    local configured = DreamFish.fishing.ConfigureFishingClickAction()
 
     _G.UnitExists = originalUnitExists
 
@@ -592,7 +592,7 @@ end
 function tests.HotkeyConfiguresFishingSpellWhenNoBuffItems()
     -- With no configured buff items, fishing action should be set to spell cast
     local capturedAttrs = {}
-    local fishingFrame = DreamFisher.fishing.CreateSecureFishingFrame()
+    local fishingFrame = DreamFish.fishing.CreateSecureFishingFrame()
     if fishingFrame then
         local origSet = fishingFrame.SetAttribute
         fishingFrame.SetAttribute = function(self, k, v)
@@ -601,7 +601,7 @@ function tests.HotkeyConfiguresFishingSpellWhenNoBuffItems()
         end
     end
 
-    DreamFisher._test.SetDB({
+    DreamFish._test.SetDB({
         castingModes = { castHotkey = true },
         buffItems = {},
         buffAuraByItem = {},
@@ -609,7 +609,7 @@ function tests.HotkeyConfiguresFishingSpellWhenNoBuffItems()
         selectedBobberToy = nil,
     })
 
-    DreamFisher.fishing.ConfigureFishingClickAction()
+    DreamFish.fishing.ConfigureFishingClickAction()
 
     if fishingFrame then
         assertEquals(capturedAttrs["type"], "spell", "No buff items: action type should be spell")
@@ -620,7 +620,7 @@ end
 function tests.HotkeyConfiguresMacroWhenDueBuffReady()
     -- With a due buff item available, action should stage /use and defer /cast to a follow-up click.
     local capturedAttrs = {}
-    local fishingFrame = DreamFisher.fishing.CreateSecureFishingFrame()
+    local fishingFrame = DreamFish.fishing.CreateSecureFishingFrame()
     if fishingFrame then
         local origSet = fishingFrame.SetAttribute
         fishingFrame.SetAttribute = function(self, k, v)
@@ -629,7 +629,7 @@ function tests.HotkeyConfiguresMacroWhenDueBuffReady()
         end
     end
 
-    DreamFisher._test.SetDB({
+    DreamFish._test.SetDB({
         castingModes = { castHotkey = true },
         buffItems = { { itemID = 111 } },
         buffAuraByItem = {},
@@ -637,18 +637,18 @@ function tests.HotkeyConfiguresMacroWhenDueBuffReady()
         selectedBobberToy = nil,
     })
 
-    DreamFisher._test.SetBuffLastUseTime(111, mockTime - 200)
+    DreamFish._test.SetBuffLastUseTime(111, mockTime - 200)
 
     -- Item must be in bags or GetNextDueBuffItem treats it as due-but-unavailable
-    local originalFind = DreamFisher.buff.FindItemInBags
-    DreamFisher.buff.FindItemInBags = function(itemID)
+    local originalFind = DreamFish.buff.FindItemInBags
+    DreamFish.buff.FindItemInBags = function(itemID)
         if itemID == 111 then return 0, 1 end
         return nil, nil
     end
 
-    DreamFisher.fishing.ConfigureFishingClickAction()
+    DreamFish.fishing.ConfigureFishingClickAction()
 
-    DreamFisher.buff.FindItemInBags = originalFind
+    DreamFish.buff.FindItemInBags = originalFind
 
     if fishingFrame then
         assertEquals(capturedAttrs["type"], "macro", "Due buff: action type should be macro")
@@ -661,8 +661,8 @@ end
 
 function tests.HotkeyDueBuffSecureClickStartsObservationAndBlocksImmediateReapply()
     local originalCreateFrame = _G.CreateFrame
-    local originalFind = DreamFisher.buff.FindItemInBags
-    local originalFishingFrame = DreamFisher.frames.fishing
+    local originalFind = DreamFish.buff.FindItemInBags
+    local originalFishingFrame = DreamFish.frames.fishing
 
     local function makeHookableFrame()
         local attrs = {}
@@ -701,26 +701,26 @@ function tests.HotkeyDueBuffSecureClickStartsObservationAndBlocksImmediateReappl
             return makeHookableFrame()
         end
 
-        DreamFisher.frames.fishing = nil
-        local fishingFrame = DreamFisher.fishing.CreateSecureFishingFrame()
+        DreamFish.frames.fishing = nil
+        local fishingFrame = DreamFish.fishing.CreateSecureFishingFrame()
 
         _G.CreateFrame = originalCreateFrame
 
-        DreamFisher._test.SetDB({
+        DreamFish._test.SetDB({
             castingModes = { castHotkey = true },
             buffItems = { { itemID = 111 } },
             buffAuraByItem = {},
             useOversizedBobber = false,
             selectedBobberToy = nil,
         })
-        DreamFisher._test.SetBuffLastUseTime(111, 0)
+        DreamFish._test.SetBuffLastUseTime(111, 0)
 
-        DreamFisher.buff.FindItemInBags = function(itemID)
+        DreamFish.buff.FindItemInBags = function(itemID)
             if itemID == 111 then return 0, 1 end
             return nil, nil
         end
 
-        DreamFisher.fishing.ConfigureFishingClickAction()
+        DreamFish.fishing.ConfigureFishingClickAction()
         assertEquals(fishingFrame:GetAttribute("dreamfisher_duebuff"), 111,
             "Due buff should be armed on secure fishing frame before click")
 
@@ -729,32 +729,32 @@ function tests.HotkeyDueBuffSecureClickStartsObservationAndBlocksImmediateReappl
 
         onClick()
 
-        local lastUsedAt = DreamFisher._test.GetBuffLastUseTime(111)
+        local lastUsedAt = DreamFish._test.GetBuffLastUseTime(111)
         assertEquals(lastUsedAt, mockTime,
             "Secure fishing due-buff click should stamp last-use time for due item")
-        assertTrue(type(DreamFisher.state.pendingBuffObservation) == "table",
+        assertTrue(type(DreamFish.state.pendingBuffObservation) == "table",
             "Secure fishing due-buff click should start pending observation")
-        assertEquals(tonumber(DreamFisher.state.pendingBuffObservation.itemID), 111,
+        assertEquals(tonumber(DreamFish.state.pendingBuffObservation.itemID), 111,
             "Pending observation should target the due buff item")
 
-        local isDue, _, reason = DreamFisher._test.IsBuffItemDue(111, 60, true)
+        local isDue, _, reason = DreamFish._test.IsBuffItemDue(111, 60, true)
         assertEquals(isDue, false,
             "Immediately after due-buff click, item should not be considered due again")
         assertEquals(reason, "too_soon_to_use",
             "Immediate post-click due check should be gated by recent-use guard")
 
-        DreamFisher.fishing.ConfigureFishingClickAction()
+        DreamFish.fishing.ConfigureFishingClickAction()
         local secondMacro = fishingFrame:GetAttribute("macrotext") or ""
         assertTrue(secondMacro:find("/use item:111", 1, true) == nil,
             "Immediate follow-up configure should not re-arm same untracked due buff")
     end)
 
     _G.CreateFrame = originalCreateFrame
-    DreamFisher.buff.FindItemInBags = originalFind
-    DreamFisher.frames.fishing = originalFishingFrame
-    DreamFisher.state.pendingBuffObservation = nil
-    if DreamFisher.state and type(DreamFisher.state.buffItemLastUseAt) == "table" then
-        DreamFisher.state.buffItemLastUseAt[111] = nil
+    DreamFish.buff.FindItemInBags = originalFind
+    DreamFish.frames.fishing = originalFishingFrame
+    DreamFish.state.pendingBuffObservation = nil
+    if DreamFish.state and type(DreamFish.state.buffItemLastUseAt) == "table" then
+        DreamFish.state.buffItemLastUseAt[111] = nil
     end
 
     if not ok then
@@ -764,7 +764,7 @@ end
 
 function tests.HotkeyLureDueBuffAppliesProfessionSlot()
     local capturedAttrs = {}
-    local fishingFrame = DreamFisher.fishing.CreateSecureFishingFrame()
+    local fishingFrame = DreamFish.fishing.CreateSecureFishingFrame()
     if fishingFrame then
         local origSet = fishingFrame.SetAttribute
         fishingFrame.SetAttribute = function(self, k, v)
@@ -773,7 +773,7 @@ function tests.HotkeyLureDueBuffAppliesProfessionSlot()
         end
     end
 
-    DreamFisher._test.SetDB({
+    DreamFish._test.SetDB({
         castingModes = { castHotkey = true },
         buffItems = { { itemID = 333 } },
         buffAuraByItem = {},
@@ -781,19 +781,19 @@ function tests.HotkeyLureDueBuffAppliesProfessionSlot()
         selectedBobberToy = nil,
     })
 
-    DreamFisher.const.knownBuffItems[333] = { spellID = 100333, duration = 60, category = "lure" }
-    DreamFisher._test.SetBuffLastUseTime(333, mockTime - 200)
+    DreamFish.const.knownBuffItems[333] = { spellID = 100333, duration = 60, category = "lure" }
+    DreamFish._test.SetBuffLastUseTime(333, mockTime - 200)
 
-    local originalFind = DreamFisher.buff.FindItemInBags
-    DreamFisher.buff.FindItemInBags = function(itemID)
+    local originalFind = DreamFish.buff.FindItemInBags
+    DreamFish.buff.FindItemInBags = function(itemID)
         if itemID == 333 then return 0, 3 end
         return nil, nil
     end
 
-    DreamFisher.fishing.ConfigureFishingClickAction()
+    DreamFish.fishing.ConfigureFishingClickAction()
 
-    DreamFisher.buff.FindItemInBags = originalFind
-    DreamFisher.const.knownBuffItems[333] = nil
+    DreamFish.buff.FindItemInBags = originalFind
+    DreamFish.const.knownBuffItems[333] = nil
 
     if fishingFrame then
         local macrotext = capturedAttrs["macrotext"] or ""
@@ -807,7 +807,7 @@ end
 
 function tests.HotkeyLureDueBuffWarnsWhenNoFishingPoleEquipped()
     local capturedAttrs = {}
-    local fishingFrame = DreamFisher.fishing.CreateSecureFishingFrame()
+    local fishingFrame = DreamFish.fishing.CreateSecureFishingFrame()
     if fishingFrame then
         local origSet = fishingFrame.SetAttribute
         fishingFrame.SetAttribute = function(self, k, v)
@@ -816,7 +816,7 @@ function tests.HotkeyLureDueBuffWarnsWhenNoFishingPoleEquipped()
         end
     end
 
-    DreamFisher._test.SetDB({
+    DreamFish._test.SetDB({
         castingModes = { castHotkey = true },
         buffItems = { { itemID = 333 } },
         buffAuraByItem = {},
@@ -824,18 +824,18 @@ function tests.HotkeyLureDueBuffWarnsWhenNoFishingPoleEquipped()
         selectedBobberToy = nil,
     })
 
-    DreamFisher.const.knownBuffItems[333] = { spellID = 100333, duration = 60, category = "lure" }
-    DreamFisher._test.SetBuffLastUseTime(333, mockTime - 200)
+    DreamFish.const.knownBuffItems[333] = { spellID = 100333, duration = 60, category = "lure" }
+    DreamFish._test.SetBuffLastUseTime(333, mockTime - 200)
 
-    local originalFind = DreamFisher.buff.FindItemInBags
-    DreamFisher.buff.FindItemInBags = function(itemID)
+    local originalFind = DreamFish.buff.FindItemInBags
+    DreamFish.buff.FindItemInBags = function(itemID)
         if itemID == 333 then return 0, 3 end
         return nil, nil
     end
 
     local cueCalls = 0
-    local originalWarningCue = DreamFisher.audio.PlayWarningCue
-    DreamFisher.audio.PlayWarningCue = function()
+    local originalWarningCue = DreamFish.audio.PlayWarningCue
+    DreamFish.audio.PlayWarningCue = function()
         cueCalls = cueCalls + 1
     end
 
@@ -844,14 +844,14 @@ function tests.HotkeyLureDueBuffWarnsWhenNoFishingPoleEquipped()
         return nil
     end
 
-    DreamFisher.state.lureMissingPoleWarningAt = 0
+    DreamFish.state.lureMissingPoleWarningAt = 0
 
-    DreamFisher.fishing.ConfigureFishingClickAction()
+    DreamFish.fishing.ConfigureFishingClickAction()
 
-    DreamFisher.buff.FindItemInBags = originalFind
-    DreamFisher.audio.PlayWarningCue = originalWarningCue
+    DreamFish.buff.FindItemInBags = originalFind
+    DreamFish.audio.PlayWarningCue = originalWarningCue
     _G.GetInventoryItemID = originalGetInventoryItemID
-    DreamFisher.const.knownBuffItems[333] = nil
+    DreamFish.const.knownBuffItems[333] = nil
 
     if fishingFrame then
         local macrotext = capturedAttrs["macrotext"] or ""
@@ -863,7 +863,7 @@ end
 
 function tests.HotkeyFallsBackToOtherConsumableWhenLureBlockedByMissingPole()
     local capturedAttrs = {}
-    local fishingFrame = DreamFisher.fishing.CreateSecureFishingFrame()
+    local fishingFrame = DreamFish.fishing.CreateSecureFishingFrame()
     if fishingFrame then
         local origSet = fishingFrame.SetAttribute
 
@@ -873,7 +873,7 @@ function tests.HotkeyFallsBackToOtherConsumableWhenLureBlockedByMissingPole()
         end
     end
 
-    DreamFisher._test.SetDB({
+    DreamFish._test.SetDB({
         castingModes = { castHotkey = true },
         buffItems = {
             { itemID = 333 },
@@ -884,21 +884,21 @@ function tests.HotkeyFallsBackToOtherConsumableWhenLureBlockedByMissingPole()
         selectedBobberToy = nil,
     })
 
-    DreamFisher.const.knownBuffItems[333] = { spellID = 100333, duration = 60, category = "lure" }
-    DreamFisher.const.knownBuffItems[444] = { spellID = 100444, duration = 60, category = "other_consumable" }
-    DreamFisher._test.SetBuffLastUseTime(333, mockTime - 200)
-    DreamFisher._test.SetBuffLastUseTime(444, mockTime - 200)
+    DreamFish.const.knownBuffItems[333] = { spellID = 100333, duration = 60, category = "lure" }
+    DreamFish.const.knownBuffItems[444] = { spellID = 100444, duration = 60, category = "other_consumable" }
+    DreamFish._test.SetBuffLastUseTime(333, mockTime - 200)
+    DreamFish._test.SetBuffLastUseTime(444, mockTime - 200)
 
-    local originalFind = DreamFisher.buff.FindItemInBags
-    DreamFisher.buff.FindItemInBags = function(itemID)
+    local originalFind = DreamFish.buff.FindItemInBags
+    DreamFish.buff.FindItemInBags = function(itemID)
         if itemID == 333 then return 0, 3 end
         if itemID == 444 then return 0, 4 end
         return nil, nil
     end
 
     local cueCalls = 0
-    local originalWarningCue = DreamFisher.audio.PlayWarningCue
-    DreamFisher.audio.PlayWarningCue = function()
+    local originalWarningCue = DreamFish.audio.PlayWarningCue
+    DreamFish.audio.PlayWarningCue = function()
         cueCalls = cueCalls + 1
     end
 
@@ -907,15 +907,15 @@ function tests.HotkeyFallsBackToOtherConsumableWhenLureBlockedByMissingPole()
         return nil
     end
 
-    DreamFisher.state.lureMissingPoleWarningAt = 0
+    DreamFish.state.lureMissingPoleWarningAt = 0
 
-    DreamFisher.fishing.ConfigureFishingClickAction()
+    DreamFish.fishing.ConfigureFishingClickAction()
 
-    DreamFisher.buff.FindItemInBags = originalFind
-    DreamFisher.audio.PlayWarningCue = originalWarningCue
+    DreamFish.buff.FindItemInBags = originalFind
+    DreamFish.audio.PlayWarningCue = originalWarningCue
     _G.GetInventoryItemID = originalGetInventoryItemID
-    DreamFisher.const.knownBuffItems[333] = nil
-    DreamFisher.const.knownBuffItems[444] = nil
+    DreamFish.const.knownBuffItems[333] = nil
+    DreamFish.const.knownBuffItems[444] = nil
 
     if fishingFrame then
         local macrotext = capturedAttrs["macrotext"] or ""
@@ -931,7 +931,7 @@ end
 
 function tests.HotkeyAbortsWhenFoodDrinkTransientActiveWithoutLastingAura()
     local capturedAttrs = {}
-    local fishingFrame = DreamFisher.fishing.CreateSecureFishingFrame()
+    local fishingFrame = DreamFish.fishing.CreateSecureFishingFrame()
     if fishingFrame then
         local origSet = fishingFrame.SetAttribute
         fishingFrame.SetAttribute = function(self, k, v)
@@ -940,7 +940,7 @@ function tests.HotkeyAbortsWhenFoodDrinkTransientActiveWithoutLastingAura()
         end
     end
 
-    DreamFisher._test.SetDB({
+    DreamFish._test.SetDB({
         castingModes = { castHotkey = true },
         buffItems = { { itemID = 242299, expectedDuration = 3600 } },
         buffAuraByItem = { ["242299"] = { spellID = 1269152, duration = 3600 } },
@@ -954,17 +954,17 @@ function tests.HotkeyAbortsWhenFoodDrinkTransientActiveWithoutLastingAura()
         GetAuraDataByIndex = function() return nil end,
     }
 
-    DreamFisher.state.buffItemTransientUntil[242299] = mockTime + 15
+    DreamFish.state.buffItemTransientUntil[242299] = mockTime + 15
 
     local cueCalls = 0
-    local originalWarningCue = DreamFisher.audio.PlayWarningCue
-    DreamFisher.audio.PlayWarningCue = function()
+    local originalWarningCue = DreamFish.audio.PlayWarningCue
+    DreamFish.audio.PlayWarningCue = function()
         cueCalls = cueCalls + 1
     end
 
-    DreamFisher.fishing.ConfigureFishingClickAction()
+    DreamFish.fishing.ConfigureFishingClickAction()
 
-    DreamFisher.audio.PlayWarningCue = originalWarningCue
+    DreamFish.audio.PlayWarningCue = originalWarningCue
     _G.C_UnitAuras = originalCUnitAuras
 
     if fishingFrame then
@@ -977,7 +977,7 @@ end
 
 function tests.HotkeyTransientActiveDoesNotFallbackToOtherBuffItems()
     local capturedAttrs = {}
-    local fishingFrame = DreamFisher.fishing.CreateSecureFishingFrame()
+    local fishingFrame = DreamFish.fishing.CreateSecureFishingFrame()
     if fishingFrame then
         local origSet = fishingFrame.SetAttribute
         fishingFrame.SetAttribute = function(self, k, v)
@@ -986,7 +986,7 @@ function tests.HotkeyTransientActiveDoesNotFallbackToOtherBuffItems()
         end
     end
 
-    DreamFisher._test.SetDB({
+    DreamFish._test.SetDB({
         castingModes = { castHotkey = true },
         buffItems = {
             { itemID = 242299, expectedDuration = 3600 },
@@ -1000,8 +1000,8 @@ function tests.HotkeyTransientActiveDoesNotFallbackToOtherBuffItems()
         selectedBobberToy = nil,
     })
 
-    local originalFind = DreamFisher.buff.FindItemInBags
-    DreamFisher.buff.FindItemInBags = function(itemID)
+    local originalFind = DreamFish.buff.FindItemInBags
+    DreamFish.buff.FindItemInBags = function(itemID)
         if itemID == 242299 then return 1, 18 end
         if itemID == 238367 then return 4, 17 end
         return nil, nil
@@ -1013,18 +1013,18 @@ function tests.HotkeyTransientActiveDoesNotFallbackToOtherBuffItems()
         GetAuraDataByIndex = function() return nil end,
     }
 
-    DreamFisher.state.buffItemTransientUntil[242299] = mockTime + 16
+    DreamFish.state.buffItemTransientUntil[242299] = mockTime + 16
 
     local cueCalls = 0
-    local originalWarningCue = DreamFisher.audio.PlayWarningCue
-    DreamFisher.audio.PlayWarningCue = function()
+    local originalWarningCue = DreamFish.audio.PlayWarningCue
+    DreamFish.audio.PlayWarningCue = function()
         cueCalls = cueCalls + 1
     end
 
-    DreamFisher.fishing.ConfigureFishingClickAction()
+    DreamFish.fishing.ConfigureFishingClickAction()
 
-    DreamFisher.audio.PlayWarningCue = originalWarningCue
-    DreamFisher.buff.FindItemInBags = originalFind
+    DreamFish.audio.PlayWarningCue = originalWarningCue
+    DreamFish.buff.FindItemInBags = originalFind
     _G.C_UnitAuras = originalCUnitAuras
 
     if fishingFrame then
@@ -1038,7 +1038,7 @@ end
 
 function tests.HotkeyTeaTransientBlocksFallbackEvenIfTrackedAuraLooksActive()
     local capturedAttrs = {}
-    local fishingFrame = DreamFisher.fishing.CreateSecureFishingFrame()
+    local fishingFrame = DreamFish.fishing.CreateSecureFishingFrame()
     if fishingFrame then
         local origSet = fishingFrame.SetAttribute
         fishingFrame.SetAttribute = function(self, k, v)
@@ -1047,7 +1047,7 @@ function tests.HotkeyTeaTransientBlocksFallbackEvenIfTrackedAuraLooksActive()
         end
     end
 
-    DreamFisher._test.SetDB({
+    DreamFish._test.SetDB({
         castingModes = { castHotkey = true },
         buffItems = {
             { itemID = 242299, expectedDuration = 3600 },
@@ -1062,8 +1062,8 @@ function tests.HotkeyTeaTransientBlocksFallbackEvenIfTrackedAuraLooksActive()
         selectedBobberToy = nil,
     })
 
-    local originalFind = DreamFisher.buff.FindItemInBags
-    DreamFisher.buff.FindItemInBags = function(itemID)
+    local originalFind = DreamFish.buff.FindItemInBags
+    DreamFish.buff.FindItemInBags = function(itemID)
         if itemID == 242299 then return 1, 18 end
         if itemID == 238381 then return 3, 31 end
         return nil, nil
@@ -1088,18 +1088,18 @@ function tests.HotkeyTeaTransientBlocksFallbackEvenIfTrackedAuraLooksActive()
         GetAuraDataByIndex = function() return nil end,
     }
 
-    DreamFisher.state.buffItemTransientUntil[242299] = mockTime + 16
+    DreamFish.state.buffItemTransientUntil[242299] = mockTime + 16
 
     local cueCalls = 0
-    local originalWarningCue = DreamFisher.audio.PlayWarningCue
-    DreamFisher.audio.PlayWarningCue = function()
+    local originalWarningCue = DreamFish.audio.PlayWarningCue
+    DreamFish.audio.PlayWarningCue = function()
         cueCalls = cueCalls + 1
     end
 
-    DreamFisher.fishing.ConfigureFishingClickAction()
+    DreamFish.fishing.ConfigureFishingClickAction()
 
-    DreamFisher.audio.PlayWarningCue = originalWarningCue
-    DreamFisher.buff.FindItemInBags = originalFind
+    DreamFish.audio.PlayWarningCue = originalWarningCue
+    DreamFish.buff.FindItemInBags = originalFind
     _G.C_UnitAuras = originalCUnitAuras
 
     if fishingFrame then
@@ -1113,7 +1113,7 @@ end
 
 function tests.HotkeyTeaTransientBlocksFallbackEvenIfLastingAuraIsActive()
     local capturedAttrs = {}
-    local fishingFrame = DreamFisher.fishing.CreateSecureFishingFrame()
+    local fishingFrame = DreamFish.fishing.CreateSecureFishingFrame()
     if fishingFrame then
         local origSet = fishingFrame.SetAttribute
         fishingFrame.SetAttribute = function(self, k, v)
@@ -1122,7 +1122,7 @@ function tests.HotkeyTeaTransientBlocksFallbackEvenIfLastingAuraIsActive()
         end
     end
 
-    DreamFisher._test.SetDB({
+    DreamFish._test.SetDB({
         castingModes = { castHotkey = true },
         buffItems = {
             { itemID = 242299, expectedDuration = 3600 },
@@ -1136,8 +1136,8 @@ function tests.HotkeyTeaTransientBlocksFallbackEvenIfLastingAuraIsActive()
         selectedBobberToy = nil,
     })
 
-    local originalFind = DreamFisher.buff.FindItemInBags
-    DreamFisher.buff.FindItemInBags = function(itemID)
+    local originalFind = DreamFish.buff.FindItemInBags
+    DreamFish.buff.FindItemInBags = function(itemID)
         if itemID == 242299 then return 1, 18 end
         if itemID == 238370 then return 3, 31 end
         return nil, nil
@@ -1158,18 +1158,18 @@ function tests.HotkeyTeaTransientBlocksFallbackEvenIfLastingAuraIsActive()
         GetAuraDataByIndex = function() return nil end,
     }
 
-    DreamFisher.state.buffItemTransientUntil[242299] = mockTime + 10
+    DreamFish.state.buffItemTransientUntil[242299] = mockTime + 10
 
     local cueCalls = 0
-    local originalWarningCue = DreamFisher.audio.PlayWarningCue
-    DreamFisher.audio.PlayWarningCue = function()
+    local originalWarningCue = DreamFish.audio.PlayWarningCue
+    DreamFish.audio.PlayWarningCue = function()
         cueCalls = cueCalls + 1
     end
 
-    DreamFisher.fishing.ConfigureFishingClickAction()
+    DreamFish.fishing.ConfigureFishingClickAction()
 
-    DreamFisher.audio.PlayWarningCue = originalWarningCue
-    DreamFisher.buff.FindItemInBags = originalFind
+    DreamFish.audio.PlayWarningCue = originalWarningCue
+    DreamFish.buff.FindItemInBags = originalFind
     _G.C_UnitAuras = originalCUnitAuras
 
     if fishingFrame then
@@ -1183,14 +1183,14 @@ end
 
 function tests.PrecastPrefersRaftOverDueBuff()
     local capturedAttrs = {}
-    local fishingFrame = DreamFisher.fishing.CreateSecureFishingFrame()
+    local fishingFrame = DreamFish.fishing.CreateSecureFishingFrame()
     local origSet = fishingFrame.SetAttribute
     fishingFrame.SetAttribute = function(self, k, v)
         capturedAttrs[k] = v
         return origSet and origSet(self, k, v)
     end
 
-    DreamFisher._test.SetDB({
+    DreamFish._test.SetDB({
         castingModes = { castHotkey = true },
         buffItems = { { itemID = 111, expectedDuration = 60 } },
         buffAuraByItem = {},
@@ -1200,10 +1200,10 @@ function tests.PrecastPrefersRaftOverDueBuff()
         useOversizedBobber = false,
     })
 
-    DreamFisher._test.SetBuffLastUseTime(111, mockTime - 200)
+    DreamFish._test.SetBuffLastUseTime(111, mockTime - 200)
 
-    local originalFind = DreamFisher.buff.FindItemInBags
-    DreamFisher.buff.FindItemInBags = function(itemID)
+    local originalFind = DreamFish.buff.FindItemInBags
+    DreamFish.buff.FindItemInBags = function(itemID)
         if itemID == 111 then return 0, 1 end
         return nil, nil
     end
@@ -1234,12 +1234,12 @@ function tests.PrecastPrefersRaftOverDueBuff()
         GetAuraDataByIndex = function() return nil end,
     }
 
-    DreamFisher.fishing.ConfigureFishingClickAction()
+    DreamFish.fishing.ConfigureFishingClickAction()
 
     _G.IsSwimming = originalSwimming
     _G.GetItemSpell = originalGetItemSpell
     _G.C_UnitAuras = originalCUnitAuras
-    DreamFisher.buff.FindItemInBags = originalFind
+    DreamFish.buff.FindItemInBags = originalFind
 
     local macrotext = capturedAttrs["macrotext"] or ""
     assertTrue(macrotext:find("/use item:85500", 1, true) ~= nil, "Pre-cast should include raft toy use")
@@ -1249,14 +1249,14 @@ end
 
 function tests.PrecastPrefersBobberOverDueBuff()
     local capturedAttrs = {}
-    local fishingFrame = DreamFisher.fishing.CreateSecureFishingFrame()
+    local fishingFrame = DreamFish.fishing.CreateSecureFishingFrame()
     local origSet = fishingFrame.SetAttribute
     fishingFrame.SetAttribute = function(self, k, v)
         capturedAttrs[k] = v
         return origSet and origSet(self, k, v)
     end
 
-    DreamFisher._test.SetDB({
+    DreamFish._test.SetDB({
         castingModes = { castHotkey = true },
         buffItems = { { itemID = 111, expectedDuration = 60 } },
         buffAuraByItem = {},
@@ -1266,17 +1266,17 @@ function tests.PrecastPrefersBobberOverDueBuff()
         useOversizedBobber = false,
     })
 
-    DreamFisher._test.SetBuffLastUseTime(111, mockTime - 200)
+    DreamFish._test.SetBuffLastUseTime(111, mockTime - 200)
 
-    local originalFind = DreamFisher.buff.FindItemInBags
-    DreamFisher.buff.FindItemInBags = function(itemID)
+    local originalFind = DreamFish.buff.FindItemInBags
+    DreamFish.buff.FindItemInBags = function(itemID)
         if itemID == 111 then return 0, 1 end
         return nil, nil
     end
 
-    DreamFisher.fishing.ConfigureFishingClickAction()
+    DreamFish.fishing.ConfigureFishingClickAction()
 
-    DreamFisher.buff.FindItemInBags = originalFind
+    DreamFish.buff.FindItemInBags = originalFind
 
     local macrotext = capturedAttrs["macrotext"] or ""
     assertTrue(macrotext:find("/use item:142531", 1, true) ~= nil, "Pre-cast should include bobber use")
@@ -1286,14 +1286,14 @@ end
 
 function tests.PrecastEquipsSelectedFishingPoleBeforeBobber()
     local capturedAttrs = {}
-    local fishingFrame = DreamFisher.fishing.CreateSecureFishingFrame()
+    local fishingFrame = DreamFish.fishing.CreateSecureFishingFrame()
     local origSet = fishingFrame.SetAttribute
     fishingFrame.SetAttribute = function(self, k, v)
         capturedAttrs[k] = v
         return origSet and origSet(self, k, v)
     end
 
-    DreamFisher._test.SetDB({
+    DreamFish._test.SetDB({
         castingModes = { castHotkey = true },
         buffItems = {},
         buffAuraByItem = {},
@@ -1305,15 +1305,15 @@ function tests.PrecastEquipsSelectedFishingPoleBeforeBobber()
         useOversizedBobber = false,
     })
 
-    local originalFind = DreamFisher.buff.FindItemInBags
-    DreamFisher.buff.FindItemInBags = function(itemID)
+    local originalFind = DreamFish.buff.FindItemInBags
+    DreamFish.buff.FindItemInBags = function(itemID)
         if itemID == 555001 then return 0, 2 end
         return nil, nil
     end
 
-    DreamFisher.fishing.ConfigureFishingClickAction()
+    DreamFish.fishing.ConfigureFishingClickAction()
 
-    DreamFisher.buff.FindItemInBags = originalFind
+    DreamFish.buff.FindItemInBags = originalFind
 
     local macrotext = capturedAttrs["macrotext"] or ""
     local poleIndex = macrotext:find("/equip item:555001", 1, true)
@@ -1325,14 +1325,14 @@ end
 
 function tests.PrecastLockUnderlightSkipsPrimaryPoleSwap()
     local capturedAttrs = {}
-    local fishingFrame = DreamFisher.fishing.CreateSecureFishingFrame()
+    local fishingFrame = DreamFish.fishing.CreateSecureFishingFrame()
     local origSet = fishingFrame.SetAttribute
     fishingFrame.SetAttribute = function(self, k, v)
         capturedAttrs[k] = v
         return origSet and origSet(self, k, v)
     end
 
-    DreamFisher._test.SetDB({
+    DreamFish._test.SetDB({
         castingModes = { castHotkey = true },
         buffItems = {},
         buffAuraByItem = {},
@@ -1344,16 +1344,16 @@ function tests.PrecastLockUnderlightSkipsPrimaryPoleSwap()
         useOversizedBobber = false,
     })
 
-    local originalFind = DreamFisher.buff.FindItemInBags
-    DreamFisher.buff.FindItemInBags = function(itemID)
+    local originalFind = DreamFish.buff.FindItemInBags
+    DreamFish.buff.FindItemInBags = function(itemID)
         if itemID == 133755 then return 0, 3 end
         if itemID == 555001 then return 0, 2 end
         return nil, nil
     end
 
-    DreamFisher.fishing.ConfigureFishingClickAction()
+    DreamFish.fishing.ConfigureFishingClickAction()
 
-    DreamFisher.buff.FindItemInBags = originalFind
+    DreamFish.buff.FindItemInBags = originalFind
 
     local macrotext = capturedAttrs["macrotext"] or ""
     assertTrue(macrotext:find("/equip item:133755", 1, true) ~= nil,
@@ -1363,16 +1363,16 @@ function tests.PrecastLockUnderlightSkipsPrimaryPoleSwap()
 end
 
 function tests.AlwaysExceptFishingIdleHelperEquipsUnderlight()
-    DreamFisher._test.SetDB({
+    DreamFish._test.SetDB({
         buffItems = {},
         buffAuraByItem = {},
         selectedUnderlightAngler = 133755,
     })
 
-    DreamFisher._test.SetSessionState(DreamFisher.fishing.SessionStates.IDLE, "test-underlight-idle")
+    DreamFish._test.SetSessionState(DreamFish.fishing.SessionStates.IDLE, "test-underlight-idle")
 
-    local originalFind = DreamFisher.buff.FindItemInBags
-    DreamFisher.buff.FindItemInBags = function(itemID)
+    local originalFind = DreamFish.buff.FindItemInBags
+    DreamFish.buff.FindItemInBags = function(itemID)
         if itemID == 133755 then return 0, 1 end
         return nil, nil
     end
@@ -1394,27 +1394,27 @@ function tests.AlwaysExceptFishingIdleHelperEquipsUnderlight()
         return nil
     end
 
-    local equipped = DreamFisher.fishing.MaybeEquipConfiguredUnderlight("test-idle")
+    local equipped = DreamFish.fishing.MaybeEquipConfiguredUnderlight("test-idle")
 
     _G.EquipItemByName = originalEquip
     _G.GetInventoryItemID = originalGetInventoryItemID
-    DreamFisher.buff.FindItemInBags = originalFind
+    DreamFish.buff.FindItemInBags = originalFind
 
     assertTrue(equipped == true, "Idle helper should report successful Underlight equip")
     assertTrue(equipCalls > 0, "Idle helper should call EquipItemByName for Underlight")
 end
 
 function tests.UnderlightIdleHelperFallsBackToUnslottedEquip()
-    DreamFisher._test.SetDB({
+    DreamFish._test.SetDB({
         buffItems = {},
         buffAuraByItem = {},
         selectedUnderlightAngler = 133755,
     })
 
-    DreamFisher._test.SetSessionState(DreamFisher.fishing.SessionStates.IDLE, "test-underlight-idle-fallback")
+    DreamFish._test.SetSessionState(DreamFish.fishing.SessionStates.IDLE, "test-underlight-idle-fallback")
 
-    local originalFind = DreamFisher.buff.FindItemInBags
-    DreamFisher.buff.FindItemInBags = function(itemID)
+    local originalFind = DreamFish.buff.FindItemInBags
+    DreamFish.buff.FindItemInBags = function(itemID)
         if itemID == 133755 then return 0, 1 end
         return nil, nil
     end
@@ -1446,11 +1446,11 @@ function tests.UnderlightIdleHelperFallsBackToUnslottedEquip()
         return nil
     end
 
-    local equipped = DreamFisher.fishing.MaybeEquipConfiguredUnderlight("test-idle-fallback")
+    local equipped = DreamFish.fishing.MaybeEquipConfiguredUnderlight("test-idle-fallback")
 
     _G.EquipItemByName = originalEquip
     _G.GetInventoryItemID = originalGetInventoryItemID
-    DreamFisher.buff.FindItemInBags = originalFind
+    DreamFish.buff.FindItemInBags = originalFind
 
     assertTrue(equipped == true, "Idle helper should succeed via unslotted fallback")
     assertTrue(sawSlot28Attempt, "Idle helper should try profession-slot equip first")
@@ -1458,17 +1458,17 @@ function tests.UnderlightIdleHelperFallsBackToUnslottedEquip()
 end
 
 function tests.ModeChangeDisabledEquipsPrimaryPole()
-    DreamFisher._test.SetDB({
+    DreamFish._test.SetDB({
         buffItems = {},
         buffAuraByItem = {},
         selectedFishingPole = 555001,
         selectedUnderlightAngler = 133755,
     })
 
-    DreamFisher._test.SetSessionState(DreamFisher.fishing.SessionStates.IDLE, "test-mode-change-disabled")
+    DreamFish._test.SetSessionState(DreamFish.fishing.SessionStates.IDLE, "test-mode-change-disabled")
 
-    local originalFind = DreamFisher.buff.FindItemInBags
-    DreamFisher.buff.FindItemInBags = function(itemID)
+    local originalFind = DreamFish.buff.FindItemInBags
+    DreamFish.buff.FindItemInBags = function(itemID)
         if itemID == 133755 then return 0, 1 end
         if itemID == 555001 then return 0, 2 end
         return nil, nil
@@ -1491,25 +1491,25 @@ function tests.ModeChangeDisabledEquipsPrimaryPole()
         return nil
     end
 
-    local equipped = DreamFisher.fishing.MaybeEquipConfiguredUnderlight("config-underlight-mode-change")
+    local equipped = DreamFish.fishing.MaybeEquipConfiguredUnderlight("config-underlight-mode-change")
 
     _G.EquipItemByName = originalEquip
     _G.GetInventoryItemID = originalGetInventoryItemID
-    DreamFisher.buff.FindItemInBags = originalFind
+    DreamFish.buff.FindItemInBags = originalFind
 
     assertTrue(equipped == true, "Mode-change should immediately equip primary pole for disabled mode")
 end
 
 function tests.PrecastSkipsBobberWhenAuraCoversCast()
     local capturedAttrs = {}
-    local fishingFrame = DreamFisher.fishing.CreateSecureFishingFrame()
+    local fishingFrame = DreamFish.fishing.CreateSecureFishingFrame()
     local origSet = fishingFrame.SetAttribute
     fishingFrame.SetAttribute = function(self, k, v)
         capturedAttrs[k] = v
         return origSet and origSet(self, k, v)
     end
 
-    DreamFisher._test.SetDB({
+    DreamFish._test.SetDB({
         castingModes = { castHotkey = true },
         buffItems = { { itemID = 111, expectedDuration = 60 } },
         buffAuraByItem = {},
@@ -1519,10 +1519,10 @@ function tests.PrecastSkipsBobberWhenAuraCoversCast()
         useOversizedBobber = false,
     })
 
-    DreamFisher._test.SetBuffLastUseTime(111, mockTime - 200)
+    DreamFish._test.SetBuffLastUseTime(111, mockTime - 200)
 
-    local originalFind = DreamFisher.buff.FindItemInBags
-    DreamFisher.buff.FindItemInBags = function(itemID)
+    local originalFind = DreamFish.buff.FindItemInBags
+    DreamFish.buff.FindItemInBags = function(itemID)
         if itemID == 111 then return 0, 1 end
         return nil, nil
     end
@@ -1542,10 +1542,10 @@ function tests.PrecastSkipsBobberWhenAuraCoversCast()
         GetAuraDataByIndex = function() return nil end,
     }
 
-    DreamFisher.fishing.ConfigureFishingClickAction()
+    DreamFish.fishing.ConfigureFishingClickAction()
 
     _G.C_UnitAuras = originalCUnitAuras
-    DreamFisher.buff.FindItemInBags = originalFind
+    DreamFish.buff.FindItemInBags = originalFind
 
     local macrotext = capturedAttrs["macrotext"] or ""
     assertTrue(macrotext:find("/use item:142529", 1, true) == nil,
@@ -1556,14 +1556,14 @@ end
 
 function tests.PrecastAppliesBobberWhenAuraExpiring()
     local capturedAttrs = {}
-    local fishingFrame = DreamFisher.fishing.CreateSecureFishingFrame()
+    local fishingFrame = DreamFish.fishing.CreateSecureFishingFrame()
     local origSet = fishingFrame.SetAttribute
     fishingFrame.SetAttribute = function(self, k, v)
         capturedAttrs[k] = v
         return origSet and origSet(self, k, v)
     end
 
-    DreamFisher._test.SetDB({
+    DreamFish._test.SetDB({
         castingModes = { castHotkey = true },
         buffItems = { { itemID = 111, expectedDuration = 60 } },
         buffAuraByItem = {},
@@ -1573,10 +1573,10 @@ function tests.PrecastAppliesBobberWhenAuraExpiring()
         useOversizedBobber = false,
     })
 
-    DreamFisher._test.SetBuffLastUseTime(111, mockTime - 200)
+    DreamFish._test.SetBuffLastUseTime(111, mockTime - 200)
 
-    local originalFind = DreamFisher.buff.FindItemInBags
-    DreamFisher.buff.FindItemInBags = function(itemID)
+    local originalFind = DreamFish.buff.FindItemInBags
+    DreamFish.buff.FindItemInBags = function(itemID)
         if itemID == 111 then return 0, 1 end
         return nil, nil
     end
@@ -1596,10 +1596,10 @@ function tests.PrecastAppliesBobberWhenAuraExpiring()
         GetAuraDataByIndex = function() return nil end,
     }
 
-    DreamFisher.fishing.ConfigureFishingClickAction()
+    DreamFish.fishing.ConfigureFishingClickAction()
 
     _G.C_UnitAuras = originalCUnitAuras
-    DreamFisher.buff.FindItemInBags = originalFind
+    DreamFish.buff.FindItemInBags = originalFind
 
     local macrotext = capturedAttrs["macrotext"] or ""
     local bobberIndex = macrotext:find("/use item:142529", 1, true)
@@ -1610,14 +1610,14 @@ end
 
 function tests.PrecastBobberFallsBackToCooldownWhenAuraUnavailable()
     local capturedAttrs = {}
-    local fishingFrame = DreamFisher.fishing.CreateSecureFishingFrame()
+    local fishingFrame = DreamFish.fishing.CreateSecureFishingFrame()
     local origSet = fishingFrame.SetAttribute
     fishingFrame.SetAttribute = function(self, k, v)
         capturedAttrs[k] = v
         return origSet and origSet(self, k, v)
     end
 
-    DreamFisher._test.SetDB({
+    DreamFish._test.SetDB({
         castingModes = { castHotkey = true },
         buffItems = { { itemID = 111, expectedDuration = 60 } },
         buffAuraByItem = {},
@@ -1627,10 +1627,10 @@ function tests.PrecastBobberFallsBackToCooldownWhenAuraUnavailable()
         useOversizedBobber = false,
     })
 
-    DreamFisher._test.SetBuffLastUseTime(111, mockTime - 200)
+    DreamFish._test.SetBuffLastUseTime(111, mockTime - 200)
 
-    local originalFind = DreamFisher.buff.FindItemInBags
-    DreamFisher.buff.FindItemInBags = function(itemID)
+    local originalFind = DreamFish.buff.FindItemInBags
+    DreamFish.buff.FindItemInBags = function(itemID)
         if itemID == 111 then return 0, 1 end
         return nil, nil
     end
@@ -1641,10 +1641,10 @@ function tests.PrecastBobberFallsBackToCooldownWhenAuraUnavailable()
         GetAuraDataByIndex = function() return nil end,
     }
 
-    DreamFisher.fishing.ConfigureFishingClickAction()
+    DreamFish.fishing.ConfigureFishingClickAction()
 
     _G.C_UnitAuras = originalCUnitAuras
-    DreamFisher.buff.FindItemInBags = originalFind
+    DreamFish.buff.FindItemInBags = originalFind
 
     local macrotext = capturedAttrs["macrotext"] or ""
     local bobberIndex = macrotext:find("/use item:142529", 1, true)
@@ -1655,14 +1655,14 @@ end
 
 function tests.PrecastPrioritizesBaitAfterLureBeforeFoodDrink()
     local capturedAttrs = {}
-    local fishingFrame = DreamFisher.fishing.CreateSecureFishingFrame()
+    local fishingFrame = DreamFish.fishing.CreateSecureFishingFrame()
     local origSet = fishingFrame.SetAttribute
     fishingFrame.SetAttribute = function(self, k, v)
         capturedAttrs[k] = v
         return origSet and origSet(self, k, v)
     end
 
-    DreamFisher._test.SetDB({
+    DreamFish._test.SetDB({
         castingModes = { castHotkey = true },
         buffItems = {
             { itemID = 262651, expectedDuration = 600 }, -- lure
@@ -1676,12 +1676,12 @@ function tests.PrecastPrioritizesBaitAfterLureBeforeFoodDrink()
         useOversizedBobber = false,
     })
 
-    DreamFisher._test.SetBuffLastUseTime(262651, mockTime - 800)
-    DreamFisher._test.SetBuffLastUseTime(198401, mockTime - 2000)
-    DreamFisher._test.SetBuffLastUseTime(242299, mockTime - 4000)
+    DreamFish._test.SetBuffLastUseTime(262651, mockTime - 800)
+    DreamFish._test.SetBuffLastUseTime(198401, mockTime - 2000)
+    DreamFish._test.SetBuffLastUseTime(242299, mockTime - 4000)
 
-    local originalFind = DreamFisher.buff.FindItemInBags
-    DreamFisher.buff.FindItemInBags = function(itemID)
+    local originalFind = DreamFish.buff.FindItemInBags
+    DreamFish.buff.FindItemInBags = function(itemID)
         if itemID == 262651 then return nil, nil end -- force lure unavailable so next category is evaluated
         if itemID == 198401 then return 0, 9 end
         if itemID == 242299 then return 0, 10 end
@@ -1694,10 +1694,10 @@ function tests.PrecastPrioritizesBaitAfterLureBeforeFoodDrink()
         GetAuraDataByIndex = function() return nil end,
     }
 
-    DreamFisher.fishing.ConfigureFishingClickAction()
+    DreamFish.fishing.ConfigureFishingClickAction()
 
     _G.C_UnitAuras = originalCUnitAuras
-    DreamFisher.buff.FindItemInBags = originalFind
+    DreamFish.buff.FindItemInBags = originalFind
 
     local macrotext = capturedAttrs["macrotext"] or ""
     assertTrue(macrotext:find("/use item:242299", 1, true) ~= nil,
@@ -1708,14 +1708,14 @@ end
 
 function tests.PrecastSkipsBaitCategoryWhenAnyBaitAuraIsActive()
     local capturedAttrs = {}
-    local fishingFrame = DreamFisher.fishing.CreateSecureFishingFrame()
+    local fishingFrame = DreamFish.fishing.CreateSecureFishingFrame()
     local origSet = fishingFrame.SetAttribute
     fishingFrame.SetAttribute = function(self, k, v)
         capturedAttrs[k] = v
         return origSet and origSet(self, k, v)
     end
 
-    DreamFisher._test.SetDB({
+    DreamFish._test.SetDB({
         castingModes = { castHotkey = true },
         buffItems = {
             { itemID = 198401, expectedDuration = 1800 }, -- bait
@@ -1728,11 +1728,11 @@ function tests.PrecastSkipsBaitCategoryWhenAnyBaitAuraIsActive()
         useOversizedBobber = false,
     })
 
-    DreamFisher._test.SetBuffLastUseTime(198401, mockTime - 2000)
-    DreamFisher._test.SetBuffLastUseTime(241316, mockTime - 4000)
+    DreamFish._test.SetBuffLastUseTime(198401, mockTime - 2000)
+    DreamFish._test.SetBuffLastUseTime(241316, mockTime - 4000)
 
-    local originalFind = DreamFisher.buff.FindItemInBags
-    DreamFisher.buff.FindItemInBags = function(itemID)
+    local originalFind = DreamFish.buff.FindItemInBags
+    DreamFish.buff.FindItemInBags = function(itemID)
         if itemID == 198401 then return 0, 9 end
         if itemID == 241316 then return 0, 10 end
         return nil, nil
@@ -1753,10 +1753,10 @@ function tests.PrecastSkipsBaitCategoryWhenAnyBaitAuraIsActive()
         GetAuraDataByIndex = function() return nil end,
     }
 
-    DreamFisher.fishing.ConfigureFishingClickAction()
+    DreamFish.fishing.ConfigureFishingClickAction()
 
     _G.C_UnitAuras = originalCUnitAuras
-    DreamFisher.buff.FindItemInBags = originalFind
+    DreamFish.buff.FindItemInBags = originalFind
 
     local macrotext = capturedAttrs["macrotext"] or ""
     assertTrue(macrotext:find("/use item:198401", 1, true) == nil,
@@ -1767,14 +1767,14 @@ end
 
 function tests.PrecastPrioritizesFoodDrinkBeforeOtherConsumable()
     local capturedAttrs = {}
-    local fishingFrame = DreamFisher.fishing.CreateSecureFishingFrame()
+    local fishingFrame = DreamFish.fishing.CreateSecureFishingFrame()
     local origSet = fishingFrame.SetAttribute
     fishingFrame.SetAttribute = function(self, k, v)
         capturedAttrs[k] = v
         return origSet and origSet(self, k, v)
     end
 
-    DreamFisher._test.SetDB({
+    DreamFish._test.SetDB({
         castingModes = { castHotkey = true },
         buffItems = {
             { itemID = 241316, expectedDuration = 3600 },
@@ -1787,19 +1787,19 @@ function tests.PrecastPrioritizesFoodDrinkBeforeOtherConsumable()
         useOversizedBobber = false,
     })
 
-    DreamFisher._test.SetBuffLastUseTime(241316, mockTime - 3700)
-    DreamFisher._test.SetBuffLastUseTime(242299, mockTime - 3700)
+    DreamFish._test.SetBuffLastUseTime(241316, mockTime - 3700)
+    DreamFish._test.SetBuffLastUseTime(242299, mockTime - 3700)
 
-    local originalFind = DreamFisher.buff.FindItemInBags
-    DreamFisher.buff.FindItemInBags = function(itemID)
+    local originalFind = DreamFish.buff.FindItemInBags
+    DreamFish.buff.FindItemInBags = function(itemID)
         if itemID == 241316 then return 0, 6 end
         if itemID == 242299 then return 0, 7 end
         return nil, nil
     end
 
-    DreamFisher.fishing.ConfigureFishingClickAction()
+    DreamFish.fishing.ConfigureFishingClickAction()
 
-    DreamFisher.buff.FindItemInBags = originalFind
+    DreamFish.buff.FindItemInBags = originalFind
 
     local macrotext = capturedAttrs["macrotext"] or ""
     assertTrue(macrotext:find("/use item:242299", 1, true) ~= nil,
@@ -1811,7 +1811,7 @@ end
 function tests.HotkeyConfiguresFishingWhenBuffNotDue()
     -- Buff present but not due: should fall through to plain fishing spell
     local capturedAttrs = {}
-    local fishingFrame = DreamFisher.fishing.CreateSecureFishingFrame()
+    local fishingFrame = DreamFish.fishing.CreateSecureFishingFrame()
     if fishingFrame then
         local origSet = fishingFrame.SetAttribute
         fishingFrame.SetAttribute = function(self, k, v)
@@ -1820,7 +1820,7 @@ function tests.HotkeyConfiguresFishingWhenBuffNotDue()
         end
     end
 
-    DreamFisher._test.SetDB({
+    DreamFish._test.SetDB({
         castingModes = { castHotkey = true },
         buffItems = { { itemID = 111 } },
         buffAuraByItem = {},
@@ -1828,18 +1828,18 @@ function tests.HotkeyConfiguresFishingWhenBuffNotDue()
         selectedBobberToy = nil,
     })
 
-    DreamFisher._test.SetBuffLastUseTime(111, mockTime - 5)
+    DreamFish._test.SetBuffLastUseTime(111, mockTime - 5)
 
     -- Item must be in bags or GetNextDueBuffItem treats it as due-but-unavailable
-    local originalFind = DreamFisher.buff.FindItemInBags
-    DreamFisher.buff.FindItemInBags = function(itemID)
+    local originalFind = DreamFish.buff.FindItemInBags
+    DreamFish.buff.FindItemInBags = function(itemID)
         if itemID == 111 then return 0, 1 end
         return nil, nil
     end
 
-    DreamFisher.fishing.ConfigureFishingClickAction()
+    DreamFish.fishing.ConfigureFishingClickAction()
 
-    DreamFisher.buff.FindItemInBags = originalFind
+    DreamFish.buff.FindItemInBags = originalFind
 
     if fishingFrame then
         local actionType = capturedAttrs["type"]
@@ -1852,26 +1852,26 @@ end
 
 function tests.HookedLootModeConfiguresInteractAction()
     local capturedAttrs = {}
-    local fishingFrame = DreamFisher.fishing.CreateSecureFishingFrame()
+    local fishingFrame = DreamFish.fishing.CreateSecureFishingFrame()
     local origSet = fishingFrame.SetAttribute
     fishingFrame.SetAttribute = function(self, k, v)
         capturedAttrs[k] = v
         return origSet and origSet(self, k, v)
     end
 
-    DreamFisher._test.SetDB({
+    DreamFish._test.SetDB({
         castingModes = { castHotkey = true },
         buffItems = {},
         buffAuraByItem = {},
         easyStrike = true,
     })
 
-    DreamFisher._test.SetSessionState(
-        DreamFisher.fishing.SessionStates.WAITING_FOR_STRIKE,
+    DreamFish._test.SetSessionState(
+        DreamFish.fishing.SessionStates.WAITING_FOR_STRIKE,
         "test-hooked-mode-bobber-only"
     )
-    DreamFisher.state.fishingStartGraceUntil = mockTime - 1
-    DreamFisher.fishing.ConfigureFishingClickAction()
+    DreamFish.state.fishingStartGraceUntil = mockTime - 1
+    DreamFish.fishing.ConfigureFishingClickAction()
 
     assertEquals(capturedAttrs["type"], "macro", "Hooked mode should configure macro action")
     assertTrue((capturedAttrs["macrotext"] or ""):find("/interact", 1, true) ~= nil,
@@ -1880,25 +1880,25 @@ end
 
 function tests.HookedLootModeDisabledKeepsFishingCastAction()
     local capturedAttrs = {}
-    local fishingFrame = DreamFisher.fishing.CreateSecureFishingFrame()
+    local fishingFrame = DreamFish.fishing.CreateSecureFishingFrame()
     local origSet = fishingFrame.SetAttribute
     fishingFrame.SetAttribute = function(self, k, v)
         capturedAttrs[k] = v
         return origSet and origSet(self, k, v)
     end
 
-    DreamFisher._test.SetDB({
+    DreamFish._test.SetDB({
         castingModes = { castHotkey = true },
         buffItems = {},
         buffAuraByItem = {},
         easyStrike = false,
     })
 
-    DreamFisher._test.SetSessionState(
-        DreamFisher.fishing.SessionStates.WAITING_FOR_STRIKE,
+    DreamFish._test.SetSessionState(
+        DreamFish.fishing.SessionStates.WAITING_FOR_STRIKE,
         "test-hooked-mode-disabled-bobber-only"
     )
-    DreamFisher.fishing.ConfigureFishingClickAction()
+    DreamFish.fishing.ConfigureFishingClickAction()
 
     assertEquals(capturedAttrs["type"], "spell", "Disabled hooked mode should keep normal cast action")
     assertEquals(capturedAttrs["spell"], "Fishing", "Disabled hooked mode should cast Fishing")
@@ -1906,24 +1906,24 @@ end
 
 function tests.HookedLootFallbackWindowConfiguresInteractAction()
     local capturedAttrs = {}
-    local fishingFrame = DreamFisher.fishing.CreateSecureFishingFrame()
+    local fishingFrame = DreamFish.fishing.CreateSecureFishingFrame()
     local origSet = fishingFrame.SetAttribute
     fishingFrame.SetAttribute = function(self, k, v)
         capturedAttrs[k] = v
         return origSet and origSet(self, k, v)
     end
 
-    DreamFisher._test.SetDB({
+    DreamFish._test.SetDB({
         castingModes = { castHotkey = true },
         buffItems = {},
         buffAuraByItem = {},
         easyStrike = true,
     })
 
-    DreamFisher._test.SetSessionState(DreamFisher.fishing.SessionStates.CASTING, "test-hooked-fallback-window")
-    DreamFisher.state.fishingStartGraceUntil = mockTime - 1
+    DreamFish._test.SetSessionState(DreamFish.fishing.SessionStates.CASTING, "test-hooked-fallback-window")
+    DreamFish.state.fishingStartGraceUntil = mockTime - 1
 
-    DreamFisher.fishing.ConfigureFishingClickAction()
+    DreamFish.fishing.ConfigureFishingClickAction()
 
     assertEquals(capturedAttrs["type"], "macro", "Fallback hook window should configure interact macro")
     assertTrue((capturedAttrs["macrotext"] or ""):find("/interact", 1, true) ~= nil,
@@ -1932,14 +1932,14 @@ end
 
 function tests.PrecastIncludesRaftWhenSwimming()
     local capturedAttrs = {}
-    local fishingFrame = DreamFisher.fishing.CreateSecureFishingFrame()
+    local fishingFrame = DreamFish.fishing.CreateSecureFishingFrame()
     local origSet = fishingFrame.SetAttribute
     fishingFrame.SetAttribute = function(self, k, v)
         capturedAttrs[k] = v
         return origSet and origSet(self, k, v)
     end
 
-    DreamFisher._test.SetDB({
+    DreamFish._test.SetDB({
         castingModes = { castHotkey = true },
         buffItems = {},
         buffAuraByItem = {},
@@ -1952,7 +1952,7 @@ function tests.PrecastIncludesRaftWhenSwimming()
     local originalSwimming = _G.IsSwimming
     _G.IsSwimming = function() return true end
 
-    DreamFisher.fishing.ConfigureFishingClickAction()
+    DreamFish.fishing.ConfigureFishingClickAction()
 
     _G.IsSwimming = originalSwimming
 
@@ -1964,14 +1964,14 @@ end
 
 function tests.PrecastSkipsBobberAndOversizedWhileSwimming()
     local capturedAttrs = {}
-    local fishingFrame = DreamFisher.fishing.CreateSecureFishingFrame()
+    local fishingFrame = DreamFish.fishing.CreateSecureFishingFrame()
     local origSet = fishingFrame.SetAttribute
     fishingFrame.SetAttribute = function(self, k, v)
         capturedAttrs[k] = v
         return origSet and origSet(self, k, v)
     end
 
-    DreamFisher._test.SetDB({
+    DreamFish._test.SetDB({
         castingModes = { castHotkey = true },
         buffItems = {},
         buffAuraByItem = {},
@@ -1998,7 +1998,7 @@ function tests.PrecastSkipsBobberAndOversizedWhileSwimming()
         GetAuraDataByIndex = function() return nil end,
     }
 
-    DreamFisher.fishing.ConfigureFishingClickAction()
+    DreamFish.fishing.ConfigureFishingClickAction()
 
     _G.IsSwimming = originalSwimming
     _G.GetItemSpell = originalGetItemSpell
@@ -2015,14 +2015,14 @@ end
 
 function tests.PrecastSkipsOversizedWhenAuraCoversCast()
     local capturedAttrs = {}
-    local fishingFrame = DreamFisher.fishing.CreateSecureFishingFrame()
+    local fishingFrame = DreamFish.fishing.CreateSecureFishingFrame()
     local origSet = fishingFrame.SetAttribute
     fishingFrame.SetAttribute = function(self, k, v)
         capturedAttrs[k] = v
         return origSet and origSet(self, k, v)
     end
 
-    DreamFisher._test.SetDB({
+    DreamFish._test.SetDB({
         castingModes = { castHotkey = true },
         buffItems = {},
         buffAuraByItem = {},
@@ -2047,7 +2047,7 @@ function tests.PrecastSkipsOversizedWhenAuraCoversCast()
         GetAuraDataByIndex = function() return nil end,
     }
 
-    DreamFisher.fishing.ConfigureFishingClickAction()
+    DreamFish.fishing.ConfigureFishingClickAction()
 
     _G.C_UnitAuras = originalCUnitAuras
 
@@ -2058,14 +2058,14 @@ end
 
 function tests.PrecastAppliesOversizedWhenAuraExpiring()
     local capturedAttrs = {}
-    local fishingFrame = DreamFisher.fishing.CreateSecureFishingFrame()
+    local fishingFrame = DreamFish.fishing.CreateSecureFishingFrame()
     local origSet = fishingFrame.SetAttribute
     fishingFrame.SetAttribute = function(self, k, v)
         capturedAttrs[k] = v
         return origSet and origSet(self, k, v)
     end
 
-    DreamFisher._test.SetDB({
+    DreamFish._test.SetDB({
         castingModes = { castHotkey = true },
         buffItems = {},
         buffAuraByItem = {},
@@ -2090,7 +2090,7 @@ function tests.PrecastAppliesOversizedWhenAuraExpiring()
         GetAuraDataByIndex = function() return nil end,
     }
 
-    DreamFisher.fishing.ConfigureFishingClickAction()
+    DreamFish.fishing.ConfigureFishingClickAction()
 
     _G.C_UnitAuras = originalCUnitAuras
 
@@ -2101,14 +2101,14 @@ end
 
 function tests.PrecastUsesOnlyRaftItemWhenSwimmingAndNeeded()
     local capturedAttrs = {}
-    local fishingFrame = DreamFisher.fishing.CreateSecureFishingFrame()
+    local fishingFrame = DreamFish.fishing.CreateSecureFishingFrame()
     local origSet = fishingFrame.SetAttribute
     fishingFrame.SetAttribute = function(self, k, v)
         capturedAttrs[k] = v
         return origSet and origSet(self, k, v)
     end
 
-    DreamFisher._test.SetDB({
+    DreamFish._test.SetDB({
         castingModes = { castHotkey = true },
         buffItems = { { itemID = 241316, expectedDuration = 3600 } },
         buffAuraByItem = {},
@@ -2118,10 +2118,10 @@ function tests.PrecastUsesOnlyRaftItemWhenSwimmingAndNeeded()
         useOversizedBobber = true,
     })
 
-    DreamFisher._test.SetBuffLastUseTime(241316, mockTime - 4000)
+    DreamFish._test.SetBuffLastUseTime(241316, mockTime - 4000)
 
-    local originalFind = DreamFisher.buff.FindItemInBags
-    DreamFisher.buff.FindItemInBags = function(itemID)
+    local originalFind = DreamFish.buff.FindItemInBags
+    DreamFish.buff.FindItemInBags = function(itemID)
         if itemID == 241316 then return 0, 8 end
         return nil, nil
     end
@@ -2143,9 +2143,9 @@ function tests.PrecastUsesOnlyRaftItemWhenSwimmingAndNeeded()
         GetAuraDataByIndex = function() return nil end,
     }
 
-    DreamFisher.fishing.ConfigureFishingClickAction()
+    DreamFish.fishing.ConfigureFishingClickAction()
 
-    DreamFisher.buff.FindItemInBags = originalFind
+    DreamFish.buff.FindItemInBags = originalFind
     _G.IsSwimming = originalSwimming
     _G.GetItemSpell = originalGetItemSpell
     _G.C_UnitAuras = originalCUnitAuras
@@ -2165,7 +2165,7 @@ end
 
 function tests.ClickCastUsesRaftOnlyWhenSwimmingEvenIfBuffDue()
     local fishingAttrs = {}
-    local fishingFrame = DreamFisher.fishing.CreateSecureFishingFrame()
+    local fishingFrame = DreamFish.fishing.CreateSecureFishingFrame()
     local origFishingSet = fishingFrame.SetAttribute
     fishingFrame.SetAttribute = function(self, k, v)
         fishingAttrs[k] = v
@@ -2173,14 +2173,14 @@ function tests.ClickCastUsesRaftOnlyWhenSwimmingEvenIfBuffDue()
     end
 
     local buffAttrs = {}
-    local buffFrame = DreamFisher.fishing.CreateSecureBuffFrame()
+    local buffFrame = DreamFish.fishing.CreateSecureBuffFrame()
     local origBuffSet = buffFrame.SetAttribute
     buffFrame.SetAttribute = function(self, k, v)
         buffAttrs[k] = v
         return origBuffSet and origBuffSet(self, k, v)
     end
 
-    DreamFisher._test.SetDB({
+    DreamFish._test.SetDB({
         castingModes = { castHotkey = false, doubleRightClick = true },
         buffItems = { { itemID = 241316, expectedDuration = 3600 } },
         buffAuraByItem = {},
@@ -2190,10 +2190,10 @@ function tests.ClickCastUsesRaftOnlyWhenSwimmingEvenIfBuffDue()
         useOversizedBobber = false,
     })
 
-    DreamFisher._test.SetBuffLastUseTime(241316, mockTime - 4000)
+    DreamFish._test.SetBuffLastUseTime(241316, mockTime - 4000)
 
-    local originalFind = DreamFisher.buff.FindItemInBags
-    DreamFisher.buff.FindItemInBags = function(itemID)
+    local originalFind = DreamFish.buff.FindItemInBags
+    DreamFish.buff.FindItemInBags = function(itemID)
         if itemID == 241316 then return 0, 8 end
         return nil, nil
     end
@@ -2216,11 +2216,11 @@ function tests.ClickCastUsesRaftOnlyWhenSwimmingEvenIfBuffDue()
     }
 
     mockTime = 1000
-    DreamFisher._test.HandleWorldRightClick()
+    DreamFish._test.HandleWorldRightClick()
     mockTime = 1000.1
-    DreamFisher._test.HandleWorldRightClick()
+    DreamFish._test.HandleWorldRightClick()
 
-    DreamFisher.buff.FindItemInBags = originalFind
+    DreamFish.buff.FindItemInBags = originalFind
     _G.IsSwimming = originalSwimming
     _G.GetItemSpell = originalGetItemSpell
     _G.C_UnitAuras = originalCUnitAuras
@@ -2238,14 +2238,14 @@ end
 
 function tests.PrecastSkipsRaftWhenAuraCoversCast()
     local capturedAttrs = {}
-    local fishingFrame = DreamFisher.fishing.CreateSecureFishingFrame()
+    local fishingFrame = DreamFish.fishing.CreateSecureFishingFrame()
     local origSet = fishingFrame.SetAttribute
     fishingFrame.SetAttribute = function(self, k, v)
         capturedAttrs[k] = v
         return origSet and origSet(self, k, v)
     end
 
-    DreamFisher._test.SetDB({
+    DreamFish._test.SetDB({
         castingModes = { castHotkey = true },
         buffItems = {},
         buffAuraByItem = {},
@@ -2281,7 +2281,7 @@ function tests.PrecastSkipsRaftWhenAuraCoversCast()
         GetAuraDataByIndex = function() return nil end,
     }
 
-    DreamFisher.fishing.ConfigureFishingClickAction()
+    DreamFish.fishing.ConfigureFishingClickAction()
 
     _G.IsSwimming = originalSwimming
     _G.GetItemSpell = originalGetItemSpell
@@ -2294,14 +2294,14 @@ end
 
 function tests.PrecastReappliesRaftWhenAuraExpiringEvenIfNotSwimming()
     local capturedAttrs = {}
-    local fishingFrame = DreamFisher.fishing.CreateSecureFishingFrame()
+    local fishingFrame = DreamFish.fishing.CreateSecureFishingFrame()
     local origSet = fishingFrame.SetAttribute
     fishingFrame.SetAttribute = function(self, k, v)
         capturedAttrs[k] = v
         return origSet and origSet(self, k, v)
     end
 
-    DreamFisher._test.SetDB({
+    DreamFish._test.SetDB({
         castingModes = { castHotkey = true },
         buffItems = {},
         buffAuraByItem = {},
@@ -2337,7 +2337,7 @@ function tests.PrecastReappliesRaftWhenAuraExpiringEvenIfNotSwimming()
         GetAuraDataByIndex = function() return nil end,
     }
 
-    DreamFisher.fishing.ConfigureFishingClickAction()
+    DreamFish.fishing.ConfigureFishingClickAction()
 
     _G.IsSwimming = originalSwimming
     _G.GetItemSpell = originalGetItemSpell
@@ -2367,7 +2367,7 @@ function tests.HookedRightClickRoutesToInteractWhenHooked()
         end
     end
 
-    DreamFisher._test.SetDB({
+    DreamFish._test.SetDB({
         castingModes = {
             doubleRightClick = true,
             singleRightClick = false,
@@ -2378,23 +2378,23 @@ function tests.HookedRightClickRoutesToInteractWhenHooked()
         easyStrike = true,
     })
 
-    DreamFisher._test.SetSessionState(DreamFisher.fishing.SessionStates.WAITING_FOR_STRIKE, "test-hooked-right-click")
-    DreamFisher.state.fishingStartGraceUntil = mockTime - 1
-    DreamFisher.state.interactAcquireExpiresAt = mockTime + 2
-    DreamFisher._test.SetLastRightClickTime(0)
+    DreamFish._test.SetSessionState(DreamFish.fishing.SessionStates.WAITING_FOR_STRIKE, "test-hooked-right-click")
+    DreamFish.state.fishingStartGraceUntil = mockTime - 1
+    DreamFish.state.interactAcquireExpiresAt = mockTime + 2
+    DreamFish._test.SetLastRightClickTime(0)
 
-    DreamFisher._test.HandleWorldRightClick()
+    DreamFish._test.HandleWorldRightClick()
 
     assertTrue(bindingCalls > 0, "Hooked world right-click should route to secure interact binding")
-    assertEquals(DreamFisher._test.GetLastRightClickTime(), 0, "Hooked world right-click should clear double-click timing")
+    assertEquals(DreamFish._test.GetLastRightClickTime(), 0, "Hooked world right-click should clear double-click timing")
 
     _G.UnitExists = originalUnitExists
     _G.SetOverrideBindingClick = originalBindingClick
 end
 
 function tests.StaleHookedOverrideFallsBackToCastFlow()
-    local originalGetDiag = DreamFisher.fishing.GetInteractDiagnostics
-    DreamFisher.fishing.GetInteractDiagnostics = function()
+    local originalGetDiag = DreamFish.fishing.GetInteractDiagnostics
+    DreamFish.fishing.GetInteractDiagnostics = function()
         return {
             softExists = false,
             targetExists = false,
@@ -2402,7 +2402,7 @@ function tests.StaleHookedOverrideFallsBackToCastFlow()
         }
     end
 
-    DreamFisher._test.SetDB({
+    DreamFish._test.SetDB({
         castingModes = {
             doubleRightClick = true,
             singleRightClick = false,
@@ -2413,25 +2413,25 @@ function tests.StaleHookedOverrideFallsBackToCastFlow()
         easyStrike = true,
     })
 
-    DreamFisher._test.SetSessionState(DreamFisher.fishing.SessionStates.IDLE, "test-stale-hooked-override")
-    DreamFisher.state.fishingStartTime = 0
-    DreamFisher.state.fishingStartGraceUntil = 0
-    DreamFisher.state.interactOverrideActive = true
-    DreamFisher.state.interactOverrideExpiresAt = mockTime + 10
-    DreamFisher.state.interactAcquireExpiresAt = 0
-    DreamFisher._test.SetLastRightClickTime(0)
+    DreamFish._test.SetSessionState(DreamFish.fishing.SessionStates.IDLE, "test-stale-hooked-override")
+    DreamFish.state.fishingStartTime = 0
+    DreamFish.state.fishingStartGraceUntil = 0
+    DreamFish.state.interactOverrideActive = true
+    DreamFish.state.interactOverrideExpiresAt = mockTime + 10
+    DreamFish.state.interactAcquireExpiresAt = 0
+    DreamFish._test.SetLastRightClickTime(0)
 
-    DreamFisher._test.HandleWorldRightClick()
+    DreamFish._test.HandleWorldRightClick()
 
-    assertEquals(DreamFisher._test.GetLastRightClickTime(), mockTime,
+    assertEquals(DreamFish._test.GetLastRightClickTime(), mockTime,
         "Stale hooked override should fall back to normal single-click cast flow")
 
-    DreamFisher.fishing.GetInteractDiagnostics = originalGetDiag
+    DreamFish.fishing.GetInteractDiagnostics = originalGetDiag
 end
 
 function tests.RecentFishingWithInteractTargetRoutesHookedFallback()
-    local originalGetDiag = DreamFisher.fishing.GetInteractDiagnostics
-    DreamFisher.fishing.GetInteractDiagnostics = function()
+    local originalGetDiag = DreamFish.fishing.GetInteractDiagnostics
+    DreamFish.fishing.GetInteractDiagnostics = function()
         return {
             softExists = true,
             targetExists = false,
@@ -2448,7 +2448,7 @@ function tests.RecentFishingWithInteractTargetRoutesHookedFallback()
         end
     end
 
-    DreamFisher._test.SetDB({
+    DreamFish._test.SetDB({
         castingModes = {
             doubleRightClick = true,
             singleRightClick = false,
@@ -2459,27 +2459,27 @@ function tests.RecentFishingWithInteractTargetRoutesHookedFallback()
         easyStrike = true,
     })
 
-    DreamFisher._test.SetSessionState(DreamFisher.fishing.SessionStates.IDLE, "test-recent-fishing-target")
-    DreamFisher.state.fishingStartTime = mockTime - 3
-    DreamFisher.state.fishingStartGraceUntil = mockTime - 1
-    DreamFisher.state.interactOverrideActive = false
-    DreamFisher.state.interactAcquireExpiresAt = 0
-    DreamFisher._test.SetLastRightClickTime(0)
+    DreamFish._test.SetSessionState(DreamFish.fishing.SessionStates.IDLE, "test-recent-fishing-target")
+    DreamFish.state.fishingStartTime = mockTime - 3
+    DreamFish.state.fishingStartGraceUntil = mockTime - 1
+    DreamFish.state.interactOverrideActive = false
+    DreamFish.state.interactAcquireExpiresAt = 0
+    DreamFish._test.SetLastRightClickTime(0)
 
-    DreamFisher._test.HandleWorldRightClick()
+    DreamFish._test.HandleWorldRightClick()
 
     assertEquals(bindingCalls, 0,
         "Recent fishing with interact target should not force hooked interact without hooked mode")
-    assertEquals(DreamFisher._test.GetLastRightClickTime(), mockTime,
+    assertEquals(DreamFish._test.GetLastRightClickTime(), mockTime,
         "Without hooked-mode routing, first click should follow normal timing flow")
 
-    DreamFisher.fishing.GetInteractDiagnostics = originalGetDiag
+    DreamFish.fishing.GetInteractDiagnostics = originalGetDiag
     _G.SetOverrideBindingClick = originalBindingClick
 end
 
 function tests.PostCastHookWindowRoutesHookedFallbackWithoutUnits()
-    local originalGetDiag = DreamFisher.fishing.GetInteractDiagnostics
-    DreamFisher.fishing.GetInteractDiagnostics = function()
+    local originalGetDiag = DreamFish.fishing.GetInteractDiagnostics
+    DreamFish.fishing.GetInteractDiagnostics = function()
         return {
             softExists = false,
             targetExists = false,
@@ -2496,7 +2496,7 @@ function tests.PostCastHookWindowRoutesHookedFallbackWithoutUnits()
         end
     end
 
-    DreamFisher._test.SetDB({
+    DreamFish._test.SetDB({
         castingModes = {
             doubleRightClick = true,
             singleRightClick = false,
@@ -2507,46 +2507,46 @@ function tests.PostCastHookWindowRoutesHookedFallbackWithoutUnits()
         easyStrike = true,
     })
 
-    DreamFisher._test.SetSessionState(DreamFisher.fishing.SessionStates.CASTING, "test-post-cast-hook-window")
-    DreamFisher.state.fishingStartTime = mockTime - 3
-    DreamFisher.state.fishingStartGraceUntil = mockTime - 1
-    DreamFisher.state.interactOverrideActive = false
-    DreamFisher.state.interactOverrideExpiresAt = 0
-    DreamFisher.state.interactAcquireExpiresAt = 0
-    DreamFisher._test.SetLastRightClickTime(0)
+    DreamFish._test.SetSessionState(DreamFish.fishing.SessionStates.CASTING, "test-post-cast-hook-window")
+    DreamFish.state.fishingStartTime = mockTime - 3
+    DreamFish.state.fishingStartGraceUntil = mockTime - 1
+    DreamFish.state.interactOverrideActive = false
+    DreamFish.state.interactOverrideExpiresAt = 0
+    DreamFish.state.interactAcquireExpiresAt = 0
+    DreamFish._test.SetLastRightClickTime(0)
 
-    DreamFisher._test.HandleWorldRightClick()
+    DreamFish._test.HandleWorldRightClick()
 
     assertEquals(bindingCalls, 0,
         "Post-cast no-evidence state should not force hooked interact routing")
-    assertEquals(DreamFisher._test.GetLastRightClickTime(), mockTime,
+    assertEquals(DreamFish._test.GetLastRightClickTime(), mockTime,
         "Post-cast no-evidence state should return to normal click timing flow")
-    assertEquals(DreamFisher._test.GetSessionState(), DreamFisher.fishing.SessionStates.IDLE,
+    assertEquals(DreamFish._test.GetSessionState(), DreamFish.fishing.SessionStates.IDLE,
         "Post-cast no-evidence fallback should finalize to IDLE")
 
-    DreamFisher.fishing.GetInteractDiagnostics = originalGetDiag
+    DreamFish.fishing.GetInteractDiagnostics = originalGetDiag
     _G.SetOverrideBindingClick = originalBindingClick
 end
 
 function tests.HookedAcquireWindowKeepsTargetMacroWithoutSoftName()
     local capturedAttrs = {}
-    local fishingFrame = DreamFisher.fishing.CreateSecureFishingFrame()
+    local fishingFrame = DreamFish.fishing.CreateSecureFishingFrame()
     local origSet = fishingFrame.SetAttribute
     fishingFrame.SetAttribute = function(self, k, v)
         capturedAttrs[k] = v
         return origSet and origSet(self, k, v)
     end
 
-    DreamFisher._test.SetDB({
+    DreamFish._test.SetDB({
         castingModes = { castHotkey = true },
         buffItems = {},
         buffAuraByItem = {},
         easyStrike = true,
     })
 
-    DreamFisher._test.SetSessionState(DreamFisher.fishing.SessionStates.CASTING, "test-hooked-acquire-window")
-    DreamFisher.state.fishingStartGraceUntil = mockTime - 1
-    DreamFisher.state.interactAcquireExpiresAt = 0
+    DreamFish._test.SetSessionState(DreamFish.fishing.SessionStates.CASTING, "test-hooked-acquire-window")
+    DreamFish.state.fishingStartGraceUntil = mockTime - 1
+    DreamFish.state.interactAcquireExpiresAt = 0
 
     local originalUnitExists = _G.UnitExists
     local originalUnitName = _G.UnitName
@@ -2555,13 +2555,13 @@ function tests.HookedAcquireWindowKeepsTargetMacroWithoutSoftName()
         return nil
     end
 
-    DreamFisher.fishing.ConfigureFishingClickAction()
+    DreamFish.fishing.ConfigureFishingClickAction()
     local firstMacro = capturedAttrs["macrotext"] or ""
     assertTrue(firstMacro:find("/targetexact", 1, true) ~= nil,
         "First hooked acquire click should use target acquisition macro")
 
     mockTime = mockTime + 0.5
-    DreamFisher.fishing.ConfigureFishingClickAction()
+    DreamFish.fishing.ConfigureFishingClickAction()
     local secondMacro = capturedAttrs["macrotext"] or ""
     assertTrue(secondMacro:find("/targetexact", 1, true) ~= nil,
         "Acquire window should keep target acquisition macro when no unit exists")
@@ -2574,23 +2574,23 @@ end
 
 function tests.HookedSoftNameUsesAcquirePlusInteractMacro()
     local capturedAttrs = {}
-    local fishingFrame = DreamFisher.fishing.CreateSecureFishingFrame()
+    local fishingFrame = DreamFish.fishing.CreateSecureFishingFrame()
     local origSet = fishingFrame.SetAttribute
     fishingFrame.SetAttribute = function(self, k, v)
         capturedAttrs[k] = v
         return origSet and origSet(self, k, v)
     end
 
-    DreamFisher._test.SetDB({
+    DreamFish._test.SetDB({
         castingModes = { castHotkey = true },
         buffItems = {},
         buffAuraByItem = {},
         easyStrike = true,
     })
 
-    DreamFisher._test.SetSessionState(DreamFisher.fishing.SessionStates.CASTING, "test-hooked-soft-name")
-    DreamFisher.state.fishingStartGraceUntil = mockTime - 1
-    DreamFisher.state.interactAcquireExpiresAt = 0
+    DreamFish._test.SetSessionState(DreamFish.fishing.SessionStates.CASTING, "test-hooked-soft-name")
+    DreamFish.state.fishingStartGraceUntil = mockTime - 1
+    DreamFish.state.interactAcquireExpiresAt = 0
 
     local originalUnitExists = _G.UnitExists
     local originalUnitName = _G.UnitName
@@ -2602,7 +2602,7 @@ function tests.HookedSoftNameUsesAcquirePlusInteractMacro()
         return nil
     end
 
-    DreamFisher.fishing.ConfigureFishingClickAction()
+    DreamFish.fishing.ConfigureFishingClickAction()
     local firstMacro = capturedAttrs["macrotext"] or ""
     assertTrue(firstMacro:find("/targetexact", 1, true) ~= nil,
         "Soft-name-only hooked state should still include target acquisition")
@@ -2615,20 +2615,20 @@ end
 
 function tests.HotkeyPressInCombatReturnsTrue()
     -- HandleHotkeyPress returns true (consumed) even in combat
-    DreamFisher._test.SetDB({
+    DreamFish._test.SetDB({
         castingModes = { castHotkey = true },
         buffItems = {},
         buffAuraByItem = {},
     })
 
     mockInCombat = true
-    local result = DreamFisher.fishing.HandleHotkeyPress()
+    local result = DreamFish.fishing.HandleHotkeyPress()
     assertTrue(result == true, "Hotkey press in combat should return true (consumed)")
 end
 
 function tests.HotkeyPressWhenDisabledReturnsFalse()
     -- HandleHotkeyPress returns false when hotkey mode is off
-    DreamFisher._test.SetDB({
+    DreamFish._test.SetDB({
         castingModes = {
             doubleRightClick = true,
             singleRightClick = false,
@@ -2639,13 +2639,13 @@ function tests.HotkeyPressWhenDisabledReturnsFalse()
     })
 
     mockInCombat = false
-    local result = DreamFisher.fishing.HandleHotkeyPress()
+    local result = DreamFish.fishing.HandleHotkeyPress()
     assertFalse(result, "Hotkey press when disabled should return false")
 end
 
 function tests.HotkeyPressWhenEnabledOutOfCombatReturnsTrue()
     -- HandleHotkeyPress returns true when hotkey mode enabled and out of combat
-    DreamFisher._test.SetDB({
+    DreamFish._test.SetDB({
         castingModes = {
             doubleRightClick = false,
             singleRightClick = false,
@@ -2656,7 +2656,7 @@ function tests.HotkeyPressWhenEnabledOutOfCombatReturnsTrue()
     })
 
     mockInCombat = false
-    local result = DreamFisher.fishing.HandleHotkeyPress()
+    local result = DreamFish.fishing.HandleHotkeyPress()
     assertTrue(result == true, "Hotkey press when enabled should return true")
 end
 
@@ -2666,38 +2666,38 @@ end
 
 function tests.DoubleClickAdaptsToDueBuff()
     -- If first click happens with no due buff, but buff becomes due by second click
-    DreamFisher._test.SetDB({
+    DreamFish._test.SetDB({
         buffItems = { { itemID = 111 } },
         buffAuraByItem = {},
     })
 
-    local originalFind = DreamFisher.buff.FindItemInBags
-    DreamFisher.buff.FindItemInBags = function() return 0, 1 end
+    local originalFind = DreamFish.buff.FindItemInBags
+    DreamFish.buff.FindItemInBags = function() return 0, 1 end
 
     -- First click: buff not due
     mockTime = 1000
-    DreamFisher._test.SetBuffLastUseTime(111, mockTime - 10)
-    DreamFisher._test.HandleWorldRightClick()
+    DreamFish._test.SetBuffLastUseTime(111, mockTime - 10)
+    DreamFish._test.HandleWorldRightClick()
 
     -- Simulate buff becoming due before second click (time passes)
     mockTime = 1000.1
-    DreamFisher._test.SetBuffLastUseTime(111, mockTime - 100)
+    DreamFish._test.SetBuffLastUseTime(111, mockTime - 100)
 
     -- Second click: buff now due
-    DreamFisher._test.HandleWorldRightClick()
+    DreamFish._test.HandleWorldRightClick()
 
     -- Should process buff (time reset to 0)
-    local finalTime = DreamFisher._test.GetLastRightClickTime()
+    local finalTime = DreamFish._test.GetLastRightClickTime()
     assertEquals(finalTime, 0, "Double-click should process buff if due at second click")
 
-    DreamFisher.buff.FindItemInBags = originalFind
+    DreamFish.buff.FindItemInBags = originalFind
 end
 
 -- ============================================================================
 -- Run All Tests
 -- ============================================================================
 
-print("\n=== DreamFisher Casting Modes Tests ===\n")
+print("\n=== DreamFish Casting Modes Tests ===\n")
 
 for name, testFn in pairs(tests) do
     RunTest(name, testFn)

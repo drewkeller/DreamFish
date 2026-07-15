@@ -1,6 +1,6 @@
--- DreamFisher: Utility Functions
+-- DreamFish: Utility Functions
 
-local addon = _G["DreamFisher"]
+local addon = _G["DreamFish"]
 
 -- Core utility functions
 local function Clamp(value, min, max)
@@ -38,7 +38,7 @@ end
 
 local function PrintMessage(msg)
     if DEFAULT_CHAT_FRAME and DEFAULT_CHAT_FRAME.AddMessage then
-        DEFAULT_CHAT_FRAME:AddMessage("|cFF7FFFDADreamFisher|r " .. msg)
+        DEFAULT_CHAT_FRAME:AddMessage("|cFF7FFFDADreamFish|r " .. msg)
     end
 end
 

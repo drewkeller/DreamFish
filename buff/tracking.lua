@@ -1,6 +1,6 @@
--- DreamFisher: Buff Aura Tracking
+-- DreamFish: Buff Aura Tracking
 
-local addon = _G["DreamFisher"]
+local addon = _G["DreamFish"]
 local PrintMessage = addon.PrintMessage
 
 local function GetAuraBySpellID(spellID)

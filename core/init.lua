@@ -1,7 +1,7 @@
--- DreamFisher: Core Initialization
+-- DreamFish: Core Initialization
 -- Addon setup, defaults, and global state
 
-local addonName = "DreamFisher"
+local addonName = "DreamFish"
 local frame = CreateFrame("Frame", addonName .. "Frame")
 local addon = _G[addonName] or {}
 _G[addonName] = addon
@@ -11,13 +11,15 @@ addon.frame = frame
 -- Default configuration
 addon.defaults = {
     -- Focus
-    managedLoot = true,
+    autoLoot = true,
+    managedLoot = false,
+    throwAwayJunk = false,
+    lootDelay = 0.5,
     treasureAlerts = true,
     bagAlerts = true,
     bagAlertsThreshold = 2,
     reagentBagAlerts = true,
     reagentBagAlertsThreshold = 2,
-    throwAwayJunk = false,
     focusedAudio = true,
     focusedAudioLinger = 10,
     focusedVisuals = false,

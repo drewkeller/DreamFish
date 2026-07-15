@@ -1,4 +1,4 @@
-# DreamFisher
+# DreamFish
 
 This addon offers quality of life enhancements to the fishing experience.
 
@@ -6,7 +6,7 @@ This addon offers quality of life enhancements to the fishing experience.
 
 **Casting...**
 * Double right click to cast
-* Single right click to cast (when the DreamFisher window is open)
+* Single right click to cast (when the DreamFish window is open)
 * Hotkey (keybinding)
 
 **Landing...**

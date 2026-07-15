@@ -1,7 +1,7 @@
--- DreamFisher: Shared module API resolvers
+-- DreamFish: Shared module API resolvers
 -- Centralize registry-first resolution with safe fallback paths.
 
-local addon = _G["DreamFisher"]
+local addon = _G["DreamFish"]
 if not addon then
     return
 end
@@ -24,7 +24,7 @@ end
 local function RequireModuleAPI(moduleName, fallbackField)
     local api = ResolveModuleAPI(moduleName, fallbackField)
     if not api then
-        error("DreamFisher: required module API is missing: " .. tostring(moduleName))
+        error("DreamFish: required module API is missing: " .. tostring(moduleName))
     end
     return api
 end

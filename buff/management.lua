@@ -1,6 +1,6 @@
--- DreamFisher: Buff Item Management
+-- DreamFish: Buff Item Management
 
-local addon = _G["DreamFisher"]
+local addon = _G["DreamFish"]
 local Clamp = addon.Clamp
 local PrintMessage = addon.PrintMessage
 local DebugMessage = addon.DebugMessage
@@ -256,7 +256,7 @@ end
 
 local function MaybeUseBuffItems()
     if not addon.RequireFishingAPI then
-        error("DreamFisher: RequireFishingAPI helper is required for buff management")
+        error("DreamFish: RequireFishingAPI helper is required for buff management")
     end
     local fishing = addon.RequireFishingAPI()
 
@@ -265,7 +265,7 @@ local function MaybeUseBuffItems()
     end
 
     if not (fishing and fishing.IsFishingActiveSessionState) then
-        error("DreamFisher: IsFishingActiveSessionState is required for buff management")
+        error("DreamFish: IsFishingActiveSessionState is required for buff management")
     end
 
     if GetTime() - addon.state.lastBuffCheckTime < addon.state.buffCheckInterval then

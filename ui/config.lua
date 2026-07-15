@@ -1,7 +1,7 @@
--- DreamFisher Config UI Module
+-- DreamFish Config UI Module
 -- Manages configuration panel and settings UI
 
-local addonName = "DreamFisher"
+local addonName = "DreamFish"
 local addon = _G[addonName]
 
 -- Config module namespace
@@ -24,7 +24,7 @@ local ownedToyOptionsCache = {}
 local ownedToyItemCache = {}
 local IsLikelyFishingPoleItem
 local OVERSIZED_BOBBER_ITEM_ID = 202207
-local HOTKEY_CLICK_BINDING = "CLICK DreamFisherSecureFishingButton:RightButton"
+local HOTKEY_CLICK_BINDING = "CLICK DreamFishSecureFishingButton:RightButton"
 local tacklePoleUI = {}
 local tackleToyUI = {}
 local requireFishingAPI = addon.RequireFishingAPI
@@ -662,7 +662,7 @@ local function ApplyConfiguredHotkeyBinding(keyText)
     local desiredKey = type(keyText) == "string" and keyText:match("^%s*(.-)%s*$") or ""
     if desiredKey ~= "" then
         if type(SetBindingClick) == "function" then
-            pcall(SetBindingClick, desiredKey, "DreamFisherSecureFishingButton", "RightButton")
+            pcall(SetBindingClick, desiredKey, "DreamFishSecureFishingButton", "RightButton")
         elseif type(SetBinding) == "function" then
             pcall(SetBinding, desiredKey, HOTKEY_CLICK_BINDING)
         end
@@ -742,7 +742,7 @@ end
 
 local function SaveTackleBindings()
     if not requireFishingAPI then
-        error("DreamFisher: RequireFishingAPI helper is required for tackle binding saves")
+        error("DreamFish: RequireFishingAPI helper is required for tackle binding saves")
     end
     local fishing = requireFishingAPI()
     local uiFocus = (addon.GetUIFocusAPI and addon.GetUIFocusAPI()) or addon.uiFocus
@@ -854,6 +854,9 @@ local function LoadConfigBindings()
         buffBagCountSnapshot = nil
     end
 
+    if isFocusActive and addon.autoLootCheckbox then
+        addon.autoLootCheckbox:SetChecked(addon.db.autoLoot)
+    end
     if isFocusActive and addon.managedLootCheckbox then
         addon.managedLootCheckbox:SetChecked(addon.db.managedLoot)
     end
@@ -877,6 +880,16 @@ local function LoadConfigBindings()
     end
     if isFocusActive and addon.throwAwayJunkCheckbox then
         addon.throwAwayJunkCheckbox:SetChecked(addon.db.throwAwayJunk)
+        addon.throwAwayJunkCheckbox:SetDisabled(not addon.db.managedLoot)
+    end
+    if isFocusActive and addon.lootDelayBox then
+        local delaySeconds = tonumber(addon.db.lootDelay)
+        if not delaySeconds then
+            delaySeconds = tonumber(defaults.lootDelay) or 0.5
+        end
+        local delayMs = addon.Clamp(math.floor((delaySeconds * 1000) + 0.5), 0, 5000)
+        addon.lootDelayBox:SetText(tostring(delayMs))
+        addon.lootDelayBox:SetDisabled(not addon.db.managedLoot)
     end
     if isModesActive and addon.escapeCloseCheckbox then
         addon.escapeCloseCheckbox:SetChecked(addon.db.closeWindowOnEscape)
@@ -962,8 +975,17 @@ local function SaveConfigBindings()
         addon.db.focusedAudioLinger = addon.Clamp(tonumber(addon.db.focusedAudioLinger) or defaults.focusedAudioLinger, 0, 60)
     end
 
+    if addon.autoLootCheckbox then
+        addon.db.autoLoot = addon.autoLootCheckbox:GetChecked()
+    end
     if addon.managedLootCheckbox then
         addon.db.managedLoot = addon.managedLootCheckbox:GetChecked()
+    end
+    if addon.db.autoLoot and addon.db.managedLoot then
+        addon.db.autoLoot = false
+        if addon.autoLootCheckbox and addon.autoLootCheckbox.SetChecked then
+            addon.autoLootCheckbox:SetChecked(false)
+        end
     end
     if addon.focusedAudioCheckbox then
         addon.db.focusedAudio = addon.focusedAudioCheckbox:GetChecked()
@@ -994,6 +1016,13 @@ local function SaveConfigBindings()
     end
     if addon.throwAwayJunkCheckbox then
         addon.db.throwAwayJunk = addon.throwAwayJunkCheckbox:GetChecked()
+    end
+    if addon.lootDelayBox then
+        local ms = tonumber(addon.lootDelayBox:GetText()) or ((tonumber(defaults.lootDelay) or 0.5) * 1000)
+        ms = addon.Clamp(ms, 0, 5000)
+        addon.db.lootDelay = ms / 1000
+    else
+        addon.db.lootDelay = addon.Clamp(tonumber(addon.db.lootDelay) or tonumber(defaults.lootDelay) or 0.5, 0, 5)
     end
 
     local existingModes = (type(addon.db.castingModes) == "table") and addon.db.castingModes or {}
@@ -1163,7 +1192,7 @@ function config.SaveConfig(skipRefresh)
 
     if addon.state.savedFishingAudioCVars ~= nil and addon.state.audioRestoreAt ~= nil then
         if not requireAudioAPI then
-            error("DreamFisher: RequireAudioAPI helper is required for delayed audio restore")
+            error("DreamFish: RequireAudioAPI helper is required for delayed audio restore")
         end
         local audio = requireAudioAPI()
         if audio and audio.RestoreFishingAudioFocusAfterLinger then
@@ -1339,34 +1368,61 @@ local function BuildFocusTab(focusPage, ui, onLiveChange)
     local root = ui.FlowRoot(focusPage, 12)
 
     local focusSection = ui.FlowSection(root, "Focus")
+    addon.autoLootCheckbox = ui.FlowCheckbox(focusSection, "Native auto-loot while fishing", onLiveChange,
+        "If you normally have native auto-loot disabled, this option temporarily enables it while fishing.")
     addon.managedLootCheckbox = ui.FlowCheckbox(focusSection, "Managed auto-loot while fishing", onLiveChange,
-        "If you normally have auto-loot enabled, this option temporarily disables it while fishing, so the addon can perform junk-filtering.")
-    addon.throwAwayJunkCheckbox = ui.FlowCheckbox(focusSection, "Ignore junk items in loot", onLiveChange,
+        "Allows the addon to manage auto-loot while fishing. If you normally have native auto-loot enabled, this option temporarily disables it while fishing.")
+
+    local managedLootInset = ui.FlowInsetHost(focusSection, 20)
+    addon.throwAwayJunkCheckbox = ui.FlowCheckbox(managedLootInset, "Ignore junk items in loot", onLiveChange,
         "Junk-quality items are not automatically looted.")
+    addon.lootDelayBox = ui.FlowEditBox(managedLootInset, "Loot delay (ms)", 150, onLiveChange,
+        "Delay before looting so the window is visible.")
+    addon.autoLootCheckbox:SetCallback("OnValueChanged", function(_, _, value)
+        if value then
+            addon.managedLootCheckbox:SetChecked(false)
+            addon.throwAwayJunkCheckbox:SetDisabled(true)
+            addon.lootDelayBox:SetDisabled(true)
+        end
+    end)
+    addon.managedLootCheckbox:SetCallback("OnValueChanged", function(_, _, value)
+        if value then
+            addon.autoLootCheckbox:SetChecked(false)
+            addon.throwAwayJunkCheckbox:SetDisabled(false)
+            addon.lootDelayBox:SetDisabled(false)
+        else
+            addon.throwAwayJunkCheckbox:SetDisabled(true)
+            addon.lootDelayBox:SetDisabled(true)
+        end
+    end)
 
     addon.treasureAlertsCheckbox = ui.FlowCheckbox(focusSection, "Patient Treasure notification", onLiveChange,
         "Notifies you if you catch a Patient Treasure by coloring the screen and playing a distinct sound.")
 
     addon.bagAlertsCheckbox = ui.FlowCheckbox(focusSection, "Normal bag monitor / alert", onLiveChange,
         "Monitors your bag space and alerts you when it is low (non-reagent slots).")
-    addon.bagAlertsThresholdBox = ui.FlowEditBox(focusSection, "Threshold (slots)", 150, onLiveChange,
+    local bagAlertsInset = ui.FlowInsetHost(focusSection, 20)
+    addon.bagAlertsThresholdBox = ui.FlowEditBox(bagAlertsInset, "Threshold (slots)", 150, onLiveChange,
         "Minimum number of free bag slots before an alert is triggered (non-reagent slots).")
 
     addon.reagentBagAlertsCheckbox = ui.FlowCheckbox(focusSection, "Reagent bag monitor / alert", onLiveChange,
         "Monitors your reagentbag space and alerts you when it is low.")
-    addon.reagentBagAlertsThresholdBox = ui.FlowEditBox(focusSection, "Reagent Bag Threshold (slots)", 150, onLiveChange,
+    local reagentBagAlertsInset = ui.FlowInsetHost(focusSection, 20)
+    addon.reagentBagAlertsThresholdBox = ui.FlowEditBox(reagentBagAlertsInset, "Reagent Bag Threshold (slots)", 150, onLiveChange,
         "Minimum number of free reagent bag slots before an alert is triggered.")
 
     local audioSection = ui.FlowSection(root, "Audio")
     addon.focusedAudioCheckbox = ui.FlowCheckbox(audioSection, "Focused audio when fishing", onLiveChange,
         "Reduces other sounds and focuses audio on fishing sounds, then restores when done fishing.")
-    addon.audioLingerBox = ui.FlowEditBox(audioSection, "After catch (s)", 150, onLiveChange,
+    local audioInset = ui.FlowInsetHost(audioSection, 20)
+    addon.audioLingerBox = ui.FlowSlider(audioInset, "Restore after (s)", 220, 0, 20, 1, onLiveChange,
         "How long to keep the fishing audio focused after a cast is stopped. Combat or other cancellations immediately revert the audio focus.")
 
     local visualSection = ui.FlowSection(root, "Visual")
     addon.focusedVisualsCheckbox = ui.FlowCheckbox(visualSection, "Fade out visual elements when fishing", onLiveChange,
         "Fades out other UI frames and focuses on fishing, then restores when done fishing. Not everything can be hidden.")
-    addon.focusedVisualsLingerBox = ui.FlowEditBox(visualSection, "After catch (s)", 150, onLiveChange,
+    local visualInset = ui.FlowInsetHost(visualSection, 20)
+    addon.focusedVisualsLingerBox = ui.FlowSlider(visualInset, "Restore after (s)", 220, 0, 20, 1, onLiveChange,
         "How long to keep the visuals faded after a cast is stopped. Combat or other cancellations immediately restore the visuals.")
 end
 
@@ -1545,7 +1601,7 @@ local function BuildModesTab(modesPage, ui, onLiveChange)
         "Double right-click in the world begins fishing.")
     addon.modeSingleRightClickConfigCheckbox = ui.FlowCheckbox(castingSection,
         "Single right click (when this window is open)", onLiveChange,
-        "Single right-click in the world begins fishing when the DreamFisher window is open.")
+        "Single right-click in the world begins fishing when the DreamFish window is open.")
     addon.modeHotkeyCheckbox = ui.FlowCheckboxWithNote(
         castingSection,
         "Hotkey",
@@ -1570,7 +1626,7 @@ local function BuildModesTab(modesPage, ui, onLiveChange)
 
     ui.FlowRowHost(root, 40)
     addon.escapeCloseCheckbox = ui.FlowCheckbox(root, "Escape closes this window", onLiveChange,
-        "Allow the Esc key to close the DreamFisher window.")
+        "Allow the Esc key to close the DreamFish window.")
 end
 
 local function BuildBuffsTab(buffsPage, ui, createBuffItemDropBox, onLiveChange)

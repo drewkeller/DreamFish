@@ -1,4 +1,4 @@
--- Unit tests for DreamFisher UI_INFO_MESSAGE fish-hook handling.
+-- Unit tests for DreamFish UI_INFO_MESSAGE fish-hook handling.
 -- Run with: lua tests/ui_info_message_test.lua
 
 local function assertEquals(actual, expected, message)
@@ -48,7 +48,7 @@ local function makeNoopFrame()
         StartMoving = function() end,
         StopMovingOrSizing = function() end,
         UnregisterEvent = function(_, event) events[event] = nil end,
-        GetName = function() return "DreamFisherSecureFishingButton" end,
+        GetName = function() return "DreamFishSecureFishingButton" end,
     }
 end
 
@@ -103,9 +103,9 @@ dofile("ui/commands.lua")
 dofile("ui/ace_widget_factory.lua")
 dofile("ui/buff_item_drop_box.lua")
 dofile("ui/config.lua")
-dofile("DreamFisher.lua")
+dofile("DreamFish.lua")
 
-local addon = _G.DreamFisher
+local addon = _G.DreamFish
 assertTrue(type(addon) == "table", "Addon table should exist")
 
 local function getLootTrackerOnEvent()

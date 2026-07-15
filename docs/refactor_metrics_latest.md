@@ -1,4 +1,4 @@
-# DreamFisher Refactor Metrics
+# DreamFish Refactor Metrics
 
 Generated: 2026-07-11 12:56:47Z
 

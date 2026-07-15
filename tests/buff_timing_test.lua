@@ -1,4 +1,4 @@
--- Unit tests for DreamFisher buff timing and logic.
+-- Unit tests for DreamFish buff timing and logic.
 -- Run with: lua tests/buff_timing_test.lua
 
 local function assertEquals(actual, expected, message)
@@ -74,7 +74,7 @@ dofile("fishing/helpers.lua")
 dofile("buff/tracking.lua")
 dofile("buff/timing.lua")
 dofile("buff/management.lua")
-dofile("DreamFisher.lua")
+dofile("DreamFish.lua")
 
 local tests = {}
 local testsPassed = 0
@@ -84,15 +84,15 @@ function RunTest(name, testFn)
     mockTime = 1000
 
     local success, err = pcall(function()
-        DreamFisher._test.SetDB({
+        DreamFish._test.SetDB({
             buffItems = {},
             buffAuraByItem = {},
         })
-        DreamFisher.state.buffItemLastUseAt = {}
-        DreamFisher.state.buffItemLastReminderAt = {}
-        DreamFisher.state.buffItemLastMissingWarningAt = {}
-        DreamFisher.state.buffItemTransientUntil = {}
-        DreamFisher.state.pendingBuffObservation = nil
+        DreamFish.state.buffItemLastUseAt = {}
+        DreamFish.state.buffItemLastReminderAt = {}
+        DreamFish.state.buffItemLastMissingWarningAt = {}
+        DreamFish.state.buffItemTransientUntil = {}
+        DreamFish.state.pendingBuffObservation = nil
         testFn()
     end)
 
@@ -111,26 +111,26 @@ end
 
 function tests.BuffRefreshLeadMinimumLead()
     -- For 30s refresh: 10% = 3s, min 3s, max cast = 22s → expect 22s
-    local lead30 = DreamFisher._test.GetBuffRefreshLead(30)
+    local lead30 = DreamFish._test.GetBuffRefreshLead(30)
     assertEquals(lead30, 22, "30s refresh should give 22s lead (max of 3s and cast)")
 end
 
 function tests.BuffRefreshLeadMidRange()
     -- For 180s refresh: 10% = 18s, capped at 15s, cast = 22s → expect 22s
-    local lead180 = DreamFisher._test.GetBuffRefreshLead(180)
+    local lead180 = DreamFish._test.GetBuffRefreshLead(180)
     assertEquals(lead180, 22, "180s refresh should give 22s lead")
 end
 
 function tests.BuffRefreshLeadLargeRefresh()
     -- For 3600s refresh: 10% = 360s, capped at 15s, cast = 22s → expect 22s
-    local lead3600 = DreamFisher._test.GetBuffRefreshLead(3600)
+    local lead3600 = DreamFish._test.GetBuffRefreshLead(3600)
     assertEquals(lead3600, 22, "3600s refresh should give 22s lead")
 end
 
 function tests.BuffRefreshLeadAlwaysExceedsCastTime()
     -- Lead must always be > 20s fishing cast time
     for refresh = 30, 3600, 100 do
-        local lead = DreamFisher._test.GetBuffRefreshLead(refresh)
+        local lead = DreamFish._test.GetBuffRefreshLead(refresh)
         assertGreater(lead, 20, "Lead for " .. refresh .. "s should be > 20s")
     end
 end
@@ -143,7 +143,7 @@ function tests.BuffDueWithTrackedAuraActive()
     -- When aura is tracked and active with time remaining < lead, buff is due
     local originalCUnitAuras = _G.C_UnitAuras
     local originalAuraUtil = _G.AuraUtil
-    DreamFisher._test.SetDB({
+    DreamFish._test.SetDB({
         buffItems = { { itemID = 111 } },
         buffAuraByItem = { ["111"] = { spellID = 999, duration = 30 } },
     })
@@ -172,7 +172,7 @@ function tests.BuffDueWithTrackedAuraActive()
         end,
     }
 
-    local isDue, remaining, reason = DreamFisher._test.IsBuffItemDue(111, 180, false)
+    local isDue, remaining, reason = DreamFish._test.IsBuffItemDue(111, 180, false)
     assertTrue(isDue, "Buff with 20s remaining should be due (lead=22s)")
     assertEquals(reason, "tracked_remaining", "Should cite tracked_remaining")
 
@@ -184,7 +184,7 @@ function tests.BuffDueWithTrackedAuraMissing()
     -- When aura is tracked but not found, buff is due immediately
     local originalCUnitAuras = _G.C_UnitAuras
     local originalAuraUtil = _G.AuraUtil
-    DreamFisher._test.SetDB({
+    DreamFish._test.SetDB({
         buffItems = { { itemID = 111 } },
         buffAuraByItem = { ["111"] = { spellID = 999, duration = 30 } },
     })
@@ -196,7 +196,7 @@ function tests.BuffDueWithTrackedAuraMissing()
     }
     _G.AuraUtil = nil
 
-    local isDue, remaining, reason = DreamFisher._test.IsBuffItemDue(111, 180, false)
+    local isDue, remaining, reason = DreamFish._test.IsBuffItemDue(111, 180, false)
     assertTrue(isDue, "Missing tracked aura should be due")
     assertTrue(remaining == nil or remaining == 0, "Remaining should be nil or 0 for missing tracked aura")
     assertEquals(reason, "tracked_missing_aura", "Should cite missing tracked aura path")
@@ -209,7 +209,7 @@ function tests.BuffDueWithTrackedAuraMissingRespectsRecentUse()
     -- If tracked aura cannot be detected but item was just used, do not reapply immediately.
     local originalCUnitAuras = _G.C_UnitAuras
     local originalAuraUtil = _G.AuraUtil
-    DreamFisher._test.SetDB({
+    DreamFish._test.SetDB({
         buffItems = { { itemID = 111 } },
         buffAuraByItem = { ["111"] = { spellID = 999, duration = 30 } },
     })
@@ -220,9 +220,9 @@ function tests.BuffDueWithTrackedAuraMissingRespectsRecentUse()
     }
     _G.AuraUtil = nil
 
-    DreamFisher._test.SetBuffLastUseTime(111, mockTime - 10)
+    DreamFish._test.SetBuffLastUseTime(111, mockTime - 10)
 
-    local isDue, remaining, reason = DreamFisher._test.IsBuffItemDue(111, 180, true)
+    local isDue, remaining, reason = DreamFish._test.IsBuffItemDue(111, 180, true)
     assertEquals(isDue, false, "Missing tracked aura with very recent use should not be due")
     assertEquals(reason, "tracked_missing_recent_use", "Should cite recent-use tracked fallback")
 
@@ -234,7 +234,7 @@ function tests.BuffDueWithTrackedAuraMissingAfterDuration()
     -- If tracked aura is missing and expected duration window has elapsed, item is due.
     local originalCUnitAuras = _G.C_UnitAuras
     local originalAuraUtil = _G.AuraUtil
-    DreamFisher._test.SetDB({
+    DreamFish._test.SetDB({
         buffItems = { { itemID = 111 } },
         buffAuraByItem = { ["111"] = { spellID = 999, duration = 30 } },
     })
@@ -245,9 +245,9 @@ function tests.BuffDueWithTrackedAuraMissingAfterDuration()
     }
     _G.AuraUtil = nil
 
-    DreamFisher._test.SetBuffLastUseTime(111, mockTime - 181)
+    DreamFish._test.SetBuffLastUseTime(111, mockTime - 181)
 
-    local isDue, remaining, reason = DreamFisher._test.IsBuffItemDue(111, 180, true)
+    local isDue, remaining, reason = DreamFish._test.IsBuffItemDue(111, 180, true)
     assertEquals(isDue, true, "Missing tracked aura after expected duration should be due")
     assertEquals(reason, "tracked_missing_aura", "Should cite missing tracked aura once fallback timer elapses")
 
@@ -261,7 +261,7 @@ function tests.KnownAuraFallbackPreventsStaleTrackedRecast()
     local originalCUnitAuras = _G.C_UnitAuras
     local originalAuraUtil = _G.AuraUtil
 
-    DreamFisher._test.SetDB({
+    DreamFish._test.SetDB({
         buffItems = { { itemID = 242299, expectedDuration = 3600 } },
         buffAuraByItem = { ["242299"] = { spellID = 1277461, duration = 20 } },
     })
@@ -281,12 +281,12 @@ function tests.KnownAuraFallbackPreventsStaleTrackedRecast()
     }
     _G.AuraUtil = nil
 
-    local isDue, remaining, reason = DreamFisher._test.IsBuffItemDue(242299, 3600, true)
+    local isDue, remaining, reason = DreamFish._test.IsBuffItemDue(242299, 3600, true)
     assertEquals(isDue, false, "Known active tea aura should prevent stale tracked recast")
     assertEquals(reason, "tracked_remaining", "Known aura fallback should use tracked remaining path")
     assertTrue(remaining and remaining > 0, "Known aura fallback should report remaining time")
 
-    local tracked = DreamFisher.db.buffAuraByItem["242299"]
+    local tracked = DreamFish.db.buffAuraByItem["242299"]
     assertTrue(type(tracked) == "table", "Self-heal should retain tracked mapping table")
     assertEquals(tracked.spellID, 1269152, "Self-heal should rewrite tracked spellID to known lasting aura")
     assertEquals(tracked.duration, 3600, "Self-heal should restore known expected duration")
@@ -297,66 +297,66 @@ end
 
 function tests.BuffDueUntrackedWithTimerNotExpired()
     -- Untracked buff without known duration: do not reapply outside cast probing.
-    DreamFisher._test.SetDB({
+    DreamFish._test.SetDB({
         buffItems = { { itemID = 222 } },
         buffAuraByItem = {},  -- Untracked
     })
 
     -- Used 30s ago (not yet 60s)
-    DreamFisher._test.SetBuffLastUseTime(222, mockTime - 30)
+    DreamFish._test.SetBuffLastUseTime(222, mockTime - 30)
 
-    local isDue, remaining, reason = DreamFisher._test.IsBuffItemDue(222, 60, false)
+    local isDue, remaining, reason = DreamFish._test.IsBuffItemDue(222, 60, false)
     assertEquals(isDue, false, "Buff within timer should not be due")
     assertEquals(reason, "unknown_duration_no_reapply", "Should cite unknown-duration suppression reason")
 end
 
 function tests.BuffDueUntrackedWithTimerExpired()
     -- Untracked buff without known duration stays suppressed outside cast probing.
-    DreamFisher._test.SetDB({
+    DreamFish._test.SetDB({
         buffItems = { { itemID = 222 } },
         buffAuraByItem = {},  -- Untracked
     })
 
     -- Used 70s ago (past 60s window)
-    DreamFisher._test.SetBuffLastUseTime(222, mockTime - 70)
+    DreamFish._test.SetBuffLastUseTime(222, mockTime - 70)
 
-    local isDue, remaining, reason = DreamFisher._test.IsBuffItemDue(222, 60, false)
+    local isDue, remaining, reason = DreamFish._test.IsBuffItemDue(222, 60, false)
     assertEquals(isDue, false, "Unknown-duration untracked buff should not be auto-due")
     assertEquals(reason, "unknown_duration_no_reapply", "Should remain on unknown-duration no-reapply path")
 end
 
 function tests.BuffDueUntrackedForCastIsAlwaysDue()
     -- Very recent use should block immediate reuse even on cast.
-    DreamFisher._test.SetDB({
+    DreamFish._test.SetDB({
         buffItems = { { itemID = 333 } },
         buffAuraByItem = {},  -- Untracked
     })
 
     -- Even if recently used, cast path allows a probe until explicitly suppressed.
-    DreamFisher._test.SetBuffLastUseTime(333, mockTime - 5)
+    DreamFish._test.SetBuffLastUseTime(333, mockTime - 5)
 
-    local isDue, remaining, reason = DreamFisher._test.IsBuffItemDue(333, 60, true)
+    local isDue, remaining, reason = DreamFish._test.IsBuffItemDue(333, 60, true)
     assertEquals(isDue, false, "Very recently used buff should not be immediately reusable on cast")
     assertEquals(reason, "too_soon_to_use", "Recent-use guard should take precedence over probe-due logic")
 end
 
 function tests.BuffDueUntrackedNoHistoryForCast()
     -- Untracked buff with no history should be due on cast so the addon can learn it.
-    DreamFisher._test.SetDB({
+    DreamFish._test.SetDB({
         buffItems = { { itemID = 444, expectedDuration = 60 } },
         buffAuraByItem = {},
     })
 
-    local isDue, remaining, reason = DreamFisher._test.IsBuffItemDue(444, 60, true)
+    local isDue, remaining, reason = DreamFish._test.IsBuffItemDue(444, 60, true)
     assertEquals(isDue, true, "Untracked buff with no history should be due for cast")
     assertEquals(reason, "untracked_no_history_due_cast", "Should cite first-use cast reason")
 end
 
 function tests.BobberToyItemsResolveBobberCategory()
-    local categoryKnown = DreamFisher.buff.GetBuffItemCategory(142529)
+    local categoryKnown = DreamFish.buff.GetBuffItemCategory(142529)
     assertEquals(categoryKnown, "bobber", "Known bobber toy should resolve to bobber category")
 
-    local categoryFromList = DreamFisher.buff.GetBuffItemCategory(142531)
+    local categoryFromList = DreamFish.buff.GetBuffItemCategory(142531)
     assertEquals(categoryFromList, "bobber", "Bobber toy from bobber list should resolve to bobber category")
 end
 
@@ -364,14 +364,14 @@ function tests.TrackingDoesNotDowngradeKnownLongDurationToTransientAura()
     local originalCUnitAuras = _G.C_UnitAuras
     local originalAuraUtil = _G.AuraUtil
 
-    DreamFisher._test.SetDB({
+    DreamFish._test.SetDB({
         buffItems = { { itemID = 242299, expectedDuration = 3600 } },
         buffAuraByItem = {
             ["242299"] = { spellID = 1269152, duration = 3600 },
         },
     })
 
-    DreamFisher.state.pendingBuffObservation = {
+    DreamFish.state.pendingBuffObservation = {
         itemID = 242299,
         before = {},
         expiresAt = mockTime + 10,
@@ -392,13 +392,13 @@ function tests.TrackingDoesNotDowngradeKnownLongDurationToTransientAura()
     }
     _G.AuraUtil = nil
 
-    DreamFisher.buff.UpdatePendingBuffObservation()
+    DreamFish.buff.UpdatePendingBuffObservation()
 
-    local tracked = DreamFisher.db.buffAuraByItem["242299"]
+    local tracked = DreamFish.db.buffAuraByItem["242299"]
     assertTrue(type(tracked) == "table", "Tracked mapping should exist for tea")
     assertEquals(tracked.spellID, 1269152, "Transient aura should not replace long tracked spellID")
     assertEquals(tracked.duration, 3600, "Transient aura should not replace long tracked duration")
-    assertEquals(DreamFisher.state.pendingBuffObservation, nil, "Pending observation should be cleared")
+    assertEquals(DreamFish.state.pendingBuffObservation, nil, "Pending observation should be cleared")
 
     _G.C_UnitAuras = originalCUnitAuras
     _G.AuraUtil = originalAuraUtil
@@ -407,14 +407,14 @@ end
 function tests.TrackingSkipsTransientAuraForFoodDrinkByExpectedDuration()
     local originalCUnitAuras = _G.C_UnitAuras
     local originalAuraUtil = _G.AuraUtil
-    local originalGetBuffItemCategory = DreamFisher.buff.GetBuffItemCategory
+    local originalGetBuffItemCategory = DreamFish.buff.GetBuffItemCategory
 
-    DreamFisher._test.SetDB({
+    DreamFish._test.SetDB({
         buffItems = { { itemID = 555001, expectedDuration = 1800 } },
         buffAuraByItem = {},
     })
 
-    DreamFisher.buff.GetBuffItemCategory = function(itemID)
+    DreamFish.buff.GetBuffItemCategory = function(itemID)
         if itemID == 555001 then
             return "food_drink"
         end
@@ -424,7 +424,7 @@ function tests.TrackingSkipsTransientAuraForFoodDrinkByExpectedDuration()
         return "other_consumable"
     end
 
-    DreamFisher.state.pendingBuffObservation = {
+    DreamFish.state.pendingBuffObservation = {
         itemID = 555001,
         before = {},
         expiresAt = mockTime + 10,
@@ -445,13 +445,13 @@ function tests.TrackingSkipsTransientAuraForFoodDrinkByExpectedDuration()
     }
     _G.AuraUtil = nil
 
-    DreamFisher.buff.UpdatePendingBuffObservation()
+    DreamFish.buff.UpdatePendingBuffObservation()
 
-    local tracked = DreamFisher.db.buffAuraByItem["555001"]
+    local tracked = DreamFish.db.buffAuraByItem["555001"]
     assertEquals(tracked, nil, "Food/drink mapping should not learn from transient short aura")
-    assertEquals(DreamFisher.state.pendingBuffObservation, nil, "Pending observation should be cleared")
+    assertEquals(DreamFish.state.pendingBuffObservation, nil, "Pending observation should be cleared")
 
-    DreamFisher.buff.GetBuffItemCategory = originalGetBuffItemCategory
+    DreamFish.buff.GetBuffItemCategory = originalGetBuffItemCategory
     _G.C_UnitAuras = originalCUnitAuras
     _G.AuraUtil = originalAuraUtil
 end
@@ -460,7 +460,7 @@ function tests.FoodDrinkTransientWindowSuppressesDueAction()
     local originalCUnitAuras = _G.C_UnitAuras
     local originalAuraUtil = _G.AuraUtil
 
-    DreamFisher._test.SetDB({
+    DreamFish._test.SetDB({
         buffItems = { { itemID = 242299, expectedDuration = 3600 } },
         buffAuraByItem = { ["242299"] = { spellID = 1269152, duration = 3600 } },
     })
@@ -471,16 +471,16 @@ function tests.FoodDrinkTransientWindowSuppressesDueAction()
     }
     _G.AuraUtil = nil
 
-    DreamFisher.state.buffItemTransientUntil[242299] = mockTime + 12
+    DreamFish.state.buffItemTransientUntil[242299] = mockTime + 12
 
-    local isDueNow, remainingNow, reasonNow = DreamFisher._test.IsBuffItemDue(242299, 3600, true)
+    local isDueNow, remainingNow, reasonNow = DreamFish._test.IsBuffItemDue(242299, 3600, true)
     assertEquals(isDueNow, false, "Food/drink should not be due while transient window is active")
     assertEquals(reasonNow, "food_drink_transient_active", "Should cite food_drink transient suppression")
     assertTrue(remainingNow and remainingNow > 0, "Transient suppression should report remaining time")
 
     mockTime = mockTime + 13
 
-    local isDueAfter, _, reasonAfter = DreamFisher._test.IsBuffItemDue(242299, 3600, true)
+    local isDueAfter, _, reasonAfter = DreamFish._test.IsBuffItemDue(242299, 3600, true)
     assertEquals(isDueAfter, true, "Food/drink can become due again after transient window expires")
     assertEquals(reasonAfter, "tracked_missing_aura", "After transient window, fallback should be tracked_missing_aura")
 
@@ -492,12 +492,12 @@ function tests.PendingObservationPrefersKnownSpellOverLongerBobberAura()
     local originalCUnitAuras = _G.C_UnitAuras
     local originalAuraUtil = _G.AuraUtil
 
-    DreamFisher._test.SetDB({
+    DreamFish._test.SetDB({
         buffItems = { { itemID = 238381 } },
         buffAuraByItem = {},
     })
 
-    DreamFisher.state.pendingBuffObservation = {
+    DreamFish.state.pendingBuffObservation = {
         itemID = 238381,
         before = {},
         expiresAt = mockTime + 10,
@@ -525,13 +525,13 @@ function tests.PendingObservationPrefersKnownSpellOverLongerBobberAura()
     }
     _G.AuraUtil = nil
 
-    DreamFisher.buff.UpdatePendingBuffObservation()
+    DreamFish.buff.UpdatePendingBuffObservation()
 
-    local tracked = DreamFisher.db.buffAuraByItem["238381"]
+    local tracked = DreamFish.db.buffAuraByItem["238381"]
     assertTrue(type(tracked) == "table", "Pending observation should learn a mapping for Hollow Grouper")
     assertEquals(tracked.spellID, 1237942, "Pending observation should prefer the item's known spell over bobber aura")
     assertEquals(tracked.duration, 30, "Pending observation should preserve the short consumable duration")
-    assertEquals(DreamFisher.state.pendingBuffObservation, nil, "Pending observation should clear after matching known spell")
+    assertEquals(DreamFish.state.pendingBuffObservation, nil, "Pending observation should clear after matching known spell")
 
     _G.C_UnitAuras = originalCUnitAuras
     _G.AuraUtil = originalAuraUtil
@@ -543,7 +543,7 @@ end
 
 function tests.GetNextDueBuffReturnsFirst()
     -- When multiple buffs are due, return first one
-    DreamFisher._test.SetDB({
+    DreamFish._test.SetDB({
         buffItems = {
             { itemID = 111 },
             { itemID = 222 },
@@ -552,8 +552,8 @@ function tests.GetNextDueBuffReturnsFirst()
     })
 
     -- Both used long ago (both due)
-    DreamFisher._test.SetBuffLastUseTime(111, mockTime - 100)
-    DreamFisher._test.SetBuffLastUseTime(222, mockTime - 100)
+    DreamFish._test.SetBuffLastUseTime(111, mockTime - 100)
+    DreamFish._test.SetBuffLastUseTime(222, mockTime - 100)
 
     -- Mock FindItemInBags to return both items
     local originalFindItemInBags = _G.FindItemInBags
@@ -563,7 +563,7 @@ function tests.GetNextDueBuffReturnsFirst()
         return nil, nil
     end
 
-    local nextItem = DreamFisher._test.GetNextDueBuffItem(true)
+    local nextItem = DreamFish._test.GetNextDueBuffItem(true)
     assertEquals(nextItem, 111, "Should return first due buff")
 
     _G.FindItemInBags = originalFindItemInBags
@@ -571,7 +571,7 @@ end
 
 function tests.GetNextDueBuffSkipsUnavailable()
     -- When first buff is excluded, the helper should still return a due item.
-    DreamFisher._test.SetDB({
+    DreamFish._test.SetDB({
         buffItems = {
             { itemID = 111 },
             { itemID = 222 },
@@ -580,16 +580,16 @@ function tests.GetNextDueBuffSkipsUnavailable()
     })
 
     -- Both due
-    DreamFisher._test.SetBuffLastUseTime(111, mockTime - 100)
-    DreamFisher._test.SetBuffLastUseTime(222, mockTime - 100)
+    DreamFish._test.SetBuffLastUseTime(111, mockTime - 100)
+    DreamFish._test.SetBuffLastUseTime(222, mockTime - 100)
 
-    local nextItem = DreamFisher._test.GetNextDueBuffItem(true, { [111] = true })
+    local nextItem = DreamFish._test.GetNextDueBuffItem(true, { [111] = true })
     assertTrue(nextItem ~= nil, "Should return some due buff item")
 end
 
 function tests.GetNextDueBuffReturnsNilWhenNoneDue()
     -- When no buffs are due, return nil
-    DreamFisher._test.SetDB({
+    DreamFish._test.SetDB({
         buffItems = {
             { itemID = 111 },
         },
@@ -597,12 +597,12 @@ function tests.GetNextDueBuffReturnsNilWhenNoneDue()
     })
 
     -- Used recently (not due)
-    DreamFisher._test.SetBuffLastUseTime(111, mockTime - 30)
+    DreamFish._test.SetBuffLastUseTime(111, mockTime - 30)
 
     local originalFindItemInBags = _G.FindItemInBags
     _G.FindItemInBags = function() return 0, 1 end
 
-    local nextItem = DreamFisher._test.GetNextDueBuffItem(false)
+    local nextItem = DreamFish._test.GetNextDueBuffItem(false)
     assertEquals(nextItem, nil, "Should return nil when no buffs due")
 
     _G.FindItemInBags = originalFindItemInBags
@@ -612,7 +612,7 @@ end
 -- Run All Tests
 -- ============================================================================
 
-print("\n=== DreamFisher Buff Timing Tests ===\n")
+print("\n=== DreamFish Buff Timing Tests ===\n")
 
 for name, testFn in pairs(tests) do
     RunTest(name, testFn)

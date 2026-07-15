@@ -1,6 +1,6 @@
--- DreamFisher: Fishing State Tracking
+-- DreamFish: Fishing State Tracking
 
-local addon = _G["DreamFisher"]
+local addon = _G["DreamFish"]
 local PrintMessage = addon.PrintMessage
 local DebugMessage = addon.DebugMessage
 local DebugStateMessage = addon.DebugStateMessage or function() end
@@ -183,7 +183,7 @@ local function GetHookedInteractEvidence()
     local hasSoftInteractNameOnly = false
 
     if not requireFishingAPI then
-        error("DreamFisher: RequireFishingAPI helper is required for hooked interact evidence")
+        error("DreamFish: RequireFishingAPI helper is required for hooked interact evidence")
     end
     local fishing = requireFishingAPI()
     if fishing and fishing.GetInteractDiagnostics then
@@ -252,23 +252,23 @@ end
 local function EnableTemporaryManagedLoot()
     if addon.db and addon.db.managedLoot then
         local current = GetCVar("autoLootDefault")
-        if addon.state.savedAutoLoot == nil then
-            addon.state.savedAutoLoot = current
+        if addon.state.savedAutoLootDefault == nil then
+            addon.state.savedAutoLootDefault = current
         end
         SetCVar("autoLootDefault", "0")
     end
 end
 
 local function RestoreOriginalAutoLoot()
-    if addon.db and addon.db.managedLoot and addon.state.savedAutoLoot ~= nil then
-        SetCVar("autoLootDefault", addon.state.savedAutoLoot)
-        addon.state.savedAutoLoot = nil
+    if addon.db and addon.db.managedLoot and addon.state.savedAutoLootDefault ~= nil then
+        SetCVar("autoLootDefault", addon.state.savedAutoLootDefault)
+        addon.state.savedAutoLootDefault = nil
     end
 end
 
 local function MaybeEquipConfiguredUnderlight(reason)
     if not requireFishingAPI then
-        error("DreamFisher: RequireFishingAPI helper is required for configured pole sync")
+        error("DreamFish: RequireFishingAPI helper is required for configured pole sync")
     end
     local fishing = requireFishingAPI()
     if fishing and fishing.MaybeEquipConfiguredUnderlight then
@@ -279,10 +279,10 @@ end
 local function RunSessionCloseEffects(options)
     local opts = options or {}
     if not requireFishingAPI then
-        error("DreamFisher: RequireFishingAPI helper is required for session close effects")
+        error("DreamFish: RequireFishingAPI helper is required for session close effects")
     end
     if not requireAudioAPI then
-        error("DreamFisher: RequireAudioAPI helper is required for session close effects")
+        error("DreamFish: RequireAudioAPI helper is required for session close effects")
     end
     local fishing = requireFishingAPI()
     local audio = requireAudioAPI()
@@ -346,7 +346,7 @@ end
 
 local function TryArmNativeInteractOverrideFromFishingState()
     if not requireFishingAPI then
-        error("DreamFisher: RequireFishingAPI helper is required for interact override fallback")
+        error("DreamFish: RequireFishingAPI helper is required for interact override fallback")
     end
     local fishing = requireFishingAPI()
 
@@ -411,7 +411,7 @@ local function CreateSwimmingStateMonitor()
         local waterContext = nil
         local swimming = false
         if not requireFishingAPI then
-            error("DreamFisher: RequireFishingAPI helper is required for swimming state monitor")
+            error("DreamFish: RequireFishingAPI helper is required for swimming state monitor")
         end
         local fishing = requireFishingAPI()
         if fishing and fishing.GetWaterContextDiagnostics then
@@ -502,10 +502,10 @@ local function CreateFishingStateFrame()
 
     frame:SetScript("OnEvent", function(self, event, unit, ...)
         if not requireFishingAPI then
-            error("DreamFisher: RequireFishingAPI helper is required for fishing state events")
+            error("DreamFish: RequireFishingAPI helper is required for fishing state events")
         end
         if not requireAudioAPI then
-            error("DreamFisher: RequireAudioAPI helper is required for fishing state events")
+            error("DreamFish: RequireAudioAPI helper is required for fishing state events")
         end
         local fishing = requireFishingAPI()
         local audio = requireAudioAPI()
@@ -716,7 +716,7 @@ end
 addon._test.EnableTemporaryManagedLoot = EnableTemporaryManagedLoot
 addon._test.RestoreOriginalAutoLoot = RestoreOriginalAutoLoot
 addon._test.ResetAutoLootState = function()
-    addon.state.savedAutoLoot = nil
+    addon.state.savedAutoLootDefault = nil
 end
 
 addon._test.SetSessionState = function(nextState, reason, options)

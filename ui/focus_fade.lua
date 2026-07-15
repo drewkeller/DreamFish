@@ -1,6 +1,6 @@
--- DreamFisher: Focus frame fading while fishing
+-- DreamFish: Focus frame fading while fishing
 
-local addon = _G["DreamFisher"]
+local addon = _G["DreamFish"]
 
 local HIDDEN_ALPHA = 0.0001 -- Using 0 can cause issues with mouse events; use a very small number instead.
 local VISIBLE_ALPHA = 1.0
@@ -152,7 +152,7 @@ end
 
 local function ResolveFishingAPIRequired()
     if not addon or not addon.RequireFishingAPI then
-        error("DreamFisher: RequireFishingAPI helper is required for focus fade")
+        error("DreamFish: RequireFishingAPI helper is required for focus fade")
     end
     return addon.RequireFishingAPI()
 end
@@ -165,7 +165,7 @@ local function IsFishingSessionActive()
     local fishing = ResolveFishingAPIRequired()
 
     if not (fishing and fishing.IsFishingActiveSessionState and fishing.IsSessionState) then
-        error("DreamFisher: IsFishingActiveSessionState and IsSessionState are required for focus fade state checks")
+        error("DreamFish: IsFishingActiveSessionState and IsSessionState are required for focus fade state checks")
     end
 
     return fishing.IsFishingActiveSessionState() or fishing.IsSessionState("LOOTING")
@@ -179,7 +179,7 @@ local function IsPreCastingSessionState()
     local fishing = ResolveFishingAPIRequired()
 
     if not (fishing and fishing.IsSessionState) then
-        error("DreamFisher: IsSessionState is required for focus fade PRE_CASTING checks")
+        error("DreamFish: IsSessionState is required for focus fade PRE_CASTING checks")
     end
 
     return fishing.IsSessionState("PRE_CASTING")

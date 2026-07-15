@@ -1,4 +1,4 @@
--- Unit tests for DreamFisher bag-space behavior.
+-- Unit tests for DreamFish bag-space behavior.
 -- Run with: lua tests/bag_space_test.lua
 
 local function assertEquals(actual, expected, message)
@@ -42,7 +42,7 @@ local function makeNoopFrame()
         StartMoving = function() end,
         StopMovingOrSizing = function() end,
         UnregisterEvent = function() end,
-        GetName = function() return "DreamFisherSecureFishingButton" end,
+        GetName = function() return "DreamFishSecureFishingButton" end,
     }
 end
 
@@ -107,9 +107,9 @@ dofile("core/utils.lua")
 dofile("core/module_api.lua")
 dofile("core/api_resolver.lua")
 dofile("fishing/helpers.lua")
-dofile("DreamFisher.lua")
+dofile("DreamFish.lua")
 
-local addon = _G.DreamFisher
+local addon = _G.DreamFish
 assertEquals(type(addon), "table", "Addon table should exist")
 assertEquals(type(addon._test), "table", "Test hooks should exist")
 

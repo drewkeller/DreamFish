@@ -17,7 +17,7 @@ collect_lines_for_dir() {
 
 count_pattern() {
     local pattern="$1"
-    local paths=(core fishing audio buff ui DreamFisher.lua)
+    local paths=(core fishing audio buff ui DreamFish.lua)
     grep -RhoE "$pattern" "${paths[@]}" 2>/dev/null | wc -l | tr -d ' '
 }
 
@@ -51,7 +51,7 @@ UI_LINES="$(collect_lines_for_dir ui)"
 TOTAL_LINES="$((CORE_LINES + FISHING_LINES + AUDIO_LINES + BUFF_LINES + UI_LINES))"
 
 cat >"$OUTPUT_PATH" <<EOF
-# DreamFisher Refactor Metrics
+# DreamFish Refactor Metrics
 
 Generated: $RUNSTAMP
 

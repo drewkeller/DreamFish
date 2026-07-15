@@ -1,10 +1,10 @@
 ## Interface: 120007
 ## AllowLoadGameType: standard, mainline
-## Title: DreamFisher
+## Title: DreamFish
 ## Notes: Fishing quality-of-life helper for World of Warcraft.
 ## Author: Drew Keller with Copilot
 ## Version: 1.0
-## SavedVariables: DreamFisherDB
+## SavedVariables: DreamFishDB
 
 # Embedded libraries (Ace3)
 Libs/LibStub/LibStub.lua
@@ -47,5 +47,5 @@ ui/focus_fade.lua
 ui/config.lua
 
 # Main coordinator (runs after all modules load)
-DreamFisher.lua
+DreamFish.lua
 

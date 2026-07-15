@@ -1,7 +1,7 @@
--- DreamFisher: Audio and Visual Alerts
+-- DreamFish: Audio and Visual Alerts
 
-local addonName = "DreamFisher"
-local addon = _G["DreamFisher"]
+local addonName = "DreamFish"
+local addon = _G["DreamFish"]
 local getAudioAPI = addon.GetAudioAPI
 local PrintMessage = addon.PrintMessage
 

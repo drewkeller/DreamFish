@@ -1,4 +1,4 @@
--- Unit tests for DreamFisher loot-window behavior.
+-- Unit tests for DreamFish loot-window behavior.
 -- Run with: lua tests/loot_window_test.lua
 
 local function assertEquals(actual, expected, message)
@@ -162,9 +162,9 @@ dofile("ui/commands.lua")
 dofile("ui/ace_widget_factory.lua")
 dofile("ui/buff_item_drop_box.lua")
 dofile("ui/config.lua")
-dofile("DreamFisher.lua")
+dofile("DreamFish.lua")
 
-local addon = _G.DreamFisher
+local addon = _G.DreamFish
 assertEquals(type(addon), "table", "Addon table should exist")
 assertEquals(type(addon._test), "table", "Test hooks should exist")
 
@@ -187,12 +187,12 @@ end
 
 local rootFrame = nil
 for _, frame in ipairs(createdFrames) do
-    if frame.GetName and frame:GetName() == "DreamFisherFrame" and frame.GetScript and type(frame:GetScript("OnEvent")) == "function" then
+    if frame.GetName and frame:GetName() == "DreamFishFrame" and frame.GetScript and type(frame:GetScript("OnEvent")) == "function" then
         rootFrame = frame
     end
 end
 assertTrue(rootFrame ~= nil, "Root addon frame should exist")
-rootFrame:GetScript("OnEvent")(rootFrame, "ADDON_LOADED", "DreamFisher")
+rootFrame:GetScript("OnEvent")(rootFrame, "ADDON_LOADED", "DreamFish")
 
 local stateFrame = addon._test.GetFishingStateFrame()
 assertTrue(stateFrame ~= nil, "Fishing state frame should exist")

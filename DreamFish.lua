@@ -1,8 +1,8 @@
--- DreamFisher - Modular Addon Loader
+-- DreamFish - Modular Addon Loader
 -- This file orchestrates loading of all addon modules
 
 -- Initialize addon namespace
-local addonName = "DreamFisher"
+local addonName = "DreamFish"
 local addon = _G[addonName] or {}
 _G[addonName] = addon
 
@@ -43,9 +43,25 @@ addon.CopyDefaults = function(source, target)
     end
 end
 
+local function NormalizeLootConfig(db)
+    if type(db) ~= "table" then
+        return
+    end
+
+    if db.autoLoot and db.managedLoot then
+        db.autoLoot = false
+    end
+
+    local delay = tonumber(db.lootDelay)
+    if not delay then
+        delay = tonumber(addon.defaults and addon.defaults.lootDelay) or 0.5
+    end
+    db.lootDelay = addon.Clamp(delay, 0, 5)
+end
+
 addon.PrintMessage = function(msg)
     if DEFAULT_CHAT_FRAME and DEFAULT_CHAT_FRAME.AddMessage then
-        DEFAULT_CHAT_FRAME:AddMessage("|cFF7FFFDADreamFisher|r " .. msg)
+        DEFAULT_CHAT_FRAME:AddMessage("|cFF7FFFDADreamFish|r " .. msg)
     end
 end
 
@@ -70,15 +86,15 @@ local function DebugLootMessage(msg)
 end
 
 
-_G.BINDING_HEADER_DREAMFISHER = "DreamFisher"
--- Label for CLICK DreamFisherSecureFishingButton:RightButton binding.
+_G.BINDING_HEADER_DREAMFISHER = "DreamFish"
+-- Label for CLICK DreamFishSecureFishingButton:RightButton binding.
 -- WoW normalizes click-binding token characters to underscores.
-if not _G.BINDING_NAME_CLICK_DreamFisherSecureFishingButton_RightButton then
-    _G.BINDING_NAME_CLICK_DreamFisherSecureFishingButton_RightButton = "Trigger Fishing Cast"
+if not _G.BINDING_NAME_CLICK_DreamFishSecureFishingButton_RightButton then
+    _G.BINDING_NAME_CLICK_DreamFishSecureFishingButton_RightButton = "Trigger Fishing Cast"
  end
 
 -- NOTE: Due to WoW addon architecture, individual module files should be
--- listed in DreamFisher.toc in load order, rather than using dofile().
+-- listed in DreamFish.toc in load order, rather than using dofile().
 -- This file serves as a hub for cross-module communication.
 --
 -- Load order should be:
@@ -103,10 +119,10 @@ frame:RegisterEvent("ADDON_LOADED")
 frame:SetScript("OnEvent", function(self, event, name)
     if event ~= "ADDON_LOADED" or name ~= addonName then return end
     if not requireFishingAPI then
-        error("DreamFisher: RequireFishingAPI helper is required during addon initialization")
+        error("DreamFish: RequireFishingAPI helper is required during addon initialization")
     end
     if not requireAudioAPI then
-        error("DreamFisher: RequireAudioAPI helper is required during addon initialization")
+        error("DreamFish: RequireAudioAPI helper is required during addon initialization")
     end
     local fishing = requireFishingAPI()
     local audio = requireAudioAPI()
@@ -117,6 +133,7 @@ frame:SetScript("OnEvent", function(self, event, name)
     _G[addonName .. "DB"] = _G[addonName .. "DB"] or {}
     addon.db = _G[addonName .. "DB"]
     addon.CopyDefaults(addon.defaults, addon.db)
+    NormalizeLootConfig(addon.db)
 
     if audio and audio.ResumePersistedAudioDuckingState then
         audio.ResumePersistedAudioDuckingState()
@@ -160,6 +177,7 @@ end)
         if addon.CopyDefaults then
             addon.CopyDefaults(addon.defaults, addon.db)
         end
+        NormalizeLootConfig(addon.db)
         if addon.buff and addon.buff.NormalizeBuffConfig then
             addon.buff.NormalizeBuffConfig()
         end
@@ -170,7 +188,7 @@ local lastRightClickDisabledDebugAt = 0
 if WorldFrame then
     WorldFrame:HookScript("OnMouseDown", function(_, button)
         if not requireFishingAPI then
-            error("DreamFisher: RequireFishingAPI helper is required for world right-click handling")
+            error("DreamFish: RequireFishingAPI helper is required for world right-click handling")
         end
         local fishing = requireFishingAPI()
         if button == "RightButton" and not InCombatLockdown() then
@@ -333,41 +351,45 @@ lootTracker:RegisterEvent("LOOT_READY")
 lootTracker:RegisterEvent("LOOT_CLOSED")
 lootTracker:SetScript("OnEvent", function(_, event, ...)
     if not requireFishingAPI then
-        error("DreamFisher: RequireFishingAPI helper is required for loot tracker")
+        error("DreamFish: RequireFishingAPI helper is required for loot tracker")
     end
     local fishing = requireFishingAPI()
 
     if event == "LOOT_READY" then
+        if addon.db and addon.db.autoLoot then
+            DebugLootMessage("Auto-loot while fishing is enabled; skipping managed loot handling to allow Blizzard auto-loot to function")
+            return
+        end
         if not (fishing and fishing.IsFishingActiveSessionState) then
-            error("DreamFisher: IsFishingActiveSessionState is required for loot-ready handling")
+            error("DreamFish: IsFishingActiveSessionState is required for loot-ready handling")
         end
         -- if not fishing.IsFishingActiveSessionState() then
         --     DebugLootMessage("Received loot event " .. tostring(event) .. " but not in active fishing session; ignoring")
         --     return
         -- end
         if not (fishing and fishing.ApplySessionState and fishing.IsLootReadySessionState) then
-            error("DreamFisher: ApplySessionState and IsLootReadySessionState are required for loot-ready handling")
+            error("DreamFish: ApplySessionState and IsLootReadySessionState are required for loot-ready handling")
         end
         if fishing.IsLootReadySessionState() and not (fishing.IsSessionState and fishing.IsSessionState("LOOTING")) then
             fishing.ApplySessionState("LOOTING", "loot-ready")
         end
         DebugLootMessage("LOOT_READY event received; scheduled loot handling")
-        -- if C_Timer and type(C_Timer.After) == "function" then
-        --     C_Timer.After(0.5, function()
-        --         HandleFishingLootWindow()
-        --     end)
-        -- else
+        if C_Timer and type(C_Timer.After) == "function" then
+            C_Timer.After(addon.db.lootDelay, function()
+                HandleFishingLootWindow()
+            end)
+        else
              HandleFishingLootWindow()
-        -- end
+        end
 
     elseif event == "LOOT_CLOSED" then
         if not (fishing and fishing.IsSessionState) then
-            error("DreamFisher: IsSessionState is required for loot-close handling")
+            error("DreamFish: IsSessionState is required for loot-close handling")
         end
         if fishing.IsSessionState("LOOTING") then
             DebugLootMessage("Fishing loot in progress ended")
             if not (fishing and fishing.StartLingerThenCloseSession) then
-                error("DreamFisher: StartLingerThenCloseSession is required for loot close handling")
+                error("DreamFish: StartLingerThenCloseSession is required for loot close handling")
             end
             fishing.StartLingerThenCloseSession(
                 "loot-closed-starting-linger",
@@ -394,8 +416,11 @@ bagMonitor:SetScript("OnEvent", function(_, event)
     local alerts = requireAlertsAPI()
 
     if event == "BAG_UPDATE_DELAYED" and addon.utils and addon.alerts then
+        if not (fishing and fishing.IsFishingActiveSessionState) then
+            error("DreamFish: IsFishingActiveSessionState is required for bag-update handling")
+        end
         if not requireAlertsAPI then
-            error("DreamFisher: RequireAlertsAPI helper is required for bag monitoring")
+            error("DreamFish: RequireAlertsAPI helper is required for bag monitoring")
         end
         local alerts = requireAlertsAPI()
         local shouldCheckRegular = addon.db and addon.db.bagAlerts
@@ -419,7 +444,7 @@ bagMonitor:SetScript("OnEvent", function(_, event)
         end
     elseif event == "BAG_UPDATE" then
         if not (fishing and fishing.IsFishingActiveSessionState) then
-            error("DreamFisher: IsFishingActiveSessionState is required for bag-update handling")
+            error("DreamFish: IsFishingActiveSessionState is required for bag-update handling")
         end
         if fishing.IsFishingActiveSessionState() and addon.utils then
             addon.utils.CheckBagSpace()
@@ -446,10 +471,10 @@ auraTracker:SetScript("OnEvent", function(_, event, ...)
     if event == "UNIT_AURA" then
         if type(arg1) ~= "string" or arg1 ~= "player" then return end
         if not requireFishingAPI then
-            error("DreamFisher: RequireFishingAPI helper is required for aura tracking")
+            error("DreamFish: RequireFishingAPI helper is required for aura tracking")
         end
         if not requireAlertsAPI then
-            error("DreamFisher: RequireAlertsAPI helper is required for aura tracking")
+            error("DreamFish: RequireAlertsAPI helper is required for aura tracking")
         end
 
         if addon.buff then addon.buff.UpdatePendingBuffObservation() end
@@ -483,7 +508,7 @@ auraTracker:SetScript("OnEvent", function(_, event, ...)
             local startedAt = tonumber(addon.state.fishingStartTime) or 0
             local elapsed = (startedAt > 0 and now >= startedAt) and (now - startedAt) or 0
             if not (fishing and fishing.StartLingerThenCloseSession) then
-                error("DreamFisher: StartLingerThenCloseSession is required for no-fish-hooked handling")
+                error("DreamFish: StartLingerThenCloseSession is required for no-fish-hooked handling")
             end
             fishing.StartLingerThenCloseSession(
                 "ui-info-no-fish-hooked-starting-linger",

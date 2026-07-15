@@ -1,4 +1,4 @@
--- Unit tests for DreamFisher owned-toy selector helpers.
+-- Unit tests for DreamFish owned-toy selector helpers.
 -- Run with: lua tests/toy_selector_test.lua
 
 local function assertEquals(actual, expected, message)
@@ -133,9 +133,9 @@ dofile("ui/commands.lua")
 dofile("ui/ace_widget_factory.lua")
 dofile("ui/buff_item_drop_box.lua")
 dofile("ui/config.lua")
-dofile("DreamFisher.lua")
+dofile("DreamFish.lua")
 
-local addon = _G.DreamFisher
+local addon = _G.DreamFish
 assertEquals(type(addon), "table", "Addon should load")
 
 local bobbers = addon.utils.GetOwnedBobberToyItemIDs()

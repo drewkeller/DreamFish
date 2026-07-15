@@ -1,6 +1,6 @@
--- DreamFisher: Buff Timing Logic
+-- DreamFish: Buff Timing Logic
 
-local addon = _G["DreamFisher"]
+local addon = _G["DreamFish"]
 local Clamp = addon.Clamp
 
 local DebugBuffMessage = addon.buff.DebugBuffMessage or addon.DebugMessage

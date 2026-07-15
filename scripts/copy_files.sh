@@ -1,6 +1,6 @@
 #!/bin/bash
 
-ADDON_NAME="DreamFisher"
+ADDON_NAME="DreamFish"
 
 if [[ $WOW_DIR == "" ]]; then
   echo "Please set the WOW_DIR environment variable."
@@ -16,7 +16,7 @@ else
 fi
 
 # Copy the main addon files to the addon directory
-cp -f DreamFisher.lua DreamFisher.toc Bindings.xml  \
+cp -f DreamFish.lua DreamFish.toc Bindings.xml  \
   "$ADDON_DIR"
 
 # Copy the addon subdirectories to the addon directory

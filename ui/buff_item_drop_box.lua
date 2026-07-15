@@ -1,6 +1,6 @@
--- DreamFisher Buff Item Drop Box UI
+-- DreamFish Buff Item Drop Box UI
 
-local addon = _G["DreamFisher"]
+local addon = _G["DreamFish"]
 addon.ui = addon.ui or {}
 
 function addon.ui.CreateBuffItemDropBox(deps, parent, x, y, label, onLiveChange)
@@ -69,7 +69,7 @@ function addon.ui.CreateBuffItemDropBox(deps, parent, x, y, label, onLiveChange)
                 bag, slot = addon.buff.FindItemInBags(numeric)
             else
                 if not addon.RequireFishingAPI then
-                    error("DreamFisher: RequireFishingAPI helper is required for buff item bag lookup fallback")
+                    error("DreamFish: RequireFishingAPI helper is required for buff item bag lookup fallback")
                 end
                 local fishing = addon.RequireFishingAPI()
                 if fishing and fishing.FindItemInBags then

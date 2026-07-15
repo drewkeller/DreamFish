@@ -1,6 +1,6 @@
--- DreamFisher: Fishing Helpers and Bag Management
+-- DreamFish: Fishing Helpers and Bag Management
 
-local addon = _G["DreamFisher"]
+local addon = _G["DreamFish"]
 local getAudioAPI = addon.GetAudioAPI
 
 local function GetOwnedToyItemIDs(candidateIDs)

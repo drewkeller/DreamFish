@@ -1,4 +1,4 @@
--- Unit tests for DreamFisher module API registry wiring.
+-- Unit tests for DreamFish module API registry wiring.
 -- Run with: lua tests/module_api_registry_test.lua
 
 local function assertEquals(actual, expected, message)
@@ -126,9 +126,9 @@ dofile("ui/ace_widget_factory.lua")
 dofile("ui/buff_item_drop_box.lua")
 dofile("ui/focus_fade.lua")
 dofile("ui/config.lua")
-dofile("DreamFisher.lua")
+dofile("DreamFish.lua")
 
-local addon = _G.DreamFisher
+local addon = _G.DreamFish
 assertTrue(type(addon) == "table", "Addon table should exist")
 assertTrue(type(addon.moduleAPI) == "table", "moduleAPI registry should exist")
 assertTrue(type(addon.moduleAPI.Get) == "function", "moduleAPI.Get should exist")

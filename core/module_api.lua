@@ -1,7 +1,7 @@
--- DreamFisher: Module API Registry
+-- DreamFish: Module API Registry
 -- Provides a stable place for modules to publish and consume APIs.
 
-local addon = _G["DreamFisher"]
+local addon = _G["DreamFish"]
 if not addon then
     return
 end
@@ -13,10 +13,10 @@ local registry = addon.moduleAPI._registry
 
 local function Register(name, api)
     if type(name) ~= "string" or name == "" then
-        error("DreamFisher: module API name must be a non-empty string")
+        error("DreamFish: module API name must be a non-empty string")
     end
     if type(api) ~= "table" then
-        error("DreamFisher: module API must be a table for module '" .. tostring(name) .. "'")
+        error("DreamFish: module API must be a table for module '" .. tostring(name) .. "'")
     end
     registry[name] = api
     return api
@@ -32,7 +32,7 @@ end
 local function Require(name)
     local api = Get(name)
     if not api then
-        error("DreamFisher: required module API is missing: " .. tostring(name))
+        error("DreamFish: required module API is missing: " .. tostring(name))
     end
     return api
 end

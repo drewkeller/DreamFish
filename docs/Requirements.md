@@ -2,7 +2,7 @@
 Write an addon for World of Warcraft (retail version, currently Midnight expansion patch 12.0.7).
 The addon is to provide features related to the game's Fishing profession and offer quality of life enhancements
 to the fishing experience.
-Name the addon "DreamFisher".
+Name the addon "DreamFish".
 
 # Core Features
 * Right double click to cast
@@ -93,7 +93,7 @@ When the optional hooked-interact mode is enabled, users must configure game set
     Bind an Interact key in game keybindings.
     Enable game interact/soft-target assistance options.
     Avoid conflicting addons or click-cast setups that override world right-click behavior.
-    Enable the DreamFisher mode toggle for same-trigger interact while bobber is active.
+    Enable the DreamFish mode toggle for same-trigger interact while bobber is active.
 
 ## Buffs
 * Choose an appropriate buff (this section can be boiled down to tracking the auras applied by certain items)

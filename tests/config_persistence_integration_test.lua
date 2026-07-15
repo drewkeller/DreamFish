@@ -1,4 +1,4 @@
--- Integration tests for DreamFisher config persistence flows.
+-- Integration tests for DreamFish config persistence flows.
 -- Run with: lua tests/config_persistence_integration_test.lua
 
 local function assertEquals(actual, expected, message)
@@ -126,14 +126,15 @@ dofile("ui/commands.lua")
 dofile("ui/ace_widget_factory.lua")
 dofile("ui/buff_item_drop_box.lua")
 dofile("ui/config.lua")
-dofile("DreamFisher.lua")
+dofile("DreamFish.lua")
 
-local addon = _G.DreamFisher
+local addon = _G.DreamFish
 assertTrue(type(addon) == "table", "Addon table should exist")
 assertTrue(type(addon.config) == "table", "Config module should exist")
 assertTrue(type(addon.config.SaveConfig) == "function", "SaveConfig should exist")
 
 addon._test.SetDB({
+    autoLoot = true,
     focusedVisuals = true,
     focusedAudio = false,
     focusedAudioLinger = 10,
@@ -189,7 +190,9 @@ addon.state.audioRestoreAt = 105
 addon.bagAlertsThresholdBox = { GetText = function() return "7" end }
 addon.reagentBagAlertsThresholdBox = { GetText = function() return "4" end }
 addon.audioLingerBox = { GetText = function() return "12" end }
+addon.autoLootCheckbox = { GetChecked = function() return true end }
 addon.managedLootCheckbox = { GetChecked = function() return false end }
+addon.lootDelayBox = { GetText = function() return "750" end }
 addon.focusedAudioCheckbox = { GetChecked = function() return true end }
 addon.focusedVisualsCheckbox = { GetChecked = function() return false end }
 addon.focusedVisualsLingerBox = { GetText = function() return "9" end }
@@ -230,7 +233,9 @@ assertEquals(addon.db.bagAlertsThreshold, 7, "Bag alert threshold should persist
 assertEquals(addon.db.reagentBagAlertsThreshold, 4, "Reagent bag alert threshold should persist from UI control")
 assertEquals(addon.db.focusedAudioLinger, 12, "Focused audio linger should persist from UI control")
 assertEquals(addon.db.focusedVisualsLinger, 9, "Focused visuals linger should persist from UI control")
+assertEquals(addon.db.autoLoot, true, "Native auto-loot checkbox should persist")
 assertEquals(addon.db.managedLoot, false, "Auto-loot checkbox should persist")
+assertEquals(addon.db.lootDelay, 0.75, "Loot delay milliseconds should persist as seconds")
 assertEquals(addon.db.focusedAudio, true, "Focused audio checkbox should persist")
 assertEquals(addon.db.focusedVisuals, false, "Focused visuals checkbox should persist")
 assertEquals(addon.db.treasureAlerts, false, "Treasure alert checkbox should persist")

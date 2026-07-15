@@ -1,6 +1,6 @@
--- DreamFisher: Fishing Casting and World Right-Click Handler
+-- DreamFish: Fishing Casting and World Right-Click Handler
 
-local addon = _G["DreamFisher"]
+local addon = _G["DreamFish"]
 local PrintMessage = addon.PrintMessage
 local DebugMessage = addon.DebugMessage
 local DebugStateMessage = addon.DebugStateMessage or addon.DebugMessage
@@ -310,7 +310,7 @@ local function CreateSecureFishingFrame()
         return addon.frames.fishing
     end
 
-    local frame = CreateFrame("Button", "DreamFisherSecureFishingButton", UIParent, "SecureActionButtonTemplate")
+    local frame = CreateFrame("Button", "DreamFishSecureFishingButton", UIParent, "SecureActionButtonTemplate")
     frame:SetAllPoints(UIParent)
     frame:SetFrameStrata("FULLSCREEN_DIALOG")
     if frame.EnableMouse then
@@ -386,7 +386,7 @@ local function CreateSecureBuffFrame()
         return addon.frames.buff
     end
 
-    local frame = CreateFrame("Button", "DreamFisherSecureBuffButton", UIParent, "SecureActionButtonTemplate")
+    local frame = CreateFrame("Button", "DreamFishSecureBuffButton", UIParent, "SecureActionButtonTemplate")
     frame:SetAllPoints(UIParent)
     frame:SetFrameStrata("FULLSCREEN_DIALOG")
     if frame.EnableMouse then
@@ -805,7 +805,7 @@ end
 
 local function MaybeEquipConfiguredUnderlight(reason, forcePrimary)
     if not requireFishingAPI then
-        error("DreamFisher: RequireFishingAPI helper is required for configured pole sync")
+        error("DreamFish: RequireFishingAPI helper is required for configured pole sync")
     end
     local fishing = requireFishingAPI()
 
@@ -814,7 +814,7 @@ local function MaybeEquipConfiguredUnderlight(reason, forcePrimary)
     end
 
     if not (fishing and fishing.IsFishingActiveSessionState) then
-        error("DreamFisher: IsFishingActiveSessionState is required for configured pole sync")
+        error("DreamFish: IsFishingActiveSessionState is required for configured pole sync")
     end
 
     local waterContext = GetWaterContextDiagnostics()
@@ -1035,7 +1035,7 @@ end
 
 ConfigureFishingClickAction = function()
     if not requireFishingAPI then
-        error("DreamFisher: RequireFishingAPI helper is required for fishing click configuration")
+        error("DreamFish: RequireFishingAPI helper is required for fishing click configuration")
     end
     local fishing = requireFishingAPI()
 
@@ -1335,7 +1335,7 @@ end
 
 local function EnsureFishingSecureFrame(frame)
     if not requireFishingAPI then
-        error("DreamFisher: RequireFishingAPI helper is required for secure fishing frame setup")
+        error("DreamFish: RequireFishingAPI helper is required for secure fishing frame setup")
     end
     local fishing = requireFishingAPI()
 
@@ -1350,7 +1350,7 @@ end
 
 local function EnsureBuffSecureFrame(frame)
     if not requireFishingAPI then
-        error("DreamFisher: RequireFishingAPI helper is required for secure buff frame setup")
+        error("DreamFish: RequireFishingAPI helper is required for secure buff frame setup")
     end
     local fishing = requireFishingAPI()
 
@@ -1365,7 +1365,7 @@ end
 
 local function GetInteractPresenceDiagnostics()
     if not requireFishingAPI then
-        error("DreamFisher: RequireFishingAPI helper is required for interact diagnostics")
+        error("DreamFish: RequireFishingAPI helper is required for interact diagnostics")
     end
     local fishing = requireFishingAPI()
 
@@ -1387,7 +1387,7 @@ end
 
 local function ExitFishingSessionForTargetSelection()
     if not requireFishingAPI then
-        error("DreamFisher: RequireFishingAPI helper is required for target selection exit")
+        error("DreamFish: RequireFishingAPI helper is required for target selection exit")
     end
     local fishing = requireFishingAPI()
 
@@ -1396,7 +1396,7 @@ local function ExitFishingSessionForTargetSelection()
     end
 
     if not (fishing and fishing.CancelAndCloseFishingSession) then
-        error("DreamFisher: CancelAndCloseFishingSession is required for target selection exit")
+        error("DreamFish: CancelAndCloseFishingSession is required for target selection exit")
     end
 
     fishing.CancelAndCloseFishingSession(
@@ -1412,7 +1412,7 @@ end
 
 local function ExitFishingSessionForNoHookEvidence()
     if not requireFishingAPI then
-        error("DreamFisher: RequireFishingAPI helper is required for no-hook-evidence exit")
+        error("DreamFish: RequireFishingAPI helper is required for no-hook-evidence exit")
     end
     local fishing = requireFishingAPI()
 
@@ -1421,7 +1421,7 @@ local function ExitFishingSessionForNoHookEvidence()
     end
 
     if not (fishing and fishing.CancelAndCloseFishingSession) then
-        error("DreamFisher: CancelAndCloseFishingSession is required for no-hook-evidence exit")
+        error("DreamFish: CancelAndCloseFishingSession is required for no-hook-evidence exit")
     end
 
     fishing.CancelAndCloseFishingSession(
@@ -1604,7 +1604,7 @@ local function HandleWorldRightClick()
     end
 
     if not requireFishingAPI then
-        error("DreamFisher: RequireFishingAPI helper is required for world right-click handling")
+        error("DreamFish: RequireFishingAPI helper is required for world right-click handling")
     end
     local fishing = requireFishingAPI()
     local audio = getAudioAPI and getAudioAPI()
@@ -1649,7 +1649,7 @@ local function HandleWorldRightClick()
 
         DebugMessage("Stale hooked interact override with no target; clearing override and resuming cast flow")
         if not (fishing and fishing.ClearNativeInteractOverride) then
-            error("DreamFisher: ClearNativeInteractOverride is required for stale hooked override cleanup")
+            error("DreamFish: ClearNativeInteractOverride is required for stale hooked override cleanup")
         end
         fishing.ClearNativeInteractOverride()
         addon.state.interactAcquireExpiresAt = 0
@@ -1715,7 +1715,7 @@ local function HandleHotkeyPress()
     end
 
     if not requireFishingAPI then
-        error("DreamFisher: RequireFishingAPI helper is required for hotkey handling")
+        error("DreamFish: RequireFishingAPI helper is required for hotkey handling")
     end
     local fishing = requireFishingAPI()
 
@@ -1727,7 +1727,7 @@ end
 local function HandleCastCommand()
     if PrintMessage then
         PrintMessage("Protected cast requires a secure click.")
-        PrintMessage("Use macro: /click DreamFisherSecureFishingButton RightButton")
+        PrintMessage("Use macro: /click DreamFishSecureFishingButton RightButton")
     end
 end
 

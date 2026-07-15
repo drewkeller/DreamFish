@@ -1,4 +1,4 @@
--- Unit tests for DreamFisher treasure alert behavior.
+-- Unit tests for DreamFish treasure alert behavior.
 -- Run with: lua tests/treasure_alert_test.lua
 
 local function assertEquals(actual, expected, message)
@@ -133,7 +133,7 @@ _G.C_Timer = {
     end,
 }
 
-_G.DreamFisherDB = {}
+_G.DreamFishDB = {}
 
 -- Load addon.
 dofile("core/init.lua")
@@ -145,16 +145,16 @@ dofile("fishing/casting.lua")
 dofile("fishing/state.lua")
 dofile("audio/ducking.lua")
 dofile("audio/alerts.lua")
-dofile("DreamFisher.lua")
+dofile("DreamFish.lua")
 
-local addon = _G.DreamFisher
+local addon = _G.DreamFish
 assertEquals(type(addon), "table", "Addon should load")
 
 -- Fire ADDON_LOADED for this addon so slash commands are registered.
 local rootFrame = nil
 for _, frame in ipairs(createdFrames) do
     local onEventScript = frame.GetScript and frame:GetScript("OnEvent")
-    if frame.GetName and frame:GetName() == "DreamFisherFrame" and type(onEventScript) == "function" then
+    if frame.GetName and frame:GetName() == "DreamFishFrame" and type(onEventScript) == "function" then
         rootFrame = frame
     end
 end
@@ -163,7 +163,7 @@ if not rootFrame then
 end
 local onEvent = rootFrame and rootFrame:GetScript("OnEvent")
 assertTrue(type(onEvent) == "function", "Root OnEvent should exist")
-onEvent(rootFrame, "ADDON_LOADED", "DreamFisher")
+onEvent(rootFrame, "ADDON_LOADED", "DreamFish")
 
 -- Find aura tracker frame and simulate Patiently Rewarded aura gain.
 _G.C_UnitAuras = {
@@ -187,7 +187,7 @@ end
 -- Find treasure alert frame by name.
 local alertFrame = nil
 for _, frame in ipairs(createdFrames) do
-    if frame:GetName() == "DreamFisherTreasureAlertFrame" then
+    if frame:GetName() == "DreamFishTreasureAlertFrame" then
         alertFrame = frame
         break
     end

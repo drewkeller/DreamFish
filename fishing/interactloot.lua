@@ -1,6 +1,6 @@
--- DreamFisher: Hooked-fish interact action helpers
+-- DreamFish: Hooked-fish interact action helpers
 
-local addon = _G["DreamFisher"]
+local addon = _G["DreamFish"]
 local DebugMessage = addon.DebugMessage
 addon.fishing = addon.fishing or {}
 
@@ -13,11 +13,11 @@ local KNOWN_BOBBER_NPC_IDS = {
 
 local function ApplySessionStateRequired(nextState, reason)
     if not addon.RequireFishingAPI then
-        error("DreamFisher: RequireFishingAPI helper is required for interact loot state transitions")
+        error("DreamFish: RequireFishingAPI helper is required for interact loot state transitions")
     end
     local fishing = addon.RequireFishingAPI()
     if not (fishing and type(fishing.ApplySessionState) == "function") then
-        error("DreamFisher: ApplySessionState is required for interact loot state transitions")
+        error("DreamFish: ApplySessionState is required for interact loot state transitions")
     end
     fishing.ApplySessionState(nextState, reason)
 end
@@ -30,7 +30,7 @@ local function GetInteractOverrideFrame()
         return nil
     end
     addon.frames = addon.frames or {}
-    addon.frames.interactOverride = CreateFrame("Frame", "DreamFisherInteractOverrideFrame", UIParent)
+    addon.frames.interactOverride = CreateFrame("Frame", "DreamFishInteractOverrideFrame", UIParent)
     return addon.frames.interactOverride
 end
 
@@ -48,7 +48,7 @@ local function ArmNativeInteractOverride(durationSeconds)
     end
 
     ClearOverrideBindings(owner)
-    local boundKeys = { GetBindingKey("CLICK DreamFisherSecureFishingButton:RightButton") }
+    local boundKeys = { GetBindingKey("CLICK DreamFishSecureFishingButton:RightButton") }
     local applied = false
     for _, key in ipairs(boundKeys) do
         if type(key) == "string" and key ~= "" then
@@ -74,7 +74,7 @@ local function ArmNativeInteractOverride(durationSeconds)
     end
     owner:SetScript("OnUpdate", function(self)
         if not addon.RequireFishingAPI then
-            error("DreamFisher: RequireFishingAPI helper is required for interact override upkeep")
+            error("DreamFish: RequireFishingAPI helper is required for interact override upkeep")
         end
         local fishing = addon.RequireFishingAPI()
         if InCombatLockdown() then
@@ -199,7 +199,7 @@ end
 
 local function IsHookedLootMode()
     if not addon.RequireFishingAPI then
-        error("DreamFisher: RequireFishingAPI helper is required for hooked loot mode")
+        error("DreamFish: RequireFishingAPI helper is required for hooked loot mode")
     end
     local fishing = addon.RequireFishingAPI()
 
@@ -208,7 +208,7 @@ local function IsHookedLootMode()
     end
 
     if not (fishing and fishing.IsHookedWindowSessionState and fishing.IsSessionState) then
-        error("DreamFisher: IsHookedWindowSessionState and IsSessionState are required for hooked loot mode")
+        error("DreamFish: IsHookedWindowSessionState and IsSessionState are required for hooked loot mode")
     end
 
     local now = (type(GetTime) == "function") and GetTime() or 0
