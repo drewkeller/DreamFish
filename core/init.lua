@@ -11,14 +11,14 @@ addon.frame = frame
 -- Default configuration
 addon.defaults = {
     -- Focus
-    autoLoot = true,
+    autoLoot = false,
     managedLoot = false,
     throwAwayJunk = false,
     lootDelay = 0.5,
     treasureAlerts = true,
-    bagAlerts = true,
+    bagAlerts = false,
     bagAlertsThreshold = 2,
-    reagentBagAlerts = true,
+    reagentBagAlerts = false,
     reagentBagAlertsThreshold = 2,
     focusedAudio = true,
     focusedAudioLinger = 10,
