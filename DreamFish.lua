@@ -297,13 +297,11 @@ local function HandleFishingLootWindow()
         DebugLootMessage("Managed loot is disabled in settings; skipping loot handling")
         return false
     end
-    -- if not (addon.state and addon.state.savedAutoLootDefault ~= nil) then
-    --     DebugLootMessage("Auto-loot state is not properly saved; skipping loot handling")
-    --     return false
-    -- end
+    
+    local managedAutoLootOverrideActive = addon.state and addon.state.savedAutoLootDefault ~= nil
     local blizzardAutoLootEnabled = (type(GetCVar) == "function" and GetCVar("autoLootDefault") == "1")
-    if blizzardAutoLootEnabled then
-        addon.PrintMessage("Auto-loot is already enabled in Blizzard settings; skipping loot handling to avoid interference")
+    if blizzardAutoLootEnabled and not managedAutoLootOverrideActive then
+        DebugLootMessage("Blizzard auto-loot is enabled without managed override; skipping managed loot handling")
         return false
     end
     if type(GetNumLootItems) ~= "function" or type(LootSlot) ~= "function" then
@@ -376,6 +374,10 @@ lootTracker:SetScript("OnEvent", function(_, event, ...)
         DebugLootMessage("LOOT_READY event received; scheduled loot handling")
         if C_Timer and type(C_Timer.After) == "function" then
             C_Timer.After(addon.db.lootDelay, function()
+                if fishing.IsSessionState and not fishing.IsSessionState("LOOTING") then
+                    DebugLootMessage("Skipping delayed loot callback because session is no longer LOOTING")
+                    return
+                end
                 HandleFishingLootWindow()
             end)
         else
