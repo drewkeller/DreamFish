@@ -25,6 +25,76 @@ local function GetItemInfoInstantSafe(itemID)
     return nil
 end
 
+local CategoryTooltipFrame = nil
+
+local function EnsureCategoryTooltipFrame()
+    if CategoryTooltipFrame then
+        return CategoryTooltipFrame
+    end
+    if type(CreateFrame) ~= "function" then
+        return nil
+    end
+
+    local ok, frame = pcall(CreateFrame, "GameTooltip", "DreamFishBuffCategoryTooltipFrame", nil, "GameTooltipTemplate")
+    if not ok then
+        return nil
+    end
+    CategoryTooltipFrame = frame
+    if CategoryTooltipFrame and type(CategoryTooltipFrame.SetOwner) == "function" and WorldFrame then
+        pcall(CategoryTooltipFrame.SetOwner, CategoryTooltipFrame, WorldFrame, "ANCHOR_NONE")
+    end
+    return CategoryTooltipFrame
+end
+
+local function TooltipSuggestsLure(itemID)
+    local numeric = tonumber(itemID)
+    if not numeric or numeric <= 0 then
+        return false
+    end
+
+    local tooltip = EnsureCategoryTooltipFrame()
+    if not tooltip then
+        return false
+    end
+
+    if type(tooltip.ClearLines) == "function" then
+        tooltip:ClearLines()
+    end
+
+    local bound = false
+    if type(tooltip.SetItemByID) == "function" then
+        local ok, result = pcall(tooltip.SetItemByID, tooltip, numeric)
+        bound = ok and (result ~= false)
+    end
+    if (not bound) and type(tooltip.SetHyperlink) == "function" then
+        local ok, result = pcall(tooltip.SetHyperlink, tooltip, "item:" .. tostring(numeric))
+        bound = ok and (result ~= false)
+    end
+    if not bound then
+        return false
+    end
+
+    local numLines = (type(tooltip.NumLines) == "function") and tonumber(tooltip:NumLines()) or 0
+    if not numLines or numLines <= 0 then
+        return false
+    end
+
+    for i = 1, numLines do
+        local lineFrame = _G["DreamFishBuffCategoryTooltipFrameTextLeft" .. i]
+        local text = lineFrame and type(lineFrame.GetText) == "function" and lineFrame:GetText() or nil
+        if type(text) == "string" and text ~= "" then
+            local lower = string.lower(text)
+            if lower:find("when applied to your fishing pole", 1, true)
+                or lower:find("fishing lure", 1, true)
+                or lower:find("increases .-fishing by %d+") then
+                return true
+            end
+        end
+    end
+
+    return false
+end
+
 local function GetBuffItemCategory(itemID)
     local numeric = tonumber(itemID)
     if not numeric or numeric <= 0 then
@@ -65,6 +135,10 @@ local function GetBuffItemCategory(itemID)
             or itemSubTypeText:find("weapon", 1, true) ~= nil then
             return "lure"
         end
+    end
+
+    if TooltipSuggestsLure(numeric) then
+        return "lure"
     end
 
     return "other_consumable"
