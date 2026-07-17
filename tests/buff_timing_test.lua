@@ -33,19 +33,7 @@ _G.Clamp = function(value, min, max)
     return value
 end
 
-local function makeFrame()
-    return {
-        IsShown = function() return false end,
-        Show = function() end,
-        Hide = function() end,
-        SetAttribute = function() end,
-        GetAttribute = function() return nil end,
-        GetName = function() return "Frame" end,
-        RegisterEvent = function() end,
-        UnregisterEvent = function() end,
-        SetScript = function() end,
-    }
-end
+local makeFrame = dofile("tests/mocks/frame_fixture.lua").makeFrame
 
 _G.CreateFrame = function()
     return makeFrame()

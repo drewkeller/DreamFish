@@ -23,69 +23,16 @@ local trackedFrameNames = {
     "TargetFrame",
 }
 
-local function makeFrame(name)
-    local scripts = {}
-    local attrs = {}
-    local frame = nil
-    frame = {
-        _name = name,
-        _shown = true,
-        _alpha = 1,
-        _scripts = scripts,
-        SetAttribute = function(_, key, value) attrs[key] = value end,
-        GetAttribute = function(_, key) return attrs[key] end,
-        RegisterForClicks = function() end,
-        Hide = function() frame._shown = false end,
-        Show = function() frame._shown = true end,
-        HookScript = function() end,
-        RegisterEvent = function() end,
-        UnregisterEvent = function() end,
-        SetScript = function(_, scriptName, fn) scripts[scriptName] = fn end,
-        GetScript = function(_, scriptName) return scripts[scriptName] end,
-        SetSize = function() end,
-        SetPoint = function() end,
-        SetMovable = function() end,
-        EnableMouse = function() end,
-        RegisterForDrag = function() end,
-        SetBackdrop = function() end,
-        SetBackdropColor = function() end,
-        SetFrameStrata = function() end,
-        SetAllPoints = function() end,
-        SetScale = function() end,
-        EnableMouse = function() end,
-        SetStaticPOIArrowTexture = function() end,
-        SetPlayerTexture = function() end,
-        IsShown = function() return frame._shown end,
-        GetAlpha = function() return frame._alpha end,
-        SetAlpha = function(_, value) frame._alpha = value end,
-        GetName = function() return name or "Frame" end,
-        CreateFontString = function()
-            return {
-                SetPoint = function() end,
-                SetText = function() end,
-                SetTextColor = function() end,
-            }
-        end,
-        CreateTexture = function()
-            return {
-                SetAllPoints = function() end,
-                SetTexture = function() end,
-                SetPoint = function() end,
-                SetColorTexture = function() end,
-            }
-        end,
-    }
-    return frame
-end
+local makeFrame = dofile("tests/mocks/frame_fixture.lua").makeFrame
 
 _G.CreateFrame = function(_, name)
-    local frame = makeFrame(name)
+    local frame = makeFrame(name, { shown = true })
     table.insert(createdFrames, frame)
     return frame
 end
 
 for _, name in ipairs(trackedFrameNames) do
-    _G[name] = makeFrame(name)
+    _G[name] = makeFrame(name, { shown = true })
     frameStateByName[name] = _G[name]
 end
 

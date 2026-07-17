@@ -20,58 +20,7 @@ local toyOwnership = {
 
 local currentToyName = nil
 
-local function makeFrame()
-    local scripts = {}
-    return {
-        SetAllPoints = function() end,
-        SetFrameStrata = function() end,
-        RegisterForClicks = function() end,
-        RegisterForDrag = function() end,
-        EnableMouse = function() end,
-        EnableKeyboard = function() end,
-        SetMovable = function() end,
-        SetClampedToScreen = function() end,
-        SetBackdrop = function() end,
-        SetBackdropColor = function() end,
-        SetBackdropBorderColor = function() end,
-        SetSize = function() end,
-        SetPoint = function() end,
-        RegisterEvent = function() end,
-        IsShown = function() return false end,
-        Show = function() end,
-        Hide = function() end,
-        SetAttribute = function() end,
-        GetAttribute = function() return nil end,
-        GetName = function() return "Frame" end,
-        SetScript = function(self, event, handler)
-            scripts[event] = handler
-        end,
-        HookScript = function(self, event, handler)
-            scripts[event] = handler
-        end,
-        GetScript = function(self, event)
-            return scripts[event]
-        end,
-        CreateFontString = function()
-            return {
-                SetPoint = function() end,
-                SetText = function() end,
-                SetTextColor = function() end,
-                SetJustifyH = function() end,
-            }
-        end,
-        CreateTexture = function()
-            return {
-                SetAllPoints = function() end,
-                SetTexture = function() end,
-                SetPoint = function() end,
-            }
-        end,
-        StartMoving = function() end,
-        StopMovingOrSizing = function() end,
-        UnregisterEvent = function() end,
-    }
-end
+local makeFrame = dofile("tests/mocks/frame_fixture.lua").makeFrame
 
 _G.CreateFrame = function()
     return makeFrame()

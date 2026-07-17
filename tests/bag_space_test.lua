@@ -13,38 +13,7 @@ local function assertTrue(value, message)
     end
 end
 
-local function makeNoopFrame()
-    return {
-        SetAllPoints = function() end,
-        SetFrameStrata = function() end,
-        SetAttribute = function() end,
-        RegisterForClicks = function() end,
-        Hide = function() end,
-        HookScript = function() end,
-        RegisterEvent = function() end,
-        SetScript = function() end,
-        SetSize = function() end,
-        SetPoint = function() end,
-        SetMovable = function() end,
-        EnableMouse = function() end,
-        RegisterForDrag = function() end,
-        SetBackdrop = function() end,
-        SetBackdropColor = function() end,
-        CreateFontString = function()
-            return {
-                SetPoint = function() end,
-                SetText = function() end,
-                SetTextColor = function() end,
-            }
-        end,
-        IsShown = function() return false end,
-        Show = function() end,
-        StartMoving = function() end,
-        StopMovingOrSizing = function() end,
-        UnregisterEvent = function() end,
-        GetName = function() return "DreamFishSecureFishingButton" end,
-    }
-end
+local makeNoopFrame = dofile("tests/mocks/noop_frame.lua").makeNoopFrame
 
 local now = 100
 local messages = {}

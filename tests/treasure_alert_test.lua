@@ -43,52 +43,14 @@ local function makeTexture()
     return tx
 end
 
-local function makeFrame(name)
-    local frame = {
-        _name = name,
-        _shown = false,
-        _scripts = {},
-    }
-
-    function frame:SetAllPoints() end
-    function frame:SetFrameStrata() end
-    function frame:EnableMouse() end
-    function frame:Hide() self._shown = false end
-    function frame:Show() self._shown = true end
-    function frame:IsShown() return self._shown end
-    function frame:SetBackdrop() end
-    function frame:SetBackdropColor() end
-    function frame:SetBackdropBorderColor() end
-    function frame:CreateTexture() return makeTexture() end
-    function frame:CreateFontString() return makeFontString() end
-    function frame:SetScript(kind, fn) self._scripts[kind] = fn end
-    function frame:GetScript(kind) return self._scripts[kind] end
-    function frame:RegisterEvent() end
-    function frame:UnregisterEvent() end
-    function frame:SetMovable() end
-    function frame:SetSize() end
-    function frame:SetPoint() end
-    function frame:EnableMouse() end
-    function frame:RegisterForDrag() end
-    function frame:StartMoving() end
-    function frame:StopMovingOrSizing() end
-    function frame:RegisterForClicks() end
-    function frame:SetAttribute() end
-    function frame:HookScript() end
-    function frame:GetName() return self._name or "Frame" end
-
-    frame.Text = {
-        SetText = function() end,
-        SetTextColor = function() end,
-    }
-    frame.GetChecked = function() return true end
-    frame.GetText = function() return "10" end
-
-    return frame
-end
+local makeFrame = dofile("tests/mocks/frame_fixture.lua").makeFrame
 
 _G.CreateFrame = function(_, name)
-    local frame = makeFrame(name)
+    local frame = makeFrame(name, {
+        defaultText = "10",
+        fontStringFactory = makeFontString,
+        textureFactory = makeTexture,
+    })
     table.insert(createdFrames, frame)
     return frame
 end

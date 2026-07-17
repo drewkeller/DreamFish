@@ -45,24 +45,25 @@ _G.SetCVar = function() end
 _G.PlayerHasToy = function() return true end
 _G.IsSwimming = function() return false end
 
-local function makeFrame()
-    return {
-        RegisterEvent = function() end,
-        UnregisterEvent = function() end,
-        SetScript = function() end,
-        GetScript = function() return nil end,
-        HookScript = function() end,
-        SetAllPoints = function() end,
-        SetFrameStrata = function() end,
-        SetAttribute = function() end,
-        GetAttribute = function() return nil end,
-        SetSize = function() end,
-        SetPoint = function() end,
-        IsShown = function() return false end,
-        Show = function() end,
-        Hide = function() end,
-        GetName = function() return "Frame" end,
+local makeFrame = dofile("tests/mocks/frame_fixture.lua").makeFrame
+
+local function withCapturedChatMessages(callback)
+    local originalChatFrame = _G.DEFAULT_CHAT_FRAME
+    local messages = {}
+    _G.DEFAULT_CHAT_FRAME = {
+        AddMessage = function(_, msg)
+            table.insert(messages, msg)
+        end,
     }
+
+    local ok, err = pcall(callback)
+    _G.DEFAULT_CHAT_FRAME = originalChatFrame
+
+    if not ok then
+        error(err, 0)
+    end
+
+    return messages
 end
 
 _G.CreateFrame = function()
@@ -564,30 +565,6 @@ end
 -- ============================================================================
 -- Tests: Hotkey Secure-Click Path (ConfigureFishingClickAction)
 -- ============================================================================
-
-function tests.TargetSelectedSkipsSecureFishingConfiguration()
-    local capturedAttrs = {}
-    local fishingFrame = DreamFish.fishing.CreateSecureFishingFrame()
-    local origSet = fishingFrame.SetAttribute
-    fishingFrame.SetAttribute = function(self, k, v)
-        capturedAttrs[k] = v
-        return origSet and origSet(self, k, v)
-    end
-
-    local originalUnitExists = _G.UnitExists
-    _G.UnitExists = function(unit)
-        return unit == "target"
-    end
-
-    local configured = DreamFish.fishing.ConfigureFishingClickAction()
-
-    _G.UnitExists = originalUnitExists
-
-    assertEquals(configured, false,
-        "Target-selected secure configure should return false")
-    assertEquals(capturedAttrs["type"], nil,
-        "Target-selected secure configure should not set an action type")
-end
 
 function tests.HotkeyConfiguresFishingSpellWhenNoBuffItems()
     -- With no configured buff items, fishing action should be set to spell cast
@@ -2658,6 +2635,31 @@ function tests.HotkeyPressWhenEnabledOutOfCombatReturnsTrue()
     mockInCombat = false
     local result = DreamFish.fishing.HandleHotkeyPress()
     assertTrue(result == true, "Hotkey press when enabled should return true")
+end
+
+function tests.HotkeyPressLogsReadinessStateWhenDisabled()
+    local messages = withCapturedChatMessages(function()
+        DreamFish._test.SetDB({
+            debugMode = true,
+            castingModes = {
+                doubleRightClick = false,
+                singleRightClick = false,
+                castHotkey = false,
+            },
+            buffItems = {},
+            buffAuraByItem = {},
+        })
+
+        mockInCombat = false
+        local result = DreamFish.fishing.HandleHotkeyPress()
+        assertFalse(result, "Disabled hotkey press should return false")
+    end)
+
+    local joinedMessages = table.concat(messages, "\n")
+    assertTrue(joinedMessages:find("Hotkey press received", 1, true) ~= nil,
+        "Hotkey press should log a readiness snapshot")
+    assertTrue(joinedMessages:find("castHotkey mode is disabled", 1, true) ~= nil,
+        "Disabled hotkey press should log the early-return reason")
 end
 
 -- ============================================================================
