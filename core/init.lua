@@ -73,6 +73,7 @@ addon.defaults = {
     debugMode = true,
     debugState = false,
     debugFade = false,
+    debugAudio = false,
     debugBags = false,
     debugBuffs = false,
     debugLoot = false,

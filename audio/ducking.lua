@@ -5,6 +5,12 @@ local Clamp = addon.Clamp
 local PrintMessage = addon.PrintMessage
 local DebugMessage = addon.DebugMessage
 
+local function DebugAudioMessage(msg)
+    if addon.db and addon.db.debugMode and addon.db.debugAudio then
+        addon.DebugMessage("|cFF9ACDFF[audio]|r " .. tostring(msg))
+    end
+end
+
 local function GetFishingElapsedSeconds()
     if type(GetTime) ~= "function" then
         return 0
@@ -76,8 +82,8 @@ local function ResumePersistedAudioDuckingState()
         if not (NearlyEqual(currentAmbience, persisted.lastDucked.ambience)
             and NearlyEqual(currentMusic, persisted.lastDucked.music)
             and NearlyEqual(currentDialog, persisted.lastDucked.dialog)) then
-            if addon.db.debugMode and DebugMessage then
-                DebugMessage("Audio duck resume skipped: persisted baseline does not match current CVars")
+            if addon.db.debugMode and DebugAudioMessage then
+                DebugAudioMessage("Audio duck resume skipped: persisted baseline does not match current CVars")
             end
             addon.db.runtimeAudioDucking = nil
             return
@@ -86,27 +92,27 @@ local function ResumePersistedAudioDuckingState()
 
     addon.state.savedFishingAudioCVars = CloneAudioTriplet(persisted.saved)
     addon.state.lastFishingDuckedAudioCVars = CloneAudioTriplet(persisted.lastDucked)
-    if addon.db.debugMode and DebugMessage then
-        DebugMessage("Audio duck resume: restored active ducking state after reload")
+    if addon.db.debugMode and DebugAudioMessage then
+        DebugAudioMessage("Audio duck resume: restored active ducking state after reload")
     end
 end
 
 local function EnableFishingAudioFocus(force)
     if not force and (not addon.db or not addon.db.focusedAudio) then
-        if addon.db and addon.db.debugMode and DebugMessage then
-            DebugMessage("Audio duck skip: focusedAudio disabled")
+        if addon.db and addon.db.debugMode and DebugAudioMessage then
+            DebugAudioMessage("Audio duck skip: focusedAudio disabled")
         end
         return
     end
     if addon.state.savedFishingAudioCVars ~= nil then
-        if addon.db and addon.db.debugMode and DebugMessage then
-            DebugMessage("Audio duck skip: already tracking saved CVars")
+        if addon.db and addon.db.debugMode and DebugAudioMessage then
+            DebugAudioMessage("Audio duck skip: already tracking saved CVars")
         end
         return
     end
     if type(GetCVar) ~= "function" or type(SetCVar) ~= "function" then
-        if addon.db and addon.db.debugMode and DebugMessage then
-            DebugMessage("Audio duck skip: CVar API unavailable")
+        if addon.db and addon.db.debugMode and DebugAudioMessage then
+            DebugAudioMessage("Audio duck skip: CVar API unavailable")
         end
         return
     end
@@ -116,18 +122,18 @@ local function EnableFishingAudioFocus(force)
     local currentDialog = GetCVar("Sound_DialogVolume")
 
     local lastDucked = addon.state.lastFishingDuckedAudioCVars
-    if addon.db and addon.db.debugMode and DebugMessage then
-        DebugMessage("Audio duck eval: force=" .. tostring(force)
+    if addon.db and addon.db.debugMode and DebugAudioMessage then
+        DebugAudioMessage("Audio duck eval: force=" .. tostring(force)
             .. " current={amb=" .. tostring(currentAmbience)
             .. ", mus=" .. tostring(currentMusic)
             .. ", dlg=" .. tostring(currentDialog) .. "}"
             .. " hasLastDucked=" .. tostring(type(lastDucked) == "table"))
         if type(lastDucked) == "table" then
-            DebugMessage("Audio duck baseline: lastDucked={amb=" .. tostring(lastDucked.ambience)
+            DebugAudioMessage("Audio duck baseline: lastDucked={amb=" .. tostring(lastDucked.ambience)
                 .. ", mus=" .. tostring(lastDucked.music)
                 .. ", dlg=" .. tostring(lastDucked.dialog) .. "}")
         else
-            DebugMessage("Audio duck note: no in-session duck baseline (possible UI reload before this cast)")
+            DebugAudioMessage("Audio duck note: no in-session duck baseline (possible UI reload before this cast)")
         end
     end
 
@@ -141,8 +147,8 @@ local function EnableFishingAudioFocus(force)
             dialog = currentDialog,
         }
         PersistAudioDuckingRuntimeState()
-        if addon.db and addon.db.debugMode and DebugMessage then
-            DebugMessage("Audio duck skip: current levels already ducked or lower than prior duck target")
+        if addon.db and addon.db.debugMode and DebugAudioMessage then
+            DebugAudioMessage("Audio duck skip: current levels already ducked or lower than prior duck target")
         end
         return
     end
@@ -174,8 +180,8 @@ local function EnableFishingAudioFocus(force)
         dialog = GetCVar("Sound_DialogVolume"),
     }
     PersistAudioDuckingRuntimeState()
-    if addon.db and addon.db.debugMode and DebugMessage then
-        DebugMessage("Audio duck apply: new={amb=" .. tostring(addon.state.lastFishingDuckedAudioCVars.ambience)
+    if addon.db and addon.db.debugMode and DebugAudioMessage then
+        DebugAudioMessage("Audio duck apply: new={amb=" .. tostring(addon.state.lastFishingDuckedAudioCVars.ambience)
             .. ", mus=" .. tostring(addon.state.lastFishingDuckedAudioCVars.music)
             .. ", dlg=" .. tostring(addon.state.lastFishingDuckedAudioCVars.dialog) .. "}")
     end
@@ -190,12 +196,12 @@ local function RestoreFishingAudioFocus()
     if addon.state.savedFishingAudioCVars == nil then
         return
     end
-    if addon.db and addon.db.debugMode and DebugMessage then
+    if addon.db and addon.db.debugMode and DebugAudioMessage then
         if not (fishing and fishing.GetCurrentSessionFlags) then
             error("DreamFish: GetCurrentSessionFlags is required for audio diagnostics")
         end
         local flags = fishing.GetCurrentSessionFlags()
-        DebugMessage("Audio restore now: elapsed=" .. string.format("%.3f", GetFishingElapsedSeconds())
+        DebugAudioMessage("Audio restore now: elapsed=" .. string.format("%.3f", GetFishingElapsedSeconds())
             .. " sessionState=" .. tostring(addon.state and addon.state.fishingSessionState)
             .. " flags={isFishing=" .. tostring(flags.isFishing)
             .. ", isBobberActive=" .. tostring(flags.isBobberActive)
@@ -231,16 +237,16 @@ end
 local function RestoreFishingAudioFocusAfterLinger()
     local linger = (addon.db and addon.db.focusedAudioLinger) or addon.defaults.focusedAudioLinger
     if linger <= 0 then
-        if addon.db and addon.db.debugMode and DebugMessage then
-            DebugMessage("Audio restore linger skipped (linger<=0)")
+        if addon.db and addon.db.debugMode and DebugAudioMessage then
+            DebugAudioMessage("Audio restore linger skipped (linger<=0)")
         end
         RestoreFishingAudioFocus()
         return
     end
     addon.state.audioLingerGeneration = addon.state.audioLingerGeneration + 1
     addon.state.audioRestoreAt = GetTime() + linger
-    if addon.db and addon.db.debugMode and DebugMessage then
-        DebugMessage("Audio restore scheduled: in=" .. string.format("%.3f", linger)
+    if addon.db and addon.db.debugMode and DebugAudioMessage then
+        DebugAudioMessage("Audio restore scheduled: in=" .. string.format("%.3f", linger)
             .. "s at=" .. string.format("%.3f", addon.state.audioRestoreAt)
             .. " elapsed=" .. string.format("%.3f", GetFishingElapsedSeconds()))
     end
@@ -270,8 +276,8 @@ local function StartFishingAudioFocus()
     if addon.frames.audioRestore then
         addon.frames.audioRestore:Hide()
     end
-    if addon.db and addon.db.debugMode and DebugMessage then
-        DebugMessage("Audio focus start: start=" .. string.format("%.3f", addon.state.fishingStartTime)
+    if addon.db and addon.db.debugMode and DebugAudioMessage then
+        DebugAudioMessage("Audio focus start: start=" .. string.format("%.3f", addon.state.fishingStartTime)
             .. " graceUntil=" .. string.format("%.3f", addon.state.fishingStartGraceUntil))
     end
     EnableFishingAudioFocus()
