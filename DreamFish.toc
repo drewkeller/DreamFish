@@ -4,6 +4,7 @@
 ## Version: @project-version@
 ## Author: Drew Keller
 ## SavedVariables: DreamFishDB
+## X-Curse-Project-ID: 1614789
 
 # Embedded libraries (Ace3)
 Libs/LibStub/LibStub.lua

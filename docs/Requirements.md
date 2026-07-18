@@ -35,10 +35,14 @@ Name the addon "DreamFish".
   [ ] Enable/disable each frame
   [ ] Set level of fade (alpha) for each frame
 [ ] Add compatibility for profile (Buffs tab, especially)
-[ ] Managed auto-loot (temporarily disable auto-loot) so addon can manage looting
-  [ ] Auto-loot ignores junk items, i.e. "throw away junk" (so they don't fill up bags)
+[x] Managed auto-loot (temporarily disable auto-loot) so addon can manage looting
+  [x] Auto-loot ignores junk items, i.e. "throw away junk" (so they don't fill up bags)
   [ ] Loot window closing delay
   [ ] Enable loot sounds
+[ ] Make the fishing pole slot interactive so a lure can be applied manually to the pole
+[ ] Visual focus: Add option to turn off nameplates
+
+* Don't show missing buff items when logging in/changing zones
 
 # UI Features
 The addon provies an interface window with the following features.

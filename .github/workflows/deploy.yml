@@ -18,7 +18,8 @@ jobs:
           fetch-depth: 0
           fetch-tags: true
 
-      - name: Package and Ship
+      - name: Package and Release
         uses: BigWigsMods/packager@v2
         env:
           GITHUB_OAUTH: ${{ secrets.GITHUB_TOKEN }}
+          CF_API_KEY: ${{ secrets.CF_API_TOKEN }}
