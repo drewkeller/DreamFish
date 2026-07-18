@@ -153,7 +153,7 @@ frame:SetScript("OnEvent", function(self, event, name)
     -- Initialize buff config
     if addon.buff and addon.buff.NormalizeBuffConfig then
         addon.buff.NormalizeBuffConfig()
-        addon.utils.CheckBuffItemStockWarnings()
+        --addon.utils.CheckBuffItemStockWarnings()
     end
 
     -- Create secure frames
@@ -297,7 +297,7 @@ local function HandleFishingLootWindow()
         DebugLootMessage("Managed loot is disabled in settings; skipping loot handling")
         return false
     end
-    
+
     local managedAutoLootOverrideActive = addon.state and addon.state.savedAutoLootDefault ~= nil
     local blizzardAutoLootEnabled = (type(GetCVar) == "function" and GetCVar("autoLootDefault") == "1")
     if blizzardAutoLootEnabled and not managedAutoLootOverrideActive then
