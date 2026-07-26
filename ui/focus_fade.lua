@@ -133,6 +133,57 @@ local loader = CreateFrame("Frame")
 loader:RegisterEvent("PLAYER_LOGIN")
 local isElvUIActive = false
 
+local function IsElvUIFrameModuleEnabled(E, frameName)
+    if not E or not E.db then return nil end
+    -- Data Bars (Experience, Reputation, etc.)
+    if string.find(frameName, "ElvDB_") then
+        local barName = string.gsub(frameName, "ElvDB_", "")
+        barName = barName:lower()
+        return E.db.databars and E.db.databars[barName] and E.db.databars[barName].enable
+    end
+end
+
+local function HideElvUIDataBar(E, frameName, hideBars)
+    local DB = E:GetModule('DataBars', true)
+    local barTitle = frameName:gsub("ElvDB_", "")
+    local barName = barTitle:lower()
+
+    if DB and E.db and E.db.databars and E.db.databars[barName] then
+        E.db.databars[barName].enable = not hideBars
+
+        -- Refresh the individual bar layout using ElvUI's internal API
+        local barMethodName = "Update" .. barTitle .. "Dimensions"
+        if type(DB[barMethodName]) == "function" then
+            DB[barMethodName](DB)
+        end
+
+        -- Force a top-level master redraw of the entire module framework (yes, this appears to be necessary)
+        if type(DB.UpdateAll) == "function" then
+            DB:UpdateAll()
+        end
+    end
+end
+
+local function HideElveUIDataBars(hideBars)
+    if not isElvUIActive or not _G["ElvUI"] then
+        return
+    end
+
+    local E = _G["ElvUI"][1] -- ElvUI engine
+    if not E or not E.db then
+        return
+    end
+
+    for _, frameName in ipairs(panelNamesToFade) do
+        if string.find(frameName, "ElvDB_") then
+            local isEnabled = IsElvUIFrameModuleEnabled(E, frameName)
+            if isEnabled ~= nil then
+                HideElvUIDataBar(E, frameName, hideBars)
+            end
+        end
+    end
+end
+
 -- ElvUI: Detect
 loader:SetScript("OnEvent", function(self, event, ...)
     if event == "PLAYER_LOGIN" then
@@ -519,6 +570,7 @@ local function FadeOutUI()
         end
     end
 
+    HideElveUIDataBars(true)
     HideElvUIPlayerFrame(true)
     HideBlizzardMicroMenu(true)
     HideMinimapButtons(true)
@@ -546,6 +598,7 @@ local function FadeInUI()
         FadeFrameIn(name, FADE_IN_DURATION)
     end
 
+    HideElveUIDataBars(false)
     HideElvUIPlayerFrame(false)
     HideBlizzardMicroMenu(false)
     HideMinimapButtons(false)
