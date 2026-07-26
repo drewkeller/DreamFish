@@ -35,6 +35,16 @@ Automatically apply tackle when needed (monitors buff timers and cooldowns).
 
 I have no plans to implement an outfit manager. Use the game's built-in outfitter.
 
+
+## Availalbe from
+
+| Site         | URL           |
+| ------------ | ------------- |
+| GitHub       | https://github.com/drewkeller/DreamFish |
+| CurseForge   | https://www.curseforge.com/wow/addons/dreamfish |
+| WoWInterface | https://www.wowinterface.com/downloads/fileinfo.php?id=27165 |
+
+
 ## About the addon
 
 Written by an experienced WoW fisherman and Copilot.
