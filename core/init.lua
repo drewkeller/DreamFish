@@ -59,7 +59,7 @@ addon.defaults = {
         { enabled = false, itemID = nil },
     },
     buffAuraByItem = {
-        ["238374"] = { spellID = 1237942, duration = 30 }, -- Tender Lumifin
+        ["238374"] = { spellID = 1237942, duration = 30, category="other_consumable", }, -- Tender Lumifin
     },
     castingModes = {
         doubleRightClick = true,
@@ -114,6 +114,7 @@ addon.state = {
     lastBuffCheckTime = 0,
     buffCheckInterval = 1,
     buffItemLastUseAt = {},
+    buffAuraLastAppliedAt = {},
     buffReminderCooldown = 12,
     buffItemLastReminderAt = {},
     buffItemLastReminderCastAnchor = {},
@@ -193,6 +194,7 @@ addon.const = {
         [238381] = { spellID = 1237942, duration = 30, category = "other_consumable", }, -- Hollow Grouper
         [241316] = { spellID = 1236763, duration = 3600, category = "other_consumable", }, -- Haranir Phial of Perception (2)
         [241317] = { spellID = 1236763, duration = 1800, category = "other_consumable", }, -- Haranir Phial of Perception (1)
+        [241148] = { spellID = 1237919, duration = 1800, category = "other_consumable", }, -- Amani Angler's Ward
         [242299] = { spellID = 1269152, duration = 3600, category = "food_drink", }, -- Sanguithorn Tea
         [262651] = { spellID = 1284999, duration = 600, category = "lure", }, -- Pointed Spikesnail
         [241145] = { spellID = 1237964, duration = 1800, category = "bait", }, -- Lucky Loa Lure

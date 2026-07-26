@@ -101,12 +101,17 @@ local function GetBuffItemCategory(itemID)
         return "other_consumable"
     end
 
-    local known = addon.const
-        and type(addon.const.knownBuffItems) == "table"
-        and addon.const.knownBuffItems[numeric]
-        or nil
-    if type(known) == "table" and type(known.category) == "string" and known.category ~= "" then
-        return known.category
+    if addon.db and type(addon.db.buffAuraByItem) == "table" then
+        local normalized = addon.db.buffAuraByItem[tostring(itemID)]
+        if type(normalized) == "table" and normalized.category then
+            return tostring(normalized.category)
+        end
+    end
+    if addon.const and type(addon.const.knownBuffItems) == "table" then
+        local known = addon.const.knownBuffItems[tonumber(itemID)]
+        if type(known) == "table" and known.category then
+            return tostring(known.category)
+        end
     end
 
     if addon.const and type(addon.const.bobberToyItemIDs) == "table" then
@@ -118,6 +123,7 @@ local function GetBuffItemCategory(itemID)
         end
     end
 
+    local result = nil
     local _, itemType, itemSubType, _, _, classID = GetItemInfoInstantSafe(numeric)
     local consumableClassID = rawget(_G, "LE_ITEM_CLASS_CONSUMABLE")
     if classID and consumableClassID and classID ~= consumableClassID then
@@ -128,17 +134,22 @@ local function GetBuffItemCategory(itemID)
     local itemSubTypeText = type(itemSubType) == "string" and string.lower(itemSubType) or ""
     if itemTypeText:find("consumable", 1, true) ~= nil then
         if itemSubTypeText:find("food", 1, true) ~= nil or itemSubTypeText:find("drink", 1, true) ~= nil then
-            return "food_drink"
-        end
-        if itemSubTypeText:find("item enhancement", 1, true) ~= nil
+            result = "food_drink"
+        elseif itemSubTypeText:find("item enhancement", 1, true) ~= nil
             or itemSubTypeText:find("enchant", 1, true) ~= nil
             or itemSubTypeText:find("weapon", 1, true) ~= nil then
-            return "lure"
+            result "lure"
         end
     end
 
-    if TooltipSuggestsLure(numeric) then
-        return "lure"
+    if not result and TooltipSuggestsLure(numeric) then
+        result = "lure"
+    end
+
+    -- add to the buffAuraByItem table for future reference
+    if result and addon.db and addon.db.buffAuraByItem and type(addon.db.buffAuraByItem) == "table" then
+        addon.db.buffAuraByItem[tostring(numeric)].category = result
+        return result
     end
 
     return "other_consumable"
@@ -161,13 +172,13 @@ local function GetBuffTimingText(itemID)
         return "duration unknown (learning aura)"
     end
 
-    local tracked = addon.db.buffAuraByItem[tostring(itemID)]
-    if type(tracked) ~= "table" or not tracked.spellID then
+    local normalized = addon.db.buffAuraByItem[tostring(itemID)]
+    if type(normalized) ~= "table" or not normalized.spellID then
         return "duration unknown (learning aura spell mapping)"
     end
 
-    local itemDuration = tracked.duration
-    local aura = addon.buff.GetAuraBySpellID(tracked.spellID)
+    local itemDuration = normalized.duration
+    local aura = addon.buff.GetAuraBySpellID(normalized.spellID)
     if aura and aura.expirationTime and aura.expirationTime > 0 then
         local remaining = math.max(0, aura.expirationTime - GetTime())
         local activeTotal = aura.duration or remaining
@@ -180,9 +191,9 @@ local function GetBuffTimingText(itemID)
     return "duration unknown (learning aura timings)"
 end
 
-local function AnnounceBuffUse(itemID)
+local function AnnounceBuffUse(itemID, spellID)
     local itemName = (type(GetItemInfo) == "function" and GetItemInfo(itemID)) or ("item:" .. tostring(itemID))
-    PrintMessage("Using buff: " .. tostring(itemName) .. " (" .. tostring(itemID) .. ") [" .. GetBuffTimingText(itemID) .. "]")
+    PrintMessage("Using buff: " .. tostring(itemName) .. " (" .. tostring(itemID) .. ", spellID=" .. tostring(spellID) .. ") [" .. GetBuffTimingText(itemID) .. "]")
 end
 
 local function FindItemInBags(itemID)
@@ -231,18 +242,33 @@ local function WarnMissingBuffItem(itemID, reason)
     PrintMessage("Buff due but item missing in inventory: " .. tostring(itemName) .. " (" .. tostring(itemID) .. ").")
 end
 
-local function GetEntryKnownDuration(entry)
+local function GetBuffItemSpellID(itemID)
+    if addon.db and type(addon.db.buffAuraByItem) == "table" then
+        local normalized = addon.db.buffAuraByItem[tostring(itemID)]
+        if type(normalized) == "table" and normalized.spellID then
+            return tonumber(normalized.spellID)
+        end
+    end
+    if addon.const and type(addon.const.knownBuffItems) == "table" then
+        local known = addon.const.knownBuffItems[tonumber(itemID)]
+        if type(known) == "table" and known.spellID then
+            return tonumber(known.spellID)
+        end
+    end
+    return nil
+end
+
+local function GetBuffItemDuration(itemID)
     local knownDuration = nil
-    if not knownDuration and addon.db and type(addon.db.buffAuraByItem) == "table" then
-        local entryItemID = type(entry) == "table" and tonumber(entry.itemID) or nil
-        local tracked = entryItemID and addon.db.buffAuraByItem[tostring(entryItemID)] or nil
-        if type(tracked) == "table" then
-            knownDuration = tonumber(tracked.duration)
+
+    if addon.db and type(addon.db.buffAuraByItem) == "table" then
+        local normalized = addon.db.buffAuraByItem[tostring(itemID)]
+        if type(normalized) == "table" and normalized.duration then
+            knownDuration = tonumber(normalized.duration)
         end
     end
     if not knownDuration and addon.const and type(addon.const.knownBuffItems) == "table" then
-        local entryItemID = type(entry) == "table" and tonumber(entry.itemID) or nil
-        local known = entryItemID and addon.const.knownBuffItems[entryItemID] or nil
+        local known = addon.const.knownBuffItems[tonumber(itemID)]
         if type(known) == "table" then
             knownDuration = tonumber(known.duration)
         end
@@ -282,7 +308,7 @@ local function GetNextDueBuffItem(requireAuraForCast, excludedItemIDs, requested
             if type(entry) == "table" and entry.enabled == false then
                 --DebugBuffMessage("Skipping disabled due buff item: " .. tostring(itemID))
             else
-                local itemCategory = GetBuffItemCategory(itemID)
+                local itemCategory = GetBuffItemCategory(itemID) or "other_consumable"
                 if type(excludedItemIDs) == "table" and excludedItemIDs[itemID] then
                     DebugBuffMessage("Skipping excluded due buff item: " .. tostring(itemID))
                 elseif requestedCategory and itemCategory ~= requestedCategory then
@@ -291,7 +317,7 @@ local function GetNextDueBuffItem(requireAuraForCast, excludedItemIDs, requested
                     --     .. " category=" .. tostring(itemCategory)
                     --     .. " requested=" .. tostring(requestedCategory))
                 else
-                    local knownDuration = GetEntryKnownDuration(entry)
+                    local knownDuration = GetBuffItemDuration(itemID)
                     local isDue, remaining, reason = addon.buff.IsBuffItemDue(itemID, knownDuration, requireAuraForCast)
 
                     if isDue then
@@ -334,17 +360,21 @@ local function ApplyBuffItem(itemID)
     end
     local now = (type(GetTime) == "function") and GetTime() or 0
     local castAnchor = tonumber(addon.state.fishingStartTime) or 0
-    local spellID = addon.state.buffAuraByItem and addon.state.buffAuraByItem[tostring(itemID)] and addon.state.buffAuraByItem[tostring(itemID)].spellID or nil
+    local spellID = GetBuffItemSpellID(itemID)
     addon.buff.StartImmediateFoodDrinkTransient(itemID, now)
     addon.state.buffItemLastUseAt[itemID] = now
+    addon.state.buffAuraLastAppliedAt[itemID] = now
     addon.state.buffItemLastReminderAt[itemID] = now
     addon.state.buffItemLastReminderCastAnchor[itemID] = castAnchor
+    if spellID then
+        addon.state.buffAuraLastAppliedAt[spellID] = now
+    end
     addon.state.pendingBuffObservation = {
         itemID = itemID,
         before = addon.buff.BuildHelpfulAuraSnapshot(),
         expiresAt = now + 20,
     }
-    AnnounceBuffUse(itemID)
+    AnnounceBuffUse(itemID, spellID)
 end
 
 local function MaybeUseBuffItems()
@@ -380,7 +410,7 @@ local function MaybeUseBuffItems()
         local itemID = tonumber(entry.itemID)
         if itemID and itemID > 0 then
             if not (type(entry) == "table" and entry.enabled == false) then
-                local knownDuration = GetEntryKnownDuration(entry)
+                local knownDuration = GetBuffItemDuration(itemID)
                 local shouldUse = addon.buff.IsBuffItemDue(itemID, knownDuration, false)
 
                 if shouldUse then
@@ -406,7 +436,10 @@ local function MaybeUseBuffItems()
     end
 end
 
+-- For each slotted buff item, make an entry in the buffAuraByItem table,
+-- using knownBuffItems as a reference for spellID and duration.
 local function NormalizeBuffConfig()
+    DebugBuffMessage("Normalizing buff configuration")
     if not addon.db then
         return
     end
@@ -418,6 +451,7 @@ local function NormalizeBuffConfig()
         addon.db.buffAuraByItem = {}
     end
 
+    DebugBuffMessage("Normalizing buff items and aura mapping for " .. tostring(addon.const.maxBuffSlots) .. " slots")
     for i = 1, addon.const.maxBuffSlots do
         local entry = addon.db.buffItems[i]
         if type(entry) ~= "table" then
@@ -429,14 +463,29 @@ local function NormalizeBuffConfig()
             entry.itemID = itemID
             if addon.const and type(addon.const.knownBuffItems) == "table" and type(addon.db.buffAuraByItem) == "table" then
                 local key = tostring(itemID)
-                if type(addon.db.buffAuraByItem[key]) ~= "table" then
-                    local known = addon.const.knownBuffItems[itemID]
-                    if type(known) == "table" and known.spellID then
-                        addon.db.buffAuraByItem[key] = {
-                            spellID = known.spellID,
-                            duration = tonumber(known.duration) or nil,
-                        }
+                local isDefined = type(addon.db.buffAuraByItem[key]) == "table"
+                local normalized = isDefined and addon.db.buffAuraByItem[key] or nil
+                local known = type(addon.const.knownBuffItems[itemID]) == "table" and addon.const.knownBuffItems[itemID] or nil
+                if normalized then
+                    if known then
+                        if not normalized.spellID then
+                            normalized.spellID = tonumber(known.spellID) or nil
+                        end
+                        if not normalized.duration then
+                            normalized.duration = tonumber(known.duration) or nil
+                        end
+                        if not normalized.category then
+                            normalized.category = GetBuffItemCategory(itemID)
+                        end
                     end
+                    DebugBuffMessage("Normalized buff item " .. tostring(itemID) .. " to spellID=" .. tostring(normalized.spellID) .. ", duration=" .. tostring(normalized.duration) .. ", category=" .. tostring(normalized.category))
+                elseif known then
+                    DebugBuffMessage("Normalizing buff item " .. tostring(itemID) .. " to spellID=" .. tostring(known.spellID) .. ", duration=" .. tostring(known.duration) .. ", category=" .. tostring(known.category))
+                    addon.db.buffAuraByItem[key] = {
+                        spellID = known.spellID,
+                        duration = tonumber(known.duration) or nil,
+                        category = GetBuffItemCategory(itemID),
+                    }
                 end
             end
         else
@@ -461,6 +510,7 @@ addon.buff.FindItemInBags = FindItemInBags
 addon.buff.WarnMissingBuffItem = WarnMissingBuffItem
 addon.buff.GetNextDueBuffItem = GetNextDueBuffItem
 addon.buff.GetBuffItemCategory = GetBuffItemCategory
+addon.buff.GetBuffItemSpellID = GetBuffItemSpellID
 addon.buff.MaybeUseBuffItems = MaybeUseBuffItems
 addon.buff.ApplyBuffItem = ApplyBuffItem
 addon.buff.NormalizeBuffConfig = NormalizeBuffConfig
@@ -474,7 +524,7 @@ addon._test.GetNextDueBuffItem = function(requireAuraForCast)
         local itemID = tonumber(entry.itemID)
         if itemID and itemID > 0 then
             if not (type(entry) == "table" and entry.enabled == false) then
-                local knownDuration = GetEntryKnownDuration(entry)
+                local knownDuration = GetBuffItemDuration(itemID)
                 local isDue, remaining, reason = addon.buff.IsBuffItemDue(itemID, knownDuration, requireAuraForCast)
                 if isDue then
                     return itemID, reason
@@ -486,6 +536,7 @@ addon._test.GetNextDueBuffItem = function(requireAuraForCast)
 end
 addon._test.SetBuffLastUseTime = function(itemID, time)
     addon.state.buffItemLastUseAt[itemID] = time
+    addon.state.buffAuraLastAppliedAt[itemID] = time
 end
 addon._test.GetBuffLastUseTime = function(itemID)
     return addon.state.buffItemLastUseAt[itemID]

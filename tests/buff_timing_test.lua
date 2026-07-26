@@ -525,6 +525,49 @@ function tests.PendingObservationPrefersKnownSpellOverLongerBobberAura()
     _G.AuraUtil = originalAuraUtil
 end
 
+function tests.SharedSpellIDRecentApplySuppressesSiblingItem()
+    local originalCUnitAuras = _G.C_UnitAuras
+    local originalAuraUtil = _G.AuraUtil
+
+    DreamFish._test.SetDB({
+        buffItems = {
+            { itemID = 238381 },
+            { itemID = 238365 },
+        },
+        buffAuraByItem = {
+            ["238381"] = { spellID = 1237942, duration = 52 },
+            ["238365"] = { spellID = 1237942, duration = 52 },
+        },
+    })
+
+    _G.C_UnitAuras = {
+        GetPlayerAuraBySpellID = function(spellID)
+            if spellID == 1237942 then
+                return {
+                    spellId = 1237942,
+                    duration = 49,
+                    expirationTime = mockTime + 16,
+                }
+            end
+            return nil
+        end,
+        GetAuraDataByIndex = function() return nil end,
+    }
+    _G.AuraUtil = nil
+
+    DreamFish.state.buffItemLastUseAt[238381] = mockTime - 1
+    DreamFish.state.buffAuraLastAppliedAt[238381] = mockTime - 1
+    DreamFish.state.buffAuraLastAppliedAt[1237942] = mockTime - 1
+
+    local isDue, remaining, reason = DreamFish._test.IsBuffItemDue(238365, 52, true)
+    assertEquals(isDue, false, "Sibling item sharing spellID should be suppressed right after recent apply")
+    assertTrue(remaining ~= nil, "Suppression should preserve tracked remaining")
+    assertEquals(reason, "too_soon_to_use_aura", "Suppression should use aura recency guard")
+
+    _G.C_UnitAuras = originalCUnitAuras
+    _G.AuraUtil = originalAuraUtil
+end
+
 -- ============================================================================
 -- Tests: Get Next Due Buff Item
 -- ============================================================================

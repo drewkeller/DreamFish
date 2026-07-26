@@ -5,27 +5,6 @@ local Clamp = addon.Clamp
 
 local DebugBuffMessage = addon.buff.DebugBuffMessage or addon.DebugMessage
 
-local function GetBuffItemCategoryForDue(itemID)
-    local numeric = tonumber(itemID)
-    if not numeric or numeric <= 0 then
-        return "other_consumable"
-    end
-
-    local known = addon.const
-        and type(addon.const.knownBuffItems) == "table"
-        and addon.const.knownBuffItems[numeric]
-        or nil
-    if type(known) == "table" and type(known.category) == "string" and known.category ~= "" then
-        return known.category
-    end
-
-    if addon.buff and type(addon.buff.GetBuffItemCategory) == "function" then
-        return addon.buff.GetBuffItemCategory(numeric)
-    end
-
-    return "other_consumable"
-end
-
 local function GetBuffRefreshLead(refreshSeconds)
     local castAwareLead = addon.const.maxFishingCastSeconds + addon.const.buffPreRefreshSafetySeconds
     local numeric = tonumber(refreshSeconds)
@@ -37,7 +16,7 @@ local function GetBuffRefreshLead(refreshSeconds)
 end
 
 local function IsBuffItemDue(itemID, knownDuration, requireAuraForCast)
-    local itemCategory = GetBuffItemCategoryForDue(itemID)
+    local itemCategory = addon.buff.GetBuffItemCategory(itemID)
     if itemCategory == "food_drink" and addon.state and type(addon.state.buffItemTransientUntil) == "table" then
         local transientUntil = tonumber(addon.state.buffItemTransientUntil[tonumber(itemID)]) or 0
         if transientUntil > GetTime() then
@@ -45,17 +24,30 @@ local function IsBuffItemDue(itemID, knownDuration, requireAuraForCast)
         end
     end
 
-    local lastUsed = addon.state.buffItemLastUseAt[itemID] or 0
+    local spellID = addon.buff.GetBuffItemSpellID(itemID)
+    local aura = spellID and addon.buff.GetAuraBySpellID(spellID) or nil
+    local itemLastUsed = addon.state.buffItemLastUseAt[itemID] or 0
+    local auraLastAppliedByItem = addon.state.buffAuraLastAppliedAt[itemID] or 0
+    local auraLastAppliedBySpell = (spellID and addon.state.buffAuraLastAppliedAt[spellID]) or 0
+    local auraLastApplied = math.max(tonumber(auraLastAppliedByItem) or 0, tonumber(auraLastAppliedBySpell) or 0)
     local remaining = addon.buff.GetTrackedBuffRemaining(itemID)
-    local elapsed = GetTime() - lastUsed
-    if lastUsed > 0 and elapsed <= 5 then
+    local elapsed = GetTime() - itemLastUsed
+    if itemLastUsed > 0 and elapsed <= 5 then
         addon.buff.DebugBuffMessage("Buff item " .. tostring(itemID) .. " last used " .. tostring(elapsed) .. " ago; known duration=" .. tostring(knownDuration) .. "; remaining=" .. tostring(remaining))
         return false, remaining, "too_soon_to_use"
     end
+    if auraLastApplied > 0 and (GetTime() - auraLastApplied) <= 5 then
+        addon.buff.DebugBuffMessage("Buff item " .. tostring(itemID) .. " aura last applied " .. tostring(GetTime() - auraLastApplied) .. " ago; known duration=" .. tostring(knownDuration) .. "; remaining=" .. tostring(remaining))
+        return false, remaining, "too_soon_to_use_aura"
+    end
     if remaining ~= nil then
-        if lastUsed == 0 then
-            local assumedElapsed = knownDuration - remaining
-            lastUsed = GetTime() - assumedElapsed
+        if itemLastUsed == 0 then
+            local numericKnownDuration = tonumber(knownDuration)
+            if not numericKnownDuration then
+                return false, remaining, "tracked_remaining_unknown_duration"
+            end
+            local assumedElapsed = numericKnownDuration - remaining
+            itemLastUsed = GetTime() - assumedElapsed
             addon.buff.DebugBuffMessage("Buff item " .. tostring(itemID) .. " assumed last used " .. tostring(assumedElapsed) .. " ago; remaining=" .. tostring(remaining))
         else
             addon.buff.DebugBuffMessage("Buff item " .. tostring(itemID) .. " last used " .. tostring(elapsed) .. " ago; remaining=" .. tostring(remaining))
@@ -64,29 +56,10 @@ local function IsBuffItemDue(itemID, knownDuration, requireAuraForCast)
         return remaining <= lead, remaining, "tracked_remaining"
     end
 
-    local hasTrackedAura = false
-    local trackedSpellID = nil
-    if addon.db and type(addon.db.buffAuraByItem) == "table" then
-        local tracked = addon.db.buffAuraByItem[tostring(itemID)]
-        if type(tracked) == "table" and tracked.spellID then
-            hasTrackedAura = true
-            trackedSpellID = tracked.spellID
-        end
-    end
-
-    if (not hasTrackedAura) and addon.const and type(addon.const.knownBuffItems) == "table" then
-        local known = addon.const.knownBuffItems[tonumber(itemID)]
-        if type(known) == "table" and known.spellID then
-            hasTrackedAura = true
-            trackedSpellID = known.spellID
-        end
-    end
-
-    if hasTrackedAura and trackedSpellID then
-        local aura = addon.buff.GetAuraBySpellID(trackedSpellID)
+    if spellID then
         if not aura then
-            if lastUsed > 0 and tonumber(knownDuration) and tonumber(knownDuration) > 0 then
-                local elapsedTrackedFallback = GetTime() - lastUsed
+            if itemLastUsed > 0 and tonumber(knownDuration) and tonumber(knownDuration) > 0 then
+                local elapsedTrackedFallback = GetTime() - itemLastUsed
                 if elapsedTrackedFallback < tonumber(knownDuration) then
                     return false, nil, "tracked_missing_recent_use"
                 end
@@ -99,7 +72,7 @@ local function IsBuffItemDue(itemID, knownDuration, requireAuraForCast)
         return false, nil, "unknown_duration_suppressed"
     end
 
-    if not hasTrackedAura then
+    if not aura then
         if requireAuraForCast then
             local pending = addon.state and addon.state.pendingBuffObservation or nil
             if type(pending) == "table"
@@ -109,7 +82,7 @@ local function IsBuffItemDue(itemID, knownDuration, requireAuraForCast)
                 return false, nil, "unknown_duration_observing"
             end
 
-            if lastUsed <= 0 then
+            if itemLastUsed <= 0 then
                 return true, nil, "untracked_no_history_due_cast"
             end
 
@@ -124,7 +97,7 @@ local function IsBuffItemDue(itemID, knownDuration, requireAuraForCast)
         return false, nil, "known_aura_unknown_duration"
     end
 
-    local elapsed = GetTime() - lastUsed
+    local elapsed = GetTime() - itemLastUsed
     return elapsed >= numericKnownDuration, nil, "timer_elapsed=" .. string.format("%.1f", elapsed)
 end
 
