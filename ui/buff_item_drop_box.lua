@@ -5,7 +5,6 @@ addon.ui = addon.ui or {}
 
 function addon.ui.CreateBuffItemDropBox(deps, parent, x, y, label, onLiveChange)
     local buffItemLastKnownCount = deps.buffItemLastKnownCount
-    local buffItemLastUseAt = deps.buffItemLastUseAt
     local getDragState = deps.getDragState
     local setDragState = deps.setDragState
     local getCachedItemCount = deps.getCachedItemCount
@@ -417,18 +416,7 @@ function addon.ui.CreateBuffItemDropBox(deps, parent, x, y, label, onLiveChange)
         if button ~= "RightButton" or not self.itemID or self.itemID <= 0 then
             return
         end
-        local now = GetTime()
-        buffItemLastUseAt[self.itemID] = now
-        if addon.buff and addon.buff.BuildHelpfulAuraSnapshot then
-            addon.state.pendingBuffObservation = {
-                itemID = self.itemID,
-                before = addon.buff.BuildHelpfulAuraSnapshot(),
-                expiresAt = now + 20,
-            }
-        end
-        if addon.buff and addon.buff.AnnounceBuffUse then
-            addon.buff.AnnounceBuffUse(self.itemID)
-        end
+        addon.buff.ApplyBuffItem(self.itemID)
         self:UpdateCountDisplay()
     end)
 

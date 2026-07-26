@@ -158,12 +158,12 @@ end
 
 local function GetBuffTimingText(itemID)
     if not addon.db or type(addon.db.buffAuraByItem) ~= "table" then
-        return "duration unknown (learning aura mapping)"
+        return "duration unknown (learning aura)"
     end
 
     local tracked = addon.db.buffAuraByItem[tostring(itemID)]
     if type(tracked) ~= "table" or not tracked.spellID then
-        return "duration unknown (learning aura mapping)"
+        return "duration unknown (learning aura spell mapping)"
     end
 
     local itemDuration = tracked.duration
@@ -177,7 +177,7 @@ local function GetBuffTimingText(itemID)
     if itemDuration then
         return "item=" .. addon.buff.FormatDuration(itemDuration) .. ", active aura not detected"
     end
-    return "duration unknown (learning aura mapping)"
+    return "duration unknown (learning aura timings)"
 end
 
 local function AnnounceBuffUse(itemID)
@@ -328,6 +328,25 @@ local function GetNextDueBuffItem(requireAuraForCast, excludedItemIDs, requested
     return nil
 end
 
+local function ApplyBuffItem(itemID)
+    if not itemID then
+        return
+    end
+    local now = (type(GetTime) == "function") and GetTime() or 0
+    local castAnchor = tonumber(addon.state.fishingStartTime) or 0
+    local spellID = addon.state.buffAuraByItem and addon.state.buffAuraByItem[tostring(itemID)] and addon.state.buffAuraByItem[tostring(itemID)].spellID or nil
+    addon.buff.StartImmediateFoodDrinkTransient(itemID, now)
+    addon.state.buffItemLastUseAt[itemID] = now
+    addon.state.buffItemLastReminderAt[itemID] = now
+    addon.state.buffItemLastReminderCastAnchor[itemID] = castAnchor
+    addon.state.pendingBuffObservation = {
+        itemID = itemID,
+        before = addon.buff.BuildHelpfulAuraSnapshot(),
+        expiresAt = now + 20,
+    }
+    AnnounceBuffUse(itemID)
+end
+
 local function MaybeUseBuffItems()
     if not addon.RequireFishingAPI then
         error("DreamFish: RequireFishingAPI helper is required for buff management")
@@ -377,14 +396,7 @@ local function MaybeUseBuffItems()
                         if (now - lastReminder) >= addon.state.buffReminderCooldown then
                             local itemName = (type(GetItemInfo) == "function" and GetItemInfo(itemID)) or ("item:" .. tostring(itemID))
                             PrintMessage("Buff due: use " .. tostring(itemName) .. ". (Drag onto action bar or macro: /use item:" .. tostring(itemID) .. ")")
-                            addon.state.buffItemLastReminderAt[itemID] = now
-                            addon.state.buffItemLastReminderCastAnchor[itemID] = castAnchor
-                            addon.state.buffItemLastUseAt[itemID] = now
-                            addon.state.pendingBuffObservation = {
-                                itemID = itemID,
-                                before = addon.buff.BuildHelpfulAuraSnapshot(),
-                                expiresAt = now + 20,
-                            }
+                            ApplyBuffItem(itemID)
                         end
                     end
                     return
@@ -450,6 +462,7 @@ addon.buff.WarnMissingBuffItem = WarnMissingBuffItem
 addon.buff.GetNextDueBuffItem = GetNextDueBuffItem
 addon.buff.GetBuffItemCategory = GetBuffItemCategory
 addon.buff.MaybeUseBuffItems = MaybeUseBuffItems
+addon.buff.ApplyBuffItem = ApplyBuffItem
 addon.buff.NormalizeBuffConfig = NormalizeBuffConfig
 
 -- Test hooks

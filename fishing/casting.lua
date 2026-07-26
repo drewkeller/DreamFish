@@ -13,7 +13,6 @@ local DUE_BUFF_CATEGORY_ORDER = { "food_drink", "lure", "bait", "bobber", "other
 local ConfigureFishingClickAction
 local GetNextReadyDueBuffItem
 local GetNextCastableDueBuffItem
-local StartImmediateFoodDrinkTransient
 
 local function IsBuffDebugEnabled()
     return addon.db and addon.db.debugMode and addon.db.debugBuffs
@@ -358,16 +357,7 @@ local function CreateSecureFishingFrame()
             addon.state.lastFishingSecureClickAt = (type(GetTime) == "function") and GetTime() or 0
         end
         if dueBuffItemID and dueBuffItemID > 0 and addon.state and addon.buff then
-            local now = (type(GetTime) == "function") and GetTime() or 0
-            addon.state.buffItemLastUseAt[dueBuffItemID] = now
-            StartImmediateFoodDrinkTransient(dueBuffItemID, now)
-            if type(addon.buff.BuildHelpfulAuraSnapshot) == "function" then
-                addon.state.pendingBuffObservation = {
-                    itemID = dueBuffItemID,
-                    before = addon.buff.BuildHelpfulAuraSnapshot(),
-                    expiresAt = now + 20,
-                }
-            end
+            addon.buff.ApplyBuffItem(dueBuffItemID)
         end
         if not InCombatLockdown() then
             -- Right-click override path still uses this frame.
@@ -405,15 +395,7 @@ local function CreateSecureBuffFrame()
             .. " item2=" .. tostring(self:GetAttribute("item2"))
             .. " macro=" .. tostring(macrotext:match("([^\n]+)") or ""))
         if itemID and itemID > 0 then
-            local now = GetTime()
-            addon.state.buffItemLastUseAt[itemID] = now
-            StartImmediateFoodDrinkTransient(itemID, now)
-            addon.state.pendingBuffObservation = {
-                itemID = itemID,
-                before = addon.buff.BuildHelpfulAuraSnapshot(),
-                expiresAt = now + 20,
-            }
-            addon.buff.AnnounceBuffUse(itemID)
+            addon.buff.ApplyBuffItem(itemID)
         end
         ResetBuffFrameState(self)
         self:Hide()
@@ -434,31 +416,6 @@ end
 local function ApplySelectedRaftToy()
     -- Slash-command toy usage is protected; use secure UI buttons for manual toy use.
     return false
-end
-
-StartImmediateFoodDrinkTransient = function(itemID, now)
-    local numericItemID = tonumber(itemID)
-    if not numericItemID or numericItemID <= 0 or not addon.state then
-        return
-    end
-
-    local category = nil
-    local known = addon.const
-        and type(addon.const.knownBuffItems) == "table"
-        and addon.const.knownBuffItems[numericItemID]
-        or nil
-    if type(known) == "table" and type(known.category) == "string" and known.category ~= "" then
-        category = known.category
-    elseif addon.buff and type(addon.buff.GetBuffItemCategory) == "function" then
-        category = addon.buff.GetBuffItemCategory(numericItemID)
-    end
-
-    if category ~= "food_drink" then
-        return
-    end
-
-    addon.state.buffItemTransientUntil = addon.state.buffItemTransientUntil or {}
-    addon.state.buffItemTransientUntil[numericItemID] = (tonumber(now) or 0) + 10
 end
 
 local function IsLureCategory(category)

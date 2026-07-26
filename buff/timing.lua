@@ -128,10 +128,36 @@ local function IsBuffItemDue(itemID, knownDuration, requireAuraForCast)
     return elapsed >= numericKnownDuration, nil, "timer_elapsed=" .. string.format("%.1f", elapsed)
 end
 
+StartImmediateFoodDrinkTransient = function(itemID, now)
+    local numericItemID = tonumber(itemID)
+    if not numericItemID or numericItemID <= 0 or not addon.state then
+        return
+    end
+
+    local category = nil
+    local known = addon.const
+        and type(addon.const.knownBuffItems) == "table"
+        and addon.const.knownBuffItems[numericItemID]
+        or nil
+    if type(known) == "table" and type(known.category) == "string" and known.category ~= "" then
+        category = known.category
+    elseif addon.buff and type(addon.buff.GetBuffItemCategory) == "function" then
+        category = addon.buff.GetBuffItemCategory(numericItemID)
+    end
+
+    if category ~= "food_drink" then
+        return
+    end
+
+    addon.state.buffItemTransientUntil = addon.state.buffItemTransientUntil or {}
+    addon.state.buffItemTransientUntil[numericItemID] = (tonumber(now) or 0) + 10
+end
+
 -- Export to addon
 addon.buff = addon.buff or {}
 addon.buff.GetBuffRefreshLead = GetBuffRefreshLead
 addon.buff.IsBuffItemDue = IsBuffItemDue
+addon.buff.StartImmediateFoodDrinkTransient = StartImmediateFoodDrinkTransient
 
 -- Test hooks
 addon._test.GetBuffRefreshLead = function(refreshSeconds)
