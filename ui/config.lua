@@ -1612,6 +1612,29 @@ local function BuildModesTab(modesPage, ui, onLiveChange)
     addon.castHotkeyKeybinding = ui.FlowKeybinding(castingSection, "", 220, onLiveChange,
         "The keybinding to use for casting the fishing line (and reeling it in, if EasyStrike is enabled).")
 
+    local function SaveModesLive()
+        if addon.db then
+            addon.db.castingModes = {
+                doubleRightClick = addon.modeDoubleRightClickCheckbox and addon.modeDoubleRightClickCheckbox:GetChecked() or false,
+                singleRightClick = addon.modeSingleRightClickConfigCheckbox and addon.modeSingleRightClickConfigCheckbox:GetChecked() or false,
+                castHotkey = addon.modeHotkeyCheckbox and addon.modeHotkeyCheckbox:GetChecked() or false,
+            }
+        end
+        if onLiveChange then
+            onLiveChange()
+        end
+    end
+
+    if addon.modeDoubleRightClickCheckbox and addon.modeDoubleRightClickCheckbox.SetCallback then
+        addon.modeDoubleRightClickCheckbox:SetCallback("OnValueChanged", SaveModesLive)
+    end
+    if addon.modeSingleRightClickConfigCheckbox and addon.modeSingleRightClickConfigCheckbox.SetCallback then
+        addon.modeSingleRightClickConfigCheckbox:SetCallback("OnValueChanged", SaveModesLive)
+    end
+    if addon.modeHotkeyCheckbox and addon.modeHotkeyCheckbox.SetCallback then
+        addon.modeHotkeyCheckbox:SetCallback("OnValueChanged", SaveModesLive)
+    end
+
     local castingSection = ui.FlowSection(root, "Reeling Triggers")
     addon.enableHookedLootCheckbox = ui.FlowCheckboxWithNote(
         castingSection,
