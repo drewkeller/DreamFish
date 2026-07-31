@@ -390,6 +390,57 @@ local RefreshTackleEquippedPoleHighlights = tacklePoleUI.RefreshTackleEquippedPo
 local tackleHighlightEventFrame = nil
 local tackleHighlightRefreshActive = false
 
+local function NormalizeLootConfig(db)
+    if type(db) ~= "table" then
+        return
+    end
+
+    -- BlizzAutoLoot   nativeAutoLoot   nativeAutoLootWhenFishingOnly
+    --    YES          YES              YES                      => don't need to change CVar
+    --    NO           YES              YES                      => change cvar(true) when fishing
+    --    XX           YES              NO (always native)       => Set CVar to true
+    --    XX           NO               XX (never native)        => CVar = managedAutoLoot ? false : previous Blizzard setting
+
+    -- BlizzAutoLoot   managedAutoLoot   managedLootWhenFishingOnly
+    --    YES          YES               YES                     => change cvar(false) when fishing
+    --    NO           YES               YES                     => don't need to change CVar
+    --    XX           YES               NO (always managed)     => override CVar (set to false)
+    --    XX           NO                XX (never managed)      => CVar = nativeAutoLoot ? true : previous Blizzard setting
+
+    -- Save the original Blizzard auto-loot setting on first run
+    local blizzardNativeAutoLoot = type(GetCVar) == "function" and GetCVar("autoLootDefault")
+    if db.originalNativeAutoLoot == nil then
+        db.originalNativeAutoLoot = blizzardNativeAutoLoot
+    end
+
+    if db.nativeAutoLoot == nil then
+        db.nativeAutoLoot = blizzardNativeAutoLoot == "1"
+    end
+
+    if db.nativeAutoLoot and not db.nativeAutoLootOnlyWhenFishing then
+        SetCVar("autoLootDefault", "1")
+        addon.DebugMessage("(1) Native auto-loot enabled: CVar autoLootDefault set to 1, confirming: " .. GetCVar("autoLootDefault"))
+    elseif db.managedLoot and not db.managedLootOnlyWhenFishing then
+        SetCVar("autoLootDefault", "0")
+        addon.DebugMessage("(2) Managed auto-loot enabled: CVar autoLootDefault set to 0, confirming: " .. GetCVar("autoLootDefault"))
+    elseif db.nativeAutoLoot and not db.managedLoot then
+        SetCVar("autoLootDefault", "1")
+        addon.DebugMessage("(3) Native auto-loot enabled: CVar autoLootDefault set to 1, confirming: " .. GetCVar("autoLootDefault"))
+    elseif not db.nativeAutoLoot and db.managedLoot then
+        SetCVar("autoLootDefault", "0")
+        addon.DebugMessage("(4) Managed auto-loot enabled: CVar autoLootDefault set to 0, confirming: " .. GetCVar("autoLootDefault"))
+    elseif not db.nativeAutoLoot and not db.managedLoot then
+        SetCVar("autoLootDefault", db.originalNativeAutoLoot)
+        addon.DebugMessage("(5) Both native and managed auto-loot disabled: CVar autoLootDefault restored to original value " .. tostring(db.originalNativeAutoLoot))
+    end
+
+    local delay = tonumber(db.lootDelay)
+    if not delay then
+        delay = tonumber(addon.defaults and addon.defaults.lootDelay) or 0.5
+    end
+    db.lootDelay = addon.Clamp(delay, 0, 5)
+end
+
 local function SetTackleHighlightAutoRefreshEnabled(enabled)
     if enabled then
         if tackleHighlightRefreshActive then
@@ -814,6 +865,7 @@ local function LoadConfigBindings()
     local isFocusActive = activeTab == "focus"
     local isTackleActive = activeTab == "tackle"
     local isModesActive = activeTab == "modes"
+    local isLootActive = activeTab == "loot"
 
     local function BuildBuffBagCountSnapshot()
         local counts = {}
@@ -854,12 +906,6 @@ local function LoadConfigBindings()
         buffBagCountSnapshot = nil
     end
 
-    if isFocusActive and addon.autoLootCheckbox then
-        addon.autoLootCheckbox:SetChecked(addon.db.autoLoot)
-    end
-    if isFocusActive and addon.managedLootCheckbox then
-        addon.managedLootCheckbox:SetChecked(addon.db.managedLoot)
-    end
     if isFocusActive and addon.focusedAudioCheckbox then
         addon.focusedAudioCheckbox:SetChecked(addon.db.focusedAudio)
     end
@@ -878,11 +924,11 @@ local function LoadConfigBindings()
     if isFocusActive and addon.reagentBagAlertsCheckbox then
         addon.reagentBagAlertsCheckbox:SetChecked(addon.db.reagentBagAlerts)
     end
-    if isFocusActive and addon.throwAwayJunkCheckbox then
+    if isLootActive and addon.throwAwayJunkCheckbox then
         addon.throwAwayJunkCheckbox:SetChecked(addon.db.throwAwayJunk)
         addon.throwAwayJunkCheckbox:SetDisabled(not addon.db.managedLoot)
     end
-    if isFocusActive and addon.lootDelayBox then
+    if isLootActive and addon.lootDelayBox then
         local delaySeconds = tonumber(addon.db.lootDelay)
         if not delaySeconds then
             delaySeconds = tonumber(defaults.lootDelay) or 0.5
@@ -890,6 +936,24 @@ local function LoadConfigBindings()
         local delayMs = addon.Clamp(math.floor((delaySeconds * 1000) + 0.5), 0, 5000)
         addon.lootDelayBox:SetText(tostring(delayMs))
         addon.lootDelayBox:SetDisabled(not addon.db.managedLoot)
+    end
+    if isLootActive and addon.nativeAutoLootCheckbox then
+        addon.nativeAutoLootCheckbox:SetChecked(addon.db.nativeAutoLoot)
+    end
+    if isLootActive and addon.nativeLootOnlyWhenFishingCheckbox then
+        addon.nativeLootOnlyWhenFishingCheckbox:SetChecked(addon.db.nativeLootOnlyWhenFishing)
+        addon.nativeLootOnlyWhenFishingCheckbox:SetDisabled(not addon.db.nativeAutoLoot)
+    end
+    if isLootActive and addon.managedLootCheckbox then
+        addon.managedLootCheckbox:SetChecked(addon.db.managedLoot)
+    end
+    if isLootActive and addon.managedLootOnlyWhenFishingCheckbox then
+        addon.managedLootOnlyWhenFishingCheckbox:SetChecked(addon.db.managedLootOnlyWhenFishing)
+        addon.managedLootOnlyWhenFishingCheckbox:SetDisabled(not addon.db.managedLoot)
+    end
+    if isLootActive and addon.keepLootWindowOpenCheckbox then
+        addon.keepLootWindowOpenCheckbox:SetChecked(addon.db.keepLootWindowOpenWhenDiscarding)
+        addon.keepLootWindowOpenCheckbox:SetDisabled(not addon.db.managedLoot)
     end
     if isModesActive and addon.escapeCloseCheckbox then
         addon.escapeCloseCheckbox:SetChecked(addon.db.closeWindowOnEscape)
@@ -934,7 +998,7 @@ local function LoadConfigBindings()
     if isFocusActive and addon.audioLingerBox then
         addon.audioLingerBox:SetText(tostring(addon.db.focusedAudioLinger or defaults.focusedAudioLinger))
     end
-    if isModesActive and addon.modeDoubleRightClickCheckbox then
+    if addon.modeDoubleRightClickCheckbox then
         local modes = GetCastingModesForConfig()
         addon.modeDoubleRightClickCheckbox:SetChecked(modes.doubleRightClick)
         addon.modeSingleRightClickConfigCheckbox:SetChecked(modes.singleRightClick)
@@ -975,16 +1039,26 @@ local function SaveConfigBindings()
         addon.db.focusedAudioLinger = addon.Clamp(tonumber(addon.db.focusedAudioLinger) or defaults.focusedAudioLinger, 0, 60)
     end
 
-    if addon.autoLootCheckbox then
-        addon.db.autoLoot = addon.autoLootCheckbox:GetChecked()
+    if addon.nativeAutoLootCheckbox then
+        addon.db.nativeAutoLoot = addon.nativeAutoLootCheckbox:GetChecked()
     end
     if addon.managedLootCheckbox then
         addon.db.managedLoot = addon.managedLootCheckbox:GetChecked()
     end
-    if addon.db.autoLoot and addon.db.managedLoot then
-        addon.db.autoLoot = false
-        if addon.autoLootCheckbox and addon.autoLootCheckbox.SetChecked then
-            addon.autoLootCheckbox:SetChecked(false)
+    if addon.managedLootOnlyWhenFishingCheckbox then
+        addon.db.managedLootOnlyWhenFishing = addon.managedLootOnlyWhenFishingCheckbox:GetChecked()
+    else
+        addon.db.managedLootOnlyWhenFishing = addon.db.managedLootOnlyWhenFishing and true or false
+    end
+    if addon.keepLootWindowOpenCheckbox then
+        addon.db.keepLootWindowOpenWhenDiscarding = addon.keepLootWindowOpenCheckbox:GetChecked()
+    else
+        addon.db.keepLootWindowOpenWhenDiscarding = addon.db.keepLootWindowOpenWhenDiscarding and true or false
+    end
+    if addon.db.nativeAutoLoot and addon.db.managedLoot then
+        addon.db.nativeAutoLoot = false
+        if addon.nativeAutoLootCheckbox and addon.nativeAutoLootCheckbox.SetChecked then
+            addon.nativeAutoLootCheckbox:SetChecked(false)
         end
     end
     if addon.focusedAudioCheckbox then
@@ -1164,6 +1238,8 @@ function config.SaveConfig(skipRefresh)
         return
     end
 
+    NormalizeLootConfig(addon.db)
+
     local previouslyActiveBuffItems = SaveConfigBindings()
     local currentlyActiveBuffItems = CollectActiveBuffItemIDs(addon.db.buffItems)
     for removedItemID, _ in pairs(previouslyActiveBuffItems) do
@@ -1293,6 +1369,7 @@ local function BuildTabs(panel, aceGUIInstance)
         tackle = "Tackle",
         buffs = "Buffs",
         modes = "Modes",
+        loot = "Loot",
     }
 
     panel.tabButtons = {}
@@ -1324,6 +1401,7 @@ local function BuildTabs(panel, aceGUIInstance)
         { text = tabLabels.tackle, value = "tackle" },
         { text = tabLabels.buffs, value = "buffs" },
         { text = tabLabels.modes, value = "modes" },
+        { text = tabLabels.loot, value = "loot" },
     })
     aceTabGroup:SetCallback("OnGroupSelected", function(_, _, group)
         if panel.HandleTabSelected then
@@ -1349,6 +1427,7 @@ local function BuildTabs(panel, aceGUIInstance)
         tackle = CreatePage("tackle"),
         buffs = CreatePage("buffs"),
         modes = CreatePage("modes"),
+        loot = CreatePage("loot"),
     }
 
     local function SelectTab(tabName)
@@ -1364,38 +1443,54 @@ local function BuildTabs(panel, aceGUIInstance)
     }
 end
 
+local function BuildLootTab(lootPage, ui, onLiveChange)
+    local root = ui.FlowRoot(lootPage, 12)
+
+    local lootSection = ui.FlowSection(root, "Looting")
+    addon.nativeAutoLootCheckbox = ui.FlowCheckbox(lootSection, "Native auto-loot", onLiveChange,
+        "Use native auto-loot.")
+    local nativeLootInset = ui.FlowInsetHost(lootSection, 20)
+    addon.nativeLootOnlyWhenFishingCheckbox = ui.FlowCheckbox(nativeLootInset, "Only while fishing", onLiveChange,
+        "Native auto-loot only applies while fishing. If you normally have native auto-loot disabled, this option temporarily enables it while fishing.")
+
+    addon.managedLootCheckbox = ui.FlowCheckbox(lootSection, "Managed auto-loot", onLiveChange,
+        "Allows the addon to manage auto-loot. Managed auto-loot can be faster than native looting and can discard junk items automatically.")
+    local managedLootInset = ui.FlowInsetHost(lootSection, 20)
+    addon.managedLootOnlyWhenFishingCheckbox = ui.FlowCheckbox(managedLootInset, "Only while fishing", onLiveChange,
+        "Managed looting only applies while fishing. If you normally have native auto-loot enabled, this option temporarily disables it while fishing.")
+    addon.throwAwayJunkCheckbox = ui.FlowCheckbox(managedLootInset, "Leave junk items in loot window", onLiveChange,
+        "When checked, junk-quality items are not automatically looted.")
+    local managedLootInset2 = ui.FlowInsetHost(managedLootInset, 20)
+    addon.keepLootWindowOpenCheckbox = ui.FlowCheckbox(managedLootInset2, "Keep loot window open if it has junk", onLiveChange,
+        "If the loot window contains items to discard, keep the window open. Otherwise, the loot window auto-closes and the junk is permanently discarded.")
+    addon.lootDelayBox = ui.FlowEditBox(managedLootInset, "Loot delay (ms)", 150, onLiveChange,
+        "Delay before looting so the window is visible.")
+    addon.nativeAutoLootCheckbox:SetCallback("OnValueChanged", function(_, _, value)
+        if value then
+            addon.managedLootCheckbox:SetChecked(false)
+            addon.managedLootOnlyWhenFishingCheckbox:SetDisabled(true)
+            addon.throwAwayJunkCheckbox:SetDisabled(true)
+            addon.keepLootWindowOpenCheckbox:SetDisabled(true)
+            addon.lootDelayBox:SetDisabled(true)
+        end
+        addon.nativeLootOnlyWhenFishingCheckbox:SetDisabled(not value)
+    end)
+    addon.managedLootCheckbox:SetCallback("OnValueChanged", function(_, _, value)
+        if value then
+            addon.nativeAutoLootCheckbox:SetChecked(false)
+        end
+        addon.nativeLootOnlyWhenFishingCheckbox:SetDisabled(value)
+        addon.throwAwayJunkCheckbox:SetDisabled(not value)
+        addon.managedLootOnlyWhenFishingCheckbox:SetDisabled(not value)
+        addon.keepLootWindowOpenCheckbox:SetDisabled(not value)
+        addon.lootDelayBox:SetDisabled(not value)
+    end)
+end
+
 local function BuildFocusTab(focusPage, ui, onLiveChange)
     local root = ui.FlowRoot(focusPage, 12)
 
     local focusSection = ui.FlowSection(root, "Focus")
-    addon.autoLootCheckbox = ui.FlowCheckbox(focusSection, "Native auto-loot while fishing", onLiveChange,
-        "If you normally have native auto-loot disabled, this option temporarily enables it while fishing.")
-    addon.managedLootCheckbox = ui.FlowCheckbox(focusSection, "Managed auto-loot while fishing", onLiveChange,
-        "Allows the addon to manage auto-loot while fishing. If you normally have native auto-loot enabled, this option temporarily disables it while fishing.")
-
-    local managedLootInset = ui.FlowInsetHost(focusSection, 20)
-    addon.throwAwayJunkCheckbox = ui.FlowCheckbox(managedLootInset, "Ignore junk items in loot", onLiveChange,
-        "Junk-quality items are not automatically looted.")
-    addon.lootDelayBox = ui.FlowEditBox(managedLootInset, "Loot delay (ms)", 150, onLiveChange,
-        "Delay before looting so the window is visible.")
-    addon.autoLootCheckbox:SetCallback("OnValueChanged", function(_, _, value)
-        if value then
-            addon.managedLootCheckbox:SetChecked(false)
-            addon.throwAwayJunkCheckbox:SetDisabled(true)
-            addon.lootDelayBox:SetDisabled(true)
-        end
-    end)
-    addon.managedLootCheckbox:SetCallback("OnValueChanged", function(_, _, value)
-        if value then
-            addon.autoLootCheckbox:SetChecked(false)
-            addon.throwAwayJunkCheckbox:SetDisabled(false)
-            addon.lootDelayBox:SetDisabled(false)
-        else
-            addon.throwAwayJunkCheckbox:SetDisabled(true)
-            addon.lootDelayBox:SetDisabled(true)
-        end
-    end)
-
     addon.treasureAlertsCheckbox = ui.FlowCheckbox(focusSection, "Patient Treasure notification", onLiveChange,
         "Notifies you if you catch a Patient Treasure by coloring the screen and playing a distinct sound.")
 
@@ -2110,6 +2205,7 @@ function config.CreateConfigPanel()
         tackle = false,
         buffs = false,
         modes = false,
+        loot = false,
     }
 
     local function EnsureTabBuilt(tabName)
@@ -2127,6 +2223,8 @@ function config.CreateConfigPanel()
         elseif tabName == "buffs" then
             BuildBuffsTab(tabs.pages.buffs, ui, CreateBuffItemDropBox, SaveLive)
             panel.buffItemControls = addon.buffItemControls
+        elseif tabName == "loot" then
+            BuildLootTab(tabs.pages.loot, ui, SaveLive)
         end
         suppressLiveSave = false
 
@@ -2183,5 +2281,6 @@ end
 
 -- Update config module exports
 config.UpdateConfigUI = UpdateConfigUI
+addon.NormalizeLootConfig = NormalizeLootConfig
 addon._test = addon._test or {}
 addon._test.SaveConfigBindings = SaveConfigBindings

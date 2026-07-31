@@ -43,22 +43,6 @@ addon.CopyDefaults = function(source, target)
     end
 end
 
-local function NormalizeLootConfig(db)
-    if type(db) ~= "table" then
-        return
-    end
-
-    if db.autoLoot and db.managedLoot then
-        db.autoLoot = false
-    end
-
-    local delay = tonumber(db.lootDelay)
-    if not delay then
-        delay = tonumber(addon.defaults and addon.defaults.lootDelay) or 0.5
-    end
-    db.lootDelay = addon.Clamp(delay, 0, 5)
-end
-
 addon.PrintMessage = function(msg)
     if DEFAULT_CHAT_FRAME and DEFAULT_CHAT_FRAME.AddMessage then
         DEFAULT_CHAT_FRAME:AddMessage("|cFF7FFFDADreamFish|r " .. msg)
@@ -133,7 +117,9 @@ frame:SetScript("OnEvent", function(self, event, name)
     _G[addonName .. "DB"] = _G[addonName .. "DB"] or {}
     addon.db = _G[addonName .. "DB"]
     addon.CopyDefaults(addon.defaults, addon.db)
-    NormalizeLootConfig(addon.db)
+    if addon.NormalizeLootConfig then
+        addon.NormalizeLootConfig(addon.db)
+    end
 
     if audio and audio.ResumePersistedAudioDuckingState then
         audio.ResumePersistedAudioDuckingState()
@@ -169,6 +155,15 @@ frame:SetScript("OnEvent", function(self, event, name)
     end
 
     addon.PrintMessage("Loaded! Type /df to configure.")
+
+    if C_Timer and C_Timer.After then
+        C_Timer.After(0.5, function()
+            -- SetCVar doesn't seem to take effect without this delay
+            if addon.NormalizeLootConfig then
+                addon.NormalizeLootConfig(addon.db)
+            end
+        end)
+    end
     self:UnregisterEvent("ADDON_LOADED")
 end)
 
@@ -177,7 +172,9 @@ end)
         if addon.CopyDefaults then
             addon.CopyDefaults(addon.defaults, addon.db)
         end
-        NormalizeLootConfig(addon.db)
+        if addon.NormalizeLootConfig then
+            addon.NormalizeLootConfig(addon.db)
+        end
         if addon.buff and addon.buff.NormalizeBuffConfig then
             addon.buff.NormalizeBuffConfig()
         end
@@ -298,12 +295,15 @@ local function HandleFishingLootWindow()
         return false
     end
 
-    local managedAutoLootOverrideActive = addon.state and addon.state.savedAutoLootDefault ~= nil
-    local blizzardAutoLootEnabled = (type(GetCVar) == "function" and GetCVar("autoLootDefault") == "1")
-    if blizzardAutoLootEnabled and not managedAutoLootOverrideActive then
-        DebugLootMessage("Blizzard auto-loot is enabled without managed override; skipping managed loot handling")
-        return false
+    if addon.db.managedLootOnlyWhenFishing then
+        local managedAutoLootOverrideActive = addon.state and addon.state.savedAutoLootDefault ~= nil
+        local blizzardAutoLootEnabled = (type(GetCVar) == "function" and GetCVar("autoLootDefault") == "1")
+        if blizzardAutoLootEnabled and not managedAutoLootOverrideActive then
+            DebugLootMessage("Blizzard auto-loot is enabled without managed override; skipping managed loot handling")
+            return false
+        end
     end
+
     if type(GetNumLootItems) ~= "function" or type(LootSlot) ~= "function" then
         DebugLootMessage("Required loot functions are not available; skipping loot handling")
         return false
@@ -319,7 +319,7 @@ local function HandleFishingLootWindow()
         local lootItemInfo = GetLootItemInfo(slot)
         if not lootItemInfo then
             DebugLootMessage("Failed to get info for loot slot " .. tostring(slot) .. "; skipping")
-            -- in the future, we may want to go ahead and loot unknown items due to player having selected "autoloot while fishing"
+            -- in the future, we may want to go ahead and loot unknown items due to player having selected "nativeAutoLoot while fishing"
             shouldCloseLootWindow = false
             return
         end
@@ -331,7 +331,10 @@ local function HandleFishingLootWindow()
             lootCount = lootCount - 1
         else
             DebugLootMessage("Not looting item " .. (lootItemInfo.itemLink or lootItemInfo.name) .. " in loot slot " .. tostring(slot) .. " with quality " .. tostring(lootItemInfo.quality))
-            shouldCloseLootWindow = false
+            if addon.db and addon.db.keepLootWindowOpenWhenDiscarding then
+                DebugLootMessage("Keeping loot window open because keepLootWindowOpenWhenDiscarding is enabled")
+                shouldCloseLootWindow = false
+            end
         end
     end
 
@@ -352,29 +355,34 @@ lootTracker:SetScript("OnEvent", function(_, event, ...)
         error("DreamFish: RequireFishingAPI helper is required for loot tracker")
     end
     local fishing = requireFishingAPI()
+    local onlyWhenFishing = addon.db and addon.db.managedLootOnlyWhenFishing
 
     if event == "LOOT_READY" then
-        if addon.db and addon.db.autoLoot then
-            DebugLootMessage("Auto-loot while fishing is enabled; skipping managed loot handling to allow Blizzard auto-loot to function")
+        if addon.db and addon.db.nativeAutoLoot then
+            DebugLootMessage("Native auto-loot while fishing is enabled; skipping managed loot handling to allow Blizzard auto-loot to function")
             return
         end
+
         if not (fishing and fishing.IsFishingActiveSessionState) then
             error("DreamFish: IsFishingActiveSessionState is required for loot-ready handling")
         end
-        -- if not fishing.IsFishingActiveSessionState() then
-        --     DebugLootMessage("Received loot event " .. tostring(event) .. " but not in active fishing session; ignoring")
-        --     return
-        -- end
+        if onlyWhenFishing then
+            if not fishing.IsFishingActiveSessionState() then
+                DebugLootMessage("Received loot event " .. tostring(event) .. " but not in active fishing session; ignoring")
+                return
+            end
+        end
         if not (fishing and fishing.ApplySessionState and fishing.IsLootReadySessionState) then
             error("DreamFish: ApplySessionState and IsLootReadySessionState are required for loot-ready handling")
         end
         if fishing.IsLootReadySessionState() and not (fishing.IsSessionState and fishing.IsSessionState("LOOTING")) then
             fishing.ApplySessionState("LOOTING", "loot-ready")
         end
-        DebugLootMessage("LOOT_READY event received; scheduled loot handling")
+        DebugLootMessage("LOOT_READY event received; scheduled loot handling: fishing session state=" .. tostring(fishing.IsSessionState and fishing.IsSessionState("LOOTING")))
+
         if C_Timer and type(C_Timer.After) == "function" then
             C_Timer.After(addon.db.lootDelay, function()
-                if fishing.IsSessionState and not fishing.IsSessionState("LOOTING") then
+                if onlyWhenFishing and fishing.IsSessionState and not fishing.IsSessionState("LOOTING") then
                     DebugLootMessage("Skipping delayed loot callback because session is no longer LOOTING")
                     return
                 end

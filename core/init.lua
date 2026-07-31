@@ -11,9 +11,13 @@ addon.frame = frame
 -- Default configuration
 addon.defaults = {
     -- Focus
-    autoLoot = false,
+    originalNativeAutoLoot = nil,
+    nativeAutoLoot = nil,
+    nativeAutoLootOnlyWhenFishing = false,
     managedLoot = false,
+    managedLootOnlyWhenFishing = true,
     throwAwayJunk = false,
+    keepLootWindowOpenWhenDiscarding = true,
     lootDelay = 0.5,
     treasureAlerts = true,
     bagAlerts = false,
@@ -159,11 +163,6 @@ addon.const = {
         { id = 198428, name = "Tuskarr Dinghy" },
     },
     underlightAnglerItemID = 133755,
-    underlightAnglerModes = {
-        disabled = "Keep the fishing pole equipped",
-        always_except_fishing = "Auto-swap for fishing/not fishing",
-        lock_underlight = "Keep the Underlight Angler equipped",
-    },
     -- These are items that provide fishing-related buffs (auras) that we can track
     -- Exception: "lure" category items are not auras and can't be tracked directly
     knownBuffItems = {

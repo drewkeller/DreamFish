@@ -4,6 +4,7 @@ local addon = _G["DreamFish"]
 local PrintMessage = addon.PrintMessage
 local DebugMessage = addon.DebugMessage
 local DebugStateMessage = addon.DebugStateMessage or function() end
+local DebugLootMessage = addon.DebugLootMessage or addon.DebugMessage
 local requireFishingAPI = addon.RequireFishingAPI
 local requireAudioAPI = addon.RequireAudioAPI
 local getUIFocusAPI = addon.GetUIFocusAPI
@@ -250,19 +251,21 @@ local function IsFishingSpellByName()
 end
 
 local function EnableTemporaryManagedLoot()
-    if addon.db and addon.db.managedLoot then
+    if addon.db and addon.db.managedLoot and addon.db.managedLootOnlyWhenFishing then
         local current = GetCVar("autoLootDefault")
         if addon.state.savedAutoLootDefault == nil then
             addon.state.savedAutoLootDefault = current
         end
         SetCVar("autoLootDefault", "0")
+        DebugLootMessage("Enabled temporary managed auto-loot: CVar autoLootDefault set to 0 (was " .. tostring(current) .. ")")
     end
 end
 
 local function RestoreOriginalAutoLoot()
-    if addon.db and addon.db.managedLoot and addon.state.savedAutoLootDefault ~= nil then
+    if addon.db and addon.db.managedLoot and addon.db.managedLootOnlyWhenFishing and addon.state.savedAutoLootDefault ~= nil then
         SetCVar("autoLootDefault", addon.state.savedAutoLootDefault)
         addon.state.savedAutoLootDefault = nil
+        DebugLootMessage("Restored original auto-loot CVar to " .. tostring(GetCVar("autoLootDefault")))
     end
 end
 
