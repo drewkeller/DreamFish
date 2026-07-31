@@ -55,6 +55,26 @@ addon.DebugMessage = function(msg)
     end
 end
 
+addon.PrintLootMessage = function(msg)
+    for index = 1, NUM_CHAT_WINDOWS do
+        local frame = _G["ChatFrame"..index]
+
+        if frame then
+            -- Get the chat message types received by this specific window
+            local messageTypes = { GetChatWindowMessages(index) }
+
+            -- Check if this window is configured to display "LOOT" messages
+            for _, msgType in ipairs(messageTypes) do
+                if msgType == "LOOT" then
+                    -- Print the message locally to this specific window
+                    frame:AddMessage("|cFF9ACDFFDreamFish|r " .. tostring(msg))
+                    break
+                end
+            end
+        end
+    end
+end
+
 local DebugStateMessage = addon.DebugStateMessage or addon.DebugMessage
 
 local function DebugBagMessage(msg)
@@ -324,17 +344,21 @@ local function HandleFishingLootWindow()
             return
         end
         if ShouldAutoLootItem(lootItemInfo) then
-            DebugLootMessage("Looting item " .. (lootItemInfo.itemLink or lootItemInfo.name) .. " in loot slot " .. tostring(slot) .. " with quality " .. tostring(lootItemInfo.quality))
+            DebugLootMessage("Looting " .. (lootItemInfo.itemLink or lootItemInfo.name) .. " in loot slot " .. tostring(slot) .. " with quality " .. tostring(lootItemInfo.quality))
             LootItemInSlot(slot)
             itemsLooted = itemsLooted + 1
             slot = slot - 1
             lootCount = lootCount - 1
-        else
-            DebugLootMessage("Not looting item " .. (lootItemInfo.itemLink or lootItemInfo.name) .. " in loot slot " .. tostring(slot) .. " with quality " .. tostring(lootItemInfo.quality))
-            if addon.db and addon.db.keepLootWindowOpenWhenDiscarding then
-                DebugLootMessage("Keeping loot window open because keepLootWindowOpenWhenDiscarding is enabled")
+        elseif addon.db then
+            if addon.db.keepLootWindowOpenWhenDiscarding then
+                DebugLootMessage("Not looting " .. (lootItemInfo.itemLink or lootItemInfo.name) .. " in loot slot " .. tostring(slot) .. " with quality " .. tostring(lootItemInfo.quality))
                 shouldCloseLootWindow = false
+            else
+                DebugLootMessage("Ignoring " .. (lootItemInfo.itemLink or lootItemInfo.name) .. " in loot slot " .. tostring(slot) .. " with quality " .. tostring(lootItemInfo.quality))
+                addon.PrintLootMessage("ignoring " .. (lootItemInfo.itemLink or lootItemInfo.name))
             end
+        else
+            shouldCloseLootWindow = false
         end
     end
 

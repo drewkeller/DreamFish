@@ -479,7 +479,7 @@ function addon.ui.CreateAceWidgetAdapters(aceGUIInstance, panel)
         return rowHost.content or rowHost.frame
     end
 
-    local function CreateAceFlowCheckboxWithNote(parent, label, noteText, onLiveChange, noteOptions, tooltipText)
+    local function CreateAceFlowCheckboxWithNote(parent, label, onLiveChange, tooltipText, noteText, noteOptions)
         local checkboxControl = CreateAceFlowCheckbox(parent, label, onLiveChange, tooltipText)
 
         local opts = noteOptions or {}

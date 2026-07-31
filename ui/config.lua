@@ -1452,19 +1452,25 @@ local function BuildLootTab(lootPage, ui, onLiveChange)
     local nativeLootInset = ui.FlowInsetHost(lootSection, 20)
     addon.nativeLootOnlyWhenFishingCheckbox = ui.FlowCheckbox(nativeLootInset, "Only while fishing", onLiveChange,
         "Native auto-loot only applies while fishing. If you normally have native auto-loot disabled, this option temporarily enables it while fishing.")
+    ui.FlowRowHost(lootSection, 20)
 
     addon.managedLootCheckbox = ui.FlowCheckbox(lootSection, "Managed auto-loot", onLiveChange,
         "Allows the addon to manage auto-loot. Managed auto-loot can be faster than native looting and can discard junk items automatically.")
     local managedLootInset = ui.FlowInsetHost(lootSection, 20)
     addon.managedLootOnlyWhenFishingCheckbox = ui.FlowCheckbox(managedLootInset, "Only while fishing", onLiveChange,
         "Managed looting only applies while fishing. If you normally have native auto-loot enabled, this option temporarily disables it while fishing.")
-    addon.throwAwayJunkCheckbox = ui.FlowCheckbox(managedLootInset, "Leave junk items in loot window", onLiveChange,
+    addon.throwAwayJunkCheckbox = ui.FlowCheckbox(managedLootInset, "Ignore junk items (don't auto-loot)", onLiveChange,
         "When checked, junk-quality items are not automatically looted.")
     local managedLootInset2 = ui.FlowInsetHost(managedLootInset, 20)
-    addon.keepLootWindowOpenCheckbox = ui.FlowCheckbox(managedLootInset2, "Keep loot window open if it has junk", onLiveChange,
-        "If the loot window contains items to discard, keep the window open. Otherwise, the loot window auto-closes and the junk is permanently discarded.")
+    addon.keepLootWindowOpenCheckbox = ui.FlowCheckboxWithNote(managedLootInset2,
+        "Keep loot window open if it has junk", onLiveChange,
+        "If the loot window contains unlooted items to ignore, keep the window open.\n"
+        .. "If unchecked, the loot window auto-closes even it if contains unlooted junk.",
+        "In some cases (like fishing) when the window closes, the loot is GONE FOREVER.\n"
+        .. "In other cases, you might still be able to loot it from the body, chest, etc.")
+    ui.FlowRowHost(managedLootInset2, 40)
     addon.lootDelayBox = ui.FlowEditBox(managedLootInset, "Loot delay (ms)", 150, onLiveChange,
-        "Delay before looting so the window is visible.")
+        "Delay before looting so the window is visible. Yes, you can set this to 0 for \"instant\" looting.")
     addon.nativeAutoLootCheckbox:SetCallback("OnValueChanged", function(_, _, value)
         if value then
             addon.managedLootCheckbox:SetChecked(false)
@@ -1700,10 +1706,9 @@ local function BuildModesTab(modesPage, ui, onLiveChange)
     addon.modeHotkeyCheckbox = ui.FlowCheckboxWithNote(
         castingSection,
         "Hotkey",
-        "",
         onLiveChange,
-        nil,
-        "Use a keybinding to begin fishing.")
+        "Use a keybinding to begin fishing.",
+        "")
     addon.castHotkeyKeybinding = ui.FlowKeybinding(castingSection, "", 220, onLiveChange,
         "The keybinding to use for casting the fishing line (and reeling it in, if EasyStrike is enabled).")
 
@@ -1734,13 +1739,12 @@ local function BuildModesTab(modesPage, ui, onLiveChange)
     addon.enableHookedLootCheckbox = ui.FlowCheckboxWithNote(
         castingSection,
         "EasyStrike (right click anywhere or use the hotkey)",
+        onLiveChange,
+        "When the bobber indicates a bite,  right click anywhere or the hotkey to hook, play and land the fish.",
         "Requirements:\n"
         .. "1. Turn on \"Enable Interact Key\" (Game Options > Controls).\n"
         .. "2. Set the \"Hotkey\" keybinding.\n"
-        .. "3. Ensure another addon does not interfere while fishing.\n",
-        onLiveChange,
-        nil,
-        "When the bobber indicates a bite,  right click anywhere or the hotkey to hook, play and land the fish.")
+        .. "3. Ensure another addon does not interfere while fishing.\n")
 
     ui.FlowRowHost(root, 40)
     addon.escapeCloseCheckbox = ui.FlowCheckbox(root, "Escape closes this window", onLiveChange,
