@@ -440,8 +440,7 @@ end)
 
 -- Bag monitoring
 local bagMonitor = CreateFrame("Frame")
-bagMonitor:RegisterEvent("PLAYER_ENTERING_WORLD")
-bagMonitor:RegisterEvent("BAG_UPDATE")
+--bagMonitor:RegisterEvent("PLAYER_ENTERING_WORLD")
 bagMonitor:RegisterEvent("BAG_UPDATE_DELAYED")
 bagMonitor:SetScript("OnEvent", function(_, event)
     if addon.utils then addon.utils.CheckBagSpace() end
@@ -449,34 +448,7 @@ bagMonitor:SetScript("OnEvent", function(_, event)
     local fishing = requireFishingAPI()
     local alerts = requireAlertsAPI()
 
-    if event == "BAG_UPDATE_DELAYED" and addon.utils and addon.alerts then
-        if not (fishing and fishing.IsFishingActiveSessionState) then
-            error("DreamFish: IsFishingActiveSessionState is required for bag-update handling")
-        end
-        if not requireAlertsAPI then
-            error("DreamFish: RequireAlertsAPI helper is required for bag monitoring")
-        end
-        local alerts = requireAlertsAPI()
-        local shouldCheckRegular = addon.db and addon.db.bagAlerts
-        local shouldCheckReagent = addon.db and addon.db.reagentBagAlerts
-        local threshold = (addon.db and addon.db.bagAlertsThreshold) or addon.defaults.bagAlertsThreshold
-        local reagentThreshold = (addon.db and addon.db.reagentBagAlertsThreshold) or addon.defaults.reagentBagAlertsThreshold
-        local regularFree = shouldCheckRegular and addon.utils.GetFreeBagSlots(false) or nil
-        local reagentFree = shouldCheckReagent and addon.utils.GetFreeReagentBagSlots() or nil
-        local isRegularLow = regularFree ~= nil and regularFree <= threshold
-        local isReagentLow = reagentFree ~= nil and reagentFree <= reagentThreshold
-        DebugBagMessage("Low bag threshold set to bags=" .. tostring(threshold)
-            .. " reagent=" .. tostring(reagentThreshold))
-        DebugBagMessage("BAG_UPDATE_DELAYED slots: regularFree=" .. tostring(regularFree) .. ", reagentFree=" .. tostring(reagentFree))
-        if isRegularLow or isReagentLow then
-            DebugBagMessage("Bag space low after loot close: regularFree=" .. tostring(regularFree) .. ", reagentFree=" .. tostring(reagentFree))
-            if alerts and alerts.ShowBagFullAlert then
-                alerts.ShowBagFullAlert()
-            end
-        else
-            DebugBagMessage("Bag space not low yet")
-        end
-    elseif event == "BAG_UPDATE" then
+    if event == "BAG_UPDATE_DELAYED" then
         if not (fishing and fishing.IsFishingActiveSessionState) then
             error("DreamFish: IsFishingActiveSessionState is required for bag-update handling")
         end
