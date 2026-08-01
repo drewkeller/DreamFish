@@ -35,23 +35,11 @@ local function IsPositiveItemID(value)
     return numeric and numeric > 0 and numeric or nil
 end
 
-local function GetUnderlightItemID()
-    return (addon.const and tonumber(addon.const.underlightAnglerItemID)) or 133755
-end
-
 local function IsUnderlightAnglerItemID(itemID)
-    return tonumber(itemID) == GetUnderlightItemID()
+    return tonumber(itemID) == addon.const.underlightAnglerItemID
 end
 
-local function NormalizeLegacyPoleMode(mode)
-    local modeText = type(mode) == "string" and mode or ""
-    if modeText == "disabled" or modeText == "always_except_fishing" or modeText == "lock_underlight" then
-        return modeText
-    end
-    return "disabled"
-end
-
-local function NormalizePoleSelection(value, validateItemID)
+local function NormalizePoleSelection(value, filterByItemIDFunc)
     local itemID = nil
     local isChecked = false
 
@@ -63,7 +51,7 @@ local function NormalizePoleSelection(value, validateItemID)
         isChecked = itemID ~= nil
     end
 
-    if itemID and validateItemID and (not validateItemID(itemID)) then
+    if itemID and filterByItemIDFunc and (not filterByItemIDFunc(itemID)) then
         itemID = nil
     end
     if not itemID then
@@ -83,22 +71,13 @@ local function NormalizeTackleConfigValues()
 
     local hadStructuredPrimary = type(addon.db.selectedFishingPole) == "table"
     local hadStructuredUnderlight = type(addon.db.selectedUnderlightAngler) == "table"
-    local legacyMode = NormalizeLegacyPoleMode(addon.db.underlightAnglerMode)
 
     addon.db.selectedFishingPole = NormalizePoleSelection(addon.db.selectedFishingPole)
     addon.db.selectedUnderlightAngler = NormalizePoleSelection(addon.db.selectedUnderlightAngler, IsUnderlightAnglerItemID)
 
     if (not hadStructuredPrimary) and (not hadStructuredUnderlight) then
-        if legacyMode == "lock_underlight" then
-            addon.db.selectedFishingPole.isChecked = false
-            addon.db.selectedUnderlightAngler.isChecked = addon.db.selectedUnderlightAngler.itemID ~= nil
-        elseif legacyMode == "always_except_fishing" then
-            addon.db.selectedFishingPole.isChecked = addon.db.selectedFishingPole.itemID ~= nil
-            addon.db.selectedUnderlightAngler.isChecked = addon.db.selectedUnderlightAngler.itemID ~= nil
-        else
-            addon.db.selectedFishingPole.isChecked = addon.db.selectedFishingPole.itemID ~= nil
-            addon.db.selectedUnderlightAngler.isChecked = false
-        end
+        addon.db.selectedFishingPole.isChecked = addon.db.selectedFishingPole.itemID ~= nil
+        addon.db.selectedUnderlightAngler.isChecked = false
     end
 end
 
@@ -194,9 +173,8 @@ function tacklePoleUI.GetEquippedFishingPoleItemID()
 end
 
 function tacklePoleUI.IsUnderlightEquipped()
-    local underlightID = GetUnderlightItemID()
     local equipped = tacklePoleUI.GetEquippedItemIDs()
-    return equipped[underlightID] and true or false
+    return equipped[addon.const.underlightAnglerItemID] and true or false
 end
 
 IsLikelyFishingPoleItem = function(itemID)
@@ -330,9 +308,8 @@ function tacklePoleUI.GetMainHandItemID()
 end
 
 function tacklePoleUI.GetActiveEquippedTacklePoleItemID()
-    local underlightID = GetUnderlightItemID()
-    if IsItemEquipped(underlightID) then
-        return underlightID
+    if IsItemEquipped(addon.const.underlightAnglerItemID) then
+        return addon.const.underlightAnglerItemID
     end
 
     local professionItemID = tacklePoleUI.GetProfessionSlotItemID()
@@ -764,7 +741,7 @@ local function LoadTackleBindings(isTackleActive)
         addon.fishingPoleEquipCheckbox:SetChecked(selectedFishingPoleConfig.isChecked and selectedFishingPole ~= nil)
     end
 
-    local underlightID = GetUnderlightItemID()
+    local underlightID = addon.const.underlightAnglerItemID
     local selectedUnderlightConfig = type(addon.db.selectedUnderlightAngler) == "table"
         and addon.db.selectedUnderlightAngler
         or { isChecked = false, itemID = addon.db.selectedUnderlightAngler }
@@ -832,14 +809,16 @@ local function SaveTackleBindings()
         end
     end
 
-    if not IsItemAvailableForConfig(GetUnderlightItemID()) then
+    if not IsItemAvailableForConfig(addon.const.underlightAnglerItemID) then
         addon.db.selectedUnderlightAngler = {
             isChecked = false,
             itemID = nil,
         }
     end
 
-    NormalizeTackleConfigValues()
+    --NormalizeTackleConfigValues()
+    addon.db.selectedFishingPole = NormalizePoleSelection(addon.db.selectedFishingPole)
+    addon.db.selectedUnderlightAngler = NormalizePoleSelection(addon.db.selectedUnderlightAngler, IsUnderlightAnglerItemID)
 
     if fishing and fishing.MaybeEquipConfiguredUnderlight then
         fishing.MaybeEquipConfiguredUnderlight("config-save")
@@ -857,7 +836,10 @@ local function LoadConfigBindings()
         return
     end
 
-    NormalizeTackleConfigValues()
+    --NormalizeTackleConfigValues()
+    addon.db.selectedFishingPole = NormalizePoleSelection(addon.db.selectedFishingPole)
+    addon.db.selectedUnderlightAngler = NormalizePoleSelection(addon.db.selectedUnderlightAngler, IsUnderlightAnglerItemID)
+
     local activeTab = addon.frames
         and addon.frames.config
         and addon.frames.config.activeTab
