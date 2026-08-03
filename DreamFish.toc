@@ -15,36 +15,43 @@
 
 # Embedded libraries (Ace3)
 Libs/LibStub/LibStub.lua
-Libs/AceGUI-3.0/AceGUI-3.0.xml
+# Libs/AceGUI-3.0/AceGUI-3.0.xml
+Libs/AceDB-3.0/AceDB-3.0.xml
 
 # Core modules (load first)
 core/init.lua
+core/defaults.lua
 core/utils.lua
-core/module_api.lua
-core/api_resolver.lua
+# core/module_api.lua
+# core/api_resolver.lua
+core/commands.lua
+
+looting/loottracker.options.lua
+looting/loottracker.lua
 
 # Buff system (tracking, timing, management)
-buff/tracking.lua
-buff/timing.lua
-buff/management.lua
+# buff/tracking.lua
+# buff/timing.lua
+# buff/management.lua
 
 # Fishing system (helpers, casting, state machine)
-fishing/helpers.lua
-fishing/casting.lua
-fishing/interactloot.lua
-fishing/state.lua
+# fishing/helpers.lua
+# fishing/casting.lua
+# fishing/interactloot.lua
+# fishing/state.lua
 
 # Audio system (ducking, alerts)
-audio/ducking.lua
-audio/alerts.lua
+# audio/ducking.lua
+# audio/alerts.lua
 
 # UI system (commands, config)
-ui/commands.lua
-ui/ace_widget_factory.lua
-ui/buff_item_drop_box.lua
-ui/focus_fade.lua
-ui/config.lua
+# ui/commands.lua
+# ui/ace_widget_factory.lua
+# ui/buff_item_drop_box.lua
+# ui/focus_fade.lua
+# ui/config.lua
 
 # Main coordinator (runs after all modules load)
+core/options.lua
 DreamFish.lua
 
