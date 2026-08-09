@@ -5,4 +5,5 @@ local Fishing = DreamFish:GetModule("Fishing")
 
 function Fishing:OnModuleInitialize()
 	self:Debug("Initializing")
+    self.hotkey = self:GetProfileDB().castHotkeyKeybind
 end

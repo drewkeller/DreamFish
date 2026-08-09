@@ -7,6 +7,8 @@ ns.Fishing = { Defaults = {
 			moduleEnabled = true,
 			debug = false,
             castByDoubleRightClick = true,
+            castByHotkey = false,
+            castHotkeyKeybind = nil,
 		},
 	},
 	char = {
@@ -14,7 +16,7 @@ ns.Fishing = { Defaults = {
 	},
 } }
 
-local Fishing = DreamFish:NewModule("Fishing", ns.ModulePrototype, "AceConsole-3.0", "AceEvent-3.0")
+local Fishing = DreamFish:NewModule("Fishing", ns.ModulePrototype, "AceConsole-3.0", "AceEvent-3.0", "AceTimer-3.0", "AceHook-3.0")
 Fishing:Configure({
 	displayName = "Fishing",
 	dbKey = "fishing",
@@ -23,10 +25,29 @@ Fishing:Configure({
 
 function Fishing:GetModuleOptions()
 	return {
-        castByDoubleRightClick = {
-            type = "toggle",
-            name = "Cast by double right click",
-            desc = "Double right click to begin fishing.",
+        castingTriggers = {
+            type = "group",
+            name = "Casting triggers",
+            args = {
+                castByDoubleRightClick = self:AddOption({
+                    type = "toggle",
+                    name = "Double right click",
+                    desc = "Double right click to begin fishing.",
+                    width = "full",
+                }),
+                castByHotkey = self:AddOption({
+                    type = "toggle",
+                    name = "Hotkey",
+                    desc = "Use a hotkey to begin fishing.",
+                    width = "full",
+                }),
+                castHotkeyKeybind = self:AddOption({
+                    type = "keybinding",
+                    name = "",
+                    desc = "Set the keybinding for the hotkey casting mode.",
+                    width = 1.0,
+                }),
+            },
         },
     }
 end

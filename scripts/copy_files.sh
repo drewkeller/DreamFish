@@ -18,7 +18,7 @@ fi
 rm -rf "$ADDON_DIR"/*
 
 # Copy the main addon files to the addon directory
-cp -fa DreamFish.lua DreamFish.toc Bindings.xml  \
+cp -fa DreamFish.lua DreamFish.toc Bindings.lua Bindings.xml  \
   "$ADDON_DIR"
 
 # Copy the addon subdirectories to the addon directory

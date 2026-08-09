@@ -60,6 +60,7 @@ fishing/fishing.lua
 # ui/config.lua
 
 # Main coordinator (runs after all modules load)
+Bindings.lua
 core/options.lua
 DreamFish.lua
 

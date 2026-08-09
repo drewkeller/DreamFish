@@ -1,4 +1,4 @@
 <Bindings>
-    <Binding name="CLICK DreamFishSecureFishingButton:RightButton" category="DreamFish">
+    <Binding name="CLICK DreamFishSecureFishingFrame:RightButton" category="DreamFish">
     </Binding>
 </Bindings>
