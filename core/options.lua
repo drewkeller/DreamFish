@@ -1,6 +1,7 @@
 local addonName, ns = ...
 local DreamFish = LibStub("AceAddon-3.0"):GetAddon(addonName)
-local LootTracker = DreamFish:GetModule("LootTracker", true) or DreamFish:NewModule("LootTracker", "AceConsole-3.0", "AceEvent-3.0")
+local LootTracker = DreamFish:GetModule("LootTracker")
+local Fishing = DreamFish:GetModule("Fishing")
 
 function ns:GeneralOptions()
     local options = {
@@ -45,6 +46,7 @@ function ns:GetOptionsTable()
         type = "group",
         args = {
             general = ns:GeneralOptions(),
+            fishing = Fishing:GetOptionsTable(),
             lootTracker = LootTracker:GetOptionsTable(),
         }
     }

@@ -30,12 +30,15 @@ core/commands.lua
 looting/loottracker.options.lua
 looting/loottracker.lua
 
+fishing/fishing.options.lua
+fishing/fishing.lua
+
 # Buff system (tracking, timing, management)
 # buff/tracking.lua
 # buff/timing.lua
 # buff/management.lua
 
-# Fishing system (helpers, casting, state machine)
+# Fishing features (helpers, casting, state machine)
 # fishing/helpers.lua
 # fishing/casting.lua
 # fishing/interactloot.lua
