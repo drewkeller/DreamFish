@@ -116,6 +116,14 @@ function ModulePrototype:GetStandardModuleOptions()
     }
 end
 
+function ModulePrototype:AddTab(tab)
+    assert(type(tab) == "table", "Module tab must be a table")
+
+    self.tabOrder = (self.tabOrder or 0) + 1
+    tab.order = self.tabOrder
+    return tab
+end
+
 function ModulePrototype:AddOption(option)
     assert(type(option) == "table", "Module option must be a table")
 
@@ -131,14 +139,55 @@ function ModulePrototype:GetOptionsTable()
     local config = self.moduleConfig
     local moduleOptions = self:GetStandardModuleOptions()
     self.optionOrder = 0
+    self.tabOrder = 0
 
     for key, option in pairs(self:GetModuleOptions()) do
         moduleOptions[key] = option
     end
 
+    local moduleEnabled = function()
+        return self:IsModuleEnabled()
+    end
+
+    local args = {
+        moduleEnabled = {
+            order = 0,
+            type = "toggle",
+            name = "Enable " .. config.displayName,
+            desc = "Enables the " .. config.displayName .. " module.",
+            get = moduleEnabled,
+            set = function(_, value)
+                self:SetModuleEnabled(value)
+            end,
+        },
+    }
+
+    if config.childGroups then
+        for key, option in pairs(moduleOptions) do
+            if option.type == "group" and option.disabled == nil then
+                option.disabled = function()
+                    return not moduleEnabled()
+                end
+            end
+            args[key] = option
+        end
+    else
+        args.moduleOptions = {
+            order = 3,
+            type = "group",
+            name = " ",
+            inline = true,
+            disabled = function()
+                return not moduleEnabled()
+            end,
+            args = moduleOptions,
+        }
+    end
+
     return {
         name = config.displayName,
         type = "group",
+        childGroups = config.childGroups,
         get = function(info)
             return profile()[info[#info]]
         end,
@@ -148,29 +197,6 @@ function ModulePrototype:GetOptionsTable()
                 self:UpdateDisplayIfVisible()
             end
         end,
-        args = {
-            moduleEnabled = {
-                order = 0,
-                type = "toggle",
-                name = "Enable " .. config.displayName,
-                desc = "Enables the " .. config.displayName .. " module.",
-                get = function()
-                    return self:IsModuleEnabled()
-                end,
-                set = function(_, value)
-                    self:SetModuleEnabled(value)
-                end,
-            },
-            moduleOptions = {
-                order = 3,
-                type = "group",
-                name = " ",
-                inline = true,
-                disabled = function()
-                    return not self:IsModuleEnabled()
-                end,
-                args = moduleOptions,
-            },
-        },
+        args = args,
     }
 end
