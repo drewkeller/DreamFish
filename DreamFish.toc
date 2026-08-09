@@ -22,6 +22,7 @@ Libs/AceDB-3.0/AceDB-3.0.xml
 core/init.lua
 core/defaults.lua
 core/utils.lua
+core/module_prototype.lua
 # core/module_api.lua
 # core/api_resolver.lua
 core/commands.lua
