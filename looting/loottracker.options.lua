@@ -6,8 +6,10 @@ local LootTracker = DreamFish:GetModule("LootTracker", true) or DreamFish:NewMod
 ns.LootTracker = { Defaults = {
     profile = {
         lootTracker = {
-            minQualityFilter = 0,
             moduleEnabled = true,
+            debug = false,
+            -- start of non-prototype options
+            minQualityFilter = 0,
             showWindowOnStartup = false,
             windowVisible = true,
             windowPos = {
@@ -62,25 +64,40 @@ function LootTracker:GetOptionsTable()
                 disabled = function() return not DreamFish.db.profile.lootTracker.moduleEnabled end,
                 args = {
                     header = {
-                        order = 1,
+                        order = 10,
                         type = "header",
                         name = "Loot Tracker",
                     },
+                    debug = {
+                        order = 20,
+                        type = "toggle",
+                        name = "Debug mode",
+                        desc = "Enables debug output for the loot tracker module.",
+                        get = function(info) return DreamFish.db.profile.lootTracker.debug end,
+                        set = function(info, value)
+                            DreamFish.db.profile.lootTracker.debug = value
+                            if value then
+                                DreamFish:Print("LootTracker debug mode is now |cFF00FF00ON|r.")
+                            else
+                                DreamFish:Print("LootTracker debug mode is now |cFFFF0000OFF|r.")
+                            end
+                        end,
+                    },
                     spacer = {
-                        order = 2,
+                        order = 30,
                         type = "description",
                         name = " ",
                         fontSize = "small",
                     },
                     showWindowOnStartup = {
-                        order = 3,
+                        order = 40,
                         type = "toggle",
                         name = "Show loot tracker on login",
                         desc = "Automatically displays the tracker frame canvas when you log into the character.",
                         width = "full",
                     },
                     minQualityFilter = {
-                        order = 4,
+                        order = 50,
                         type = "select",
                         name = "Minimum quality filter",
                         desc = "Filters your text layout view logs based on item rarity rankings.",
@@ -94,7 +111,7 @@ function LootTracker:GetOptionsTable()
                         },
                     },
                     toggleUiButton = {
-                        order = 5,
+                        order = 60,
                         type = "execute",
                         name = "Toggle Tracker Window",
                         width = 2,
