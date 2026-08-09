@@ -46,6 +46,17 @@ end
 function DreamFish:Print()
 end
 
+function DreamFish:BuildOwnedToyOptions()
+    return {
+        [0] = "No Raft",
+        [85500] = "Angler's Fishing Raft",
+    }
+end
+
+function DreamFish:BuildOwnedToyOptionsKeys()
+    return {}
+end
+
 function LibStub(name)
     assert(name == "AceAddon-3.0")
     return {
@@ -101,6 +112,13 @@ assert(frameRemoved, "disabling Fishing did not remove the secure frame")
 local options = Fishing:GetOptionsTable()
 assert(options.name == "Fishing", "Fishing options group was not created")
 assert(options.args.moduleEnabled, "Fishing enable option is missing")
-assert(options.args.moduleOptions.args.debug, "Fishing debug option is missing")
+assert(options.childGroups == "tab", "Fishing options must render child groups as tabs")
+assert(options.args.modesTab, "Modes tab is missing from the Fishing tab group")
+assert(options.args.tackleTab, "Tackle tab is missing from the Fishing tab group")
+assert(options.args.modesTab.type == "group", "Modes tab is not an AceConfig group")
+assert(options.args.tackleTab.type == "group", "Tackle tab is not an AceConfig group")
+assert(options.args.moduleOptions == nil, "Fishing tabs must not be nested in an inline module group")
+assert(options.args.tackleTab.args.raftSection.args.selectedRaftToy.values[0] == "No Raft", "Raft select is missing its default label")
+assert(options.args.tackleTab.args.raftSection.args.selectedRaftToy.values[85500] == "Angler's Fishing Raft", "Raft select values must be label strings")
 
 print("fishing_module_test: passed")

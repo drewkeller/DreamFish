@@ -26,6 +26,7 @@ Libs/AceTimer-3.0/AceTimer-3.0.xml
 core/init.lua
 core/defaults.lua
 core/utils.lua
+core/utils.toys.lua
 core/module_prototype.lua
 # core/module_api.lua
 # core/api_resolver.lua
@@ -36,6 +37,7 @@ looting/loottracker.lua
 
 fishing/fishing.options.lua
 fishing/fishing.intercept.lua
+fishing/fishing.precast.lua
 fishing/fishing.lua
 
 # Buff system (tracking, timing, management)
