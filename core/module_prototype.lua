@@ -4,6 +4,21 @@ local DreamFish = LibStub("AceAddon-3.0"):GetAddon(addonName)
 local ModulePrototype = {}
 ns.ModulePrototype = ModulePrototype
 
+local function MergeDefaults(target, source)
+    for key, value in pairs(source) do
+        if type(value) == "table" then
+            if target[key] == nil then
+                target[key] = {}
+            end
+
+            assert(type(target[key]) == "table", "Module default conflicts with existing default: " .. key)
+            MergeDefaults(target[key], value)
+        elseif target[key] == nil then
+            target[key] = value
+        end
+    end
+end
+
 function ModulePrototype:Configure(config)
     assert(type(config) == "table", "Module configuration must be a table")
     assert(config.displayName, "Module configuration requires displayName")
@@ -11,6 +26,8 @@ function ModulePrototype:Configure(config)
     assert(config.defaults, "Module configuration requires defaults")
 
     self.moduleConfig = config
+    ns.DatabaseDefaults = ns.DatabaseDefaults or {}
+    MergeDefaults(ns.DatabaseDefaults, config.defaults)
     return self
 end
 
@@ -38,13 +55,12 @@ end
 
 function ModulePrototype:Debug(message, ...)
     local profile = self:GetProfileDB()
-    if DreamFish.db.profile.debugMode or profile.debug then
+    if profile.debug then
         DreamFish:Print("|cFF9ACDFF[" .. self.moduleConfig.displayName .. "]|r ", message, ...)
     end
 end
 
 function ModulePrototype:OnInitialize()
-    DreamFish.db:RegisterDefaults(self.moduleConfig.defaults)
     self:SetEnabledState(self:IsModuleEnabled())
 
     if self.OnModuleInitialize then

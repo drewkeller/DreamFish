@@ -1,4 +1,3 @@
-local registeredDefaults
 local printedMessages = {}
 
 local DreamFish = {
@@ -17,10 +16,6 @@ local DreamFish = {
         },
     },
 }
-
-function DreamFish.db:RegisterDefaults(defaults)
-    registeredDefaults = defaults
-end
 
 function DreamFish:Print(...)
     table.insert(printedMessages, { ... })
@@ -78,9 +73,25 @@ module:Configure({
     dbKey = "sample",
     defaults = defaults,
 })
+
+local secondDefaults = {
+    profile = {
+        second = {
+            moduleEnabled = true,
+        },
+    },
+}
+local secondModule = setmetatable({}, { __index = namespace.ModulePrototype })
+secondModule:Configure({
+    displayName = "Second Module",
+    dbKey = "second",
+    defaults = secondDefaults,
+})
+
 module:OnInitialize()
 
-assert(registeredDefaults == defaults, "module defaults were not registered")
+assert(namespace.DatabaseDefaults.profile.sample.moduleEnabled, "first module defaults were not composed")
+assert(namespace.DatabaseDefaults.profile.second.moduleEnabled, "second module defaults replaced the first module")
 assert(module:GetProfileDB() == DreamFish.db.profile.sample, "profile DB lookup failed")
 assert(module:GetCharDB() == DreamFish.db.char.sample, "character DB lookup failed")
 assert(module.enabled == false, "saved module state was not applied")
