@@ -1,4 +1,9 @@
 local modules = {}
+local frameCreated = false
+local eventRegistered = false
+local bindingsApplied = false
+local eventUnregistered = false
+local frameRemoved = false
 
 local DreamFish = {
     db = {
@@ -56,7 +61,30 @@ assert(loadfile("fishing/fishing.options.lua"))("DreamFish", namespace)
 assert(loadfile("fishing/fishing.lua"))("DreamFish", namespace)
 
 local Fishing = DreamFish:GetModule("Fishing")
+
+function Fishing:CreateClickFrame()
+    frameCreated = true
+end
+
+function Fishing:RegisterEvent()
+    eventRegistered = true
+end
+
+function Fishing:ApplyKeybinding()
+    bindingsApplied = true
+end
+
+function Fishing:UnregisterEvent()
+    eventUnregistered = true
+end
+
+function Fishing:RemoveClickFrame()
+    frameRemoved = true
+end
+
 Fishing:OnInitialize()
+Fishing:OnModuleEnable()
+Fishing:OnModuleDisable()
 
 assert(Fishing.moduleConfig.displayName == "Fishing", "display name was not configured")
 assert(Fishing.moduleConfig.dbKey == "fishing", "database key was not configured")
@@ -64,6 +92,11 @@ assert(namespace.DatabaseDefaults.profile.fishing.moduleEnabled, "Fishing defaul
 assert(Fishing:GetProfileDB() == DreamFish.db.profile.fishing, "profile DB lookup failed")
 assert(Fishing:GetCharDB() == DreamFish.db.char.fishing, "character DB lookup failed")
 assert(Fishing.enabled, "Fishing did not use its saved enabled state")
+assert(frameCreated, "enabling Fishing did not create the secure frame")
+assert(eventRegistered, "enabling Fishing did not register its combat event")
+assert(bindingsApplied, "enabling Fishing did not apply its keybinding")
+assert(eventUnregistered, "disabling Fishing did not unregister its combat event")
+assert(frameRemoved, "disabling Fishing did not remove the secure frame")
 
 local options = Fishing:GetOptionsTable()
 assert(options.name == "Fishing", "Fishing options group was not created")

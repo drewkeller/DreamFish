@@ -35,6 +35,7 @@ looting/loottracker.options.lua
 looting/loottracker.lua
 
 fishing/fishing.options.lua
+fishing/fishing.intercept.lua
 fishing/fishing.lua
 
 # Buff system (tracking, timing, management)
