@@ -61,10 +61,14 @@ end
 
 function module:GetModuleOptions()
     return {
-        sampleOption = {
+        sampleOption = self:AddOption({
             type = "toggle",
             name = "Sample option",
-        },
+        }),
+        secondOption = self:AddOption({
+            type = "toggle",
+            name = "Second option",
+        }),
     }
 end
 
@@ -101,6 +105,12 @@ local options = module:GetOptionsTable()
 assert(options.args.moduleOptions.args.sampleOption, "module-specific options were not included")
 assert(options.args.moduleOptions.args.debug, "standard module options were not included")
 assert(options.args.moduleOptions.disabled(), "disabled module options should be inactive")
+assert(options.args.moduleOptions.args.sampleOption.order == 1, "first module option has the wrong order")
+assert(options.args.moduleOptions.args.secondOption.order == 2, "second module option has the wrong order")
+
+local rebuiltOptions = module:GetOptionsTable()
+assert(rebuiltOptions.args.moduleOptions.args.sampleOption.order == 1, "option order did not reset on rebuild")
+assert(rebuiltOptions.args.moduleOptions.args.secondOption.order == 2, "second option order changed on rebuild")
 
 options.args.moduleEnabled.set(nil, true)
 assert(module:IsModuleEnabled(), "enable option did not update the profile")

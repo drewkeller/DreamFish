@@ -116,12 +116,21 @@ function ModulePrototype:GetStandardModuleOptions()
     }
 end
 
+function ModulePrototype:AddOption(option)
+    assert(type(option) == "table", "Module option must be a table")
+
+    self.optionOrder = (self.optionOrder or 0) + 1
+    option.order = self.optionOrder
+    return option
+end
+
 function ModulePrototype:GetOptionsTable()
     local profile = function()
         return self:GetProfileDB()
     end
     local config = self.moduleConfig
     local moduleOptions = self:GetStandardModuleOptions()
+    self.optionOrder = 0
 
     for key, option in pairs(self:GetModuleOptions()) do
         moduleOptions[key] = option

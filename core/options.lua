@@ -50,5 +50,18 @@ function ns:GetOptionsTable()
             lootTracker = LootTracker:GetOptionsTable(),
         }
     }
+
+    local layoutSequence = {
+        "general",
+        "fishing",
+        "lootTracker"
+    }
+
+    for index, key in ipairs(layoutSequence) do
+        if options.args[key] then
+            options.args[key].order = index * 10
+        end
+    end
+
     return options
 end

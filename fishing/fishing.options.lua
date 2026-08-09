@@ -6,6 +6,7 @@ ns.Fishing = { Defaults = {
 		fishing = {
 			moduleEnabled = true,
 			debug = false,
+            castByDoubleRightClick = true,
 		},
 	},
 	char = {
@@ -21,5 +22,11 @@ Fishing:Configure({
 })
 
 function Fishing:GetModuleOptions()
-	return {}
+	return {
+        castByDoubleRightClick = {
+            type = "toggle",
+            name = "Cast by double right click",
+            desc = "Double right click to begin fishing.",
+        },
+    }
 end
