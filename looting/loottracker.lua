@@ -1,42 +1,30 @@
 local addonName, ns = ...
 local DreamFish = LibStub("AceAddon-3.0"):GetAddon(addonName)
 
-local LootTracker = DreamFish:GetModule("LootTracker", true) or DreamFish:NewModule("LootTracker", "AceConsole-3.0", "AceEvent-3.0")
+local LootTracker = DreamFish:GetModule("LootTracker")
 
 local AceGUI = LibStub("AceGUI-3.0")
 local lootTrackerWindow
 local scrollContainer
 
+-- these are non-prototype variables
 local itemCache = {}
 local currencyCache = {}
 local skipNextBagUpdate = false
 local skipNextCurrencyUpdate = false
 
 local function CharDB()
-    return DreamFish.db.char.lootTracker
+    return LootTracker:GetCharDB()
 end
 local function ProfileDB()
-    return DreamFish.db.profile.lootTracker
-end
-local function Debug(msg, ...)
-    if DreamFish.db.profile.debugMode then
-        DreamFish:Print("|cFF9ACDFF[LootTracker]|r ", msg, ...)
-    end
+    return LootTracker:GetProfileDB()
 end
 
-function LootTracker:OnInitialize()
-    Debug("Initializing")
-    DreamFish.db:RegisterDefaults(ns.LootTracker.Defaults)
+function LootTracker:OnModuleInitialize()
+    self:Debug("Initializing")
 end
 
-function LootTracker:OnEnable()
-    if not ProfileDB().moduleEnabled then
-        Debug("Loot Tracker module is disabled in settings. Enable it to use the tracker.")
-        return
-    end
-
-    Debug("Enabling")
-
+function LootTracker:OnModuleEnable()
     if ProfileDB().windowVisible or ProfileDB().showWindowOnStartup then
         self:CreateLootTrackerWindow()
     end
@@ -51,16 +39,16 @@ function LootTracker:OnEnable()
     self:RegisterEvent("CURRENCY_DISPLAY_UPDATE")
 end
 
-function LootTracker:OnDisable()
+function LootTracker:OnModuleDisable()
     if lootTrackerWindow then
         lootTrackerWindow:Hide()
     end
 
     self:UnregisterEvent("BAG_UPDATE_DELAYED")
     self:UnregisterEvent("CURRENCY_DISPLAY_UPDATE")
-
-    Debug("Disabled")
 end
+
+-- the rest of this file is non-prototype code
 
 function LootTracker:BAG_UPDATE_DELAYED()
     if skipNextBagUpdate then

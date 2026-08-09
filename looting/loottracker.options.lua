@@ -1,8 +1,6 @@
 local addonName, ns = ...
 local DreamFish = LibStub("AceAddon-3.0"):GetAddon(addonName)
 
-local LootTracker = DreamFish:GetModule("LootTracker", true) or DreamFish:NewModule("LootTracker", "AceConsole-3.0", "AceEvent-3.0")
-
 ns.LootTracker = { Defaults = {
     profile = {
         lootTracker = {
@@ -30,98 +28,44 @@ ns.LootTracker = { Defaults = {
     }
 } }
 
-function LootTracker:GetOptionsTable()
-    local options = {
-        name = "Loot Tracker",
-        type = "group",
-        get = function(info) return DreamFish.db.profile.lootTracker[info[#info]] end,
-        set = function(info, value)
-            DreamFish.db.profile.lootTracker[info[#info]] = value
-            LootTracker:UpdateDisplayIfVisible()
-        end,
-        args = {
-            moduleEnabled = {
-                order = 0,
-                type = "toggle",
-                name = "Enable Loot tracker",
-                desc = "Enables the loot tracker module and its associated UI window.",
-                get = function(info) return DreamFish.db.profile.lootTracker.moduleEnabled end,
-                set = function(info, value)
-                    DreamFish:Print("Loot Tracker module enabling: " .. tostring(value))
-                    DreamFish.db.profile.lootTracker.moduleEnabled = value
-                    if value then
-                        DreamFish:EnableModule("LootTracker")
-                    else
-                        DreamFish:DisableModule("LootTracker")
-                    end
-                end,
+local LootTracker = DreamFish:NewModule("LootTracker", ns.ModulePrototype, "AceConsole-3.0", "AceEvent-3.0")
+LootTracker:Configure({
+    displayName = "Loot Tracker",
+    dbKey = "lootTracker",
+    defaults = ns.LootTracker.Defaults,
+})
+
+function LootTracker:GetModuleOptions()
+    return {
+        showWindowOnStartup = {
+            order = 40,
+            type = "toggle",
+            name = "Show loot tracker on login",
+            desc = "Automatically displays the tracker frame canvas when you log into the character.",
+            width = "full",
+        },
+        minQualityFilter = {
+            order = 50,
+            type = "select",
+            name = "Minimum quality filter",
+            desc = "Filters your text layout view logs based on item rarity rankings.",
+            width = 3,
+            values = {
+                [0] = "|cFF9d9d9dPoor (Gray)|r",
+                [1] = "|cFFFFFFFFCommon (White)|r",
+                [2] = "|cFF1eff00Uncommon (Green)|r",
+                [3] = "|cFF0070ddRare (Blue)|r",
+                [4] = "|cFFa335eeEpic (Purple)|r",
             },
-            moduleOptions = {
-                order = 3,
-                type = "group",
-                name = " ",
-                inline = true,
-                disabled = function() return not DreamFish.db.profile.lootTracker.moduleEnabled end,
-                args = {
-                    header = {
-                        order = 10,
-                        type = "header",
-                        name = "Loot Tracker",
-                    },
-                    debug = {
-                        order = 20,
-                        type = "toggle",
-                        name = "Debug mode",
-                        desc = "Enables debug output for the loot tracker module.",
-                        get = function(info) return DreamFish.db.profile.lootTracker.debug end,
-                        set = function(info, value)
-                            DreamFish.db.profile.lootTracker.debug = value
-                            if value then
-                                DreamFish:Print("LootTracker debug mode is now |cFF00FF00ON|r.")
-                            else
-                                DreamFish:Print("LootTracker debug mode is now |cFFFF0000OFF|r.")
-                            end
-                        end,
-                    },
-                    spacer = {
-                        order = 30,
-                        type = "description",
-                        name = " ",
-                        fontSize = "small",
-                    },
-                    showWindowOnStartup = {
-                        order = 40,
-                        type = "toggle",
-                        name = "Show loot tracker on login",
-                        desc = "Automatically displays the tracker frame canvas when you log into the character.",
-                        width = "full",
-                    },
-                    minQualityFilter = {
-                        order = 50,
-                        type = "select",
-                        name = "Minimum quality filter",
-                        desc = "Filters your text layout view logs based on item rarity rankings.",
-                        width = 3,
-                        values = {
-                            [0] = "|cFF9d9d9dPoor (Gray)|r",
-                            [1] = "|cFFFFFFFFCommon (White)|r",
-                            [2] = "|cFF1eff00Uncommon (Green)|r",
-                            [3] = "|cFF0070ddRare (Blue)|r",
-                            [4] = "|cFFa335eeEpic (Purple)|r",
-                        },
-                    },
-                    toggleUiButton = {
-                        order = 60,
-                        type = "execute",
-                        name = "Toggle Tracker Window",
-                        width = 2,
-                        func = function()
-                            LootTracker:ToggleTrackerWindow()
-                        end,
-                    }
-                }
-            }
-        }
+        },
+        toggleUiButton = {
+            order = 60,
+            type = "execute",
+            name = "Toggle Tracker Window",
+            width = 2,
+            func = function()
+                self:ToggleTrackerWindow()
+            end,
+        },
     }
-    return options
 end
