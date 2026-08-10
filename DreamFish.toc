@@ -35,8 +35,12 @@ core/commands.lua
 looting/loottracker.options.lua
 looting/loottracker.lua
 
+fishing/fishing.init.lua
+fishing/fishing.const.lua
 fishing/fishing.options.lua
 fishing/fishing.intercept.lua
+fishing/auras.lua
+fishing/precast/raft.lua
 fishing/fishing.precast.lua
 fishing/fishing.lua
 

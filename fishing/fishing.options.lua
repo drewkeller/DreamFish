@@ -1,46 +1,62 @@
 local addonName, ns = ...
 local DreamFish = LibStub("AceAddon-3.0"):GetAddon(addonName)
+local Fishing = DreamFish:GetModule("Fishing")
 
-ns.Fishing = { Defaults = {
-	profile = {
+ns.Fishing.Defaults = {
+    global = {
+        buffAuraByItem = {
+            ["238374"] = { spellID = 1237942, duration = 30, category="other_consumable", }, -- Tender Lumifin
+        },
+    },
+    profile = {
 		fishing = {
 			moduleEnabled = true,
 			debug = false,
             castByDoubleRightClick = true,
             castByHotkey = false,
             castHotkeyKeybind = nil,
+            -- other
+            easyStrike = false,
+            closeWindowOnEscape = true,
 		},
 	},
 	char = {
-		fishing = {},
+		fishing = {
+            -- Tackle
+            selectedFishingPole = { isChecked = false, itemID = nil },
+            selectedUnderlightAngler = { isChecked = false, itemID = nil },
+            -- Buffs
+            buffItems = {
+                { enabled = false, itemID = nil },
+                { enabled = false, itemID = nil },
+                { enabled = false, itemID = nil },
+                { enabled = false, itemID = nil },
+                { enabled = false, itemID = nil },
+                { enabled = false, itemID = nil },
+                { enabled = false, itemID = nil },
+                { enabled = false, itemID = nil },
+                { enabled = false, itemID = nil },
+                { enabled = false, itemID = nil },
+                { enabled = false, itemID = nil },
+                { enabled = false, itemID = nil },
+                { enabled = false, itemID = nil },
+                { enabled = false, itemID = nil },
+                { enabled = false, itemID = nil },
+                { enabled = false, itemID = nil },
+                { enabled = false, itemID = nil },
+                { enabled = false, itemID = nil },
+                { enabled = false, itemID = nil },
+                { enabled = false, itemID = nil },
+                { enabled = false, itemID = nil },
+                { enabled = false, itemID = nil },
+                { enabled = false, itemID = nil },
+                { enabled = false, itemID = nil },
+                { enabled = false, itemID = nil },
+            },
+        },
 	},
-} }
-
-ns.const = {
-    bobberToyItemIDs = {
-        { id = 180993, name = "Bat Visage" },
-        { id = 142528, name = "Can of Worms" },
-        { id = 147307, name = "Carved Wooden Helm" },
-        { id = 142529, name = "Cat Head" },
-        { id = 147312, name = "Demon Noggin" },
-        { id = 147308, name = "Enchanted Bobber" },
-        { id = 147309, name = "Face of the Forest" },
-        { id = 147310, name = "Floating Totem" },
-        { id = 142532, name = "Murloc Head" },
-        { id = 147311, name = "Replica Gondola" },
-        { id = 142531, name = "Squeaky Duck" },
-        { id = 142530, name = "Tugboat" },
-        { id = 143662, name = "Wooden Pepe" },
-    },
-    raftToyItemIDs = {
-        { id = 85500, name = "Angler's Fishing Raft" },
-        { id = 198428, name = "Tuskarr Dinghy" },
-    },
-    underlightAnglerItemID = 133755,
-    oversizedBobberItemID = 202207,
 }
 
-local Fishing = DreamFish:NewModule("Fishing", ns.ModulePrototype, "AceConsole-3.0", "AceEvent-3.0", "AceTimer-3.0", "AceHook-3.0")
 Fishing:Configure({
 	displayName = "Fishing",
 	dbKey = "fishing",
@@ -97,8 +113,8 @@ function Fishing:GetModuleOptions()
                             name = "Raft",
                             desc = "Choose the raft to be used when fishing. Applied automatically when casting the fishing line.",
                             order = 1,
-                            values = DreamFish:BuildOwnedToyOptions(ns.const.raftToyItemIDs, "No Raft"),
-                            sorting = DreamFish:BuildOwnedToyOptionsKeys(ns.const.raftToyItemIDs, true),
+                            values = DreamFish:BuildOwnedToyOptions(ns.Fishing.const.raftToyItemIDs, "No Raft"),
+                            sorting = DreamFish:BuildOwnedToyOptionsKeys(ns.Fishing.const.raftToyItemIDs, true),
                             width = 1.5,
                         },
                         applyRaft = {
@@ -128,8 +144,8 @@ function Fishing:GetModuleOptions()
                             name = "Bobber",
                             desc = "Choose the bobber to be used when fishing. Applied automatically when casting the fishing line.",
                             order = 1,
-                            values = DreamFish:BuildOwnedToyOptions(ns.const.bobberToyItemIDs, "Standard Bobber"),
-                            sorting = DreamFish:BuildOwnedToyOptionsKeys(ns.const.bobberToyItemIDs, true),
+                            values = DreamFish:BuildOwnedToyOptions(ns.Fishing.const.bobberToyItemIDs, "Standard Bobber"),
+                            sorting = DreamFish:BuildOwnedToyOptionsKeys(ns.Fishing.const.bobberToyItemIDs, true),
                             width = 1.5,
                         },
                         applyBobber = {
