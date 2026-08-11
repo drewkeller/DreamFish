@@ -1,7 +1,14 @@
 local addonName, ns = ...
 local DreamFish = LibStub("AceAddon-3.0"):GetAddon(addonName)
-
 local Fishing = DreamFish:GetModule("Fishing")
+
+local globalDB, profileDB, charDB
+local function Initialize()
+    globalDB = ns.FishingDB.global
+    profileDB = ns.FishingDB.profile
+    charDB = ns.FishingDB.char
+end
+table.insert(ns.FishingInitializers, Initialize)
 
 function Fishing:GetAuraBySpellID(spellID)
     if C_UnitAuras and C_UnitAuras.GetPlayerAuraBySpellID then
@@ -50,13 +57,13 @@ function Fishing:UpdatePendingBuffObservation()
         return
     end
 
-    if type(self.db.global.buffItems) ~= "table" then
+    if type(globalDB.buffItems) ~= "table" then
         self.state.pendingBuffObservation = nil
         return
     end
 
     local hasConfiguredBuffItems = false
-    for _, entry in ipairs(self.db.global.buffItems) do
+    for _, entry in ipairs(globalDB.buffItems) do
         local itemID = type(entry) == "table" and tonumber(entry.itemID) or nil
         if itemID and itemID > 0 and not (type(entry) == "table" and entry.enabled == false) then
             hasConfiguredBuffItems = true
@@ -122,7 +129,7 @@ function Fishing:UpdatePendingBuffObservation()
     if bestSpellID then
         local itemID = pendingItemID
         local key = tostring(itemID)
-        local existingTracked = self.db.global.buffAuraByItem[key]
+        local existingTracked = globalDB.buffAuraByItem[key]
         local existingDuration = type(existingTracked) == "table" and tonumber(existingTracked.duration) or 0
         local known = ns.Fishing.const
             and type(ns.Fishing.const.knownBuffItems) == "table"
@@ -216,8 +223,8 @@ function Fishing:GetTrackedBuffRemaining(itemID)
 
     local trackedSpellID = nil
     local trackedDuration = nil
-    if Fishing:GetProfileDB() and type(Fishing:GetProfileDB().buffAuraByItem) == "table" then
-        local tracked = Fishing:GetProfileDB().buffAuraByItem[tostring(numericItemID)]
+    if type(ns.FishingDB.global.buffAuraByItem) == "table" then
+        local tracked = ns.FishingDB.global.buffAuraByItem[tostring(numericItemID)]
         if type(tracked) == "table" and tracked.spellID then
             trackedSpellID = tonumber(tracked.spellID)
             trackedDuration = tonumber(tracked.duration)
@@ -240,8 +247,8 @@ function Fishing:GetTrackedBuffRemaining(itemID)
                 and trackedSpellID > 0
                 and trackedSpellID ~= knownSpellID
                 and Fishing.db
-                and type(Fishing:GetProfileDB().buffAuraByItem) == "table" then
-                Fishing:GetProfileDB().buffAuraByItem[tostring(numericItemID)] = {
+                and type(profileDB.buffAuraByItem) == "table" then
+                profileDB.buffAuraByItem[tostring(numericItemID)] = {
                     spellID = knownSpellID,
                     duration = knownDuration or trackedDuration or (tonumber(aura.duration) or 0),
                 }

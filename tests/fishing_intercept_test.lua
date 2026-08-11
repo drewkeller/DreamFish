@@ -1,3 +1,15 @@
+local addonName, ns = ...
+local DreamFish = LibStub("AceAddon-3.0"):GetAddon(addonName)
+local Fishing = DreamFish:GetModule("Fishing")
+
+local globalDB, profileDB, charDB
+local function Initialize()
+    globalDB = ns.FishingDB.global
+    profileDB = ns.FishingDB.profile
+    charDB = ns.FishingDB.char
+end
+table.insert(ns.FishingInitializers, Initialize)
+
 local mouseDownCallback
 local preClickCallback
 local clickCallback
@@ -68,10 +80,6 @@ end
 
 function Fishing:IsEnabled()
     return true
-end
-
-function Fishing:GetProfileDB()
-    return profile
 end
 
 function Fishing:IsHooked(frame, script)

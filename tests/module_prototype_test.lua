@@ -96,8 +96,6 @@ module:OnInitialize()
 
 assert(namespace.DatabaseDefaults.profile.sample.moduleEnabled, "first module defaults were not composed")
 assert(namespace.DatabaseDefaults.profile.second.moduleEnabled, "second module defaults replaced the first module")
-assert(module:GetProfileDB() == DreamFish.db.profile.sample, "profile DB lookup failed")
-assert(module:GetCharDB() == DreamFish.db.char.sample, "character DB lookup failed")
 assert(module.enabled == false, "saved module state was not applied")
 assert(module.initialized, "module initialization hook was not called")
 

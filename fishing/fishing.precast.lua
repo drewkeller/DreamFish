@@ -1,7 +1,14 @@
 local addonName, ns = ...
 local DreamFish = LibStub("AceAddon-3.0"):GetAddon(addonName)
-
 local Fishing = DreamFish:GetModule("Fishing")
+
+local globalDB, profileDB, charDB
+local function Initialize()
+    globalDB = ns.FishingDB.global
+    profileDB = ns.FishingDB.profile
+    charDB = ns.FishingDB.char
+end
+table.insert(ns.FishingInitializers, Initialize)
 
 local DUE_BUFF_CATEGORY_ORDER = { "food_drink", "lure", "bait", "bobber", "other_consumable" }
 
@@ -15,7 +22,7 @@ function Fishing:ResolveBobberApplyAction()
         return selectedToyID, "Apply Bobber", true
     end
 
-    local oversizedEnabled = DreamFish:GetProfileDB().useOversizedBobber
+    local oversizedEnabled = profileDB.useOversizedBobber
     if oversizedEnabled
         and selectedToyID ~= ns.Fishing.const.oversizedBobberItemID
         and Fishing:IsToyOwned(ns.Fishing.const.oversizedBobberItemID)
@@ -27,10 +34,10 @@ function Fishing:ResolveBobberApplyAction()
 end
 
 local function HasConfiguredBuffItems()
-    if type(Fishing:GetCharDB().buffItems) ~= "table" then
+    if type(charDB.buffItems) ~= "table" then
         return false
     end
-    for _, entry in ipairs(Fishing:GetCharDB().buffItems) do
+    for _, entry in ipairs(charDB.buffItems) do
         local itemID = type(entry) == "table" and tonumber(entry.itemID) or nil
         if itemID and itemID > 0 and not (type(entry) == "table" and entry.enabled == false) then
             return true

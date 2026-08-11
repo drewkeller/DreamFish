@@ -1,7 +1,14 @@
 local addonName, ns = ...
 local DreamFish = LibStub("AceAddon-3.0"):GetAddon(addonName)
-
 local Fishing = DreamFish:GetModule("Fishing")
+
+local globalDB, profileDB, charDB
+local function Initialize()
+    globalDB = ns.FishingDB.global
+    profileDB = ns.FishingDB.profile
+    charDB = ns.FishingDB.char
+end
+table.insert(ns.FishingInitializers, Initialize)
 
 local function TraceRaft(msg)
     if DreamFish.db.profile.debugMode then
@@ -24,7 +31,7 @@ local function GetRaftAuraRemainingSeconds(raftToyID)
 end
 
 local function GetRaftUseDecision()
-    local raftToyID = tonumber(Fishing:GetProfileDB().selectedRaftToy) or nil
+    local raftToyID = tonumber(profileDB.selectedRaftToy) or nil
     local hasRaftSelected = raftToyID and raftToyID > 0
     local hasToy = hasRaftSelected and PlayerHasToy(raftToyID) or false
     local raftReady = hasToy and DreamFish:IsItemReadyForUse(raftToyID)

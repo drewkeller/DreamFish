@@ -5,3 +5,4 @@ local Fishing = DreamFish:NewModule("Fishing", ns.ModulePrototype, "AceConsole-3
 
 ns.Fishing = ns.Fishing or {}
 ns.precast = ns.precast or {}
+ns.FishingInitializers = ns.FishingInitializers or {}

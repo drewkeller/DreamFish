@@ -31,20 +31,12 @@ function ModulePrototype:Configure(config)
     return self
 end
 
-function ModulePrototype:GetProfileDB()
-    return DreamFish.db.profile[self.moduleConfig.dbKey]
-end
-
-function ModulePrototype:GetCharDB()
-    return DreamFish.db.char[self.moduleConfig.dbKey]
-end
-
 function ModulePrototype:IsModuleEnabled()
-    return self:GetProfileDB().moduleEnabled
+    return self.db.profile.moduleEnabled
 end
 
 function ModulePrototype:SetModuleEnabled(enabled)
-    self:GetProfileDB().moduleEnabled = enabled
+    self.db.profile.moduleEnabled = enabled
 
     if enabled then
         self:Enable()
@@ -54,13 +46,13 @@ function ModulePrototype:SetModuleEnabled(enabled)
 end
 
 function ModulePrototype:Debug(message, ...)
-    local profile = self:GetProfileDB()
-    if profile.debug then
+    if self.db.profile.debug then
         DreamFish:Print("|cFF9ACDFF[" .. self.moduleConfig.displayName .. "]|r ", message, ...)
     end
 end
 
 function ModulePrototype:OnInitialize()
+    self.db = DreamFish.db.RegisterNamespace(self.moduleConfig.dbKey, self.moduleConfig.defaults)
     self:SetEnabledState(self:IsModuleEnabled())
 
     if self.OnModuleInitialize then
@@ -99,10 +91,10 @@ function ModulePrototype:GetStandardModuleOptions()
             name = "Debug mode",
             desc = "Enables debug output for the " .. config.displayName .. " module.",
             get = function()
-                return self:GetProfileDB().debug
+                return self.db.profile.debug
             end,
             set = function(_, value)
-                self:GetProfileDB().debug = value
+                self.db.profile.debug = value
                 local state = value and "|cFF00FF00ON|r" or "|cFFFF0000OFF|r"
                 DreamFish:Print(config.displayName .. " debug mode is now " .. state .. ".")
             end,
@@ -133,9 +125,6 @@ function ModulePrototype:AddOption(option)
 end
 
 function ModulePrototype:GetOptionsTable()
-    local profile = function()
-        return self:GetProfileDB()
-    end
     local config = self.moduleConfig
     local moduleOptions = self:GetStandardModuleOptions()
     self.optionOrder = 0
@@ -189,10 +178,10 @@ function ModulePrototype:GetOptionsTable()
         type = "group",
         childGroups = config.childGroups,
         get = function(info)
-            return profile()[info[#info]]
+            return self.db.profile[info[#info]]
         end,
         set = function(info, value)
-            profile()[info[#info]] = value
+            self.db.profile[info[#info]] = value
             if self.UpdateDisplayIfVisible then
                 self:UpdateDisplayIfVisible()
             end

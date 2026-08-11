@@ -1,9 +1,10 @@
 local addonName, ns = ...
 local DreamFish = LibStub("AceAddon-3.0"):GetAddon(addonName)
-
 local LootTracker = DreamFish:GetModule("LootTracker")
-
 local AceGUI = LibStub("AceGUI-3.0")
+
+local globalDB, profileDB, charDB
+
 local lootTrackerWindow
 local scrollContainer
 
@@ -13,19 +14,22 @@ local currencyCache = {}
 local skipNextBagUpdate = false
 local skipNextCurrencyUpdate = false
 
-local function CharDB()
-    return LootTracker:GetCharDB()
-end
-local function ProfileDB()
-    return LootTracker:GetProfileDB()
-end
-
 function LootTracker:OnModuleInitialize()
     self:Debug("Initializing")
+
+    self.db = DreamFish.db:RegisterNamespace("loottracker", ns.LootTracker.Defaults)
+    ns.LootTrackerDB = self.db
+
+    globalDB = ns.LootTrackerDB.global
+    profileDB = ns.LootTrackerDB.profile
+    charDB = ns.LootTrackerDB.char
+    for _, initializerFunc in ipairs(ns.LootTrackerInitializers) do
+        initializerFunc(self)
+    end
 end
 
 function LootTracker:OnModuleEnable()
-    if ProfileDB().windowVisible or ProfileDB().showWindowOnStartup then
+    if profileDB.windowVisible or profileDB.showWindowOnStartup then
         self:CreateLootTrackerWindow()
     end
 
@@ -73,17 +77,17 @@ function LootTracker:BAG_UPDATE_DELAYED()
                         local amountGained = currentQuantity - lastQuantity
 
                         -- 1. Step up overall tracking data metrics
-                        CharDB().itemsLooted = CharDB().itemsLooted + amountGained
+                        charDB.itemsLooted = charDB.itemsLooted + amountGained
 
                         -- 2. ADJUSTMENT: Step up specific character-scoped entry tracking
-                        if not CharDB().lootedItems then
-                            CharDB().lootedItems = {}
+                        if not charDB.lootedItems then
+                            charDB.lootedItems = {}
                         end
-                        CharDB().lootedItems[itemId] = (CharDB().lootedItems[itemId] or 0) + amountGained
+                        charDB.lootedItems[itemId] = (charDB.lootedItems[itemId] or 0) + amountGained
 
                         -- 3. Redraw your scrolling labels instantly
                         self:UpdateTrackerDisplay()
-                        if lootTrackerWindow and ProfileDB().windowVisible then
+                        if lootTrackerWindow and profileDB.windowVisible then
                             lootTrackerWindow:Show()
                         end
                     end
@@ -116,15 +120,15 @@ function LootTracker:CURRENCY_DISPLAY_UPDATE(event, currencyType, quantityChange
     if currentQuantity > lastQuantity then
         local amountGained = currentQuantity - lastQuantity
 
-        if not CharDB().lootedCurrencies then
-            CharDB().lootedCurrencies = {}
+        if not charDB.lootedCurrencies then
+            charDB.lootedCurrencies = {}
         end
 
-        CharDB().lootedCurrencies[currencyType] = (CharDB().lootedCurrencies[currencyType] or 0) + amountGained
-        CharDB().itemsLooted = CharDB().itemsLooted + amountGained
+        charDB.lootedCurrencies[currencyType] = (charDB.lootedCurrencies[currencyType] or 0) + amountGained
+        charDB.itemsLooted = charDB.itemsLooted + amountGained
 
         self:UpdateTrackerDisplay()
-        if lootTrackerWindow and ProfileDB().windowVisible then
+        if lootTrackerWindow and profileDB.windowVisible then
             lootTrackerWindow:Show()
         end
     end
@@ -168,7 +172,7 @@ function LootTracker:CreateLootTrackerWindow()
     lootTrackerWindow:SetHeight(340)
     lootTrackerWindow:SetLayout("Fill")
 
-    local pos = ProfileDB().windowPos
+    local pos = profileDB.windowPos
     pos.width = pos.width or 280
     pos.height = pos.height or 340
 
@@ -176,7 +180,7 @@ function LootTracker:CreateLootTrackerWindow()
     lootTrackerWindow:SetStatusTable(pos)
 
     lootTrackerWindow:SetCallback("OnClose", function(widget)
-        ProfileDB().windowVisible = false
+        profileDB.windowVisible = false
         widget.frame:Hide()
     end)
 
@@ -191,9 +195,9 @@ function LootTracker:CreateLootTrackerWindow()
     resetButton:SetText("Reset LootTracker")
     resetButton:SetWidth(240)
     resetButton:SetCallback("OnClick", function()
-        CharDB().itemsLooted = 0
-        CharDB().lootedItems = {}
-        CharDB().lootedCurrencies = {}
+        charDB.itemsLooted = 0
+        charDB.lootedItems = {}
+        charDB.lootedCurrencies = {}
         self:UpdateTrackerDisplay()
         print("|cFF00FF00[DreamFish]|r History track cleared.")
     end)
@@ -212,7 +216,7 @@ function LootTracker:CreateLootTrackerWindow()
     scrollContainer.frame:SetPoint("BOTTOMLEFT", resetButton.frame, "TOPLEFT", 0, 30)
     scrollContainer.frame:SetPoint("BOTTOMRIGHT", resetButton.frame, "TOPRIGHT", 0, 30)
 
-    ProfileDB().windowVisible = true
+    profileDB.windowVisible = true
     self:UpdateTrackerDisplay()
 end
 
@@ -243,7 +247,7 @@ function LootTracker:UpdateTrackerDisplay()
     -- COMPLETELY CLEAR SCROLL SUB-WIDGETS
     scrollContainer:ReleaseChildren()
 
-    local grandTotal = CharDB().itemsLooted or 0
+    local grandTotal = charDB.itemsLooted or 0
     local totalLabel = AceGUI:Create("Label")
     totalLabel:SetText("Total Looted: |cFF00FF00" .. grandTotal .. "|r")
     totalLabel:SetFontObject(GameFontNormalLarge)
@@ -254,14 +258,14 @@ function LootTracker:UpdateTrackerDisplay()
     separator:SetFullWidth(true)
     scrollContainer:AddChild(separator)
 
-    if not CharDB().lootedItems then CharDB().lootedItems = {} end
-    if not CharDB().lootedCurrencies then CharDB().lootedCurrencies = {} end
+    if not charDB.lootedItems then charDB.lootedItems = {} end
+    if not charDB.lootedCurrencies then charDB.lootedCurrencies = {} end
     local hasEntries = false
-    local minQualityFilter = ProfileDB().minQualityFilter or 0
+    local minQualityFilter = profileDB.minQualityFilter or 0
     local displayEntries = {}
 
     -- PROCESS STANDARD LOOTED ITEMS DYNAMICALLY
-    for itemId, count in pairs(CharDB().lootedItems) do
+    for itemId, count in pairs(charDB.lootedItems) do
         if not count then count = 0 end
         if count > 0 then
             local itemName, itemLink, itemQuality = C_Item.GetItemInfo(itemId)
@@ -285,7 +289,7 @@ function LootTracker:UpdateTrackerDisplay()
     end
 
     -- PROCESS LOOTED CURRENCIES DYNAMICALLY
-    for currencyId, count in pairs(CharDB().lootedCurrencies) do
+    for currencyId, count in pairs(charDB.lootedCurrencies) do
         if not count then count = 0 end
         if count > 0 then
             local currencyLink = C_CurrencyInfo.GetCurrencyLink(currencyId, count)
@@ -347,10 +351,10 @@ function LootTracker:ToggleTrackerWindow()
     if lootTrackerWindow then
         if lootTrackerWindow.frame:IsShown() then
             lootTrackerWindow:Hide()
-            ProfileDB().windowVisible = false
+            profileDB.windowVisible = false
         else
             lootTrackerWindow:Show()
-            ProfileDB().windowVisible = true
+            profileDB.windowVisible = true
         end
     else
         self:CreateLootTrackerWindow()

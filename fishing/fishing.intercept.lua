@@ -1,7 +1,15 @@
-local addonName = ...
+local addonName, ns = ...
 local DreamFish = LibStub("AceAddon-3.0"):GetAddon(addonName)
-
 local Fishing = DreamFish:GetModule("Fishing")
+
+local globalDB, profileDB, charDB
+local function Initialize()
+    globalDB = ns.FishingDB.global
+    profileDB = ns.FishingDB.profile
+    charDB = ns.FishingDB.char
+end
+table.insert(ns.FishingInitializers, Initialize)
+
 
 local lastClickTime = 0
 local doubleClickDelay = 0.25
@@ -50,7 +58,7 @@ function Fishing:HandleMouseDown(_, button)
     if not self.clickFrame or InCombatLockdown() then return end
 
     if self:IsDoubleClick() then
-        if not self:GetProfileDB().castByDoubleRightClick then
+        if not profileDB.castByDoubleRightClick then
             self:Debug("Double click detected but double right click casting is disabled")
             return
         end
@@ -64,7 +72,7 @@ function Fishing:HookPreClickWithHandler()
     if not self:IsHooked(self.clickFrame, "PreClick") then
         self:SecureHookScript(self.clickFrame, "PreClick", function()
             if InCombatLockdown() then return end
-            if not self:GetProfileDB().castByHotkey then
+            if not profileDB.castByHotkey then
                 self:Debug("PreClick detected but hotkey casting is disabled")
                 return
             end
@@ -79,7 +87,7 @@ function Fishing:HookClickWithHandler()
 
     self.clickFrame:SetScript("OnClick", function()
         if InCombatLockdown() then return end
-        if not self:GetProfileDB().castByHotkey then
+        if not profileDB.castByHotkey then
             self:Debug("Hotkey click detected but hotkey casting is disabled")
             return
         end
