@@ -32,10 +32,12 @@ function ModulePrototype:Configure(config)
 end
 
 function ModulePrototype:IsModuleEnabled()
-    return self.db.profile.moduleEnabled
+    return self.db and self.db.profile and self.db.profile.moduleEnabled or false
 end
 
 function ModulePrototype:SetModuleEnabled(enabled)
+    self.db = self.db or {}
+    self.db.profile = self.db.profile or {}
     self.db.profile.moduleEnabled = enabled
 
     if enabled then
@@ -46,13 +48,66 @@ function ModulePrototype:SetModuleEnabled(enabled)
 end
 
 function ModulePrototype:Debug(message, ...)
-    if self.db.profile.debug then
+    if self.db and self.db.profile and self.db.profile.debug then
         DreamFish:Print("|cFF9ACDFF[" .. self.moduleConfig.displayName .. "]|r ", message, ...)
     end
 end
 
 function ModulePrototype:OnInitialize()
-    self.db = DreamFish.db.RegisterNamespace(self.moduleConfig.dbKey, self.moduleConfig.defaults)
+    local addonDB = DreamFish and DreamFish.db
+
+    if addonDB and type(addonDB.RegisterNamespace) == "function" then
+        self.db = addonDB:RegisterNamespace(self.moduleConfig.dbKey, self.moduleConfig.defaults)
+    else
+        local defaults = self.moduleConfig.defaults or {}
+        local profileDefaults = type(defaults.profile) == "table"
+            and (defaults.profile[self.moduleConfig.dbKey] or defaults.profile)
+            or {}
+        local charDefaults = type(defaults.char) == "table"
+            and (defaults.char[self.moduleConfig.dbKey] or defaults.char)
+            or {}
+        local globalDefaults = type(defaults.global) == "table"
+            and (defaults.global[self.moduleConfig.dbKey] or defaults.global)
+            or {}
+
+        local profileNamespace = {}
+        local charNamespace = {}
+        local globalNamespace = {}
+
+        if addonDB then
+            addonDB.profile = type(addonDB.profile) == "table" and addonDB.profile or {}
+            addonDB.char = type(addonDB.char) == "table" and addonDB.char or {}
+            addonDB.global = type(addonDB.global) == "table" and addonDB.global or {}
+
+            profileNamespace = type(addonDB.profile[self.moduleConfig.dbKey]) == "table"
+                and addonDB.profile[self.moduleConfig.dbKey]
+                or {}
+            charNamespace = type(addonDB.char[self.moduleConfig.dbKey]) == "table"
+                and addonDB.char[self.moduleConfig.dbKey]
+                or {}
+            globalNamespace = type(addonDB.global[self.moduleConfig.dbKey]) == "table"
+                and addonDB.global[self.moduleConfig.dbKey]
+                or {}
+
+            addonDB.profile[self.moduleConfig.dbKey] = profileNamespace
+            addonDB.char[self.moduleConfig.dbKey] = charNamespace
+            addonDB.global[self.moduleConfig.dbKey] = globalNamespace
+        end
+
+        self.db = {
+            profile = profileNamespace,
+            char = charNamespace,
+            global = globalNamespace,
+        }
+        MergeDefaults(self.db.profile, profileDefaults)
+        MergeDefaults(self.db.char, charDefaults)
+        MergeDefaults(self.db.global, globalDefaults)
+    end
+
+    self.db = self.db or {}
+    self.db.profile = self.db.profile or {}
+    self.db.char = self.db.char or {}
+    self.db.global = self.db.global or {}
     self:SetEnabledState(self:IsModuleEnabled())
 
     if self.OnModuleInitialize then

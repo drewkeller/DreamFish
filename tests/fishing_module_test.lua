@@ -68,6 +68,8 @@ end
 
 local namespace = {}
 assert(loadfile("core/module_prototype.lua"))("DreamFish", namespace)
+assert(loadfile("fishing/fishing.init.lua"))("DreamFish", namespace)
+assert(loadfile("fishing/fishing.const.lua"))("DreamFish", namespace)
 assert(loadfile("fishing/fishing.options.lua"))("DreamFish", namespace)
 assert(loadfile("fishing/fishing.lua"))("DreamFish", namespace)
 

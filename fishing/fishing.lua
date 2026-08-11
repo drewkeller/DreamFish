@@ -3,6 +3,7 @@ local DreamFish = LibStub("AceAddon-3.0"):GetAddon(addonName)
 local Fishing = DreamFish:GetModule("Fishing")
 
 local globalDB, profileDB, charDB
+ns.FishingInitializers = ns.FishingInitializers or {}
 
 local ArmFishingRightClickAction
 
@@ -10,7 +11,6 @@ function Fishing:OnModuleInitialize()
 	self:Debug("Initializing")
     -- access the database within "Fishing" functions using self.db
     -- In local functions, use ns.FishingDB
-    self.db = DreamFish.db:RegisterNamespace("fishing", ns.Fishing.Defaults)
     ns.FishingDB = self.db
 
     globalDB = ns.FishingDB.global

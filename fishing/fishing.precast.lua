@@ -8,6 +8,7 @@ local function Initialize()
     profileDB = ns.FishingDB.profile
     charDB = ns.FishingDB.char
 end
+ns.FishingInitializers = ns.FishingInitializers or {}
 table.insert(ns.FishingInitializers, Initialize)
 
 local DUE_BUFF_CATEGORY_ORDER = { "food_drink", "lure", "bait", "bobber", "other_consumable" }

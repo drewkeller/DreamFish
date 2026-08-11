@@ -5,6 +5,8 @@ local AceGUI = LibStub("AceGUI-3.0")
 
 local globalDB, profileDB, charDB
 
+ns.LootTrackerInitializers = ns.LootTrackerInitializers or {}
+
 local lootTrackerWindow
 local scrollContainer
 
@@ -17,7 +19,6 @@ local skipNextCurrencyUpdate = false
 function LootTracker:OnModuleInitialize()
     self:Debug("Initializing")
 
-    self.db = DreamFish.db:RegisterNamespace("loottracker", ns.LootTracker.Defaults)
     ns.LootTrackerDB = self.db
 
     globalDB = ns.LootTrackerDB.global

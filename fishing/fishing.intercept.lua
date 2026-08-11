@@ -8,6 +8,7 @@ local function Initialize()
     profileDB = ns.FishingDB.profile
     charDB = ns.FishingDB.char
 end
+ns.FishingInitializers = ns.FishingInitializers or {}
 table.insert(ns.FishingInitializers, Initialize)
 
 
