@@ -82,13 +82,20 @@ function DreamFish:BuildOwnedToyOptions(candidateIDs, includeDefaultLabel)
     return options
 end
 
-function DreamFish:BuildOwnedToyOptionsKeys(candidateIDs, insertKeyAtZero)
+function DreamFish:BuildOwnedToySortingKeys(candidateIDs, includeDefault)
+    local values = DreamFish:BuildOwnedToyOptions(candidateIDs, includeDefault)
     local keys = {}
-    if insertKeyAtZero then
+    if type(includeDefault) == "string" and includeDefault ~= "" and values[0] ~= nil then
         table.insert(keys, 0)
     end
+    if type(candidateIDs) ~= "table" then
+        return keys
+    end
     for _, toy in ipairs(candidateIDs) do
-        table.insert(keys, toy.id)
+        local itemID = tonumber(type(toy) == "table" and toy.id or toy)
+        if itemID and values[itemID] ~= nil then
+            table.insert(keys, itemID)
+        end
     end
     return keys
 end

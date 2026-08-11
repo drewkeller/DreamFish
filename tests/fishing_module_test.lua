@@ -118,7 +118,12 @@ assert(options.args.tackleTab, "Tackle tab is missing from the Fishing tab group
 assert(options.args.modesTab.type == "group", "Modes tab is not an AceConfig group")
 assert(options.args.tackleTab.type == "group", "Tackle tab is not an AceConfig group")
 assert(options.args.moduleOptions == nil, "Fishing tabs must not be nested in an inline module group")
-assert(options.args.tackleTab.args.raftSection.args.selectedRaftToy.values[0] == "No Raft", "Raft select is missing its default label")
-assert(options.args.tackleTab.args.raftSection.args.selectedRaftToy.values[85500] == "Angler's Fishing Raft", "Raft select values must be label strings")
+local raftValues = options.args.tackleTab.args.raftSection.args.selectedRaftToy.values
+if type(raftValues) == "function" then
+    raftValues = raftValues()
+end
+assert(type(raftValues) == "table", "Raft select values should resolve to a table")
+assert(raftValues[0] == "No Raft", "Raft select is missing its default label")
+assert(raftValues[85500] == "Angler's Fishing Raft", "Raft select values must be label strings")
 
 print("fishing_module_test: passed")

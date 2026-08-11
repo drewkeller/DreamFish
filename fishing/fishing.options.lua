@@ -15,6 +15,9 @@ ns.Fishing.Defaults = {
             castByDoubleRightClick = true,
             castByHotkey = false,
             castHotkeyKeybind = nil,
+        selectedRaftToy = 0,
+        selectedBobberToy = 0,
+        useOversizedBobber = false,
             -- other
             easyStrike = false,
             closeWindowOnEscape = true,
@@ -113,8 +116,12 @@ function Fishing:GetModuleOptions()
                             name = "Raft",
                             desc = "Choose the raft to be used when fishing. Applied automatically when casting the fishing line.",
                             order = 1,
-                            values = DreamFish:BuildOwnedToyOptions(ns.Fishing.const.raftToyItemIDs, "No Raft"),
-                            sorting = DreamFish:BuildOwnedToyOptionsKeys(ns.Fishing.const.raftToyItemIDs, true),
+                            values = function()
+                                return DreamFish:BuildOwnedToyOptions(ns.Fishing.const.raftToyItemIDs, "No Raft")
+                            end,
+                            sorting = function()
+                                return DreamFish:BuildOwnedToySortingKeys(ns.Fishing.const.raftToyItemIDs, "No Raft")
+                            end,
                             width = 1.5,
                         },
                         applyRaft = {
@@ -144,8 +151,12 @@ function Fishing:GetModuleOptions()
                             name = "Bobber",
                             desc = "Choose the bobber to be used when fishing. Applied automatically when casting the fishing line.",
                             order = 1,
-                            values = DreamFish:BuildOwnedToyOptions(ns.Fishing.const.bobberToyItemIDs, "Standard Bobber"),
-                            sorting = DreamFish:BuildOwnedToyOptionsKeys(ns.Fishing.const.bobberToyItemIDs, true),
+                            values = function()
+                                return DreamFish:BuildOwnedToyOptions(ns.Fishing.const.bobberToyItemIDs, "Standard Bobber")
+                            end,
+                            sorting = function()
+                                return DreamFish:BuildOwnedToySortingKeys(ns.Fishing.const.bobberToyItemIDs, "Standard Bobber")
+                            end,
                             width = 1.5,
                         },
                         applyBobber = {
