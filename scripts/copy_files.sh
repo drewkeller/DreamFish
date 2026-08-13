@@ -15,6 +15,8 @@ else
   exit 1
 fi
 
+rm -rf "$ADDON_DIR"/*
+
 # Copy the main addon files to the addon directory
 cp -f DreamFish.lua DreamFish.toc Bindings.xml  \
   "$ADDON_DIR"
