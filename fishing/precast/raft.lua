@@ -11,7 +11,7 @@ end
 ns.FishingInitializers = ns.FishingInitializers or {}
 table.insert(ns.FishingInitializers, Initialize)
 
-local function TraceRaft(msg)
+local function Trace(msg)
     if DreamFish.db.profile.debugMode then
         DreamFish:Print("|cFF999999[Raft]|r ", msg)
     end
@@ -32,50 +32,50 @@ local function GetRaftAuraRemainingSeconds(raftToyID)
 end
 
 local function GetRaftUseDecision()
-    local raftToyID = tonumber(profileDB.selectedRaftToy) or nil
-    local hasRaftSelected = raftToyID and raftToyID > 0
-    local hasToy = hasRaftSelected and PlayerHasToy(raftToyID) or false
-    local raftReady = hasToy and DreamFish:IsItemReadyForUse(raftToyID)
+    local toyID = tonumber(profileDB.selectedRaftToy) or nil
+    local hasRaftSelected = toyID and toyID > 0
+    local hasToy = hasRaftSelected and DreamFish:IsToyOwned(toyID) or false
+    local isReady = hasToy and DreamFish:IsItemReadyForUse(toyID)
     local swimming = IsSwimming()
-    local raftAuraRemaining = (hasToy and swimming) and GetRaftAuraRemainingSeconds(raftToyID) or nil
-    local castLead = ns.Fishing.const.maxFishingCastSeconds + ns.Fishing.const.buffPreRefreshSafetySeconds
-    if raftAuraRemaining == nil and hasToy then
+    local auraRemaining = (hasToy and swimming) and GetRaftAuraRemainingSeconds(toyID) or nil
+    local castLead = ns.fishing.const.maxFishingCastSeconds + ns.fishing.const.buffPreRefreshSafetySeconds
+    if auraRemaining == nil and hasToy then
         -- If aura can't be observed while not swimming, try once more without the swim gate.
-        raftAuraRemaining = GetRaftAuraRemainingSeconds(raftToyID)
+        auraRemaining = GetRaftAuraRemainingSeconds(toyID)
     end
-    local needsRefreshForCast = (raftAuraRemaining == nil) or (raftAuraRemaining <= castLead)
+    local needsRefresh = (auraRemaining == nil) or (auraRemaining <= castLead)
 
     local shouldApply = hasRaftSelected
         and hasToy
-        and raftReady
-        and needsRefreshForCast
-        and (swimming or raftAuraRemaining ~= nil)
+        and isReady
+        and needsRefresh
+        and (swimming or auraRemaining ~= nil)
 
     if shouldApply then
-        TraceRaft("Raft will be applied")
-    elseif raftToyID and raftToyID == 0 then
-        TraceRaft("'None' raft is selected")
+        Trace("Raft can be applied")
+    elseif toyID and toyID == 0 then
+        Trace("'None' raft is selected")
     elseif not hasRaftSelected then
-        TraceRaft("No raft toy selected or invalid ID")
+        Trace("No raft toy selected or invalid ID")
     elseif not hasToy then
-        TraceRaft("Raft is not owned")
-    elseif not raftReady then
-        TraceRaft("Raft toy on cooldown: " .. DreamFish:GetDebugCooldownText(raftToyID))
-    elseif not needsRefreshForCast then
-        TraceRaft("Raft aura remaining sufficient for cast")
-    elseif not (swimming or raftAuraRemaining ~= nil) then
-        TraceRaft("Not swimming and no raft aura observed")
+        Trace("Raft is not owned")
+    elseif not isReady then
+        Trace("Raft toy on cooldown: " .. DreamFish:GetDebugCooldownText(toyID))
+    elseif not needsRefresh then
+        Trace("Raft aura remaining sufficient for cast")
+    elseif not (swimming or auraRemaining ~= nil) then
+        Trace("Not swimming and no raft aura observed")
     else
-        TraceRaft("Raft will not be applied for unknown reason")
+        Trace("Raft will not be applied for unknown reason")
     end
 
     return {
-        toyID = raftToyID,
+        toyID = toyID,
         hasToy = hasToy,
-        ready = raftReady,
+        ready = isReady,
         swimming = swimming,
-        auraRemaining = raftAuraRemaining,
-        needsRefreshForCast = needsRefreshForCast,
+        auraRemaining = auraRemaining,
+        needsRefreshForCast = needsRefresh,
         shouldApply = shouldApply,
     }
 end

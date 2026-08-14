@@ -15,7 +15,7 @@ function DreamFish:IsToyOwned(itemID)
         return cached
     end
 
-    local owned = (type(PlayerHasToy) ~= "function") or PlayerHasToy(numeric)
+    local owned = (type(C_ToyBox.PlayerHasToy) ~= "function") or C_ToyBox.PlayerHasToy(numeric)
     ownedToyItemCache[numeric] = owned and true or false
     return ownedToyItemCache[numeric]
 end

@@ -14,21 +14,21 @@ table.insert(ns.FishingInitializers, Initialize)
 local DUE_BUFF_CATEGORY_ORDER = { "food_drink", "lure", "bait", "bobber", "other_consumable" }
 
 function Fishing:ResolveBobberApplyAction()
-    local selectedToyID = Fishing.addon.bobberSelector and tonumber(Fishing.addon.bobberSelector:GetText()) or nil
+    local selectedToyID = profileDB.bobberSelector and tonumber(DreamFish.addon.bobberSelector:GetText()) or nil
     if not selectedToyID or selectedToyID <= 0 then
         return nil, "Apply Bobber (none)", false
     end
 
-    if Fishing:IsItemReadyForUse(selectedToyID) then
+    if DreamFish:IsItemReadyForUse(selectedToyID) then
         return selectedToyID, "Apply Bobber", true
     end
 
     local oversizedEnabled = profileDB.useOversizedBobber
     if oversizedEnabled
-        and selectedToyID ~= ns.Fishing.const.oversizedBobberItemID
-        and Fishing:IsToyOwned(ns.Fishing.const.oversizedBobberItemID)
-        and Fishing:IsItemReadyForUse(ns.Fishing.const.oversizedBobberItemID) then
-        return ns.Fishing.const.oversizedBobberItemID, "Oversize Bobber", true
+        and selectedToyID ~= ns.fishing.const.oversizedBobberItemID
+        and DreamFish:IsToyOwned(ns.fishing.const.oversizedBobberItemID)
+        and DreamFish:IsItemReadyForUse(ns.fishing.const.oversizedBobberItemID) then
+        return ns.fishing.const.oversizedBobberItemID, "Oversize Bobber", true
     end
 
     return selectedToyID, "Apply Bobber", false
@@ -48,7 +48,7 @@ local function HasConfiguredBuffItems()
 end
 
 local function HasAnyActiveBaitAura()
-    for _, known in pairs(ns.Fishing.const.knownBuffItems) do
+    for _, known in pairs(ns.fishing.const.knownBuffItems) do
         local spellID = tonumber(known.spellID)
         if known.category == "bait" and spellID > 0 then
             local aura = Fishing:GetAuraBySpellID(spellID)
@@ -69,7 +69,7 @@ end
 --             hadUnavailableDueBuff = (dueStatus == "due_unavailable") or hadUnavailableDueBuff
 --             return nil, hadUnavailableDueBuff
 --         end
---         if Fishing:IsItemReadyForUse(candidateItemID) then
+--         if DreamFish:IsItemReadyForUse(candidateItemID) then
 --             return candidateItemID, hadUnavailableDueBuff
 --         end
 --         -- DebugBuffMessage("Skipping due buff on cooldown this click: "
@@ -101,29 +101,7 @@ GetNextReadyDueBuffItem = function(seedExcludedBuffItemIDs)
     return nil, hadUnavailableDueBuff, nil
 end
 
-GetNextCastableDueBuffItem = function()
-    local excludedBuffItemIDs = {}
-    local hadUnavailableDueBuff = false
-
-    while true do
-        local candidateItemID, unavailable, category = GetNextReadyDueBuffItem(excludedBuffItemIDs)
-        hadUnavailableDueBuff = hadUnavailableDueBuff or unavailable
-
-        if not candidateItemID then
-            return nil, hadUnavailableDueBuff, nil
-        end
-
-        -- if IsLureCategory(category) and (not IsFishingPoleEquippedInProfessionSlot()) then
-        --     WarnMissingProfessionFishingPoleForLure()
-        --     DreamFish:Debug("Skipping lure due buff; no fishing pole equipped in profession slot")
-        --     excludedBuffItemIDs[candidateItemID] = true
-        -- else
-        --     return candidateItemID, hadUnavailableDueBuff, category
-        -- end
-    end
-end
-
-local function FinalizeSecureFishingAction(fishingFrame, macroLines, raftExclusiveWhileSwimming, bobberDecision, hasConsumableAction)
+local function FinalizeSecureFishingAction(fishingFrame, macroLines, raftExclusiveWhileSwimming, hasConsumableAction)
     if #macroLines > 0 then
         local castArmed = (not raftExclusiveWhileSwimming) and (not hasConsumableAction)
         if castArmed then
@@ -137,9 +115,6 @@ local function FinalizeSecureFishingAction(fishingFrame, macroLines, raftExclusi
             DreamFish:Debug("Fishing click configured as raft-only pre-cast")
         elseif not castArmed then
             DreamFish:Debug("Fishing click configured with pre-cast item usage; cast will arm on next click")
-        elseif bobberDecision.shouldApply then
-            DreamFish:Debug("Fishing click configured to use bobber toy: "
-                .. DreamFish:GetDebugItemLabel(bobberDecision.toyID) .. " " .. DreamFish:GetDebugCooldownText(bobberDecision.toyID))
         else
             DreamFish:Debug("Fishing click configured with pre-cast items before Fishing")
         end
@@ -176,30 +151,64 @@ local function InsertUseItemMacroLine(macroLines, itemID)
     table.insert(macroLines, line)
 end
 
+local function InsertEquipItemMacroLine(macroLines, itemID)
+    local line = "/equip item:" .. tostring(itemID)
+    table.insert(macroLines, line)
+end
+
 ConfigureFishingClickAction = function()
     local raftDecision = ns.precast.GetRaftUseDecision()
-    --local fishingPoleDecision = GetSelectedFishingPoleDecision()
-    --local bobberDecision = GetBobberUseDecision()
-    --local oversizedDecision = GetOversizedBobberDecision()
+    local poleDecision = ns.precast.GetSelectedFishingPoleDecision()
+    local underlightDecision = ns.precast.GetUnderlightAnglerEquipDecision()
+    local bobberDecision = ns.precast.GetBobberUseDecision()
+    local oversizedDecision = ns.precast.GetOversizedBobberDecision()
     local macroLines = {}
 
     local hasItemUseAction = false
-    local raftExclusiveWhileSwimming = false
+    local raftExclusive = false
 
-
+    -- Raft
     if raftDecision.shouldApply then
         InsertUseItemMacroLine(macroLines, raftDecision.toyID)
         hasItemUseAction = true
         DreamFish:Debug("Fishing click will apply raft: "
             .. DreamFish:GetDebugItemLabel(raftDecision.toyID) .. " " .. DreamFish:GetDebugCooldownText(raftDecision.toyID))
         if raftDecision.swimming then
-            raftExclusiveWhileSwimming = true
+            raftExclusive = true
             DreamFish:Debug("Raft needed while swimming; skipping other pre-cast items this click")
         end
     end
 
-    local bobberDecision = nil
+    -- Pole
+    if (not raftExclusive) and poleDecision.shouldApply then
+        InsertEquipItemMacroLine(macroLines, poleDecision.itemID)
+        DreamFish:Debug("Fishing click will equip configured fishing pole: "
+            .. DreamFish:GetDebugItemLabel(poleDecision.itemID))
+    end
 
+    -- Underlight Angler
+    if (not raftExclusive) and underlightDecision.shouldEquip then
+        InsertEquipItemMacroLine(macroLines, underlightDecision.itemID)
+        DreamFish:Debug("Fishing click will equip Underlight Angler: "
+            .. DreamFish:GetDebugItemLabel(underlightDecision.itemID))
+    end
+
+    -- Bobber
+    if (not raftExclusive) and (not hasItemUseAction) and bobberDecision.shouldApply then
+        InsertUseItemMacroLine(macroLines, bobberDecision.toyID)
+        hasItemUseAction = true
+        DreamFish:Debug("Fishing click will apply bobber: "
+            .. DreamFish:GetDebugItemLabel(bobberDecision.toyID) .. " " .. DreamFish:GetDebugCooldownText(bobberDecision.toyID))
+    end
+
+    -- Oversize bobber
+    if (not raftExclusive) and (not hasItemUseAction) and oversizedDecision.shouldApply then
+        InsertUseItemMacroLine(macroLines, ns.FishingDB.const.oversizedBobberItemID)
+        hasItemUseAction = true
+        DreamFish:Debug("Fishing click will apply oversized bobber")
+    end
+
+    -- Buff item
     local dueBuffItemID, dueBuffCategory = nil, nil
     if not hasItemUseAction then
         dueBuffItemID, dueBuffCategory = GetNextCastableDueBuffItem()
@@ -219,8 +228,7 @@ ConfigureFishingClickAction = function()
     local castArmed = FinalizeSecureFishingAction(
         Fishing.clickFrame,
         macroLines,
-        raftExclusiveWhileSwimming,
-        bobberDecision,
+        raftExclusive,
         hasItemUseAction
     )
 

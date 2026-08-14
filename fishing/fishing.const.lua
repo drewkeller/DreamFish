@@ -1,7 +1,7 @@
 local addonName, ns = ...
 local DreamFish = LibStub("AceAddon-3.0"):GetAddon(addonName)
 
-ns.Fishing.const = {
+ns.fishing = { const = {
     bobberToyItemIDs = {
         { id = 180993, name = "Bat Visage" },
         { id = 142528, name = "Can of Worms" },
@@ -119,4 +119,4 @@ ns.Fishing.const = {
         [124674] = { spellID = 185587, duration = 600, category = "lure", }, -- Day-Old Darkmoon Doughnut
         [118391] = { spellID = 174471, duration = 600, category = "lure", }, -- Worm Supreme
     },
-}
+} }

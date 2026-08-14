@@ -90,9 +90,9 @@ function Fishing:UpdatePendingBuffObservation()
     local current = self:BuildHelpfulAuraSnapshot()
     local pendingItemID = tonumber(self.state.pendingBuffObservation.itemID)
     local pendingKnown = pendingItemID
-        and ns.Fishing.const
-        and type(ns.Fishing.const.knownBuffItems) == "table"
-        and ns.Fishing.const.knownBuffItems[pendingItemID]
+        and ns.fishing.const
+        and type(ns.fishing.const.knownBuffItems) == "table"
+        and ns.fishing.const.knownBuffItems[pendingItemID]
         or nil
     local pendingKnownSpellID = type(pendingKnown) == "table" and tonumber(pendingKnown.spellID) or nil
     local bestSpellID = nil
@@ -132,9 +132,9 @@ function Fishing:UpdatePendingBuffObservation()
         local key = tostring(itemID)
         local existingTracked = globalDB.buffAuraByItem[key]
         local existingDuration = type(existingTracked) == "table" and tonumber(existingTracked.duration) or 0
-        local known = ns.Fishing.const
-            and type(ns.Fishing.const.knownBuffItems) == "table"
-            and ns.Fishing.const.knownBuffItems[itemID]
+        local known = ns.fishing.const
+            and type(ns.fishing.const.knownBuffItems) == "table"
+            and ns.fishing.const.knownBuffItems[itemID]
             or nil
         local knownDuration = type(known) == "table" and tonumber(known.duration) or 0
 
@@ -214,8 +214,8 @@ function Fishing:GetTrackedBuffRemaining(itemID)
 
     local knownSpellID = nil
     local knownDuration = nil
-    if ns.Fishing.const and type(ns.Fishing.const.knownBuffItems) == "table" then
-        local known = ns.Fishing.const.knownBuffItems[numericItemID]
+    if ns.fishing.const and type(ns.fishing.const.knownBuffItems) == "table" then
+        local known = ns.fishing.const.knownBuffItems[numericItemID]
         if type(known) == "table" and known.spellID then
             knownSpellID = tonumber(known.spellID)
             knownDuration = tonumber(known.duration)

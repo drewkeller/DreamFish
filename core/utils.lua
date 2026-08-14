@@ -50,3 +50,38 @@ function DreamFish:GetDebugCooldownText(itemID)
     local remaining = math.max(0, (start + duration) - GetTime())
     return "cooldownRemaining=" .. string.format("%.1fs", remaining)
 end
+
+function DreamFish:ContainerNumSlots(bag)
+    if C_Container and C_Container.GetContainerNumSlots then
+        return C_Container.GetContainerNumSlots(bag)
+    end
+    return 0
+end
+
+function DreamFish:FindItemInBags(itemID)
+    if not itemID then
+        return nil, nil
+    end
+
+    local bagCount = NUM_BAG_SLOTS or 4
+    for bag = 0, bagCount do
+        local slots = DreamFish:ContainerNumSlots(bag)
+        for slot = 1, slots do
+            if DreamFish:ContainerItemID(bag, slot) == itemID then
+                return bag, slot
+            end
+        end
+    end
+
+    local reagentSlots = DreamFish:ContainerNumSlots(5)
+    if reagentSlots and reagentSlots > 0 then
+        for slot = 1, reagentSlots do
+            if DreamFish:ContainerItemID(5, slot) == itemID then
+                return 5, slot
+            end
+        end
+    end
+
+    return nil, nil
+end
+

@@ -117,10 +117,10 @@ function Fishing:GetModuleOptions()
                             desc = "Choose the raft to be used when fishing. Applied automatically when casting the fishing line.",
                             order = 1,
                             values = function()
-                                return DreamFish:BuildOwnedToyOptions(ns.Fishing.const.raftToyItemIDs, "No Raft")
+                                return DreamFish:BuildOwnedToyOptions(ns.fishing.const.raftToyItemIDs, "No Raft")
                             end,
                             sorting = function()
-                                return DreamFish:BuildOwnedToySortingKeys(ns.Fishing.const.raftToyItemIDs, "No Raft")
+                                return DreamFish:BuildOwnedToySortingKeys(ns.fishing.const.raftToyItemIDs, "No Raft")
                             end,
                             width = 1.5,
                         },
@@ -152,10 +152,10 @@ function Fishing:GetModuleOptions()
                             desc = "Choose the bobber to be used when fishing. Applied automatically when casting the fishing line.",
                             order = 1,
                             values = function()
-                                return DreamFish:BuildOwnedToyOptions(ns.Fishing.const.bobberToyItemIDs, "Standard Bobber")
+                                return DreamFish:BuildOwnedToyOptions(ns.fishing.const.bobberToyItemIDs, "Standard Bobber")
                             end,
                             sorting = function()
-                                return DreamFish:BuildOwnedToySortingKeys(ns.Fishing.const.bobberToyItemIDs, "Standard Bobber")
+                                return DreamFish:BuildOwnedToySortingKeys(ns.fishing.const.bobberToyItemIDs, "Standard Bobber")
                             end,
                             width = 1.5,
                         },
@@ -176,6 +176,29 @@ function Fishing:GetModuleOptions()
                         }
                     } -- Bobber section
                 },
+                poleSection = {
+                    type = "group",
+                    name = "  ",
+                    desc = "Settings for auto-equipping a fishing pole when fishing.",
+                    inline = true,
+                    order = 3,
+                    args = {
+                        selectedFishingPole = {
+                            type = "toggle",
+                            name = "Enable fishing pole for equipping",
+                            desc = "Choose the fishing pole to be used when fishing. Equipped automatically when casting the fishing line.",
+                            order = 1,
+                            width = 1.5,
+                        },
+                        selectedUnderlightAngler = {
+                            type = "toggle",
+                            name = "Enable Underlight Angler for equipping",
+                            desc = "Choose the Underlight Angler to be used when fishing. Equipped automatically when casting the fishing line.",
+                            order = 2,
+                            width = 1.5,
+                        },
+                    }
+                } -- Pole section
             },
         }), -- Tackle tab
     }
