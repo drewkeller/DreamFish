@@ -23,4 +23,4 @@ cp -fa DreamFish.lua DreamFish.toc Bindings.lua Bindings.xml  \
 
 # Copy the addon subdirectories to the addon directory
 #cp -rf assets audio buff core fishing ui Libs "$ADDON_DIR"
-cp -rfa assets core Libs fishing looting "$ADDON_DIR"
+cp -rfa assets core Libs fishing looting ui "$ADDON_DIR"

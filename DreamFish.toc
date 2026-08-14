@@ -35,12 +35,20 @@ core/commands.lua
 looting/loottracker.options.lua
 looting/loottracker.lua
 
+# UI widgets and components
+ui/itemdropbox.lua
+ui/tacklewindow.lua
+
 fishing/fishing.init.lua
 fishing/fishing.const.lua
 fishing/fishing.options.lua
 fishing/fishing.intercept.lua
 fishing/auras.lua
+fishing/precast/bobber.lua
+fishing/precast/oversizebobber.lua
+fishing/precast/pole.lua
 fishing/precast/raft.lua
+fishing/precast/underlightangler.lua
 fishing/fishing.precast.lua
 fishing/fishing.lua
 

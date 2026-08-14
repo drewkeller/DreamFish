@@ -26,8 +26,8 @@ ns.Fishing.Defaults = {
 	char = {
 		fishing = {
             -- Tackle
-            selectedFishingPole = { isChecked = false, itemID = nil },
-            selectedUnderlightAngler = { isChecked = false, itemID = nil },
+            primaryPole = { isChecked = false, itemID = nil },
+            underlightAngler = { isChecked = false, itemID = nil },
             -- Buffs
             buffItems = {
                 { enabled = false, itemID = nil },
@@ -176,30 +176,76 @@ function Fishing:GetModuleOptions()
                         }
                     } -- Bobber section
                 },
-                poleSection = {
-                    type = "group",
-                    name = "  ",
-                    desc = "Settings for auto-equipping a fishing pole when fishing.",
-                    inline = true,
+                openTackleWindow = {
+                    type = "execute",
+                    name = "Open Tackle Manager",
+                    desc = "Open a window to manage fishing tackle (poles, rafts, bobbers).",
                     order = 3,
-                    args = {
-                        selectedFishingPole = {
-                            type = "toggle",
-                            name = "Enable fishing pole for equipping",
-                            desc = "Choose the fishing pole to be used when fishing. Equipped automatically when casting the fishing line.",
-                            order = 1,
-                            width = 1.5,
-                        },
-                        selectedUnderlightAngler = {
-                            type = "toggle",
-                            name = "Enable Underlight Angler for equipping",
-                            desc = "Choose the Underlight Angler to be used when fishing. Equipped automatically when casting the fishing line.",
-                            order = 2,
-                            width = 1.5,
-                        },
-                    }
-                } -- Pole section
+                    func = function() Fishing:OpenTackleWindow() end,
+                    width = "full",
+                } -- Tackle manager button
             },
         }), -- Tackle tab
     }
+end
+
+-- Build the "Rods & Poles" tab content inside the shared tackle window
+function Fishing:BuildPolesTab(content)
+    local charDB = self.db.char
+
+    local instructions = content:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
+    instructions:SetPoint("TOPLEFT", content, "TOPLEFT", 0, 0)
+    instructions:SetText("Drag a pole from your bags into the boxes below.\n\nModes:\n• Auto-swap: Check both boxes (swap occurs when starting/stopping fishing)\n• Single-pole: Only check one box.\n• Manual: Leave both boxes unchecked.")
+    instructions:SetWidth(500)
+    instructions:SetJustifyH("LEFT")
+
+    local function IsUnderlightAnglerItemID(itemID)
+        return tonumber(itemID) == tonumber(ns.fishing.const.underlightAnglerItemID)
+    end
+
+    local leftColumn = CreateFrame("Frame", nil, content)
+    leftColumn:SetSize(200, 200)
+    leftColumn:SetPoint("TOPLEFT", content, "TOPLEFT", 0, -100)
+
+    local rightColumn = CreateFrame("Frame", nil, content)
+    rightColumn:SetSize(200, 200)
+    rightColumn:SetPoint("TOPLEFT", content, "TOPLEFT", 250, -100)
+
+    local poleBox, poleCheckbox, setPoleItemID, updatePoleBorder = ns.ui.CreateItemDropBox(
+        charDB, "primaryPole", leftColumn, 0, 0, "Fishing Pole:", nil, nil
+    )
+
+    local anglerBox, anglerCheckbox, setAnglerItemID, updateAnglerBorder = ns.ui.CreateItemDropBox(
+        charDB, "underlightAngler", rightColumn, 0, 0, "Underlight Angler:", nil, IsUnderlightAnglerItemID
+    )
+
+    if charDB.primaryPole and charDB.primaryPole.itemID then
+        setPoleItemID(charDB.primaryPole.itemID)
+    end
+    poleCheckbox:SetChecked(charDB.primaryPole and charDB.primaryPole.isChecked or false)
+    updatePoleBorder()
+
+    if not (charDB.underlightAngler and charDB.underlightAngler.itemID) then
+        local underlightID = ns.fishing.const.underlightAnglerItemID
+        if underlightID and underlightID > 0 and ns.precast.IsItemAvailableForEquip(underlightID) then
+            setAnglerItemID(underlightID)
+        end
+    else
+        setAnglerItemID(charDB.underlightAngler.itemID)
+    end
+    anglerCheckbox:SetChecked(charDB.underlightAngler and charDB.underlightAngler.isChecked or false)
+    updateAnglerBorder()
+end
+
+function Fishing:OpenTackleWindow()
+    ns.ui.TackleWindow:Open("poles")
+end
+
+function Fishing:OnEnable()
+    ns.ui.TackleWindow:RegisterTab({
+        id = "poles",
+        title = "Rods & Poles",
+        order = 1,
+        build = function(content) self:BuildPolesTab(content) end,
+    })
 end

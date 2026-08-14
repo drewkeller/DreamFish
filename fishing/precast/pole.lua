@@ -75,25 +75,9 @@ local function IsUnderlightAnglerItemID(itemID)
     return tonumber(itemID) == underlightID
 end
 
-local function NormalizeLegacyPoleMode(mode)
-    local modeText = type(mode) == "string" and mode or ""
-    if modeText == "disabled" or modeText == "always_except_fishing" or modeText == "lock_underlight" then
-        return modeText
-    end
-    return "disabled"
-end
-
 local function NormalizePoleSelection(value, validateItemID)
-    local itemID = nil
-    local isChecked = false
-
-    if type(value) == "table" then
-        itemID = tonumber(value.itemID)
-        isChecked = value.isChecked ~= false
-    else
-        itemID = tonumber(value)
-        isChecked = itemID ~= nil
-    end
+    local itemID = tonumber(type(value) == "table" and value.itemID or nil)
+    local isChecked = type(value) == "table" and value.isChecked ~= false or false
 
     if not itemID or itemID <= 0 then
         itemID = nil
@@ -112,39 +96,9 @@ local function NormalizePoleSelection(value, validateItemID)
 end
 
 local function GetConfiguredPoleSelections()
-    local primary = NormalizePoleSelection(profileDB.selectedFishingPole)
-    local underlight = NormalizePoleSelection(profileDB.selectedUnderlightAngler, IsUnderlightAnglerItemID)
-
-    local hasStructuredPrimary = type(profileDB.selectedFishingPole) == "table"
-    local hasStructuredUnderlight = type(profileDB.selectedUnderlightAngler) == "table"
-    if (not hasStructuredPrimary) and (not hasStructuredUnderlight) then
-        -- Legacy/scalar selections should remain opt-in when explicitly provided,
-        -- even if underlightAnglerMode is absent.
-        if primary.itemID == nil and underlight.itemID ~= nil then
-            primary.isChecked = false
-            underlight.isChecked = true
-            return {
-                primary = primary,
-                underlight = underlight,
-            }
-        end
-
-        local legacyMode = NormalizeLegacyPoleMode(profileDB.underlightAnglerMode)
-        if legacyMode == "lock_underlight" then
-            primary.isChecked = false
-            underlight.isChecked = underlight.itemID ~= nil
-        elseif legacyMode == "always_except_fishing" then
-            primary.isChecked = primary.itemID ~= nil
-            underlight.isChecked = underlight.itemID ~= nil
-        else
-            primary.isChecked = primary.itemID ~= nil
-            underlight.isChecked = false
-        end
-    end
-
     return {
-        primary = primary,
-        underlight = underlight,
+        primary = NormalizePoleSelection(charDB.primaryPole),
+        underlight = NormalizePoleSelection(charDB.underlightAngler, IsUnderlightAnglerItemID),
     }
 end
 
