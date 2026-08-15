@@ -58,16 +58,6 @@ function DreamFish:ContainerNumSlots(bag)
     return 0
 end
 
-function DreamFish:ContainerItemID(bag, slot)
-    if C_Container and C_Container.GetContainerItemID then
-        return C_Container.GetContainerItemID(bag, slot)
-    end
-    if GetContainerItemID then
-        return GetContainerItemID(bag, slot)
-    end
-    return nil
-end
-
 function DreamFish:FindItemInBags(itemID)
     if not itemID then
         return nil, nil
@@ -77,7 +67,7 @@ function DreamFish:FindItemInBags(itemID)
     for bag = 0, bagCount do
         local slots = DreamFish:ContainerNumSlots(bag)
         for slot = 1, slots do
-            if DreamFish:ContainerItemID(bag, slot) == itemID then
+            if C_Container.GetContainerItemID(bag, slot) == itemID then
                 return bag, slot
             end
         end
@@ -86,7 +76,7 @@ function DreamFish:FindItemInBags(itemID)
     local reagentSlots = DreamFish:ContainerNumSlots(5)
     if reagentSlots and reagentSlots > 0 then
         for slot = 1, reagentSlots do
-            if DreamFish:ContainerItemID(5, slot) == itemID then
+            if C_Container.GetContainerItemID(5, slot) == itemID then
                 return 5, slot
             end
         end
