@@ -58,6 +58,16 @@ function DreamFish:ContainerNumSlots(bag)
     return 0
 end
 
+function DreamFish:ContainerItemID(bag, slot)
+    if C_Container and C_Container.GetContainerItemID then
+        return C_Container.GetContainerItemID(bag, slot)
+    end
+    if GetContainerItemID then
+        return GetContainerItemID(bag, slot)
+    end
+    return nil
+end
+
 function DreamFish:FindItemInBags(itemID)
     if not itemID then
         return nil, nil

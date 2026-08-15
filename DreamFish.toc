@@ -45,6 +45,7 @@ fishing/fishing.options.lua
 fishing/fishing.intercept.lua
 fishing/auras.lua
 fishing/precast/bobber.lua
+fishing/precast/consumables.lua
 fishing/precast/oversizebobber.lua
 fishing/precast/pole.lua
 fishing/precast/raft.lua

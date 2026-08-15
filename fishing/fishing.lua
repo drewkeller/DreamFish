@@ -24,6 +24,7 @@ function Fishing:OnModuleInitialize()
 end
 
 function Fishing:OnModuleEnable()
+    self:RegisterTackleWindowTab()
     self:CreateClickFrame()
     self:RegisterEvent("PLAYER_REGEN_ENABLED", "UpdateKeybindsAfterCombat")
     self:ApplyKeybinding()

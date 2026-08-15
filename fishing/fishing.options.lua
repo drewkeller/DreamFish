@@ -241,7 +241,7 @@ function Fishing:OpenTackleWindow()
     ns.ui.TackleWindow:Open("poles")
 end
 
-function Fishing:OnEnable()
+function Fishing:RegisterTackleWindowTab()
     ns.ui.TackleWindow:RegisterTab({
         id = "poles",
         title = "Rods & Poles",

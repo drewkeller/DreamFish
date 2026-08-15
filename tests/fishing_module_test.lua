@@ -4,6 +4,7 @@ local eventRegistered = false
 local bindingsApplied = false
 local eventUnregistered = false
 local frameRemoved = false
+local tackleTabRegistered = false
 
 local DreamFish = {
     db = {
@@ -75,6 +76,15 @@ assert(loadfile("fishing/fishing.lua"))("DreamFish", namespace)
 
 local Fishing = DreamFish:GetModule("Fishing")
 
+namespace.ui = {
+    TackleWindow = {
+        RegisterTab = function(_, tab)
+            assert(tab.id == "poles", "Fishing registered the wrong tackle tab")
+            tackleTabRegistered = true
+        end,
+    },
+}
+
 function Fishing:CreateClickFrame()
     frameCreated = true
 end
@@ -96,13 +106,14 @@ function Fishing:RemoveClickFrame()
 end
 
 Fishing:OnInitialize()
-Fishing:OnModuleEnable()
+Fishing:OnEnable()
 Fishing:OnModuleDisable()
 
 assert(Fishing.moduleConfig.displayName == "Fishing", "display name was not configured")
 assert(Fishing.moduleConfig.dbKey == "fishing", "database key was not configured")
 assert(namespace.DatabaseDefaults.profile.fishing.moduleEnabled, "Fishing defaults were not composed")
 assert(Fishing.enabled, "Fishing did not use its saved enabled state")
+assert(tackleTabRegistered, "enabling Fishing did not register its tackle tab")
 assert(frameCreated, "enabling Fishing did not create the secure frame")
 assert(eventRegistered, "enabling Fishing did not register its combat event")
 assert(bindingsApplied, "enabling Fishing did not apply its keybinding")
