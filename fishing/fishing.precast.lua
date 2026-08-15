@@ -110,7 +110,6 @@ local function FinalizeSecureFishingAction(fishingFrame, macroLines, raftExclusi
         fishingFrame:SetAttribute("type", "macro")
         fishingFrame:SetAttribute("macrotext", table.concat(macroLines, "\n"))
         fishingFrame:SetAttribute("spell", nil)
-        fishingFrame:SetAttribute("dreamfisher_castarmed", castArmed and true or false)
         if raftExclusiveWhileSwimming then
             DreamFish:Debug("Fishing click configured as raft-only pre-cast")
         elseif not castArmed then
@@ -118,13 +117,12 @@ local function FinalizeSecureFishingAction(fishingFrame, macroLines, raftExclusi
         else
             DreamFish:Debug("Fishing click configured with pre-cast items before Fishing")
         end
-        return castArmed and true or false
+        return true
     end
 
     fishingFrame:SetAttribute("type", "spell")
     fishingFrame:SetAttribute("spell", "Fishing")
     fishingFrame:SetAttribute("macrotext", nil)
-    fishingFrame:SetAttribute("dreamfisher_castarmed", true)
     -- if bobberDecision.hasToy and bobberDecision.mounted then
     --     DreamFish:Debug("Skipping bobber toy while mounted: " .. DreamFish:GetDebugItemLabel(bobberDecision.toyID))
     -- elseif bobberDecision.hasToy and bobberDecision.swimming then
@@ -203,7 +201,7 @@ ConfigureFishingClickAction = function()
 
     -- Oversize bobber
     if (not raftExclusive) and (not hasItemUseAction) and oversizedDecision.shouldApply then
-        InsertUseItemMacroLine(macroLines, ns.FishingDB.const.oversizedBobberItemID)
+        InsertUseItemMacroLine(macroLines, oversizedDecision.toyID)
         hasItemUseAction = true
         DreamFish:Debug("Fishing click will apply oversized bobber")
     end
@@ -225,13 +223,14 @@ ConfigureFishingClickAction = function()
         Fishing.clickFrame:SetAttribute("dreamfisher_duebuff", nil)
     end
 
-    local castArmed = FinalizeSecureFishingAction(
+    local configured = FinalizeSecureFishingAction(
         Fishing.clickFrame,
         macroLines,
         raftExclusive,
         hasItemUseAction
     )
 
+    return configured
 end
 
 ns.precast.ConfigureFishingClickAction = ConfigureFishingClickAction

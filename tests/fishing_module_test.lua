@@ -1,8 +1,8 @@
 local modules = {}
 local frameCreated = false
-local eventRegistered = false
+local registeredEvents = {}
+local preparedAction = false
 local bindingsApplied = false
-local eventUnregistered = false
 local frameRemoved = false
 local tackleTabRegistered = false
 
@@ -89,16 +89,20 @@ function Fishing:CreateClickFrame()
     frameCreated = true
 end
 
-function Fishing:RegisterEvent()
-    eventRegistered = true
+function Fishing:RegisterEvent(event)
+    registeredEvents[event] = true
 end
 
 function Fishing:ApplyKeybinding()
     bindingsApplied = true
 end
 
-function Fishing:UnregisterEvent()
-    eventUnregistered = true
+function Fishing:PrepareFishingClickAction()
+    preparedAction = true
+end
+
+function Fishing:UnregisterEvent(event)
+    registeredEvents[event] = nil
 end
 
 function Fishing:RemoveClickFrame()
@@ -107,7 +111,6 @@ end
 
 Fishing:OnInitialize()
 Fishing:OnEnable()
-Fishing:OnModuleDisable()
 
 assert(Fishing.moduleConfig.displayName == "Fishing", "display name was not configured")
 assert(Fishing.moduleConfig.dbKey == "fishing", "database key was not configured")

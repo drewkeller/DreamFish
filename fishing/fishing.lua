@@ -27,13 +27,32 @@ function Fishing:OnModuleEnable()
     self:RegisterTackleWindowTab()
     self:CreateClickFrame()
     self:RegisterEvent("PLAYER_REGEN_ENABLED", "UpdateKeybindsAfterCombat")
+    self:RegisterEvent("PLAYER_EQUIPMENT_CHANGED", "RefreshFishingClickAction")
+    self:RegisterEvent("UNIT_AURA", "RefreshFishingClickAction")
     self:ApplyKeybinding()
+    self:PrepareFishingClickAction()
 end
 
 function Fishing:OnModuleDisable()
     self:UnregisterEvent("PLAYER_REGEN_ENABLED")
+    self:UnregisterEvent("PLAYER_EQUIPMENT_CHANGED")
+    self:UnregisterEvent("UNIT_AURA")
     self:Debug("Removing click frame (module disabled)")
     self:RemoveClickFrame()
+end
+
+function Fishing:PrepareFishingClickAction()
+    if not self.clickFrame or InCombatLockdown() then
+        return
+    end
+    ns.precast.ConfigureFishingClickAction()
+end
+
+function Fishing:RefreshFishingClickAction(_, unit)
+    if type(unit) == "string" and unit ~= "player" then
+        return
+    end
+    self:PrepareFishingClickAction()
 end
 
 function Fishing:OnCastStarted()
@@ -44,16 +63,12 @@ end
 
 ArmFishingRightClickAction = function(fishingFrame)
     if not fishingFrame then
-        return false, false
+        return
     end
-    local configured, castArmed = ns.precast.ConfigureFishingClickAction()
-    if configured == false then
-        return false, false
-    end
+    ns.precast.ConfigureFishingClickAction()
     SetOverrideBindingClick(fishingFrame, true, "BUTTON2", fishingFrame:GetName(), "RightButton")
     -- Show the secure frame so the current click release can trigger the secure action.
     fishingFrame:Show()
-    return true, castArmed and true or false
 end
 
 ns.precast.ConfigureFishingClickAction = ConfigureFishingClickAction

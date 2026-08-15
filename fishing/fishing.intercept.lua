@@ -34,7 +34,8 @@ function Fishing:CreateClickFrame()
     self.clickFrame:SetFrameStrata("BACKGROUND")
     self.clickFrame:SetAttribute("type", "spell")
     self.clickFrame:SetAttribute("spell", "Fishing")
-    self.clickFrame:RegisterForClicks("RightButtonUp")
+    self.clickFrame:SetAttribute("macrotext", nil)
+    self.clickFrame:RegisterForClicks("RightButtonDown", "RightButtonUp")
     self.clickFrame:SetPropagateMouseClicks(true)
     self.clickFrame:SetPropagateMouseMotion(true)
     self.clickFrame:Hide()
@@ -44,7 +45,6 @@ function Fishing:CreateClickFrame()
 
     Fishing:HookMouseDown()
     Fishing:HookPreClickWithHandler()
-    Fishing:HookClickWithHandler()
 end
 
 function Fishing:HookMouseDown()
@@ -71,7 +71,7 @@ end
 -- Handle hotkey "pre-click"
 function Fishing:HookPreClickWithHandler()
     if not self:IsHooked(self.clickFrame, "PreClick") then
-        self:SecureHookScript(self.clickFrame, "PreClick", function()
+        self.clickFrame:SetScript("PreClick", function(frame)
             if InCombatLockdown() then return end
             if not profileDB.castByHotkey then
                 self:Debug("PreClick detected but hotkey casting is disabled")
@@ -82,27 +82,12 @@ function Fishing:HookPreClickWithHandler()
     end
 end
 
--- Handle hotkey "click"
-function Fishing:HookClickWithHandler()
-    if self.clickHooked then return end
-
-    self.clickFrame:SetScript("OnClick", function()
-        if InCombatLockdown() then return end
-        if not profileDB.castByHotkey then
-            self:Debug("Hotkey click detected but hotkey casting is disabled")
-            return
-        end
-        self:Debug("Hotkey click detected")
-        self:OnCastStarted()
-    end)
-    self.clickHooked = true
-end
-
 function Fishing:IsDoubleClick()
     local currentTime = GetTime()
     local isDoubleClick = false
     if (currentTime - lastClickTime) <= doubleClickDelay then
         -- Show the secure intercept frame to catch the up-click
+        self.clickFrame:EnableMouse(true)
         self.clickFrame:SetMouseClickEnabled(true)
         self.clickFrame:SetMouseMotionEnabled(true)
         self.clickFrame:Show()
@@ -145,8 +130,10 @@ function Fishing:RemoveClickFrame()
     ClearOverrideBindings(self.clickFrame)
     self.clickFrame:RegisterForClicks()
     self.clickFrame:SetScript("PreClick", nil)
-    self.clickFrame:SetScript("OnClick", nil)
-    self.clickHooked = false
+    self.clickFrame:SetFrameStrata("BACKGROUND")
+    self.clickFrame:SetAttribute("type", nil)
+    self.clickFrame:SetAttribute("spell", nil)
+    self.clickFrame:SetAttribute("macrotext", nil)
     self.clickFrame:SetPropagateMouseClicks(true)
     self.clickFrame:SetPropagateMouseMotion(true)
     self.clickFrame:SetMouseClickEnabled(false)
