@@ -1,16 +1,3 @@
-local addonName, ns = ...
-local DreamFish = LibStub("AceAddon-3.0"):GetAddon(addonName)
-local Fishing = DreamFish:GetModule("Fishing")
-
-local globalDB, profileDB, charDB
-local function Initialize()
-    globalDB = ns.FishingDB.global
-    profileDB = ns.FishingDB.profile
-    charDB = ns.FishingDB.char
-end
-ns.FishingInitializers = ns.FishingInitializers or {}
-table.insert(ns.FishingInitializers, Initialize)
-
 local mouseDownCallback
 local preClickCallback
 local clickCallback
@@ -30,8 +17,10 @@ local inCombat = false
 local mouseHooked = false
 local gameMouseActions = 0
 local castStartedCount = 0
+local secureAttributes = {}
 local profile = {
     castByDoubleRightClick = true,
+    castBySingleRightClickWhenFishing = false,
     castByHotkey = true,
 }
 
@@ -77,6 +66,13 @@ end
 
 function Fishing.clickFrame:ClearAllPoints()
     anchorsCleared = true
+end
+
+function Fishing.clickFrame:SetFrameStrata()
+end
+
+function Fishing.clickFrame:SetAttribute(name, value)
+    secureAttributes[name] = value
 end
 
 function Fishing:IsEnabled()
@@ -168,8 +164,18 @@ function ClearOverrideBindings(frame)
     bindingsCleared = true
 end
 
-assert(loadfile("fishing/fishing.intercept.lua"))("DreamFish")
-assert(loadfile("fishing/fishing.lua"))("DreamFish")
+local ns = {
+    FishingDB = {
+        global = {},
+        profile = profile,
+        char = {},
+    },
+    precast = {},
+}
+assert(loadfile("fishing/fishing.intercept.lua"))("DreamFish", ns)
+for _, initializer in ipairs(ns.FishingInitializers) do
+    initializer()
+end
 
 function Fishing:OnCastStarted()
     castStartedCount = castStartedCount + 1
@@ -181,7 +187,6 @@ end
 
 Fishing:HookMouseDown()
 Fishing:HookPreClickWithHandler()
-Fishing:HookClickWithHandler()
 
 mouseDownCallback(WorldFrame, "LeftButton")
 assert(castStartedCount == 0, "non-right clicks must bypass Fishing")
@@ -194,15 +199,21 @@ profile.castByDoubleRightClick = false
 mouseDownCallback(WorldFrame, "RightButton")
 assert(castStartedCount == 1, "disabled double-right-click must not call OnCastStarted")
 
-preClickCallback()
-clickCallback(Fishing.clickFrame)
-assert(castStartedCount == 2, "enabled hotkey must call OnCastStarted")
+preClickCallback(Fishing.clickFrame)
+assert(castStartedCount == 1, "hotkey pre-click must not reconfigure the secure action during the click")
 
 profile.castByHotkey = false
-preClickCallback()
-clickCallback(Fishing.clickFrame)
-assert(castStartedCount == 2, "disabled hotkey must not call OnCastStarted")
+preClickCallback(Fishing.clickFrame)
 assert(gameMouseActions == 3, "right clicks must also continue to the game handler")
+
+bindingsCleared = false
+Fishing:HideClickFrame()
+assert(bindingsCleared, "double-click-only mode must clear the temporary right-click override")
+
+bindingsCleared = false
+profile.castBySingleRightClickWhenFishing = true
+Fishing:HideClickFrame()
+assert(not bindingsCleared, "single-right-click mode must retain the temporary right-click override")
 
 Fishing:RemoveClickFrame()
 
@@ -217,6 +228,8 @@ assert(not motionEnabled, "disabling Fishing must disable mouse motion")
 assert(not mouseEnabled, "disabling Fishing must disable generic mouse handling")
 assert(frameHidden, "disabling Fishing must hide the secure frame")
 assert(anchorsCleared, "disabling Fishing must remove the full-screen frame anchor")
+assert(secureAttributes.type2 == nil, "disabling Fishing must clear the right-click action type")
+assert(secureAttributes.macrotext2 == nil, "disabling Fishing must clear the right-click macro")
 
 bindingsCleared = false
 inCombat = true

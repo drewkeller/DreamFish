@@ -105,8 +105,10 @@ end
 
 function Fishing:HideClickFrame()
     if not InCombatLockdown() then
+        if not profileDB.castBySingleRightClickWhenFishing then
+            ClearOverrideBindings(self.clickFrame)
+        end
         self.clickFrame:Hide()
-        self.clickFrame:SetMouseClickEnabled(false)
         self.clickFrame:SetMouseMotionEnabled(false)
     end
     hideTimerHandle = nil

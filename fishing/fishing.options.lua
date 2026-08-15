@@ -13,6 +13,7 @@ ns.Fishing.Defaults = {
 			moduleEnabled = true,
 			debug = false,
             castByDoubleRightClick = true,
+            castBySingleRightClickWhenFishing = false,
             castByHotkey = false,
             castHotkeyKeybind = nil,
         selectedRaftToy = 0,
@@ -83,6 +84,18 @@ function Fishing:GetModuleOptions()
                             name = "Double right click",
                             desc = "Double right click to begin fishing.",
                             width = "full",
+                        }),
+                        castBySingleRightClickWhenFishing = self:AddOption({
+                            type = "toggle",
+                            name = "Single right click (while fishing)",
+                            desc = "Single right click to cast when already in fishing session.",
+                            width = "full",
+                            set = function(_, value)
+                                Fishing.db.profile.castBySingleRightClickWhenFishing = value
+                                if not value and Fishing.clickFrame and not InCombatLockdown() then
+                                    ClearOverrideBindings(Fishing.clickFrame)
+                                end
+                            end,
                         }),
                         castByHotkey = self:AddOption({
                             type = "toggle",

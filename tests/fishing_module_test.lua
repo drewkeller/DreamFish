@@ -13,6 +13,7 @@ local DreamFish = {
             fishing = {
                 moduleEnabled = true,
                 debug = false,
+                castBySingleRightClickWhenFishing = false,
             },
         },
         char = {
@@ -118,9 +119,15 @@ assert(namespace.DatabaseDefaults.profile.fishing.moduleEnabled, "Fishing defaul
 assert(Fishing.enabled, "Fishing did not use its saved enabled state")
 assert(tackleTabRegistered, "enabling Fishing did not register its tackle tab")
 assert(frameCreated, "enabling Fishing did not create the secure frame")
-assert(eventRegistered, "enabling Fishing did not register its combat event")
+assert(registeredEvents.PLAYER_REGEN_ENABLED, "enabling Fishing did not register its combat event")
+assert(registeredEvents.PLAYER_EQUIPMENT_CHANGED, "enabling Fishing did not register its equipment refresh event")
+assert(registeredEvents.UNIT_AURA, "enabling Fishing did not register its aura refresh event")
 assert(bindingsApplied, "enabling Fishing did not apply its keybinding")
-assert(eventUnregistered, "disabling Fishing did not unregister its combat event")
+assert(preparedAction, "enabling Fishing did not prepare its secure fishing action")
+
+Fishing:OnModuleDisable()
+
+assert(next(registeredEvents) == nil, "disabling Fishing did not unregister its events")
 assert(frameRemoved, "disabling Fishing did not remove the secure frame")
 
 local options = Fishing:GetOptionsTable()
@@ -132,6 +139,8 @@ assert(options.args.tackleTab, "Tackle tab is missing from the Fishing tab group
 assert(options.args.modesTab.type == "group", "Modes tab is not an AceConfig group")
 assert(options.args.tackleTab.type == "group", "Tackle tab is not an AceConfig group")
 assert(options.args.moduleOptions == nil, "Fishing tabs must not be nested in an inline module group")
+assert(options.args.modesTab.args.castingTriggers.args.castBySingleRightClickWhenFishing,
+    "single-right-click option is missing")
 local raftValues = options.args.tackleTab.args.raftSection.args.selectedRaftToy.values
 if type(raftValues) == "function" then
     raftValues = raftValues()
