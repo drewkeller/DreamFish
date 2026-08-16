@@ -217,6 +217,46 @@ function Fishing:BuildPolesTab(content)
         return tonumber(itemID) == tonumber(ns.fishing.const.underlightAnglerItemID)
     end
 
+    local function IsFishingPoleItemID(itemID)
+        if not itemID or IsUnderlightAnglerItemID(itemID) then
+            return false
+        end
+
+        local _, itemType, itemSubtype, itemEquipLoc, _, classID, subclassID = C_Item.GetItemInfoInstant(itemID)
+        local isLegacyFishingPole = (itemType == "Weapon" and itemSubtype == "Fishing Poles")
+            or (classID == 2 and (subclassID == 20 or subclassID == 21))
+        local isFishingProfessionTool = itemEquipLoc == "INVTYPE_PROFESSION_TOOL"
+            and (itemType == "Fishing" or itemSubtype == "Fishing")
+
+        return isLegacyFishingPole or isFishingProfessionTool
+    end
+
+    local function GetAvailableFishingPoles()
+        local poles = {}
+        local seen = {}
+
+        local function AddPole(itemID)
+            itemID = tonumber(itemID)
+            if not itemID or seen[itemID] or IsUnderlightAnglerItemID(itemID) or not IsFishingPoleItemID(itemID) then
+                return
+            end
+
+            seen[itemID] = true
+            local name = C_Item.GetItemInfo(itemID) or ("item:" .. itemID)
+            table.insert(poles, { itemID = itemID, name = name })
+        end
+
+        for bag = 0, NUM_BAG_SLOTS do
+            for slot = 1, C_Container.GetContainerNumSlots(bag) do
+                AddPole(C_Container.GetContainerItemID(bag, slot))
+            end
+        end
+
+        AddPole(GetInventoryItemID("player", 28))
+        table.sort(poles, function(left, right) return left.name < right.name end)
+        return poles
+    end
+
     local leftColumn = CreateFrame("Frame", nil, content)
     leftColumn:SetSize(200, 200)
     leftColumn:SetPoint("TOPLEFT", content, "TOPLEFT", 0, -100)
@@ -228,6 +268,82 @@ function Fishing:BuildPolesTab(content)
     local poleBox, poleCheckbox, setPoleItemID, updatePoleBorder = ns.ui.CreateItemDropBox(
         charDB, "primaryPole", leftColumn, 0, 0, "Fishing Pole:", nil, nil
     )
+
+    local polePickerButton = CreateFrame("Button", nil, leftColumn, "UIPanelButtonTemplate")
+    polePickerButton:SetSize(22, 22)
+    polePickerButton:SetPoint("BOTTOMLEFT", poleBox, "BOTTOMRIGHT", 4, 4)
+    polePickerButton:SetText("v")
+    local polePickerMenu = CreateFrame("Frame", nil, UIParent, "BackdropTemplate")
+    polePickerMenu:SetFrameStrata("TOOLTIP")
+    polePickerMenu:SetBackdrop({
+        bgFile = "Interface/DialogFrame/UI-DialogBox-Background",
+        edgeFile = "Interface/Tooltips/UI-Tooltip-Border",
+        edgeSize = 12,
+        insets = { left = 3, right = 3, top = 3, bottom = 3 },
+    })
+    polePickerMenu:Hide()
+    polePickerButton:SetScript("OnEnter", function(button)
+        GameTooltip:SetOwner(button, "ANCHOR_RIGHT")
+        GameTooltip:SetText("Select fishing pole")
+        GameTooltip:Show()
+    end)
+    polePickerButton:SetScript("OnLeave", function()
+        GameTooltip:Hide()
+    end)
+    polePickerButton:SetScript("OnClick", function(button)
+        local items = GetAvailableFishingPoles()
+        if polePickerMenu:IsShown() then
+            polePickerMenu:Hide()
+            return
+        end
+
+        polePickerMenu.buttons = polePickerMenu.buttons or {}
+        for _, menuButton in ipairs(polePickerMenu.buttons) do
+            menuButton:Hide()
+        end
+
+        if #items == 0 then
+            items = { { name = "No fishing poles available" } }
+        end
+
+        polePickerMenu:ClearAllPoints()
+        polePickerMenu:SetPoint("TOPLEFT", button, "BOTTOMLEFT", 0, -2)
+        polePickerMenu:SetSize(240, #items * 24 + 8)
+
+        for index, pole in ipairs(items) do
+            local itemID = pole.itemID
+            local itemName = pole.name
+            local menuButton = polePickerMenu.buttons[index]
+            if not menuButton then
+                menuButton = CreateFrame("Button", nil, polePickerMenu, "UIPanelButtonTemplate")
+                polePickerMenu.buttons[index] = menuButton
+            end
+
+            menuButton:ClearAllPoints()
+            menuButton:SetPoint("TOPLEFT", polePickerMenu, "TOPLEFT", 4, -4 - (index - 1) * 24)
+            menuButton:SetSize(232, 22)
+            menuButton:SetText(itemName)
+            menuButton:SetEnabled(itemID ~= nil)
+            menuButton:SetScript("OnClick", function()
+                setPoleItemID(itemID)
+                updatePoleBorder()
+                polePickerMenu:Hide()
+            end)
+            menuButton:SetScript("OnEnter", function(menuEntry)
+                if itemID then
+                    GameTooltip:SetOwner(menuEntry, "ANCHOR_RIGHT")
+                    GameTooltip:SetItemByID(itemID)
+                    GameTooltip:Show()
+                end
+            end)
+            menuButton:SetScript("OnLeave", function()
+                GameTooltip:Hide()
+            end)
+            menuButton:Show()
+        end
+
+        polePickerMenu:Show()
+    end)
 
     local anglerBox, anglerCheckbox, setAnglerItemID, updateAnglerBorder = ns.ui.CreateItemDropBox(
         charDB, "underlightAngler", rightColumn, 0, 0, "Underlight Angler:", nil, IsUnderlightAnglerItemID
