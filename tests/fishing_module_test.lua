@@ -5,6 +5,7 @@ local preparedActionCount = 0
 local bindingsApplied = false
 local frameRemoved = false
 local tackleTabRegistered = false
+local mounted = false
 
 local DreamFish = {
     db = {
@@ -134,6 +135,10 @@ end
 function ClearOverrideBindings()
 end
 
+function IsMounted()
+    return mounted
+end
+
 Fishing:OnInitialize()
 Fishing:OnEnable()
 
@@ -149,6 +154,7 @@ assert(registeredEvents.UNIT_AURA, "enabling Fishing did not register its aura r
 assert(registeredEvents.UNIT_SPELLCAST_START, "enabling Fishing did not register its spellcast start event")
 assert(registeredEvents.UNIT_SPELLCAST_CHANNEL_START, "enabling Fishing did not register its spellcast channel event")
 assert(registeredEvents.UNIT_SPELLCAST_SUCCEEDED, "enabling Fishing did not register its spellcast success event")
+assert(registeredEvents.PLAYER_MOUNT_DISPLAY_CHANGED, "enabling Fishing did not register its mount event")
 assert(bindingsApplied, "enabling Fishing did not apply its keybinding")
 assert(preparedActionCount == 1, "enabling Fishing did not prepare its secure fishing action")
 
@@ -178,6 +184,18 @@ assert(cancelledFor == "After cancel: movement", "movement cancellation used the
 Fishing:OnCastStarted()
 Fishing:CancelFishingForCombat()
 assert(cancelledFor == "After cancel: combat", "combat cancellation used the wrong reason")
+
+Fishing:OnCastStarted()
+mounted = false
+Fishing:CancelFishingForMount()
+assert(namespace.fishing.state.current == namespace.fishing.states.PRECASTING,
+    "dismount must not cancel fishing")
+
+mounted = true
+Fishing:CancelFishingForMount()
+assert(namespace.fishing.state.current == namespace.fishing.states.IDLE,
+    "mounting did not cancel fishing")
+assert(cancelledFor == "After cancel: mounted", "mount cancellation used the wrong reason")
 
 Fishing:OnModuleDisable()
 

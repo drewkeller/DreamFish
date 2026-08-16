@@ -27,6 +27,7 @@ function Fishing:OnModuleEnable()
     self:RegisterEvent("PLAYER_REGEN_ENABLED", "UpdateKeybindsAfterCombat")
     self:RegisterEvent("PLAYER_REGEN_DISABLED", "CancelFishingForCombat")
     self:RegisterEvent("PLAYER_STARTED_MOVING", "CancelFishingForMovement")
+    self:RegisterEvent("PLAYER_MOUNT_DISPLAY_CHANGED", "CancelFishingForMount")
     self:RegisterEvent("UNIT_SPELLCAST_START", "HandleFishingSpellcast")
     self:RegisterEvent("UNIT_SPELLCAST_CHANNEL_START", "HandleFishingSpellcast")
     self:RegisterEvent("UNIT_SPELLCAST_SUCCEEDED", "HandleFishingSpellcast")
@@ -40,6 +41,7 @@ function Fishing:OnModuleDisable()
     self:UnregisterEvent("PLAYER_REGEN_ENABLED")
     self:UnregisterEvent("PLAYER_REGEN_DISABLED")
     self:UnregisterEvent("PLAYER_STARTED_MOVING")
+    self:UnregisterEvent("PLAYER_MOUNT_DISPLAY_CHANGED")
     self:UnregisterEvent("UNIT_SPELLCAST_START")
     self:UnregisterEvent("UNIT_SPELLCAST_CHANNEL_START")
     self:UnregisterEvent("UNIT_SPELLCAST_SUCCEEDED")
@@ -82,6 +84,12 @@ end
 
 function Fishing:CancelFishingForMovement()
     self:CancelFishingSession("movement")
+end
+
+function Fishing:CancelFishingForMount()
+    if IsMounted() then
+        self:CancelFishingSession("mounted")
+    end
 end
 
 function Fishing:HandleFishingSpellcast(event, unit, ...)

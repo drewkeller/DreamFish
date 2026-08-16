@@ -53,18 +53,29 @@ function Fishing:HookMouseDown()
     end
 end
 
+function Fishing:IsSoloPhysicalRightClick()
+    return not IsShiftKeyDown()
+        and not IsControlKeyDown()
+        and not IsAltKeyDown()
+        and not IsMouseButtonDown("LeftButton")
+end
+
+
 -- Handle player right clicks
 function Fishing:HandleMouseDown(_, button)
     if button ~= "RightButton" then return end
     if not self.clickFrame or InCombatLockdown() then return end
+    if not self:IsSoloPhysicalRightClick() then
+        lastClickTime = 0
+        return
+    end
 
-    if self:IsDoubleClick() then
-        if not profileDB.castByDoubleRightClick then
-            self:Debug("Double click detected but double right click casting is disabled")
-            return
-        end
+    if self:IsDoubleClick() and profileDB.castByDoubleRightClick then
         self:Debug("Double right click detected")
         self:OnCastStarted("Double right click")
+    elseif profileDB.castBySingleRightClickWhenFishing and self:IsInFishingSession() then
+        self:Debug("Single right click detected while fishing")
+        self:OnCastStarted("Single right click while fishing")
     else
         self:Debug("Right click detected")
     end
@@ -75,7 +86,20 @@ function Fishing:HookPreClickWithHandler()
     if not self:IsHooked(self.clickFrame, "PreClick") then
         self.clickFrame:SetScript("PreClick", function(_, button, down)
             if InCombatLockdown() then return end
-            if button ~= "RightButton" or not down then return end
+            if button ~= "RightButton" or not down or not self:IsSoloPhysicalRightClick() then
+                self.clickFrame:SetAttribute("type", nil)
+                self.clickFrame:SetAttribute("spell", nil)
+                self.clickFrame:SetAttribute("macrotext", nil)
+                self:ReleaseClickCapture()
+                return
+            end
+
+            -- If the right mouse button is already down, we are in the middle of a click
+            -- and should not trigger a cast.
+            if IsMouseButtonDown("RightButton") then
+                return
+            end
+
             if not profileDB.castByHotkey then
                 self:Debug("PreClick detected but hotkey casting is disabled")
                 return

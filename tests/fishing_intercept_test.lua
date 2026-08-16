@@ -14,6 +14,11 @@ local motionPropagated = false
 local cleanupCallback
 local cleanupRegistered = false
 local inCombat = false
+local shiftKeyDown = false
+local controlKeyDown = false
+local altKeyDown = false
+local leftMouseDown = false
+local rightMouseDown = false
 local mouseHooked = false
 local gameMouseActions = 0
 local castStartedCount = 0
@@ -159,6 +164,23 @@ function InCombatLockdown()
     return inCombat
 end
 
+function IsShiftKeyDown()
+    return shiftKeyDown
+end
+
+function IsControlKeyDown()
+    return controlKeyDown
+end
+
+function IsAltKeyDown()
+    return altKeyDown
+end
+
+function IsMouseButtonDown(button)
+    return button == "LeftButton" and leftMouseDown
+        or button == "RightButton" and rightMouseDown
+end
+
 function ClearOverrideBindings(frame)
     assert(frame == Fishing.clickFrame)
     bindingsCleared = true
@@ -208,6 +230,23 @@ assert(castStartedCount == 2, "hotkey button-up must not restart the fishing ses
 profile.castByHotkey = false
 preClickCallback(Fishing.clickFrame, "RightButton", true)
 assert(gameMouseActions == 3, "right clicks must also continue to the game handler")
+
+profile.castByHotkey = true
+rightMouseDown = true
+leftMouseDown = true
+preClickCallback(Fishing.clickFrame, "RightButton", true)
+assert(castStartedCount == 2, "mixed left and right clicks must not trigger the hotkey")
+assert(secureAttributes.type == nil, "mixed left and right clicks must clear the captured action")
+
+secureAttributes.type = "macro"
+leftMouseDown = false
+shiftKeyDown = true
+preClickCallback(Fishing.clickFrame, "RightButton", true)
+assert(castStartedCount == 2, "modified right clicks must not trigger the hotkey")
+assert(secureAttributes.type == nil, "modified right clicks must clear the captured action")
+
+shiftKeyDown = false
+rightMouseDown = false
 
 bindingsCleared = false
 Fishing:HideClickFrame()
