@@ -1,7 +1,7 @@
 local modules = {}
 local frameCreated = false
 local registeredEvents = {}
-local preparedAction = false
+local preparedActionCount = 0
 local bindingsApplied = false
 local frameRemoved = false
 local tackleTabRegistered = false
@@ -100,7 +100,7 @@ function Fishing:ApplyKeybinding()
 end
 
 function Fishing:PrepareFishingClickAction()
-    preparedAction = true
+    preparedActionCount = preparedActionCount + 1
 end
 
 function Fishing:UnregisterEvent(event)
@@ -126,12 +126,22 @@ assert(frameCreated, "enabling Fishing did not create the secure frame")
 assert(registeredEvents.PLAYER_REGEN_ENABLED, "enabling Fishing did not register its combat event")
 assert(registeredEvents.PLAYER_EQUIPMENT_CHANGED, "enabling Fishing did not register its equipment refresh event")
 assert(registeredEvents.UNIT_AURA, "enabling Fishing did not register its aura refresh event")
+assert(registeredEvents.UNIT_SPELLCAST_START, "enabling Fishing did not register its spellcast start event")
+assert(registeredEvents.UNIT_SPELLCAST_CHANNEL_START, "enabling Fishing did not register its spellcast channel event")
 assert(bindingsApplied, "enabling Fishing did not apply its keybinding")
-assert(preparedAction, "enabling Fishing did not prepare its secure fishing action")
+assert(preparedActionCount == 1, "enabling Fishing did not prepare its secure fishing action")
 
 Fishing:OnCastStarted()
+assert(preparedActionCount == 2, "starting Fishing must configure the secure action exactly once")
+Fishing:RefreshFishingClickAction(nil, "player")
+assert(preparedActionCount == 2, "PRECASTING refresh must not reconfigure the secure action")
 assert(namespace.fishing.state.current == namespace.fishing.states.PRECASTING,
     "starting a cast did not enter PRECASTING")
+Fishing:HandleFishingSpellcast(nil, "player", nil, namespace.fishing.const.fishingSpellID)
+assert(namespace.fishing.state.current == namespace.fishing.states.CASTING,
+    "Fishing spellcast did not enter CASTING")
+Fishing:RefreshFishingClickAction(nil, "player")
+assert(preparedActionCount == 3, "CASTING refresh must configure the next secure action")
 local cancelledFor
 local setFishingState = Fishing.SetFishingState
 function Fishing:SetFishingState(state, reason)

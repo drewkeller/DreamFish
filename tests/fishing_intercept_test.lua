@@ -200,11 +200,13 @@ profile.castByDoubleRightClick = false
 mouseDownCallback(WorldFrame, "RightButton")
 assert(castStartedCount == 1, "disabled double-right-click must not call OnCastStarted")
 
-preClickCallback(Fishing.clickFrame)
-assert(castStartedCount == 1, "hotkey pre-click must not reconfigure the secure action during the click")
+preClickCallback(Fishing.clickFrame, "RightButton", true)
+assert(castStartedCount == 2, "hotkey button-down must start the fishing session")
+preClickCallback(Fishing.clickFrame, "RightButton", false)
+assert(castStartedCount == 2, "hotkey button-up must not restart the fishing session")
 
 profile.castByHotkey = false
-preClickCallback(Fishing.clickFrame)
+preClickCallback(Fishing.clickFrame, "RightButton", true)
 assert(gameMouseActions == 3, "right clicks must also continue to the game handler")
 
 bindingsCleared = false

@@ -14,6 +14,11 @@ local FISHING_STATES = {
     CANCELLING = 9,
 }
 
+local FISHING_STATE_NAMES = {}
+for name, value in pairs(FISHING_STATES) do
+    FISHING_STATE_NAMES[value] = name
+end
+
 local FISHING_STATE_FLAGS = {
     [FISHING_STATES.IDLE]                    = { isFishing = false, isCastInProgress = false, isBobberActive = false, castActive = false, lootActive = false },
     [FISHING_STATES.PRECASTING]              = { isFishing = true,  isCastInProgress = true,  isBobberActive = true,  castActive = false, lootActive = false },
@@ -40,7 +45,7 @@ ns.fishing.states = FISHING_STATES
 
 local function Trace(state, reason)
     if DreamFish.db.profile.debugMode then
-        DreamFish:Print("|cFF999999[", tostring(state), "]|r ", tostring(reason))
+        DreamFish:Print("|cFF999999[", FISHING_STATE_NAMES[state] or tostring(state), "]|r ", tostring(reason))
     end
 end
 

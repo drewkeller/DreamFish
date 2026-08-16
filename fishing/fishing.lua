@@ -5,8 +5,6 @@ local Fishing = DreamFish:GetModule("Fishing")
 local globalDB, profileDB, charDB
 ns.FishingInitializers = ns.FishingInitializers or {}
 
-local ArmFishingRightClickAction
-
 function Fishing:OnModuleInitialize()
 	self:Debug("Initializing")
     -- access the database within "Fishing" functions using self.db
@@ -56,11 +54,18 @@ function Fishing:PrepareFishingClickAction()
     ns.precast.ConfigureFishingClickAction()
 end
 
-function Fishing:RefreshFishingClickAction(_, unit)
+function Fishing:RefreshFishingClickAction(event, unit)
     if type(unit) == "string" and unit ~= "player" then
         return
     end
-    self:PrepareFishingClickAction()
+    if ns.fishing.state.current == ns.fishing.states.IDLE then
+        self:PrepareFishingClickAction()
+    end
+    if event == "PLAYER_EQUIPMENT_CHANGED" then
+        self:Debug("Equipment changed")
+    elseif event == "UNIT_AURA" then
+        self:Debug("Auras changed")
+    end
 end
 
 function Fishing:CancelFishingSession(reason)
@@ -68,6 +73,7 @@ function Fishing:CancelFishingSession(reason)
     if self.clickFrame and not InCombatLockdown() then
         ClearOverrideBindings(self.clickFrame)
     end
+    self:SetFishingState(ns.fishing.states.IDLE, "After cancel: " .. tostring(reason))
 end
 
 function Fishing:CancelFishingForCombat()
@@ -88,17 +94,14 @@ end
 function Fishing:OnCastStarted(reason)
     self:SetFishingState(ns.fishing.states.PRECASTING, reason)
     self:SendMessage("FISHING_CAST_STARTED")
-    ArmFishingRightClickAction(self.clickFrame)
-end
+    self:PrepareFishingClickAction()
+    self:Debug("OnCastStarted: " .. tostring(reason))
 
-ArmFishingRightClickAction = function(fishingFrame)
-    if not fishingFrame then
-        return
-    end
-    ns.precast.ConfigureFishingClickAction()
-    SetOverrideBindingClick(fishingFrame, true, "BUTTON2", fishingFrame:GetName(), "RightButton")
+    -- Set the secure action to trigger on right-clicks of the secure frame.
+    -- The secure frame is shown when the player right-clicks, so the current click release will trigger the secure action.
+    SetOverrideBindingClick(self.clickFrame, true, "BUTTON2", self.clickFrame:GetName(), "RightButton")
     -- Show the secure frame so the current click release can trigger the secure action.
-    fishingFrame:Show()
+    self.clickFrame:Show()
 end
 
 ns.precast.ConfigureFishingClickAction = ConfigureFishingClickAction

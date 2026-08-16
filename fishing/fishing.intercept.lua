@@ -81,6 +81,7 @@ function Fishing:HookPreClickWithHandler()
                 return
             end
             self:Debug("PreClick detected")
+            self:OnCastStarted("hotkey")
         end)
     end
 end
