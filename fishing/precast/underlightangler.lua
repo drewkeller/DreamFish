@@ -55,4 +55,36 @@ local function GetUnderlightAnglerEquipDecision()
     }
 end
 
+local function EquipUnderlightAnglerAfterFishing(reason)
+    local selection = ns.precast.GetConfiguredPoleSelections().underlight
+    local itemID = tonumber(ns.fishing.const.underlightAnglerItemID)
+    if not selection.isChecked or not itemID or itemID <= 0 or InCombatLockdown() or IsMounted() then
+        return false
+    end
+
+    if ns.precast.GetEquippedProfessionItemID() == itemID then
+        return true
+    end
+
+    local bag, slot = DreamFish:FindItemInBags(itemID)
+    if bag and slot and C_Container and C_Container.PickupContainerItem and EquipCursorItem then
+        C_Container.PickupContainerItem(bag, slot)
+        EquipCursorItem(28)
+        if ClearCursor then
+            ClearCursor()
+        end
+        Fishing:Debug("Equipping Underlight Angler after fishing cancellation: " .. tostring(reason))
+        return true
+    end
+
+    if C_Item.EquipItemByName then
+        C_Item.EquipItemByName("item:" .. itemID, 28)
+        Fishing:Debug("Equipping Underlight Angler after fishing cancellation: " .. tostring(reason))
+        return true
+    end
+
+    return false
+end
+
 ns.precast.GetUnderlightAnglerEquipDecision = GetUnderlightAnglerEquipDecision
+ns.precast.EquipUnderlightAnglerAfterFishing = EquipUnderlightAnglerAfterFishing

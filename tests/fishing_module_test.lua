@@ -6,6 +6,7 @@ local bindingsApplied = false
 local frameRemoved = false
 local tackleTabRegistered = false
 local mounted = false
+local underlightEquipReasons = {}
 
 local DreamFish = {
     db = {
@@ -76,6 +77,10 @@ assert(loadfile("fishing/fishing.const.lua"))("DreamFish", namespace)
 assert(loadfile("fishing/fishing.options.lua"))("DreamFish", namespace)
 assert(loadfile("fishing/states.lua"))("DreamFish", namespace)
 assert(loadfile("fishing/fishing.lua"))("DreamFish", namespace)
+
+namespace.precast.EquipUnderlightAnglerAfterFishing = function(reason)
+    table.insert(underlightEquipReasons, reason)
+end
 
 local Fishing = DreamFish:GetModule("Fishing")
 
@@ -180,10 +185,14 @@ Fishing:CancelFishingForMovement()
 assert(namespace.fishing.state.current == namespace.fishing.states.IDLE,
     "movement cancellation did not return Fishing to IDLE")
 assert(cancelledFor == "After cancel: movement", "movement cancellation used the wrong reason")
+assert(underlightEquipReasons[#underlightEquipReasons] == "movement",
+    "movement cancellation did not request Underlight Angler equip")
 
 Fishing:OnCastStarted()
 Fishing:CancelFishingForCombat()
 assert(cancelledFor == "After cancel: combat", "combat cancellation used the wrong reason")
+assert(underlightEquipReasons[#underlightEquipReasons] == "combat",
+    "combat cancellation did not request Underlight Angler equip")
 
 Fishing:OnCastStarted()
 mounted = false

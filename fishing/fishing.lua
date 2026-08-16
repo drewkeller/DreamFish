@@ -76,6 +76,7 @@ end
 function Fishing:CancelFishingSession(reason)
     self:SetFishingState(ns.fishing.states.CANCELLING, reason)
     self:ReleaseClickCapture()
+    ns.precast.EquipUnderlightAnglerAfterFishing(reason)
     self:SetFishingState(ns.fishing.states.IDLE, "After cancel: " .. tostring(reason))
 end
 
