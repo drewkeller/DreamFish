@@ -13,8 +13,10 @@ table.insert(ns.FishingInitializers, Initialize)
 
 
 local lastClickTime = 0
+local lastSingleFishingClickTime = 0
 local doubleClickDelay = 0.25
 local hideTimerHandle = nil
+local suppressCapturedClick = false
 local clickFrameName = "DreamFishSecureFishingFrame"
 local cleanupEventFrame = CreateFrame("Frame")
 
@@ -70,12 +72,25 @@ function Fishing:HandleMouseDown(_, button)
         return
     end
 
-    if self:IsDoubleClick() and profileDB.castByDoubleRightClick then
-        self:Debug("Double right click detected")
-        self:OnCastStarted("Double right click")
+    local isDoubleClick = self:IsDoubleClick()
+    local isSecondSingleFishingClick = profileDB.castBySingleRightClickWhenFishing
+        and isDoubleClick
+        and (GetTime() - lastSingleFishingClickTime) <= doubleClickDelay
+    if isSecondSingleFishingClick then
+        lastSingleFishingClickTime = 0
+        suppressCapturedClick = true
+        self.clickFrame:SetAttribute("type", "macro")
+        self.clickFrame:SetAttribute("spell", nil)
+        self.clickFrame:SetAttribute("macrotext", "/stopmacro")
+        self.clickFrame:SetPropagateMouseClicks(false)
+        self:Debug("Suppressing second click during single-click fishing")
     elseif profileDB.castBySingleRightClickWhenFishing and self:IsInFishingSession() then
+        lastSingleFishingClickTime = GetTime()
         self:Debug("Single right click detected while fishing")
         self:OnCastStarted("Single right click while fishing")
+    elseif isDoubleClick and profileDB.castByDoubleRightClick then
+        self:Debug("Double right click detected")
+        self:OnCastStarted("Double right click")
     else
         self:Debug("Right click detected")
     end
@@ -133,6 +148,11 @@ end
 
 function Fishing:HideClickFrame()
     if not InCombatLockdown() then
+        if suppressCapturedClick then
+            self.clickFrame:SetPropagateMouseClicks(true)
+            suppressCapturedClick = false
+            self:PrepareFishingClickAction()
+        end
         if not profileDB.castBySingleRightClickWhenFishing or not self:IsInFishingSession() then
             ClearOverrideBindings(self.clickFrame)
         end
@@ -153,6 +173,8 @@ function Fishing:ReleaseClickCapture()
     end
 
     ClearOverrideBindings(self.clickFrame)
+    self.clickFrame:SetPropagateMouseClicks(true)
+    suppressCapturedClick = false
     self.clickFrame:Hide()
     self.clickFrame:SetMouseClickEnabled(false)
     self.clickFrame:SetMouseMotionEnabled(false)

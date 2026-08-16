@@ -19,6 +19,7 @@ local controlKeyDown = false
 local altKeyDown = false
 local leftMouseDown = false
 local rightMouseDown = false
+local currentTime = 0
 local mouseHooked = false
 local gameMouseActions = 0
 local castStartedCount = 0
@@ -67,6 +68,10 @@ end
 
 function Fishing.clickFrame:Hide()
     frameHidden = true
+end
+
+function Fishing.clickFrame:Show()
+    frameHidden = false
 end
 
 function Fishing.clickFrame:ClearAllPoints()
@@ -123,6 +128,13 @@ function Fishing:SendMessage(message)
     table.insert(messages, message)
 end
 
+function Fishing:ScheduleTimer()
+    return {}
+end
+
+function Fishing:CancelTimer()
+end
+
 local DreamFish = {}
 
 function DreamFish:GetModule(name)
@@ -162,6 +174,10 @@ end
 
 function InCombatLockdown()
     return inCombat
+end
+
+function GetTime()
+    return currentTime
 end
 
 function IsShiftKeyDown()
@@ -204,8 +220,8 @@ function Fishing:OnCastStarted()
     castStartedCount = castStartedCount + 1
 end
 
-function Fishing:IsDoubleClick()
-    return true
+function Fishing:PrepareFishingClickAction()
+    secureAttributes.type = "spell"
 end
 
 Fishing:HookMouseDown()
@@ -222,6 +238,23 @@ profile.castByDoubleRightClick = false
 mouseDownCallback(WorldFrame, "RightButton")
 assert(castStartedCount == 1, "disabled double-right-click must not call OnCastStarted")
 
+profile.castBySingleRightClickWhenFishing = true
+Fishing:SetFishingState(ns.fishing.states.PRECASTING)
+secureAttributes.type = "spell"
+currentTime = 1
+mouseDownCallback(WorldFrame, "RightButton")
+assert(castStartedCount == 2, "first single click during fishing must start a cast")
+
+Fishing:SetFishingState(ns.fishing.states.IDLE)
+currentTime = 1.1
+mouseDownCallback(WorldFrame, "RightButton")
+assert(castStartedCount == 2, "second click during single-click fishing must be suppressed")
+assert(secureAttributes.type == "macro", "suppressed click must replace the secure action with a no-op macro")
+assert(not clicksPropagated, "suppressed click must not propagate to the game")
+Fishing:HideClickFrame()
+assert(clicksPropagated, "suppressed click cleanup must restore mouse propagation")
+profile.castBySingleRightClickWhenFishing = false
+
 preClickCallback(Fishing.clickFrame, "RightButton", true)
 assert(castStartedCount == 2, "hotkey button-down must start the fishing session")
 preClickCallback(Fishing.clickFrame, "RightButton", false)
@@ -229,7 +262,7 @@ assert(castStartedCount == 2, "hotkey button-up must not restart the fishing ses
 
 profile.castByHotkey = false
 preClickCallback(Fishing.clickFrame, "RightButton", true)
-assert(gameMouseActions == 3, "right clicks must also continue to the game handler")
+assert(gameMouseActions == 2, "only normal world right clicks must continue to the game handler")
 
 profile.castByHotkey = true
 rightMouseDown = true
