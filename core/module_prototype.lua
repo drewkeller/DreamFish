@@ -53,6 +53,27 @@ function ModulePrototype:Debug(message, ...)
     end
 end
 
+function ModulePrototype:Trace(source, msg, ...)
+    if self.db and self.db.profile and self.db.profile.traceMode and self.db.profile.traceMode[source] then
+        DreamFish:Print("|cFF999999[" .. source .. "]|r ", msg, ...)
+    end
+end
+
+function ModulePrototype:RegisterTraceSource(source)
+    if not self.db or not self.db.profile then
+        -- Modules often register trace sources at file-load time, before OnInitialize runs
+        self.pendingTraceSources = self.pendingTraceSources or {}
+        table.insert(self.pendingTraceSources, source)
+        return
+    end
+    if not self.db.profile.traceMode then
+        self.db.profile.traceMode = {}
+    end
+    if not self.db.profile.traceMode[source] then
+        self.db.profile.traceMode[source] = false
+    end
+end
+
 function ModulePrototype:OnInitialize()
     local addonDB = DreamFish and DreamFish.db
 
@@ -108,6 +129,15 @@ function ModulePrototype:OnInitialize()
     self.db.profile = self.db.profile or {}
     self.db.char = self.db.char or {}
     self.db.global = self.db.global or {}
+
+    if self.pendingTraceSources then
+        for _, source in ipairs(self.pendingTraceSources) do
+            self:RegisterTraceSource(source)
+            self:Debug("Adding trace source '" .. source .. "' from pending list")
+        end
+        self.pendingTraceSources = nil
+    end
+
     self:SetEnabledState(self:IsModuleEnabled())
 
     if self.OnModuleInitialize then
@@ -153,6 +183,35 @@ function ModulePrototype:GetStandardModuleOptions()
                 local state = value and "|cFF00FF00ON|r" or "|cFFFF0000OFF|r"
                 DreamFish:Print(config.displayName .. " debug mode is now " .. state .. ".")
             end,
+        },
+        traceGroup = {
+            order = 25,
+            type = "group",
+            name = "Trace sources",
+            inline = true,
+            args = (function()
+                if not self.db or not self.db.profile or not self.db.profile.traceMode then
+                    return {}
+                end
+                local traceArgs = {}
+                for source, _ in pairs(self.db.profile.traceMode) do
+                    traceArgs[source] = {
+                        order = 1,
+                        type = "toggle",
+                        name = source,
+                        desc = "Enables trace output for the " .. source .. " trace source.",
+                        get = function()
+                            return self.db.profile.traceMode[source]
+                        end,
+                        set = function(_, value)
+                            self.db.profile.traceMode[source] = value
+                            local state = value and "|cFF00FF00ON|r" or "|cFFFF0000OFF|r"
+                            DreamFish:Print(config.displayName .. " trace source '" .. source .. "' is now " .. state .. ".")
+                        end,
+                    }
+                end
+                return traceArgs
+            end)(),
         },
         spacer = {
             order = 30,

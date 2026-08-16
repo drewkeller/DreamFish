@@ -11,10 +11,10 @@ end
 ns.FishingInitializers = ns.FishingInitializers or {}
 table.insert(ns.FishingInitializers, Initialize)
 
+Fishing:RegisterTraceSource("pole")
+
 local function Trace(msg)
-    if DreamFish.db.profile.debugMode then
-        DreamFish:Print("|cFF999999[Pole]|r ", msg)
-    end
+    Fishing:Trace("pole", msg)
 end
 
 local function GetEquippedProfessionItemID()

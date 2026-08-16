@@ -11,10 +11,10 @@ end
 ns.FishingInitializers = ns.FishingInitializers or {}
 table.insert(ns.FishingInitializers, Initialize)
 
+Fishing:RegisterTraceSource("bobber")
+
 local function Trace(msg)
-    if DreamFish.db.profile.debugMode then
-        DreamFish:Print("|cFF999999[Bobber]|r ", msg)
-    end
+    Fishing:Trace("bobber", msg)
 end
 
 local function GetBobberAuraRemainingSeconds(bobberToyID)

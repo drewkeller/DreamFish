@@ -12,6 +12,7 @@ ns.Fishing.Defaults = {
 		fishing = {
 			moduleEnabled = true,
 			debug = false,
+            traceMode = {},
             castByDoubleRightClick = true,
             castBySingleRightClickWhenFishing = false,
             castByHotkey = false,

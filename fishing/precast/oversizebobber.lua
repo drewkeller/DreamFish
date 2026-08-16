@@ -11,10 +11,10 @@ end
 ns.FishingInitializers = ns.FishingInitializers or {}
 table.insert(ns.FishingInitializers, Initialize)
 
+Fishing:RegisterTraceSource("oversize")
+
 local function Trace(msg)
-    if DreamFish.db.profile.debugMode then
-        DreamFish:Print("|cFF999999[Oversize]|r ", msg)
-    end
+    Fishing:Trace("oversize", msg)
 end
 
 local function GetOversizedBobberAuraRemainingSeconds()

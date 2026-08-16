@@ -2,6 +2,8 @@ local addonName, ns = ...
 local DreamFish = LibStub("AceAddon-3.0"):GetAddon(addonName)
 local Fishing = DreamFish:GetModule("Fishing")
 
+Fishing:RegisterTraceSource("state")
+
 local FISHING_STATES = {
     IDLE = 1,
     PRECASTING = 2,
@@ -44,9 +46,7 @@ ns.fishing.state = ns.fishing.state or {}
 ns.fishing.states = FISHING_STATES
 
 local function Trace(state, reason)
-    if DreamFish.db.profile.debugMode then
-        DreamFish:Print("|cFF999999[", FISHING_STATE_NAMES[state] or tostring(state), "]|r ", tostring(reason))
-    end
+    Fishing:Trace("state", "|cFF999999[" .. (FISHING_STATE_NAMES[state] or tostring(state)) .. "]|r " .. reason)
 end
 
 function Fishing:SetFishingState(state, reason)
