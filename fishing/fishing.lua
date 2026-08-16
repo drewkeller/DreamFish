@@ -29,6 +29,7 @@ function Fishing:OnModuleEnable()
     self:RegisterEvent("PLAYER_STARTED_MOVING", "CancelFishingForMovement")
     self:RegisterEvent("UNIT_SPELLCAST_START", "HandleFishingSpellcast")
     self:RegisterEvent("UNIT_SPELLCAST_CHANNEL_START", "HandleFishingSpellcast")
+    self:RegisterEvent("UNIT_SPELLCAST_SUCCEEDED", "HandleFishingSpellcast")
     self:RegisterEvent("PLAYER_EQUIPMENT_CHANGED", "RefreshFishingClickAction")
     self:RegisterEvent("UNIT_AURA", "RefreshFishingClickAction")
     self:ApplyKeybinding()
@@ -41,6 +42,7 @@ function Fishing:OnModuleDisable()
     self:UnregisterEvent("PLAYER_STARTED_MOVING")
     self:UnregisterEvent("UNIT_SPELLCAST_START")
     self:UnregisterEvent("UNIT_SPELLCAST_CHANNEL_START")
+    self:UnregisterEvent("UNIT_SPELLCAST_SUCCEEDED")
     self:UnregisterEvent("PLAYER_EQUIPMENT_CHANGED")
     self:UnregisterEvent("UNIT_AURA")
     self:Debug("Removing click frame (module disabled)")
@@ -70,9 +72,7 @@ end
 
 function Fishing:CancelFishingSession(reason)
     self:SetFishingState(ns.fishing.states.CANCELLING, reason)
-    if self.clickFrame and not InCombatLockdown() then
-        ClearOverrideBindings(self.clickFrame)
-    end
+    self:ReleaseClickCapture()
     self:SetFishingState(ns.fishing.states.IDLE, "After cancel: " .. tostring(reason))
 end
 
@@ -84,10 +84,26 @@ function Fishing:CancelFishingForMovement()
     self:CancelFishingSession("movement")
 end
 
-function Fishing:HandleFishingSpellcast(_, unit, _, spellID)
-    if unit ~= "player" or spellID ~= ns.fishing.const.fishingSpellID then
+function Fishing:HandleFishingSpellcast(event, unit, ...)
+    if unit ~= "player" then
         return
     end
+
+    -- scan all arguments for a spell ID
+    local spellID
+    for index = select("#", ...), 1, -1 do
+        local value = select(index, ...)
+        if type(value) == "number" then
+            spellID = value
+            break
+        end
+    end
+
+    if spellID ~= ns.fishing.const.fishingSpellID then
+        return
+    end
+
+    --self:Debug(event .. " detected for Fishing")
     self:SetFishingState(ns.fishing.states.CASTING, "spellcast")
 end
 

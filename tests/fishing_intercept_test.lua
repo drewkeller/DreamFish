@@ -219,6 +219,18 @@ Fishing:SetFishingState(ns.fishing.states.PRECASTING)
 Fishing:HideClickFrame()
 assert(not bindingsCleared, "single-right-click mode must retain the temporary right-click override")
 
+bindingsCleared = false
+clickEnabled = true
+motionEnabled = true
+mouseEnabled = true
+frameHidden = false
+Fishing:ReleaseClickCapture()
+assert(bindingsCleared, "releasing capture must clear temporary right-click bindings")
+assert(not clickEnabled, "releasing capture must disable mouse clicks")
+assert(not motionEnabled, "releasing capture must disable mouse motion")
+assert(not mouseEnabled, "releasing capture must disable generic mouse handling")
+assert(frameHidden, "releasing capture must hide the click frame")
+
 Fishing:RemoveClickFrame()
 
 assert(not mouseHooked, "disabling Fishing must unhook WorldFrame mouse observation")

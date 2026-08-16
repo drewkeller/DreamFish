@@ -89,6 +89,13 @@ namespace.ui = {
 
 function Fishing:CreateClickFrame()
     frameCreated = true
+    self.clickFrame = {
+        GetName = function()
+            return "DreamFishSecureFishingFrame"
+        end,
+        Show = function()
+        end,
+    }
 end
 
 function Fishing:RegisterEvent(event)
@@ -111,7 +118,20 @@ function Fishing:RemoveClickFrame()
     frameRemoved = true
 end
 
+function Fishing:ReleaseClickCapture()
+end
+
 function Fishing:SendMessage()
+end
+
+function SetOverrideBindingClick()
+end
+
+function InCombatLockdown()
+    return false
+end
+
+function ClearOverrideBindings()
 end
 
 Fishing:OnInitialize()
@@ -128,6 +148,7 @@ assert(registeredEvents.PLAYER_EQUIPMENT_CHANGED, "enabling Fishing did not regi
 assert(registeredEvents.UNIT_AURA, "enabling Fishing did not register its aura refresh event")
 assert(registeredEvents.UNIT_SPELLCAST_START, "enabling Fishing did not register its spellcast start event")
 assert(registeredEvents.UNIT_SPELLCAST_CHANNEL_START, "enabling Fishing did not register its spellcast channel event")
+assert(registeredEvents.UNIT_SPELLCAST_SUCCEEDED, "enabling Fishing did not register its spellcast success event")
 assert(bindingsApplied, "enabling Fishing did not apply its keybinding")
 assert(preparedActionCount == 1, "enabling Fishing did not prepare its secure fishing action")
 
@@ -137,11 +158,11 @@ Fishing:RefreshFishingClickAction(nil, "player")
 assert(preparedActionCount == 2, "PRECASTING refresh must not reconfigure the secure action")
 assert(namespace.fishing.state.current == namespace.fishing.states.PRECASTING,
     "starting a cast did not enter PRECASTING")
-Fishing:HandleFishingSpellcast(nil, "player", nil, namespace.fishing.const.fishingSpellID)
+Fishing:HandleFishingSpellcast("UNIT_SPELLCAST_START", "player", "cast-guid", namespace.fishing.const.fishingSpellID)
 assert(namespace.fishing.state.current == namespace.fishing.states.CASTING,
     "Fishing spellcast did not enter CASTING")
 Fishing:RefreshFishingClickAction(nil, "player")
-assert(preparedActionCount == 3, "CASTING refresh must configure the next secure action")
+assert(preparedActionCount == 2, "CASTING refresh must not reconfigure the secure action")
 local cancelledFor
 local setFishingState = Fishing.SetFishingState
 function Fishing:SetFishingState(state, reason)
@@ -150,13 +171,13 @@ function Fishing:SetFishingState(state, reason)
 end
 
 Fishing:CancelFishingForMovement()
-assert(namespace.fishing.state.current == namespace.fishing.states.CANCELLING,
-    "movement cancellation did not enter CANCELLING")
-assert(cancelledFor == "movement", "movement cancellation used the wrong reason")
+assert(namespace.fishing.state.current == namespace.fishing.states.IDLE,
+    "movement cancellation did not return Fishing to IDLE")
+assert(cancelledFor == "After cancel: movement", "movement cancellation used the wrong reason")
 
 Fishing:OnCastStarted()
 Fishing:CancelFishingForCombat()
-assert(cancelledFor == "combat", "combat cancellation used the wrong reason")
+assert(cancelledFor == "After cancel: combat", "combat cancellation used the wrong reason")
 
 Fishing:OnModuleDisable()
 

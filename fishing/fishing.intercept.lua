@@ -118,6 +118,23 @@ function Fishing:HideClickFrame()
     hideTimerHandle = nil
 end
 
+function Fishing:ReleaseClickCapture()
+    if not self.clickFrame or InCombatLockdown() then
+        return
+    end
+
+    if hideTimerHandle then
+        self:CancelTimer(hideTimerHandle)
+        hideTimerHandle = nil
+    end
+
+    ClearOverrideBindings(self.clickFrame)
+    self.clickFrame:Hide()
+    self.clickFrame:SetMouseClickEnabled(false)
+    self.clickFrame:SetMouseMotionEnabled(false)
+    self.clickFrame:EnableMouse(false)
+end
+
 function Fishing:RemoveClickFrame()
     self:Unhook(WorldFrame, "OnMouseDown")
 
