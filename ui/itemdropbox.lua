@@ -1,11 +1,11 @@
 local addonName, ns = ...
 
--- Helper function to get currently equipped item in profession slot (slot 16 = main hand weapon)
+-- Profession equipment uses inventory slot 28.
 local function GetEquippedProfessionItemID()
     if type(GetInventoryItemID) ~= "function" then
         return nil
     end
-    local ok, rawItemID = pcall(GetInventoryItemID, "player", 16)
+    local ok, rawItemID = pcall(GetInventoryItemID, "player", 28)
     if not ok then
         return nil
     end

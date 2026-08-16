@@ -66,6 +66,7 @@ function Fishing:RefreshFishingClickAction(event, unit)
         self:PrepareFishingClickAction()
     end
     if event == "PLAYER_EQUIPMENT_CHANGED" then
+        self:RefreshPoleBorders()
         self:Debug("Equipment changed")
     elseif event == "UNIT_AURA" then
         self:Debug("Auras changed")

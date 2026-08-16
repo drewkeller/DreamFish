@@ -205,6 +205,7 @@ end
 -- Build the "Rods & Poles" tab content inside the shared tackle window
 function Fishing:BuildPolesTab(content)
     local charDB = self.db.char
+    self.poleBorderRefreshers = self.poleBorderRefreshers or {}
 
     local instructions = content:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
     instructions:SetPoint("TOPLEFT", content, "TOPLEFT", 0, 0)
@@ -237,6 +238,7 @@ function Fishing:BuildPolesTab(content)
     end
     poleCheckbox:SetChecked(charDB.primaryPole and charDB.primaryPole.isChecked or false)
     updatePoleBorder()
+    self.poleBorderRefreshers.primaryPole = updatePoleBorder
 
     if not (charDB.underlightAngler and charDB.underlightAngler.itemID) then
         local underlightID = ns.fishing.const.underlightAnglerItemID
@@ -248,6 +250,16 @@ function Fishing:BuildPolesTab(content)
     end
     anglerCheckbox:SetChecked(charDB.underlightAngler and charDB.underlightAngler.isChecked or false)
     updateAnglerBorder()
+    self.poleBorderRefreshers.underlightAngler = updateAnglerBorder
+end
+
+function Fishing:RefreshPoleBorders()
+    if not self.poleBorderRefreshers then
+        return
+    end
+    for _, refreshBorder in pairs(self.poleBorderRefreshers) do
+        refreshBorder()
+    end
 end
 
 function Fishing:OpenTackleWindow()
