@@ -27,6 +27,10 @@ function Fishing:OnModuleEnable()
     self:RegisterTackleWindowTab()
     self:CreateClickFrame()
     self:RegisterEvent("PLAYER_REGEN_ENABLED", "UpdateKeybindsAfterCombat")
+    self:RegisterEvent("PLAYER_REGEN_DISABLED", "CancelFishingForCombat")
+    self:RegisterEvent("PLAYER_STARTED_MOVING", "CancelFishingForMovement")
+    self:RegisterEvent("UNIT_SPELLCAST_START", "HandleFishingSpellcast")
+    self:RegisterEvent("UNIT_SPELLCAST_CHANNEL_START", "HandleFishingSpellcast")
     self:RegisterEvent("PLAYER_EQUIPMENT_CHANGED", "RefreshFishingClickAction")
     self:RegisterEvent("UNIT_AURA", "RefreshFishingClickAction")
     self:ApplyKeybinding()
@@ -35,6 +39,10 @@ end
 
 function Fishing:OnModuleDisable()
     self:UnregisterEvent("PLAYER_REGEN_ENABLED")
+    self:UnregisterEvent("PLAYER_REGEN_DISABLED")
+    self:UnregisterEvent("PLAYER_STARTED_MOVING")
+    self:UnregisterEvent("UNIT_SPELLCAST_START")
+    self:UnregisterEvent("UNIT_SPELLCAST_CHANNEL_START")
     self:UnregisterEvent("PLAYER_EQUIPMENT_CHANGED")
     self:UnregisterEvent("UNIT_AURA")
     self:Debug("Removing click frame (module disabled)")
@@ -55,8 +63,30 @@ function Fishing:RefreshFishingClickAction(_, unit)
     self:PrepareFishingClickAction()
 end
 
-function Fishing:OnCastStarted()
-    self:Debug("OnCastStarted")
+function Fishing:CancelFishingSession(reason)
+    self:SetFishingState(ns.fishing.states.CANCELLING, reason)
+    if self.clickFrame and not InCombatLockdown() then
+        ClearOverrideBindings(self.clickFrame)
+    end
+end
+
+function Fishing:CancelFishingForCombat()
+    self:CancelFishingSession("combat")
+end
+
+function Fishing:CancelFishingForMovement()
+    self:CancelFishingSession("movement")
+end
+
+function Fishing:HandleFishingSpellcast(_, unit, _, spellID)
+    if unit ~= "player" or spellID ~= ns.fishing.const.fishingSpellID then
+        return
+    end
+    self:SetFishingState(ns.fishing.states.CASTING, "spellcast")
+end
+
+function Fishing:OnCastStarted(reason)
+    self:SetFishingState(ns.fishing.states.PRECASTING, reason)
     self:SendMessage("FISHING_CAST_STARTED")
     ArmFishingRightClickAction(self.clickFrame)
 end

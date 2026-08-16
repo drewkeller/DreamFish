@@ -64,15 +64,18 @@ function Fishing:HandleMouseDown(_, button)
             return
         end
         self:Debug("Double right click detected")
-        self:OnCastStarted()
+        self:OnCastStarted("Double right click")
+    else
+        self:Debug("Right click detected")
     end
 end
 
 -- Handle hotkey "pre-click"
 function Fishing:HookPreClickWithHandler()
     if not self:IsHooked(self.clickFrame, "PreClick") then
-        self.clickFrame:SetScript("PreClick", function(frame)
+        self.clickFrame:SetScript("PreClick", function(_, button, down)
             if InCombatLockdown() then return end
+            if button ~= "RightButton" or not down then return end
             if not profileDB.castByHotkey then
                 self:Debug("PreClick detected but hotkey casting is disabled")
                 return
@@ -105,7 +108,7 @@ end
 
 function Fishing:HideClickFrame()
     if not InCombatLockdown() then
-        if not profileDB.castBySingleRightClickWhenFishing then
+        if not profileDB.castBySingleRightClickWhenFishing or not self:IsInFishingSession() then
             ClearOverrideBindings(self.clickFrame)
         end
         self.clickFrame:Hide()

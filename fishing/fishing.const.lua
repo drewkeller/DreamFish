@@ -23,6 +23,7 @@ ns.fishing = { const = {
     },
     underlightAnglerItemID = 133755,
     oversizedBobberItemID = 202207,
+    fishingSpellID = 131474,
     maxFishingCastSeconds = 20,
     buffPreRefreshSafetySeconds = 2,
 

@@ -73,6 +73,7 @@ assert(loadfile("core/module_prototype.lua"))("DreamFish", namespace)
 assert(loadfile("fishing/fishing.init.lua"))("DreamFish", namespace)
 assert(loadfile("fishing/fishing.const.lua"))("DreamFish", namespace)
 assert(loadfile("fishing/fishing.options.lua"))("DreamFish", namespace)
+assert(loadfile("fishing/states.lua"))("DreamFish", namespace)
 assert(loadfile("fishing/fishing.lua"))("DreamFish", namespace)
 
 local Fishing = DreamFish:GetModule("Fishing")
@@ -110,6 +111,9 @@ function Fishing:RemoveClickFrame()
     frameRemoved = true
 end
 
+function Fishing:SendMessage()
+end
+
 Fishing:OnInitialize()
 Fishing:OnEnable()
 
@@ -124,6 +128,25 @@ assert(registeredEvents.PLAYER_EQUIPMENT_CHANGED, "enabling Fishing did not regi
 assert(registeredEvents.UNIT_AURA, "enabling Fishing did not register its aura refresh event")
 assert(bindingsApplied, "enabling Fishing did not apply its keybinding")
 assert(preparedAction, "enabling Fishing did not prepare its secure fishing action")
+
+Fishing:OnCastStarted()
+assert(namespace.fishing.state.current == namespace.fishing.states.PRECASTING,
+    "starting a cast did not enter PRECASTING")
+local cancelledFor
+local setFishingState = Fishing.SetFishingState
+function Fishing:SetFishingState(state, reason)
+    cancelledFor = reason
+    return setFishingState(self, state, reason)
+end
+
+Fishing:CancelFishingForMovement()
+assert(namespace.fishing.state.current == namespace.fishing.states.CANCELLING,
+    "movement cancellation did not enter CANCELLING")
+assert(cancelledFor == "movement", "movement cancellation used the wrong reason")
+
+Fishing:OnCastStarted()
+Fishing:CancelFishingForCombat()
+assert(cancelledFor == "combat", "combat cancellation used the wrong reason")
 
 Fishing:OnModuleDisable()
 

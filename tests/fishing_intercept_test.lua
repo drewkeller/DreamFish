@@ -173,6 +173,7 @@ local ns = {
     precast = {},
 }
 assert(loadfile("fishing/fishing.intercept.lua"))("DreamFish", ns)
+assert(loadfile("fishing/states.lua"))("DreamFish", ns)
 for _, initializer in ipairs(ns.FishingInitializers) do
     initializer()
 end
@@ -212,6 +213,7 @@ assert(bindingsCleared, "double-click-only mode must clear the temporary right-c
 
 bindingsCleared = false
 profile.castBySingleRightClickWhenFishing = true
+Fishing:SetFishingState(ns.fishing.states.PRECASTING)
 Fishing:HideClickFrame()
 assert(not bindingsCleared, "single-right-click mode must retain the temporary right-click override")
 
