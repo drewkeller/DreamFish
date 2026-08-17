@@ -112,6 +112,27 @@ function Fishing:GetModuleOptions()
                         }),
                     },
                 },
+                reelingTriggers = {
+                    type = "group",
+                    name = "Reeling triggers",
+                    inline = true,
+                    args = {
+                        easyStrike = self:AddOption({
+                            type = "toggle",
+                            name = "EasyStrike (right click or use the hotkey)",
+                            desc = "When the bobber indicates a bite, right click anywhere or use the hotkey to hook, play, and land the fish.",
+                            width = "full",
+                        }),
+                        modeEasyStrikeNote = self:AddOption({
+                            type = "description",
+                            name = "      Requirements:\n"
+                                .. "      1. Turn on \"Enable Interact Key\" (Game Options > Controls).\n"
+                                .. "      2. Set the \"Hotkey\" keybinding above.\n"
+                                .. "      3. Ensure another addon does not interfere while fishing.",
+                            width = "full",
+                        }),
+                    },
+                },
             },
         }),
         tackleTab = self:AddTab({

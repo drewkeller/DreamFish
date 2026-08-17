@@ -62,7 +62,6 @@ function Fishing:IsSoloPhysicalRightClick()
         and not IsMouseButtonDown("LeftButton")
 end
 
-
 -- Handle player right clicks
 function Fishing:HandleMouseDown(_, button)
     if button ~= "RightButton" then return end
@@ -72,27 +71,44 @@ function Fishing:HandleMouseDown(_, button)
         return
     end
 
-    local isDoubleClick = self:IsDoubleClick()
-    local isSecondSingleFishingClick = profileDB.castBySingleRightClickWhenFishing
-        and isDoubleClick
-        and (GetTime() - lastSingleFishingClickTime) <= doubleClickDelay
-    if isSecondSingleFishingClick then
-        lastSingleFishingClickTime = 0
-        suppressCapturedClick = true
-        self.clickFrame:SetAttribute("type", "macro")
-        self.clickFrame:SetAttribute("spell", nil)
-        self.clickFrame:SetAttribute("macrotext", "/stopmacro")
-        self.clickFrame:SetPropagateMouseClicks(false)
-        self:Debug("Suppressing second click during single-click fishing")
-    elseif profileDB.castBySingleRightClickWhenFishing and self:IsInFishingSession() then
-        lastSingleFishingClickTime = GetTime()
-        self:Debug("Single right click detected while fishing")
-        self:OnCastStarted("Single right click while fishing")
-    elseif isDoubleClick and profileDB.castByDoubleRightClick then
-        self:Debug("Double right click detected")
-        self:OnCastStarted("Double right click")
-    else
-        self:Debug("Right click detected")
+    self:Debug("Physical right click state=" .. tostring(ns.fishing.state.current))
+
+    if self:IsFishingState(ns.fishing.states.CASTING) and self:HandleBobberInteraction("right click") then
+        -- Enable the frame like IsDoubleClick does, otherwise the override-bound click never resolves.
+        self.clickFrame:EnableMouse(true)
+        self.clickFrame:SetMouseClickEnabled(true)
+        self.clickFrame:SetMouseMotionEnabled(true)
+        SetOverrideBindingClick(self.clickFrame, true, "BUTTON2", self.clickFrame:GetName(), "RightButton")
+        self.clickFrame:Show()
+
+        if hideTimerHandle then self:CancelTimer(hideTimerHandle) end
+        hideTimerHandle = self:ScheduleTimer("HideClickFrame", 0.1)
+        return
+    end
+
+    if not self:IsFishingState(ns.fishing.states.WAITING_FOR_BITE) then
+        local isDoubleClick = self:IsDoubleClick()
+        local isSecondSingleFishingClick = profileDB.castBySingleRightClickWhenFishing
+            and isDoubleClick
+            and (GetTime() - lastSingleFishingClickTime) <= doubleClickDelay
+        if isSecondSingleFishingClick then
+            lastSingleFishingClickTime = 0
+            suppressCapturedClick = true
+            self.clickFrame:SetAttribute("type", "macro")
+            self.clickFrame:SetAttribute("spell", nil)
+            self.clickFrame:SetAttribute("macrotext", "/stopmacro")
+            self.clickFrame:SetPropagateMouseClicks(false)
+            self:Debug("Suppressing second click during single-click fishing")
+        elseif profileDB.castBySingleRightClickWhenFishing and self:IsInFishingSession() then
+            lastSingleFishingClickTime = GetTime()
+            self:Debug("Single right click detected while fishing")
+            self:OnCastStarted("Single right click while fishing")
+        elseif isDoubleClick and profileDB.castByDoubleRightClick then
+            self:Debug("Double right click detected")
+            self:OnCastStarted("Double right click")
+        else
+            self:Debug("Right click detected")
+        end
     end
 end
 
@@ -119,8 +135,7 @@ function Fishing:HookPreClickWithHandler()
                 self:Debug("PreClick detected but hotkey casting is disabled")
                 return
             end
-            self:Debug("PreClick detected")
-            self:OnCastStarted("hotkey")
+            self:Debug("Hotkey PreClick state=" .. tostring(ns.fishing.state.current))
         end)
     end
 end
