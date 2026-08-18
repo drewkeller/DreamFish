@@ -10,7 +10,7 @@ local FISHING_STATES = {
     BITE_DETECTED = 5,
     WAITING_FOR_LOOT_WINDOW = 6,
     LOOTING = 7,
-    START_LINGER = 8,
+    LINGERING = 8,
     CANCELLING = 9,
 }
 
@@ -27,7 +27,7 @@ local FISHING_STATE_FLAGS = {
     [FISHING_STATES.BITE_DETECTED]           = { isFishing = true,  isCastInProgress = true,  isBobberActive = true,  castActive = false, lootActive = false },
     [FISHING_STATES.WAITING_FOR_LOOT_WINDOW] = { isFishing = true,  isCastInProgress = true,  isBobberActive = true,  castActive = false, lootActive = false },
     [FISHING_STATES.LOOTING]                 = { isFishing = true,  isCastInProgress = false, isBobberActive = false, castActive = false, lootActive = true  },
-    [FISHING_STATES.START_LINGER]            = { isFishing = true,  isCastInProgress = false, isBobberActive = false, castActive = false, lootActive = false },
+    [FISHING_STATES.LINGERING]               = { isFishing = true,  isCastInProgress = false, isBobberActive = false, castActive = false, lootActive = false },
     [FISHING_STATES.CANCELLING]              = { isFishing = false, isCastInProgress = false, isBobberActive = false, castActive = false, lootActive = false },
 }
 
@@ -37,6 +37,8 @@ local FISHING_STATE_FLAGS = {
     - FISHING_SESSION_ENDED
     - FISHING_CAST_STARTED
     - FISHING_CAST_ENDED
+    - FISHING_LOOT_READY
+    - FISHING_LOOT_CLOSED
 ]]
 
 ns.fishing = ns.fishing or {}
@@ -53,6 +55,10 @@ function Fishing:IsFishingState(state)
     return ns.fishing.state.current == state
 end
 
+function Fishing:CurrentStateName()
+    return FISHING_STATE_NAMES[ns.fishing.state.current] or tostring(ns.fishing.state.current)
+end
+
 function Fishing:SetFishingState(state, reason)
     assert(FISHING_STATE_FLAGS[state], "Unknown fishing state: " .. tostring(state))
 
@@ -64,10 +70,20 @@ function Fishing:SetFishingState(state, reason)
     for key, value in pairs(FISHING_STATE_FLAGS[state]) do
         ns.fishing.state[key] = value
     end
+    if state == FISHING_STATES.IDLE then
+        assert(not ns.fishing.state.isFishing, "Fishing state IDLE should not be isFishing")
+    end
 end
 
 function Fishing:IsInFishingSession()
     return ns.fishing.state.isFishing
+end
+
+function Fishing:CanStartCast()
+    return ns.fishing.state.current == ns.fishing.states.IDLE
+        or ns.fishing.state.current == ns.fishing.states.LINGERING
+        or ns.fishing.state.current == ns.fishing.states.PRECASTING -- allow multiple stages to apply buffs, etc before cast
+        or ns.fishing.state.current == ns.fishing.states.CASTING --recast for better placement, etc.
 end
 
 Fishing:SetFishingState(FISHING_STATES.IDLE)

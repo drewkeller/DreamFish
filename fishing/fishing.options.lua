@@ -17,12 +17,13 @@ ns.Fishing.Defaults = {
             castBySingleRightClickWhenFishing = false,
             castByHotkey = false,
             castHotkeyKeybind = nil,
-        selectedRaftToy = 0,
-        selectedBobberToy = 0,
-        useOversizedBobber = false,
+            selectedRaftToy = 0,
+            selectedBobberToy = 0,
+            useOversizedBobber = false,
             -- other
             easyStrike = false,
             closeWindowOnEscape = true,
+            lingerDuration = 10,
 		},
 	},
 	char = {
@@ -133,6 +134,15 @@ function Fishing:GetModuleOptions()
                         }),
                     },
                 },
+                lingerDuration = self:AddOption({
+                    type = "range",
+                    name = "Linger duration",
+                    desc = "The number of seconds after a cast for the fishing session to expire, unless another cast is initiated.",
+                    min = 0,
+                    max = 60,
+                    step = 1,
+                    bigStep = 5,
+                }),
             },
         }),
         tackleTab = self:AddTab({

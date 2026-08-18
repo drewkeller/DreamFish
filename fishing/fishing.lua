@@ -54,6 +54,9 @@ function Fishing:OnModuleDisable()
     self:UnregisterEvent("UNIT_SPELLCAST_CHANNEL_STOP")
     self:UnregisterEvent("PLAYER_EQUIPMENT_CHANGED")
     self:UnregisterEvent("UNIT_AURA")
+    self:UnregisterEvent("LOOT_READY")
+    self:UnregisterEvent("LOOT_CLOSED")
+    --self:UnregisterEvent("BAG_UPDATE_DELAYED")
     self:Debug("Removing click frame (module disabled)")
     self:RemoveClickFrame()
 end
@@ -80,14 +83,26 @@ function Fishing:OnAurasChanged(event, unit, updateInfo)
         self:Debug("Full aura update detected")
         return
     end
+
+    local hasAddedAuras, hasRemovedAuras = false, false
+
     if updateInfo.addedAuras then
         for _, aura in ipairs(updateInfo.addedAuras) do
-            if aura.spellId == ns.fishing.const.fishingSpellID then
-                self:Debug("Aura added: " .. tostring(aura.spellId) .. " (" .. tostring(aura.name) .. ")")
+            hasAddedAuras = true
+            self:Trace("aura", "Added: " .. tostring(aura.spellId) .. " (" .. tostring(aura.name) .. ")")
+        end
+    end
+
+    if updateInfo.removedAuras then
+        -- if a fishing aura was removed, the bobber may have been looted or despawned (cast finished)
+        for _, aura in ipairs(updateInfo.removedAuras) do
+            hasRemovedAuras = true
+            self:Trace("aura", "Removed: " .. tostring(aura.spellId) .. " (" .. tostring(aura.name) .. ")")
             end
         end
-    else
-        self:Debug("OnAurasChanged: no addedAuras provided")
+
+    if not hasAddedAuras and not hasRemovedAuras then
+        self:Debug("No known fishing aura changes detected")
     end
 end
 
@@ -233,23 +248,23 @@ function Fishing:ConfigureBobberInteractAction()
 end
 
 function Fishing:HandleBobberInteraction(reason)
-    self:Trace("EasyStrike", "HandleBobberInteraction: input=" .. tostring(reason)
+    self:Trace("EasyStrike", "------------------- HandleBobberInteraction: input=" .. tostring(reason)
         .. " state=" .. tostring(ns.fishing.state.current)
         .. " enabled=" .. tostring(profileDB.easyStrike))
     -- The player watches the bobber and strikes whenever it splashes, so any point during the cast is valid.
-    local isInStateForStrike = ns.fishing.state.current == ns.fishing.states.CASTING
+    local isInStateForStrike = ns.fishing.state.current == ns.fishing.states.WAITING_FOR_BITE
     if not isInStateForStrike or InCombatLockdown() then
-        self:Debug("Bobber interaction ignored (state: " .. tostring(ns.fishing.state.current) .. ", combat: " .. tostring(InCombatLockdown()) .. ")")
+        self:Debug("----------------- Bobber interaction ignored (state: " .. tostring(ns.fishing.state.current) .. ", combat: " .. tostring(InCombatLockdown()) .. ")")
         return false
     end
 
-    self:Trace("EasyStrike", "Bobber interaction attempted: " .. tostring(reason))
+    self:Trace("EasyStrike", "------------------ Bobber interaction attempted: " .. tostring(reason))
     -- The macro/override were already configured once when casting started; don't reconfigure on every trigger.
-    self:Trace("EasyStrike", "Clearing bobber interaction override")
+    self:Trace("EasyStrike", "-------------------- Clearing bobber interaction override")
     self:ClearBobberInteractOverride()
     self:SetFishingState(ns.fishing.states.WAITING_FOR_LOOT_WINDOW, reason)
     -- looting is not implemented yet, go directly to IDLE
-    self:SetFishingState(ns.fishing.states.IDLE, "Looting not implemented")
+    --self:SetFishingState(ns.fishing.states.IDLE, "Looting not implemented")
     return true
 end
 
