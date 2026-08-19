@@ -20,6 +20,11 @@ local hideTimerHandle = nil
 local suppressCapturedClick = false
 local clickFrameName = "DreamFishSecureFishingFrame"
 local strikeKeyFrame
+local mouseButtonWatchFrame
+local mouseButtonWatchElapsed = 0
+local mouseButtonWatchInterval = 0.05
+local bothMouseButtonsHeld = false
+local leftMouseButtonHeld = false
 local cleanupEventFrame = CreateFrame("Frame")
 
 cleanupEventFrame:SetScript("OnEvent", function()
@@ -57,6 +62,58 @@ function Fishing:HookMouseDown()
     end
 end
 
+-- WorldFrame stops delivering OnMouseDown once mouselook engages, so a button pressed while
+-- another is held is only observable by polling.
+function Fishing:StartMouseButtonWatch()
+    if not mouseButtonWatchFrame then
+        -- Parentless so hiding the UI can't stop the poll.
+        mouseButtonWatchFrame = CreateFrame("Frame")
+        mouseButtonWatchFrame:Hide()
+        mouseButtonWatchFrame:SetScript("OnUpdate", function(_, elapsed)
+            mouseButtonWatchElapsed = mouseButtonWatchElapsed + elapsed
+            if mouseButtonWatchElapsed < mouseButtonWatchInterval then return end
+            mouseButtonWatchElapsed = 0
+            Fishing:CheckHeldMouseButtons()
+        end)
+    end
+
+    bothMouseButtonsHeld = IsMouseButtonDown("LeftButton") and IsMouseButtonDown("RightButton")
+    leftMouseButtonHeld = IsMouseButtonDown("LeftButton")
+    mouseButtonWatchElapsed = 0
+    mouseButtonWatchFrame:Show()
+end
+
+function Fishing:StopMouseButtonWatch()
+    if not mouseButtonWatchFrame then return end
+    mouseButtonWatchFrame:Hide()
+    bothMouseButtonsHeld = false
+    leftMouseButtonHeld = false
+end
+
+function Fishing:CheckHeldMouseButtons()
+    local leftDown = IsMouseButtonDown("LeftButton")
+    local rightDown = IsMouseButtonDown("RightButton")
+
+    if leftDown ~= leftMouseButtonHeld then
+        leftMouseButtonHeld = leftDown
+        -- A held left button means the player is mouselooking, so the right button belongs to the camera.
+        if leftDown then
+            self:SuspendRightClickStrike()
+        else
+            self:ArmRightClickStrike()
+        end
+    end
+
+    local held = leftDown and rightDown
+    if held == bothMouseButtonsHeld then return end
+
+    bothMouseButtonsHeld = held
+    if held and self:IsInFishingSession() then
+        self:Trace("mouse", "both mouse buttons held")
+        self:CancelFishingSession("both mouse buttons held")
+    end
+end
+
 function Fishing:IsSoloPhysicalRightClick()
     return not IsShiftKeyDown()
         and not IsControlKeyDown()
@@ -66,6 +123,23 @@ end
 
 -- Handle player right clicks
 function Fishing:HandleMouseDown(_, button)
+    if button == "LeftButton" then
+        self:Trace("mouse", "LeftButton down")
+        if IsMouseButtonDown("RightButton") then
+            self:Trace("mouse", "RightButton down then LeftButton down")
+            self:CancelFishingSession("RightButton then LeftButton down")
+            return
+        end
+    end
+    if button == "RightButton" then
+        self:Trace("mouse", "RightButton down")
+        if IsMouseButtonDown("LeftButton") then
+            self:Trace("mouse", "LeftButton down then RightButton down")
+            self:CancelFishingSession("LeftButton then RightButton down")
+            return
+        end
+    end
+
     if button ~= "RightButton" then return end
     if not self.clickFrame or InCombatLockdown() then return end
     local isAutoLoot = IsModifiedClick("AUTOLOOTTOGGLE")

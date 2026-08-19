@@ -128,11 +128,25 @@ end
 function Fishing:StopWatchingStrikeKey()
 end
 
+function Fishing:StartMouseButtonWatch()
+end
+
+function Fishing:StopMouseButtonWatch()
+end
+
 function GetBindingKey()
     return "NUMPAD0"
 end
 
 function SetOverrideBinding()
+end
+
+function IsMouseButtonDown()
+    return false
+end
+
+function CreateFrame()
+    return {}
 end
 
 function Fishing:UnregisterEvent(event)

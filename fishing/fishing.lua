@@ -4,6 +4,7 @@ local Fishing = DreamFish:GetModule("Fishing")
 
 local globalDB, profileDB, charDB
 ns.FishingInitializers = ns.FishingInitializers or {}
+local rightClickStrikeOwner
 
 Fishing:RegisterTraceSource("EasyStrike")
 Fishing:RegisterTraceSource("aura")
@@ -176,6 +177,7 @@ end
 function Fishing:EndFishingSession(reason)
     self:SendMessage("FISHING_SESSION_ENDED")
     self:StopWatchingStrikeKey()
+    self:StopMouseButtonWatch()
     self:ClearBobberInteractOverride()
     self:ReleaseClickCapture()
     ns.precast.EquipUnderlightAnglerAfterFishing(reason)
@@ -209,6 +211,27 @@ function Fishing:ClearBobberInteractOverride()
         ClearOverrideBindings(self.clickFrame)
         self:Trace("EasyStrike", "override cleared")
     end
+    self:SuspendRightClickStrike()
+end
+
+-- BUTTON2 lives on its own owner frame so it can be released without dropping the hotkey override.
+function Fishing:ArmRightClickStrike()
+    if InCombatLockdown() or not profileDB.easyStrike then return end
+    if not self:IsFishingState(ns.fishing.states.WAITING_FOR_BITE) then return end
+    if IsMouseButtonDown("LeftButton") then return end
+
+    if not rightClickStrikeOwner then
+        rightClickStrikeOwner = CreateFrame("Frame")
+    end
+    SetOverrideBinding(rightClickStrikeOwner, true, "BUTTON2", "INTERACTTARGET")
+    self:Trace("EasyStrike", "right-click strike armed")
+end
+
+-- Overriding BUTTON2 costs the native TURNORACTION binding, so give it back while the player steers.
+function Fishing:SuspendRightClickStrike()
+    if InCombatLockdown() or not rightClickStrikeOwner then return end
+    ClearOverrideBindings(rightClickStrikeOwner)
+    self:Trace("EasyStrike", "right-click strike suspended")
 end
 
 function Fishing:ArmBobberInteractOverride()
@@ -237,12 +260,12 @@ function Fishing:ArmBobberInteractOverride()
             applied = true
         end
     end
-    -- set up right click to interract
-    SetOverrideBinding(owner, true, "BUTTON2", "INTERACTTARGET")
+    -- BUTTON2 is armed separately so mouse steering can reclaim it mid-cast.
 
     if applied then
         self:WatchStrikeKey(boundKeys[1])
         self:SetFishingState(ns.fishing.states.WAITING_FOR_BITE, "armed bobber interaction override")
+        self:ArmRightClickStrike()
     end
     self:Trace("EasyStrike", "native interact override=" .. tostring(applied)
         .. " state=" .. tostring(ns.fishing.state.current))
@@ -266,6 +289,7 @@ function Fishing:HandleFishingSpellcast(event, unit, ...)
     self:SetFishingState(ns.fishing.states.CASTING, "spellcast")
     -- The bobber can splash at any point during the channel and there's no event for it;
     -- the player has to watch for it, so the strike action must be ready for the whole cast.
+    self:StartMouseButtonWatch()
     self:ConfigureBobberInteractAction()
     self:ArmBobberInteractOverride()
 end
@@ -350,6 +374,7 @@ function Fishing:OnCastStarted(reason)
     self:SetFishingState(ns.fishing.states.PRECASTING, reason)
     self:SendMessage("FISHING_CAST_STARTED")
     self:PrepareFishingClickAction()
+    self:StartMouseButtonWatch()
     self:Debug("OnCastStarted: " .. tostring(reason))
 
     -- Set the secure action to trigger on right-clicks of the secure frame.
