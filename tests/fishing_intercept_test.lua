@@ -124,6 +124,12 @@ end
 function Fishing:Debug()
 end
 
+function Fishing:Trace()
+end
+
+function Fishing:RegisterTraceSource()
+end
+
 function Fishing:SendMessage(message)
     table.insert(messages, message)
 end
@@ -197,6 +203,10 @@ function IsMouseButtonDown(button)
         or button == "RightButton" and rightMouseDown
 end
 
+function IsModifiedClick(action)
+    return false
+end
+
 function ClearOverrideBindings(frame)
     assert(frame == Fishing.clickFrame)
     bindingsCleared = true
@@ -261,8 +271,9 @@ preClickCallback(Fishing.clickFrame, "RightButton", false)
 assert(castStartedCount == 2, "hotkey button-up must not restart the fishing session")
 
 profile.castByHotkey = false
+local mouseActionsBeforeHotkey = gameMouseActions
 preClickCallback(Fishing.clickFrame, "RightButton", true)
-assert(gameMouseActions == 2, "only normal world right clicks must continue to the game handler")
+assert(gameMouseActions == mouseActionsBeforeHotkey, "only normal world right clicks must continue to the game handler")
 
 profile.castByHotkey = true
 rightMouseDown = true

@@ -16,6 +16,7 @@ local DreamFish = {
                 moduleEnabled = true,
                 debug = false,
                 castBySingleRightClickWhenFishing = false,
+                easyStrike = true,
             },
         },
         char = {
@@ -101,6 +102,8 @@ function Fishing:CreateClickFrame()
         end,
         Show = function()
         end,
+        SetAttribute = function()
+        end,
     }
 end
 
@@ -114,6 +117,22 @@ end
 
 function Fishing:PrepareFishingClickAction()
     preparedActionCount = preparedActionCount + 1
+end
+
+function Fishing:RefreshPoleBorders()
+end
+
+function Fishing:WatchStrikeKey()
+end
+
+function Fishing:StopWatchingStrikeKey()
+end
+
+function GetBindingKey()
+    return "NUMPAD0"
+end
+
+function SetOverrideBinding()
 end
 
 function Fishing:UnregisterEvent(event)
@@ -165,15 +184,15 @@ assert(preparedActionCount == 1, "enabling Fishing did not prepare its secure fi
 
 Fishing:OnCastStarted()
 assert(preparedActionCount == 2, "starting Fishing must configure the secure action exactly once")
-Fishing:RefreshFishingClickAction(nil, "player")
-assert(preparedActionCount == 2, "PRECASTING refresh must not reconfigure the secure action")
+Fishing:OnEquipmentChanged(nil, "player")
+assert(preparedActionCount == 3, "PRECASTING refresh must reconfigure the secure action")
 assert(namespace.fishing.state.current == namespace.fishing.states.PRECASTING,
     "starting a cast did not enter PRECASTING")
 Fishing:HandleFishingSpellcast("UNIT_SPELLCAST_START", "player", "cast-guid", namespace.fishing.const.fishingSpellID)
-assert(namespace.fishing.state.current == namespace.fishing.states.CASTING,
-    "Fishing spellcast did not enter CASTING")
-Fishing:RefreshFishingClickAction(nil, "player")
-assert(preparedActionCount == 2, "CASTING refresh must not reconfigure the secure action")
+assert(namespace.fishing.state.current == namespace.fishing.states.WAITING_FOR_BITE,
+    "Fishing spellcast did not arm the bobber strike")
+Fishing:OnEquipmentChanged(nil, "player")
+assert(preparedActionCount == 3, "refresh while waiting for a bite must not reconfigure the secure action")
 local cancelledFor
 local setFishingState = Fishing.SetFishingState
 function Fishing:SetFishingState(state, reason)
@@ -184,14 +203,14 @@ end
 Fishing:CancelFishingForMovement()
 assert(namespace.fishing.state.current == namespace.fishing.states.IDLE,
     "movement cancellation did not return Fishing to IDLE")
-assert(cancelledFor == "After cancel: movement", "movement cancellation used the wrong reason")
-assert(underlightEquipReasons[#underlightEquipReasons] == "movement",
+assert(cancelledFor == "cancelled: movement", "movement cancellation used the wrong reason")
+assert(underlightEquipReasons[#underlightEquipReasons] == "cancelled: movement",
     "movement cancellation did not request Underlight Angler equip")
 
 Fishing:OnCastStarted()
 Fishing:CancelFishingForCombat()
-assert(cancelledFor == "After cancel: combat", "combat cancellation used the wrong reason")
-assert(underlightEquipReasons[#underlightEquipReasons] == "combat",
+assert(cancelledFor == "cancelled: combat", "combat cancellation used the wrong reason")
+assert(underlightEquipReasons[#underlightEquipReasons] == "cancelled: combat",
     "combat cancellation did not request Underlight Angler equip")
 
 Fishing:OnCastStarted()
@@ -204,7 +223,7 @@ mounted = true
 Fishing:CancelFishingForMount()
 assert(namespace.fishing.state.current == namespace.fishing.states.IDLE,
     "mounting did not cancel fishing")
-assert(cancelledFor == "After cancel: mounted", "mount cancellation used the wrong reason")
+assert(cancelledFor == "cancelled: mounted", "mount cancellation used the wrong reason")
 
 Fishing:OnModuleDisable()
 

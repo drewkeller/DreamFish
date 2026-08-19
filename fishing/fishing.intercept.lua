@@ -11,6 +11,7 @@ end
 ns.FishingInitializers = ns.FishingInitializers or {}
 table.insert(ns.FishingInitializers, Initialize)
 
+Fishing:RegisterTraceSource("mouse")
 
 local lastClickTime = 0
 local lastSingleFishingClickTime = 0
@@ -18,6 +19,7 @@ local doubleClickDelay = 0.25
 local hideTimerHandle = nil
 local suppressCapturedClick = false
 local clickFrameName = "DreamFishSecureFishingFrame"
+local strikeKeyFrame
 local cleanupEventFrame = CreateFrame("Frame")
 
 cleanupEventFrame:SetScript("OnEvent", function()
@@ -66,8 +68,10 @@ end
 function Fishing:HandleMouseDown(_, button)
     if button ~= "RightButton" then return end
     if not self.clickFrame or InCombatLockdown() then return end
-    if not self:IsSoloPhysicalRightClick() then
+    local isAutoLoot = IsModifiedClick("AUTOLOOTTOGGLE")
+    if not isAutoLoot and not self:IsSoloPhysicalRightClick() then
         lastClickTime = 0
+        self:Trace("mouse", "Ignoring right click: not solo")
         return
     end
 
@@ -75,6 +79,7 @@ function Fishing:HandleMouseDown(_, button)
 
     if self:IsFishingState(ns.fishing.states.CASTING) and self:HandleBobberInteraction("right click") then
         -- Enable the frame like IsDoubleClick does, otherwise the override-bound click never resolves.
+        self:Trace("EasyStrike", "Enabling click frame for bobber interaction------------------------")
         self.clickFrame:EnableMouse(true)
         self.clickFrame:SetMouseClickEnabled(true)
         self.clickFrame:SetMouseMotionEnabled(true)
@@ -230,6 +235,42 @@ end
 
 function Fishing:UpdateKeybindsAfterCombat()
     self:ApplyKeybinding()
+end
+
+-- The strike hotkey is bound straight to INTERACTTARGET, so it never reaches PreClick;
+-- this propagating listener is the only way to observe that the player pressed it.
+function Fishing:WatchStrikeKey(key)
+    if not key or key == "" then return end
+
+    if not strikeKeyFrame then
+        strikeKeyFrame = CreateFrame("Frame", "DreamFishStrikeKeyWatcher", UIParent)
+        strikeKeyFrame:SetScript("OnKeyDown", function(frame, pressedKey)
+            frame:SetPropagateKeyboardInput(true)
+            Fishing:HandleStrikeKeyDown(pressedKey)
+        end)
+    end
+
+    strikeKeyFrame.watchedKey = key
+    strikeKeyFrame:SetPropagateKeyboardInput(true)
+    strikeKeyFrame:EnableKeyboard(true)
+    strikeKeyFrame:Show()
+end
+
+function Fishing:StopWatchingStrikeKey()
+    if not strikeKeyFrame then return end
+    strikeKeyFrame:EnableKeyboard(false)
+    strikeKeyFrame:Hide()
+end
+
+function Fishing:HandleStrikeKeyDown(pressedKey)
+    if not strikeKeyFrame or pressedKey ~= strikeKeyFrame.watchedKey then return end
+
+    local target = UnitExists("target") and UnitName("target") or "none"
+    local softInteract = UnitExists("softinteract") and UnitName("softinteract") or "none"
+    self:Trace("EasyStrike", "strike key=" .. tostring(pressedKey)
+        .. " state=" .. self:CurrentStateName()
+        .. " target=" .. tostring(target)
+        .. " softinteract=" .. tostring(softInteract))
 end
 
 function Fishing:ApplyKeybinding()
