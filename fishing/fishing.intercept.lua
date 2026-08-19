@@ -123,23 +123,6 @@ end
 
 -- Handle player right clicks
 function Fishing:HandleMouseDown(_, button)
-    if button == "LeftButton" then
-        self:Trace("mouse", "LeftButton down")
-        if IsMouseButtonDown("RightButton") then
-            self:Trace("mouse", "RightButton down then LeftButton down")
-            self:CancelFishingSession("RightButton then LeftButton down")
-            return
-        end
-    end
-    if button == "RightButton" then
-        self:Trace("mouse", "RightButton down")
-        if IsMouseButtonDown("LeftButton") then
-            self:Trace("mouse", "LeftButton down then RightButton down")
-            self:CancelFishingSession("LeftButton then RightButton down")
-            return
-        end
-    end
-
     if button ~= "RightButton" then return end
     if not self.clickFrame or InCombatLockdown() then return end
     local isAutoLoot = IsModifiedClick("AUTOLOOTTOGGLE")

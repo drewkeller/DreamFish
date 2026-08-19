@@ -16,7 +16,8 @@ local DreamFish = {
                 moduleEnabled = true,
                 debug = false,
                 castBySingleRightClickWhenFishing = false,
-                easyStrike = true,
+                strikeByRightClick = true,
+                strikeByHotkey = true,
             },
         },
         char = {

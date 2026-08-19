@@ -216,7 +216,7 @@ end
 
 -- BUTTON2 lives on its own owner frame so it can be released without dropping the hotkey override.
 function Fishing:ArmRightClickStrike()
-    if InCombatLockdown() or not profileDB.easyStrike then return end
+    if InCombatLockdown() or not profileDB.strikeByRightClick then return end
     if not self:IsFishingState(ns.fishing.states.WAITING_FOR_BITE) then return end
     if IsMouseButtonDown("LeftButton") then return end
 
@@ -235,9 +235,10 @@ function Fishing:SuspendRightClickStrike()
 end
 
 function Fishing:ArmBobberInteractOverride()
-    if InCombatLockdown() or not profileDB.easyStrike then
+    if InCombatLockdown() or not (profileDB.strikeByRightClick or profileDB.strikeByHotkey) then
         self:Trace("EasyStrike", "override skipped: combat=" .. tostring(InCombatLockdown())
-            .. " enabled=" .. tostring(profileDB.easyStrike))
+            .. " rightClick=" .. tostring(profileDB.strikeByRightClick)
+            .. " hotkey=" .. tostring(profileDB.strikeByHotkey))
         return false
     end
 
@@ -251,19 +252,24 @@ function Fishing:ArmBobberInteractOverride()
 
     self:Trace("EasyStrike", "override hotkey1=" .. tostring(boundKeys[1] or "none") .. " hotkey2=" .. tostring(boundKeys[2] or "none"))
 
-    local applied = false
+    local hotkeyApplied = false
     ClearOverrideBindings(owner)
     -- set up hotkey(s) to interract with the bobber
-    for _, key in ipairs(boundKeys) do
-        if key and key ~= "" then
-            SetOverrideBinding(owner, true, key, "INTERACTTARGET")
-            applied = true
+    if profileDB.strikeByHotkey then
+        for _, key in ipairs(boundKeys) do
+            if key and key ~= "" then
+                SetOverrideBinding(owner, true, key, "INTERACTTARGET")
+                hotkeyApplied = true
+            end
         end
     end
     -- BUTTON2 is armed separately so mouse steering can reclaim it mid-cast.
 
+    local applied = hotkeyApplied or profileDB.strikeByRightClick
     if applied then
-        self:WatchStrikeKey(boundKeys[1])
+        if hotkeyApplied then
+            self:WatchStrikeKey(boundKeys[1])
+        end
         self:SetFishingState(ns.fishing.states.WAITING_FOR_BITE, "armed bobber interaction override")
         self:ArmRightClickStrike()
     end
@@ -352,7 +358,8 @@ end
 function Fishing:HandleBobberInteraction(reason)
     self:Trace("EasyStrike", "------------------- HandleBobberInteraction: input=" .. tostring(reason)
         .. " state=" .. tostring(ns.fishing.state.current)
-        .. " enabled=" .. tostring(profileDB.easyStrike))
+        .. " rightClick=" .. tostring(profileDB.strikeByRightClick)
+        .. " hotkey=" .. tostring(profileDB.strikeByHotkey))
     -- The player watches the bobber and strikes whenever it splashes, so any point during the cast is valid.
     local isInStateForStrike = ns.fishing.state.current == ns.fishing.states.WAITING_FOR_BITE
     if not isInStateForStrike or InCombatLockdown() then

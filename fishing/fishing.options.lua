@@ -15,13 +15,14 @@ ns.Fishing.Defaults = {
             traceMode = {},
             castByDoubleRightClick = true,
             castBySingleRightClickWhenFishing = false,
-            castByHotkey = false,
+            castByHotkey = true,
             castHotkeyKeybind = nil,
+            strikeByRightClick = false,
+            strikeByHotkey = true,
             selectedRaftToy = 0,
             selectedBobberToy = 0,
             useOversizedBobber = false,
             -- other
-            easyStrike = false,
             closeWindowOnEscape = true,
             lingerDuration = 10,
 		},
@@ -118,18 +119,32 @@ function Fishing:GetModuleOptions()
                     name = "Reeling triggers",
                     inline = true,
                     args = {
-                        easyStrike = self:AddOption({
+                        strikeByRightClick = self:AddOption({
                             type = "toggle",
-                            name = "EasyStrike (right click or use the hotkey)",
+                            name = "EasyStrike (right click)",
                             desc = "When the bobber indicates a bite, right click anywhere or use the hotkey to hook, play, and land the fish.",
+                            width = "full",
+                        }),
+                        strikeByRightClickNote = self:AddOption({
+                            type = "description",
+                            name = "      |c80999999Since this replaces the normal \"turn or action\" action on the|r\n"
+                                .. "      |c80999999right mouse button, it may be a bit awkward if you are used to|r\n"
+                                .. "      |c80999999using RMB to turn or start movement by pressing RMB first.|r\n"
+                                .. "      |c80999999However, you can still mouse-look using LMB and initiate movement|r\n"
+                                .. "      |c80999999by holding down LMB first and then RMB.|r",
+                        }),
+                        strikeByHotkey = self:AddOption({
+                            type = "toggle",
+                            name = "EasyStrike (hotkey)",
+                            desc = "Use a hotkey to hook, play, and land the fish when the bobber indicates a bite.",
                             width = "full",
                         }),
                         modeEasyStrikeNote = self:AddOption({
                             type = "description",
-                            name = "      Requirements:\n"
-                                .. "      1. Turn on \"Enable Interact Key\" (Game Options > Controls).\n"
-                                .. "      2. Set the \"Hotkey\" keybinding above.\n"
-                                .. "      3. Ensure another addon does not interfere while fishing.",
+                            name = "      |c80999999Requirements for either EasyStrike:|r\n"
+                                .. "      |c809999991. Turn on \"Enable Interact Key\" (Game Options > Controls).|r\n"
+                                .. "      |c809999992. Set the \"Hotkey\" keybinding above.|r\n"
+                                .. "      |c809999993. Ensure another addon does not interfere while fishing.|r",
                             width = "full",
                         }),
                     },
