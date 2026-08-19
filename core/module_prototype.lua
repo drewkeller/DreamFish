@@ -244,12 +244,17 @@ function ModulePrototype:GetOptionsTable()
     self.optionOrder = 0
     self.tabOrder = 0
 
-    for key, option in pairs(self:GetModuleOptions()) do
-        moduleOptions[key] = option
-    end
-
     local moduleEnabled = function()
         return self:IsModuleEnabled()
+    end
+
+    for _, option in pairs(moduleOptions) do
+        -- does not affect headings or description elements
+        option.disabled = option.disabled or not moduleEnabled()
+    end
+
+    for key, option in pairs(self:GetModuleOptions()) do
+        moduleOptions[key] = option
     end
 
     local args = {

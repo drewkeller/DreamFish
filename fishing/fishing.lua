@@ -243,7 +243,6 @@ function Fishing:ArmBobberInteractOverride()
     end
 
     -- arm EasyStrike by overriding the native INTERACTTARGET binding with a secure click on the fishing frame
-    --local owner = GetInteractOverrideFrame()
     local owner = self.clickFrame
     local boundKeys = { self.hotkey or profileDB.castHotkeyKeybind }
     if not boundKeys[1] or boundKeys[1] == "" then

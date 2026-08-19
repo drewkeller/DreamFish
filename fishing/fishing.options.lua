@@ -68,16 +68,38 @@ Fishing:Configure({
 	displayName = "Fishing",
 	dbKey = "fishing",
 	defaults = ns.Fishing.Defaults,
-	childGroups = "tab",
+	childGroups = "tree",
 })
 
 function Fishing:GetModuleOptions()
+    local function SelectPage(pageKey)
+        LibStub("AceConfigDialog-3.0"):SelectGroup(addonName, self.moduleConfig.dbKey, pageKey)
+    end
+
 	return {
+        openModesPage = {
+            type = "execute",
+            name = "Modes",
+            desc = "Open the Modes page.",
+            order = 40,
+            func = function() SelectPage("modesTab") end,
+            width = 0.85,
+            disabled = function() return not self:IsModuleEnabled() end,
+        },
+        openTacklePage = {
+            type = "execute",
+            name = "Tackle",
+            desc = "Open the Tackle page.",
+            order = 41,
+            func = function() SelectPage("tackleTab") end,
+            width = 0.85,
+            disabled = function() return not self:IsModuleEnabled() end,
+        },
         modesTab = self:AddTab({
             type = "group",
             name = "Modes",
             args = {
-                castingTriggers = {
+                castingTriggers = self:AddOption({
                     type = "group",
                     name = "Casting triggers",
                     inline = true,
@@ -113,12 +135,20 @@ function Fishing:GetModuleOptions()
                             width = 1.0,
                         }),
                     },
-                },
-                reelingTriggers = {
+                }),
+                reelingTriggers = self:AddOption({
                     type = "group",
-                    name = "Reeling triggers",
+                    name = "Reel/bobber triggers",
                     inline = true,
                     args = {
+                        modeEasyStrikeNote = self:AddOption({
+                            type = "description",
+                            name = "|c80999999  Requirements for either EasyStrike:|r\n"
+                                .. "|c80999999  1. Turn on \"Enable Interact Key\" (Game Options > Controls).|r\n"
+                                .. "|c80999999  2. Set the \"Hotkey\" keybinding above.|r\n"
+                                .. "|c80999999  3. Ensure another addon does not interfere while fishing.|r",
+                            width = "full",
+                        }),
                         strikeByRightClick = self:AddOption({
                             type = "toggle",
                             name = "EasyStrike (right click)",
@@ -127,11 +157,12 @@ function Fishing:GetModuleOptions()
                         }),
                         strikeByRightClickNote = self:AddOption({
                             type = "description",
-                            name = "      |c80999999Since this replaces the normal \"turn or action\" action on the|r\n"
-                                .. "      |c80999999right mouse button, it may be a bit awkward if you are used to|r\n"
-                                .. "      |c80999999using RMB to turn or start movement by pressing RMB first.|r\n"
-                                .. "      |c80999999However, you can still mouse-look using LMB and initiate movement|r\n"
-                                .. "      |c80999999by holding down LMB first and then RMB.|r",
+                            name = "      |c80999999Since this replaces the normal \"turn or action\" action|r\n"
+                                .. "      |c80999999on the right mouse button, it may be a bit awkward if you|r\n"
+                                .. "      |c80999999are used to using RMB to turn or start movement by|r\n"
+                                .. "      |c80999999pressing RMB first.|r\n"
+                                .. "      |c80999999However, you can still mouse-look using LMB and initiate|r\n"
+                                .. "      |c80999999movement by holding down LMB first and then RMB.|r",
                         }),
                         strikeByHotkey = self:AddOption({
                             type = "toggle",
@@ -139,16 +170,13 @@ function Fishing:GetModuleOptions()
                             desc = "Use a hotkey to hook, play, and land the fish when the bobber indicates a bite.",
                             width = "full",
                         }),
-                        modeEasyStrikeNote = self:AddOption({
-                            type = "description",
-                            name = "      |c80999999Requirements for either EasyStrike:|r\n"
-                                .. "      |c809999991. Turn on \"Enable Interact Key\" (Game Options > Controls).|r\n"
-                                .. "      |c809999992. Set the \"Hotkey\" keybinding above.|r\n"
-                                .. "      |c809999993. Ensure another addon does not interfere while fishing.|r",
-                            width = "full",
-                        }),
                     },
-                },
+                }),
+                spacer = self:AddOption({
+                    type = "description",
+                    name = " ",
+                    fontSize = "small",
+                }),
                 lingerDuration = self:AddOption({
                     type = "range",
                     name = "Linger duration",

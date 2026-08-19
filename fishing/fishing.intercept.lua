@@ -296,6 +296,7 @@ end
 
 -- The strike hotkey is bound straight to INTERACTTARGET, so it never reaches PreClick;
 -- this propagating listener is the only way to observe that the player pressed it.
+-- It doesn't consume the key (the INTERACTTARGET override still runs), it just traces strike key.
 function Fishing:WatchStrikeKey(key)
     if not key or key == "" then return end
 
