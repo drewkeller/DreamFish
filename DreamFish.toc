@@ -27,6 +27,7 @@ Libs/AceTimer-3.0/AceTimer-3.0.xml
 core/init.lua
 core/defaults.lua
 core/utils.lua
+core/utils.audio.lua
 core/utils.toys.lua
 core/module_prototype.lua
 # core/module_api.lua

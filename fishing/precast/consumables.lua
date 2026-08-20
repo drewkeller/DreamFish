@@ -69,7 +69,7 @@ GetNextCastableDueBuffItem = function()
 
         if IsLureCategory(category) and (not IsFishingPoleEquippedInProfessionSlot()) then
             WarnMissingProfessionFishingPoleForLure()
-            DreamFish:Debug("Skipping lure due buff; no fishing pole equipped in profession slot")
+            DreamFish:Alert("Skipping lure due buff; no fishing pole equipped in profession slot")
             excludedBuffItemIDs[candidateItemID] = true
         else
             return candidateItemID, hadUnavailableDueBuff, category

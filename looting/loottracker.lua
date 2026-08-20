@@ -17,8 +17,6 @@ local skipNextBagUpdate = false
 local skipNextCurrencyUpdate = false
 
 function LootTracker:OnModuleInitialize()
-    self:Debug("Initializing")
-
     ns.LootTrackerDB = self.db
 
     globalDB = ns.LootTrackerDB.global

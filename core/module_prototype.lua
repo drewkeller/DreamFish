@@ -133,7 +133,6 @@ function ModulePrototype:OnInitialize()
     if self.pendingTraceSources then
         for _, source in ipairs(self.pendingTraceSources) do
             self:RegisterTraceSource(source)
-            self:Debug("Adding trace source '" .. source .. "' from pending list")
         end
         self.pendingTraceSources = nil
     end
@@ -146,8 +145,6 @@ function ModulePrototype:OnInitialize()
 end
 
 function ModulePrototype:OnEnable()
-    self:Debug("Enabling")
-
     if self.OnModuleEnable then
         self:OnModuleEnable()
     end
@@ -157,8 +154,6 @@ function ModulePrototype:OnDisable()
     if self.OnModuleDisable then
         self:OnModuleDisable()
     end
-
-    self:Debug("Disabled")
 end
 
 function ModulePrototype:GetStandardModuleOptions()

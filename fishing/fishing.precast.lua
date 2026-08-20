@@ -11,6 +11,8 @@ end
 ns.FishingInitializers = ns.FishingInitializers or {}
 table.insert(ns.FishingInitializers, Initialize)
 
+Fishing:RegisterTraceSource("precast")
+
 local DUE_BUFF_CATEGORY_ORDER = { "food_drink", "lure", "bait", "bobber", "other_consumable" }
 
 function Fishing:ResolveBobberApplyAction()
@@ -88,7 +90,7 @@ GetNextReadyDueBuffItem = function(seedExcludedBuffItemIDs)
 
     -- for _, category in ipairs(DUE_BUFF_CATEGORY_ORDER) do
     --     if category == "bait" and HasAnyActiveBaitAura() then
-    --         DreamFish:Debug("Skipping bait category pass: active bait aura detected")
+    --         DreamFish:Trace("buffs", "Skipping bait category pass: active bait aura detected")
     --     else
     --         local candidateItemID, unavailableInCategory = GetNextReadyDueBuffItemForCategory(category, excludedBuffItemIDs)
     --         hadUnavailableDueBuff = hadUnavailableDueBuff or unavailableInCategory
@@ -111,11 +113,11 @@ local function FinalizeSecureFishingAction(fishingFrame, macroLines, raftExclusi
         fishingFrame:SetAttribute("macrotext", table.concat(macroLines, "\n"))
         fishingFrame:SetAttribute("spell", nil)
         if raftExclusiveWhileSwimming then
-            DreamFish:Debug("Fishing click configured as raft-only pre-cast")
+            Fishing:Trace("precast", "Configured as raft-only pre-cast")
         elseif not castArmed then
-            DreamFish:Debug("Fishing click configured with pre-cast item usage; cast will arm on next click")
+            Fishing:Trace("precast", "Configured with pre-cast item usage; cast not armed yet")
         else
-            DreamFish:Debug("Fishing click configured with pre-cast items before Fishing")
+            Fishing:Trace("precast", "Configured with pre-cast items on same-click cast")
         end
         return true
     end
@@ -123,24 +125,6 @@ local function FinalizeSecureFishingAction(fishingFrame, macroLines, raftExclusi
     fishingFrame:SetAttribute("type", "spell")
     fishingFrame:SetAttribute("spell", "Fishing")
     fishingFrame:SetAttribute("macrotext", nil)
-    -- if bobberDecision.hasToy and bobberDecision.mounted then
-    --     DreamFish:Debug("Skipping bobber toy while mounted: " .. DreamFish:GetDebugItemLabel(bobberDecision.toyID))
-    -- elseif bobberDecision.hasToy and bobberDecision.swimming then
-    --     DreamFish:Debug("Skipping bobber toy while swimming: " .. DreamFish:GetDebugItemLabel(bobberDecision.toyID))
-    -- elseif bobberDecision.hasToy and bobberDecision.auraRemaining and not bobberDecision.needsRefreshForCast then
-    --     DreamFish:Debug("Skipping bobber reapply; aura covers cast: "
-    --         .. DreamFish:GetDebugItemLabel(bobberDecision.toyID)
-    --         .. " auraRemaining=" .. string.format("%.1fs", bobberDecision.auraRemaining))
-    -- elseif bobberDecision.hasToy and not bobberDecision.ready and bobberDecision.needsRefreshForCast then
-    --     DreamFish:Debug("Skipping bobber toy on cooldown: "
-    --         .. DreamFish:GetDebugItemLabel(bobberDecision.toyID) .. " " .. DreamFish:GetDebugCooldownText(bobberDecision.toyID))
-    --     DreamFish:Debug("Fishing click configured as spell cast only")
-    -- elseif bobberDecision.hasToy then
-    --     DreamFish:Debug("Fishing click configured as spell cast only; bobber not auto-used in current state: "
-    --         .. DreamFish:GetDebugItemLabel(bobberDecision.toyID))
-    -- else
-    --     DreamFish:Debug("Fishing click configured as spell cast only")
-    -- end
     return true
 end
 
@@ -169,25 +153,25 @@ ConfigureFishingClickAction = function()
     if raftDecision.shouldApply then
         InsertUseItemMacroLine(macroLines, raftDecision.toyID)
         hasItemUseAction = true
-        DreamFish:Debug("Fishing click will apply raft: "
+        Fishing:Trace("precast", "Configured raft: "
             .. DreamFish:GetDebugItemLabel(raftDecision.toyID) .. " " .. DreamFish:GetDebugCooldownText(raftDecision.toyID))
         if raftDecision.swimming then
             raftExclusive = true
-            DreamFish:Debug("Raft needed while swimming; skipping other pre-cast items this click")
+            DreamFish:Trace("precast", "Raft needed while swimming; skipping other pre-cast items this click")
         end
     end
 
     -- Pole
     if (not raftExclusive) and poleDecision.shouldApply then
         InsertEquipItemMacroLine(macroLines, poleDecision.itemID)
-        DreamFish:Debug("Fishing click will equip configured fishing pole: "
+        Fishing:Trace("precast", "Configured fishing pole: "
             .. DreamFish:GetDebugItemLabel(poleDecision.itemID))
     end
 
     -- Underlight Angler
     if (not raftExclusive) and underlightDecision.shouldEquip then
         InsertEquipItemMacroLine(macroLines, underlightDecision.itemID)
-        DreamFish:Debug("Fishing click will equip Underlight Angler: "
+        Fishing:Trace("precast", "Configured Underlight Angler: "
             .. DreamFish:GetDebugItemLabel(underlightDecision.itemID))
     end
 
@@ -195,7 +179,7 @@ ConfigureFishingClickAction = function()
     if (not raftExclusive) and (not hasItemUseAction) and bobberDecision.shouldApply then
         InsertUseItemMacroLine(macroLines, bobberDecision.toyID)
         hasItemUseAction = true
-        DreamFish:Debug("Fishing click will apply bobber: "
+        Fishing:Trace("precast", "Configured bobber: "
             .. DreamFish:GetDebugItemLabel(bobberDecision.toyID) .. " " .. DreamFish:GetDebugCooldownText(bobberDecision.toyID))
     end
 
@@ -203,7 +187,7 @@ ConfigureFishingClickAction = function()
     if (not raftExclusive) and (not hasItemUseAction) and oversizedDecision.shouldApply then
         InsertUseItemMacroLine(macroLines, oversizedDecision.toyID)
         hasItemUseAction = true
-        DreamFish:Debug("Fishing click will apply oversized bobber")
+        Fishing:Trace("precast", "Configured oversized bobber")
     end
 
     -- Buff item
@@ -216,7 +200,7 @@ ConfigureFishingClickAction = function()
             if dueBuffCategory == "lure" then
                 table.insert(macroLines, "/use 28") -- apply lure to fishing profession equipment slot
             end
-            DreamFish:Debug("Fishing click will apply due buff: "
+            Fishing:Trace("precast", "Configured due buff (" .. tostring(dueBuffCategory) .. "): "
                 .. DreamFish:GetDebugItemLabel(dueBuffItemID) .. " " .. DreamFish:GetDebugCooldownText(dueBuffItemID))
         end
     else

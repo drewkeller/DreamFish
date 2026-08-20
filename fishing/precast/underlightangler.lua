@@ -73,13 +73,13 @@ local function EquipUnderlightAnglerAfterFishing(reason)
         if ClearCursor then
             ClearCursor()
         end
-        Fishing:Debug("Equipping Underlight Angler after fishing cancellation: " .. tostring(reason))
+        Fishing:Trace("underlight", "Equipping Underlight Angler after fishing cancellation: " .. tostring(reason))
         return true
     end
 
     if C_Item.EquipItemByName then
         C_Item.EquipItemByName("item:" .. itemID, 28)
-        Fishing:Debug("Equipping Underlight Angler after fishing cancellation: " .. tostring(reason))
+        Fishing:Trace("underlight", "Equipping Underlight Angler after fishing cancellation: " .. tostring(reason))
         return true
     end
 

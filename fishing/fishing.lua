@@ -8,9 +8,10 @@ local rightClickStrikeOwner
 
 Fishing:RegisterTraceSource("EasyStrike")
 Fishing:RegisterTraceSource("aura")
+Fishing:RegisterTraceSource("hotkey")
+Fishing:RegisterTraceSource("loot")
 
 function Fishing:OnModuleInitialize()
-	self:Debug("Initializing")
     -- access the database within "Fishing" functions using self.db
     -- In local functions, use ns.FishingDB
     ns.FishingDB = self.db
@@ -26,15 +27,12 @@ end
 function Fishing:OnModuleEnable()
     self:RegisterTackleWindowTab()
     self:CreateClickFrame()
-    self:RegisterEvent("PLAYER_REGEN_ENABLED",         "UpdateKeybindsAfterCombat")
-    self:RegisterEvent("PLAYER_REGEN_DISABLED",        "CancelFishingForCombat")
-    self:RegisterEvent("PLAYER_STARTED_MOVING",        "CancelFishingForMovement")
-    self:RegisterEvent("PLAYER_MOUNT_DISPLAY_CHANGED", "CancelFishingForMount")
-    self:RegisterEvent("UNIT_SPELLCAST_START",         "HandleFishingSpellcast")
-    self:RegisterEvent("UNIT_SPELLCAST_CHANNEL_START", "HandleFishingSpellcast")
-    self:RegisterEvent("UNIT_SPELLCAST_SUCCEEDED",     "HandleFishingSpellcast")
-    self:RegisterEvent("UNIT_SPELLCAST_STOP",          "HandleFishingSpellcastFinished")
-    self:RegisterEvent("UNIT_SPELLCAST_CHANNEL_STOP",  "HandleFishingSpellcastFinished")
+    self:RegisterEvent("PLAYER_REGEN_ENABLED",         "OnCombatEnded")
+    self:RegisterEvent("PLAYER_REGEN_DISABLED",        "OnCombatStarted")
+    self:RegisterEvent("PLAYER_STARTED_MOVING",        "OnMovementStarted")
+    self:RegisterEvent("PLAYER_MOUNT_DISPLAY_CHANGED", "OnMountDisplayChanged")
+    self:RegisterEvent("UNIT_SPELLCAST_SUCCEEDED",     "OnSpellcastChannelStarted")
+    self:RegisterEvent("UNIT_SPELLCAST_CHANNEL_STOP",  "OnSpellcastChannelEnded")
     self:RegisterEvent("PLAYER_EQUIPMENT_CHANGED",     "OnEquipmentChanged")
     self:RegisterEvent("UNIT_AURA",                    "OnAurasChanged")
     self:RegisterEvent("LOOT_READY",                   "OnLootReady")
@@ -59,7 +57,6 @@ function Fishing:OnModuleDisable()
     self:UnregisterEvent("LOOT_READY")
     self:UnregisterEvent("LOOT_CLOSED")
     --self:UnregisterEvent("BAG_UPDATE_DELAYED")
-    self:Debug("Removing click frame (module disabled)")
     self:RemoveClickFrame()
 end
 
@@ -111,11 +108,11 @@ function Fishing:OnAurasChanged(event, unit, updateInfo)
         self:PrepareFishingClickAction()
     end
     if not updateInfo then
-        self:Debug("OnAurasChanged: no updateInfo provided")
+        self:Trace("aura", "OnAurasChanged: no updateInfo provided")
         return
     end
     if updateInfo.isFullUpdate == true then
-        self:Debug("Full aura update detected")
+        self:Trace("aura", "Full aura update detected")
         return
     end
 
@@ -137,22 +134,21 @@ function Fishing:OnAurasChanged(event, unit, updateInfo)
     end
 
     if not hasAddedAuras and not hasRemovedAuras then
-        self:Debug("No known fishing aura changes detected")
+        self:Trace("aura", "No known fishing aura changes detected")
     end
 end
 
-function Fishing:OnEquipmentChanged(event, unit)
-    if type(unit) == "string" and unit ~= "player" then
-        return
+function Fishing:OnEquipmentChanged(event, slotId)
+    if slotId == FISHINGTOOLSLOT then
+        self:Trace("pole", "Fishing pole changed")
+        -- if hotkey cast fishing pole, prepare it again
+        if self:IsFishingState(ns.fishing.states.IDLE)
+            or self:IsFishingState(ns.fishing.states.PRECASTING)
+            or self:IsFishingState(ns.fishing.states.LINGERING) then
+            self:PrepareFishingClickAction()
+        end
+        self:RefreshPoleBorders()
     end
-    -- if hotkey cast fishing pole, prepare it again
-    if self:IsFishingState(ns.fishing.states.IDLE)
-        or self:IsFishingState(ns.fishing.states.PRECASTING)
-        or self:IsFishingState(ns.fishing.states.LINGERING) then
-        self:PrepareFishingClickAction()
-    end
-    self:RefreshPoleBorders()
-    self:Debug("Equipment changed")
 end
 
 function Fishing:OnLootReady(event)
@@ -165,7 +161,7 @@ function Fishing:OnLootReady(event)
         or current == ns.fishing.states.CASTING
 
     if isStrikeResult then
-        self:Debug("Loot window ready")
+        self:Trace("loot", "Loot window ready")
         self:StopWatchingStrikeKey()
         self:SendMessage("FISHING_LOOT_READY")
         self:SetFishingState(ns.fishing.states.LOOTING, "loot window ready")
@@ -174,7 +170,7 @@ end
 
 function Fishing:OnLootClosed(event)
     if ns.fishing.state.current == ns.fishing.states.LOOTING then
-        self:Debug("Loot window closed")
+        self:Trace("loot", "Loot window closed")
         self:SendMessage("FISHING_LOOT_CLOSED")
         self:StartLinger()
     end
@@ -214,17 +210,21 @@ function Fishing:CancelFishingSession(reason)
     self:EndFishingSession("cancelled: " .. tostring(reason))
 end
 
-function Fishing:CancelFishingForCombat()
+function Fishing:OnCombatStarted()
     if not self:IsInFishingSession() then return end
-    self:CancelFishingSession("combat")
+    self:CancelFishingSession("combat started")
 end
 
-function Fishing:CancelFishingForMovement()
-    if not self:IsInFishingSession() then return end
-    self:CancelFishingSession("movement")
+function Fishing:OnCombatEnded()
+    self:UpdateKeybindsAfterCombat()
 end
 
-function Fishing:CancelFishingForMount()
+function Fishing:OnMovementStarted()
+    if not self:IsInFishingSession() then return end
+    self:CancelFishingSession("movement started")
+end
+
+function Fishing:OnMountDisplayChanged()
     if not self:IsInFishingSession() then return end
     if IsMounted() then
         self:CancelFishingSession("mounted")
@@ -309,7 +309,7 @@ function Fishing:ClearBobberInteractOverride()
     self:SuspendRightClickStrike()
 end
 
-function Fishing:HandleFishingSpellcast(event, unit, ...)
+function Fishing:OnSpellcastChannelStarted(event, unit, ...)
     if unit ~= "player" then
         return
     end
@@ -331,15 +331,12 @@ function Fishing:HandleFishingSpellcast(event, unit, ...)
     self:ArmBobberInteractOverride()
 end
 
-function Fishing:HandleFishingSpellcastFinished(event, unit, ...)
+function Fishing:OnSpellcastChannelEnded(event, unit, ...)
     if unit ~= "player" then
         return
     end
     if not self:IsInFishingSession() then return end
 
-    --self:Debug(event .. " detected for Fishing spellcast finished")
-
-    -- args are (castGUID, spellID, ...); some events add extra trailing numeric args, so don't scan for "any number"
     local _, spellID = ...
 
     local isFishingSpell = spellID == ns.fishing.const.fishingSpellID or spellID == 131476
@@ -364,9 +361,6 @@ function Fishing:HandleFishingSpellcastFinished(event, unit, ...)
                 .. " state=" .. (self:CurrentStateName()) )
             self:CancelFishingSession("cast ended for unknown reason")
         end
-    else
-        self:Debug("Non-fishing spell? spellID=" .. tostring(spellID)
-            .. " state=" .. (self:CurrentStateName()))
     end
 end
 
@@ -375,7 +369,6 @@ function Fishing:OnCastStarted(reason)
     self:SendMessage("FISHING_CAST_STARTED")
     self:PrepareFishingClickAction()
     self:StartMouseButtonWatch()
-    self:Debug("OnCastStarted: " .. tostring(reason))
 
     -- Set the secure action to trigger on right-clicks of the secure frame.
     -- The secure frame is shown when the player right-clicks, so the current click release will trigger the secure action.
