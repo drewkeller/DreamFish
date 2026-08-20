@@ -33,39 +33,44 @@ LootTracker:Configure({
     displayName = "Loot Tracker",
     dbKey = "lootTracker",
     defaults = ns.LootTracker.Defaults,
+    showEnableOption = false,
+    childGroups = "tree",
 })
 
 function LootTracker:GetModuleOptions()
     return {
-        showWindowOnStartup = {
-            order = 40,
-            type = "toggle",
-            name = "Show loot tracker on login",
-            desc = "Automatically displays the tracker frame canvas when you log into the character.",
-            width = "full",
-        },
-        minQualityFilter = {
-            order = 50,
-            type = "select",
-            name = "Minimum quality filter",
-            desc = "Filters your text layout view logs based on item rarity rankings.",
-            width = 3,
-            values = {
-                [0] = "|cFF9d9d9dPoor (Gray)|r",
-                [1] = "|cFFFFFFFFCommon (White)|r",
-                [2] = "|cFF1eff00Uncommon (Green)|r",
-                [3] = "|cFF0070ddRare (Blue)|r",
-                [4] = "|cFFa335eeEpic (Purple)|r",
-            },
-        },
-        toggleUiButton = {
-            order = 60,
-            type = "execute",
-            name = "Toggle Tracker Window",
-            width = 2,
-            func = function()
-                self:ToggleTrackerWindow()
-            end,
-        },
+        windowTab = self:AddTab({
+            type = "group",
+            name = "Window",
+            args = {
+                showWindowOnStartup = self:AddOption({
+                    type = "toggle",
+                    name = "Show loot tracker on login",
+                    desc = "Automatically displays the tracker frame canvas when you log into the character.",
+                    width = "full",
+                }),
+                minQualityFilter = self:AddOption({
+                    type = "select",
+                    name = "Minimum quality filter",
+                    desc = "Filters your text layout view logs based on item rarity rankings.",
+                    width = 3,
+                    values = {
+                        [0] = "|cFF9d9d9dPoor (Gray)|r",
+                        [1] = "|cFFFFFFFFCommon (White)|r",
+                        [2] = "|cFF1eff00Uncommon (Green)|r",
+                        [3] = "|cFF0070ddRare (Blue)|r",
+                        [4] = "|cFFa335eeEpic (Purple)|r",
+                    },
+                }),
+                toggleUiButton = self:AddOption({
+                    type = "execute",
+                    name = "Toggle Tracker Window",
+                    width = 2,
+                    func = function()
+                        self:ToggleTrackerWindow()
+                    end,
+                }),
+            }
+        }),
     }
 end

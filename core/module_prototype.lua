@@ -160,60 +160,68 @@ function ModulePrototype:GetStandardModuleOptions()
     local config = self.moduleConfig
 
     return {
-        header = {
-            order = 10,
-            type = "header",
-            name = config.displayName,
-        },
-        debug = {
-            order = 20,
-            type = "toggle",
-            name = "Debug mode",
-            desc = "Enables debug output for the " .. config.displayName .. " module.",
-            get = function()
-                return self.db.profile.debug
-            end,
-            set = function(_, value)
-                self.db.profile.debug = value
-                local state = value and "|cFF00FF00ON|r" or "|cFFFF0000OFF|r"
-                DreamFish:Print(config.displayName .. " debug mode is now " .. state .. ".")
-            end,
-        },
-        traceGroup = {
-            order = 25,
+        -- header = {
+        --     order = 10,
+        --     type = "header",
+        --     name = config.displayName,
+        -- },
+        debugTab = {
+            order = 999,
             type = "group",
-            name = "Trace sources",
-            inline = true,
-            args = (function()
-                if not self.db or not self.db.profile or not self.db.profile.traceMode then
-                    return {}
-                end
-                local traceArgs = {}
-                for source, _ in pairs(self.db.profile.traceMode) do
-                    traceArgs[source] = {
-                        order = 1,
-                        type = "toggle",
-                        name = source,
-                        desc = "Enables trace output for the " .. source .. " trace source.",
-                        get = function()
-                            return self.db.profile.traceMode[source]
-                        end,
-                        set = function(_, value)
-                            self.db.profile.traceMode[source] = value
-                            local state = value and "|cFF00FF00ON|r" or "|cFFFF0000OFF|r"
-                            DreamFish:Print(config.displayName .. " trace source '" .. source .. "' is now " .. state .. ".")
-                        end,
-                    }
-                end
-                return traceArgs
-            end)(),
+            name = "Debug",
+            inline = false,
+            args = {
+                debug = {
+                    order = 20,
+                    type = "toggle",
+                    name = "Debug mode",
+                    desc = "Enables debug output for the " .. config.displayName .. " module.",
+                    get = function()
+                        return self.db.profile.debug
+                    end,
+                    set = function(_, value)
+                        self.db.profile.debug = value
+                        local state = value and "|cFF00FF00ON|r" or "|cFFFF0000OFF|r"
+                        DreamFish:Print(config.displayName .. " debug mode is now " .. state .. ".")
+                    end,
+                },
+                traceGroup ={
+                    order = 99,
+                    type = "group",
+                    name = "Trace sources",
+                    inline = true,
+                    args = (function()
+                        if not self.db or not self.db.profile or not self.db.profile.traceMode then
+                            return {}
+                        end
+                        local traceArgs = {}
+                        for source, _ in pairs(self.db.profile.traceMode) do
+                            traceArgs[source] = {
+                                order = 1,
+                                type = "toggle",
+                                name = source,
+                                desc = "Enables trace output for the " .. source .. " trace source.",
+                                get = function()
+                                    return self.db.profile.traceMode[source]
+                                end,
+                                set = function(_, value)
+                                    self.db.profile.traceMode[source] = value
+                                    local state = value and "|cFF00FF00ON|r" or "|cFFFF0000OFF|r"
+                                    DreamFish:Print(config.displayName .. " trace source '" .. source .. "' is now " .. state .. ".")
+                                end,
+                            }
+                        end
+                        return traceArgs
+                    end)(),
+                },
+            }
         },
-        spacer = {
-            order = 30,
-            type = "description",
-            name = " ",
-            fontSize = "small",
-        },
+        -- spacer = {
+        --     order = 30,
+        --     type = "description",
+        --     name = " ",
+        --     fontSize = "small",
+        -- },
     }
 end
 
@@ -252,8 +260,10 @@ function ModulePrototype:GetOptionsTable()
         moduleOptions[key] = option
     end
 
-    local args = {
-        moduleEnabled = {
+    local args = {}
+
+    if config.showEnableOption ~= false then
+        args.moduleEnabled = {
             order = 0,
             type = "toggle",
             name = "Enable " .. config.displayName,
@@ -262,8 +272,8 @@ function ModulePrototype:GetOptionsTable()
             set = function(_, value)
                 self:SetModuleEnabled(value)
             end,
-        },
-    }
+        }
+    end
 
     if config.childGroups then
         for key, option in pairs(moduleOptions) do

@@ -2,16 +2,48 @@
 local addonName, ns = ...
 local DreamFish = ns.DreamFish
 
+local function RefreshConfigUI()
+    LibStub("AceConfigRegistry-3.0"):NotifyChange(addonName)
+end
+
 function DreamFish:OnInitialize()
     self.db = LibStub("AceDB-3.0"):New("DreamFishDB", ns.DatabaseDefaults, true)
+
+    -- Generate profile options table and register it
+    self.profileOptions = LibStub("AceDBOptions-3.0"):GetOptionsTable(self.db)
+    LibStub("AceConfig-3.0"):RegisterOptionsTable(addonName .. "_Profile", self.profileOptions)
+
     -- Register a function ref (not a pre-built table) so the options are rebuilt fresh each time the
     -- dialog opens, after module modules have finished OnInitialize and registered their trace sources.
     LibStub("AceConfig-3.0"):RegisterOptionsTable(addonName, function()
         return ns:GetOptionsTable()
     end)
+
+    -- Add config options to the Blizzard interface options dialog
     self.optionsFrame, self.optionsCategoryID = LibStub("AceConfigDialog-3.0"):AddToBlizOptions(addonName, addonName)
 
+    local Fishing = DreamFish:GetModule("Fishing")
+    local LootTracker = DreamFish:GetModule("LootTracker")
+
+    LibStub("AceConfig-3.0"):RegisterOptionsTable(addonName .. "_Fishing", function()
+        return Fishing:GetOptionsTable()
+    end)
+    LibStub("AceConfig-3.0"):RegisterOptionsTable(addonName .. "_LootTracker", function()
+        return LootTracker:GetOptionsTable()
+    end)
+
+    LibStub("AceConfigDialog-3.0"):AddToBlizOptions(addonName .. "_Fishing", "Fishing", addonName)
+    LibStub("AceConfigDialog-3.0"):AddToBlizOptions(addonName .. "_LootTracker", "Loot Tracker", addonName)
+
+    -- Nest the Profiles pane as a subcategory directly under your main menu
+    LibStub("AceConfigDialog-3.0"):AddToBlizOptions(addonName .. "_Profile", "Profiles", addonName)
+
+
     self:Print("Loaded profile: " .. self.db:GetCurrentProfile())
+
+    self.db.RegisterCallback("DreamFish", "OnProfileChanged", RefreshConfigUI)
+    self.db.RegisterCallback("DreamFish", "OnProfileCopied", RefreshConfigUI)
+    self.db.RegisterCallback("DreamFish", "OnProfileReset", RefreshConfigUI)
 end
 
 function DreamFish:OnEnable()

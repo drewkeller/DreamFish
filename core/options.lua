@@ -8,17 +8,6 @@ function ns:GeneralOptions()
         name = "General",
         type = "group",
         args = {
-            header = {
-                type = "header",
-                name = "General Settings",
-                order = 0,
-            },
-            spacer = {
-                type = "description",
-                name = " ",
-                order = 1,
-                fontSize = "small",
-            },
             debugMode = {
                 type = "toggle",
                 name = "Enable Debug Mode",
@@ -35,33 +24,74 @@ function ns:GeneralOptions()
                     end
                 end,
             },
+            spacer = {
+                order = 5,
+                type = "description",
+                name = " ",
+                fontSize = "small",
+            },
+            modulesGroup = {
+                type = "group",
+                name = "Modules",
+                order = 10,
+                inline = true,
+                args = {
+                    fishingEnabled = {
+                        type = "toggle",
+                        name = "Enable Fishing",
+                        desc = "Enables the Fishing module.",
+                        order = 2,
+                        width = "full",
+                        get = function()
+                            return Fishing:IsModuleEnabled()
+                        end,
+                        set = function(_, value)
+                            Fishing:SetModuleEnabled(value)
+                        end,
+                    },
+                    lootTrackerEnabled = {
+                        type = "toggle",
+                        name = "Enable Loot Tracker",
+                        desc = "Enables the Loot Tracker module.",
+                        order = 3,
+                        width = "full",
+                        get = function()
+                            return LootTracker:IsModuleEnabled()
+                        end,
+                        set = function(_, value)
+                            LootTracker:SetModuleEnabled(value)
+                        end,
+                    },
+                }
+            },
         }
     }
     return options
 end
 -- Keeping it inside a function prevents it from occupying memory before initialization
 function ns:GetOptionsTable()
-    local options = {
-        name = "DreamFish",
-        type = "group",
-        args = {
-            general = ns:GeneralOptions(),
-            fishing = Fishing:GetOptionsTable(),
-            lootTracker = LootTracker:GetOptionsTable(),
-        }
-    }
+    return ns:GeneralOptions()
+    -- local options = {
+    --     name = "DreamFish",
+    --     type = "group",
+    --     args = {
+    --         general = ns:GeneralOptions(),
+    --         -- fishing = Fishing:GetOptionsTable(),
+    --         -- lootTracker = LootTracker:GetOptionsTable(),
+    --     }
+    -- }
 
-    local layoutSequence = {
-        "general",
-        "fishing",
-        "lootTracker"
-    }
+    -- local layoutSequence = {
+    --     "general",
+    --     "fishing",
+    --     "lootTracker"
+    -- }
 
-    for index, key in ipairs(layoutSequence) do
-        if options.args[key] then
-            options.args[key].order = index * 10
-        end
-    end
+    -- for index, key in ipairs(layoutSequence) do
+    --     if options.args[key] then
+    --         options.args[key].order = index * 10
+    --     end
+    -- end
 
-    return options
+    -- return options
 end

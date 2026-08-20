@@ -68,6 +68,7 @@ Fishing:Configure({
 	dbKey = "fishing",
 	defaults = ns.Fishing.Defaults,
 	childGroups = "tree",
+    showEnableOption = false,
 })
 
 function Fishing:GetModuleOptions()
@@ -76,24 +77,6 @@ function Fishing:GetModuleOptions()
     end
 
 	return {
-        openModesPage = {
-            type = "execute",
-            name = "Modes",
-            desc = "Open the Modes page.",
-            order = 40,
-            func = function() SelectPage("modesTab") end,
-            width = 0.85,
-            disabled = function() return not self:IsModuleEnabled() end,
-        },
-        openTacklePage = {
-            type = "execute",
-            name = "Tackle",
-            desc = "Open the Tackle page.",
-            order = 41,
-            func = function() SelectPage("tackleTab") end,
-            width = 0.85,
-            disabled = function() return not self:IsModuleEnabled() end,
-        },
         modesTab = self:AddTab({
             type = "group",
             name = "Modes",
@@ -301,9 +284,14 @@ function Fishing:BuildPolesTab(content)
 
     local instructions = content:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
     instructions:SetPoint("TOPLEFT", content, "TOPLEFT", 0, 0)
-    instructions:SetText("Drag a pole from your bags into the boxes below.\n\nModes:\n• Auto-swap: Check both boxes (swap occurs when starting/stopping fishing)\n• Single-pole: Only check one box.\n• Manual: Leave both boxes unchecked.")
+    instructions:SetText("Modes:\n"
+        .. "• Auto-swap: Check both boxes \n"
+        .. "   (swap occurs when starting/stopping fishing)\n"
+        .. "• Single-pole: Only check one box.\n"
+        .. "• Manual: Leave both boxes unchecked.")
     instructions:SetWidth(500)
     instructions:SetJustifyH("LEFT")
+    instructions:SetTextColor(0.8, 0.8, 0.8, 1.0)
 
     local function IsUnderlightAnglerItemID(itemID)
         return tonumber(itemID) == tonumber(ns.fishing.const.underlightAnglerItemID)
@@ -350,12 +338,12 @@ function Fishing:BuildPolesTab(content)
     end
 
     local leftColumn = CreateFrame("Frame", nil, content)
-    leftColumn:SetSize(200, 200)
-    leftColumn:SetPoint("TOPLEFT", content, "TOPLEFT", 0, -100)
+    leftColumn:SetSize(100, 60)
+    leftColumn:SetPoint("TOPLEFT", content, "TOPLEFT", 10, -80)
 
     local rightColumn = CreateFrame("Frame", nil, content)
-    rightColumn:SetSize(200, 200)
-    rightColumn:SetPoint("TOPLEFT", content, "TOPLEFT", 250, -100)
+    rightColumn:SetSize(100, 60)
+    rightColumn:SetPoint("TOPLEFT", content, "TOPLEFT", 120, -80)
 
     local poleBox, poleCheckbox, setPoleItemID, updatePoleBorder = ns.ui.CreateItemDropBox(
         charDB, "primaryPole", leftColumn, 0, 0, "Fishing Pole:", nil, nil
@@ -484,4 +472,10 @@ function Fishing:RegisterTackleWindowTab()
         order = 1,
         build = function(content) self:BuildPolesTab(content) end,
     })
+    -- ns.ui.TackleWindow:RegisterTab({
+    --     id = "buffs",
+    --     title = "Buffs",
+    --     order = 2,
+    --     --build = function(content) self:BuildBuffsTab(content) end,
+    -- })
 end

@@ -114,8 +114,7 @@ function TackleWindow:RefreshTabs()
         previous = tab.button
     end
 
-    -- Hide the tab strip when there is only one tab to show
-    window.tabStrip:SetShown(#self.tabs > 1)
+    window.tabStrip:Show()
 
     if not self.activeTabId and self.tabs[1] then
         self:SelectTab(self.tabs[1].id)
