@@ -231,14 +231,6 @@ function Fishing:CancelFishingForMount()
     end
 end
 
-function Fishing:ClearBobberInteractOverride()
-    if self.clickFrame and not InCombatLockdown() then
-        ClearOverrideBindings(self.clickFrame)
-        self:Trace("EasyStrike", "override cleared")
-    end
-    self:SuspendRightClickStrike()
-end
-
 -- BUTTON2 lives on its own owner frame so it can be released without dropping the hotkey override.
 function Fishing:ArmRightClickStrike()
     if InCombatLockdown() or not profileDB.strikeByRightClick then return end
@@ -257,6 +249,16 @@ function Fishing:SuspendRightClickStrike()
     if InCombatLockdown() or not rightClickStrikeOwner then return end
     ClearOverrideBindings(rightClickStrikeOwner)
     self:Trace("EasyStrike", "right-click strike suspended")
+end
+
+function Fishing:ConfigureBobberInteractAction()
+    local macroLines = {}
+    table.insert(macroLines, "/interact")
+
+    self.clickFrame:SetAttribute("type", "macro")
+    self.clickFrame:SetAttribute("spell", nil)
+    self.clickFrame:SetAttribute("macrotext", table.concat(macroLines, "\n"))
+    self:Trace("EasyStrike", "configured secure bobber interaction macro")
 end
 
 function Fishing:ArmBobberInteractOverride()
@@ -297,6 +299,14 @@ function Fishing:ArmBobberInteractOverride()
     self:Trace("EasyStrike", "native interact override=" .. tostring(applied)
         .. " state=" .. tostring(ns.fishing.state.current))
     return applied
+end
+
+function Fishing:ClearBobberInteractOverride()
+    if self.clickFrame and not InCombatLockdown() then
+        ClearOverrideBindings(self.clickFrame)
+        self:Trace("EasyStrike", "override cleared")
+    end
+    self:SuspendRightClickStrike()
 end
 
 function Fishing:HandleFishingSpellcast(event, unit, ...)
@@ -358,44 +368,6 @@ function Fishing:HandleFishingSpellcastFinished(event, unit, ...)
         self:Debug("Non-fishing spell? spellID=" .. tostring(spellID)
             .. " state=" .. (self:CurrentStateName()))
     end
-end
-
-function Fishing:ConfigureBobberInteractAction()
-    local macroLines = {}
-    -- local selectedBobberToy = tonumber(self.db.profile.selectedBobberToy)
-    -- local selectedBobberName = selectedBobberToy and C_Item.GetItemInfo(selectedBobberToy)
-    -- if selectedBobberName then
-    --     table.insert(macroLines, "/targetexact " .. selectedBobberName)
-    -- end
-    -- table.insert(macroLines, "/targetexact Fishing Bobber")
-    table.insert(macroLines, "/interact")
-
-    self.clickFrame:SetAttribute("type", "macro")
-    self.clickFrame:SetAttribute("spell", nil)
-    self.clickFrame:SetAttribute("macrotext", table.concat(macroLines, "\n"))
-    self:Trace("EasyStrike", "configured secure bobber interaction macro")
-end
-
-function Fishing:HandleBobberInteraction(reason)
-    self:Trace("EasyStrike", "------------------- HandleBobberInteraction: input=" .. tostring(reason)
-        .. " state=" .. tostring(ns.fishing.state.current)
-        .. " rightClick=" .. tostring(profileDB.strikeByRightClick)
-        .. " hotkey=" .. tostring(profileDB.strikeByHotkey))
-    -- The player watches the bobber and strikes whenever it splashes, so any point during the cast is valid.
-    local isInStateForStrike = ns.fishing.state.current == ns.fishing.states.WAITING_FOR_BITE
-    if not isInStateForStrike or InCombatLockdown() then
-        self:Debug("----------------- Bobber interaction ignored (state: " .. tostring(ns.fishing.state.current) .. ", combat: " .. tostring(InCombatLockdown()) .. ")")
-        return false
-    end
-
-    self:Trace("EasyStrike", "------------------ Bobber interaction attempted: " .. tostring(reason))
-    -- The macro/override were already configured once when casting started; don't reconfigure on every trigger.
-    self:Trace("EasyStrike", "-------------------- Clearing bobber interaction override")
-    self:ClearBobberInteractOverride()
-    self:SetFishingState(ns.fishing.states.WAITING_FOR_LOOT_WINDOW, reason)
-    -- looting is not implemented yet, go directly to IDLE
-    --self:SetFishingState(ns.fishing.states.IDLE, "Looting not implemented")
-    return true
 end
 
 function Fishing:OnCastStarted(reason)

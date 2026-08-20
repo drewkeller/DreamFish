@@ -134,20 +134,6 @@ function Fishing:HandleMouseDown(_, button)
 
     self:Debug("Physical right click state=" .. tostring(ns.fishing.state.current))
 
-    if self:IsFishingState(ns.fishing.states.CASTING) and self:HandleBobberInteraction("right click") then
-        -- Enable the frame like IsDoubleClick does, otherwise the override-bound click never resolves.
-        self:Trace("EasyStrike", "Enabling click frame for bobber interaction------------------------")
-        self.clickFrame:EnableMouse(true)
-        self.clickFrame:SetMouseClickEnabled(true)
-        self.clickFrame:SetMouseMotionEnabled(true)
-        SetOverrideBindingClick(self.clickFrame, true, "BUTTON2", self.clickFrame:GetName(), "RightButton")
-        self.clickFrame:Show()
-
-        if hideTimerHandle then self:CancelTimer(hideTimerHandle) end
-        hideTimerHandle = self:ScheduleTimer("HideClickFrame", 0.1)
-        return
-    end
-
     if not self:IsFishingState(ns.fishing.states.WAITING_FOR_BITE) then
         local isDoubleClick = self:IsDoubleClick()
         local isSecondSingleFishingClick = profileDB.castBySingleRightClickWhenFishing
