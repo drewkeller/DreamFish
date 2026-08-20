@@ -334,9 +334,17 @@ end
 function Fishing:ApplyKeybinding()
     if InCombatLockdown() then return end
 
-    if self.hotkey then
+    local boundKeys = self:GetKeybindings()
+    local hasKey1 = boundKeys[1] and boundKeys[1] ~= ""
+    local hasKey2 = boundKeys[2] and boundKeys[2] ~= ""
+    if hasKey1 or hasKey2 then
         ClearOverrideBindings(self.clickFrame)
 
-        SetBindingClick(self.hotkey, clickFrameName, "RightButton")
+        if hasKey1 then
+            SetBindingClick(boundKeys[1], clickFrameName, "RightButton")
+        end
+        if hasKey2 then
+            SetBindingClick(boundKeys[2], clickFrameName, "RightButton")
+        end
     end
 end

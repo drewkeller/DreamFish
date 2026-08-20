@@ -21,8 +21,6 @@ function Fishing:OnModuleInitialize()
     for _, initializerFunc in ipairs(ns.FishingInitializers) do
         initializerFunc(self)
     end
-
-    self.hotkey = profileDB.castHotkeyKeybind
 end
 
 function Fishing:OnModuleEnable()
@@ -63,6 +61,33 @@ function Fishing:OnModuleDisable()
     --self:UnregisterEvent("BAG_UPDATE_DELAYED")
     self:Debug("Removing click frame (module disabled)")
     self:RemoveClickFrame()
+end
+
+function Fishing:GetKeybindings()
+    return {GetBindingKey("CLICK DreamFishSecureFishingFrame:RightButton")}
+end
+
+function Fishing:SetKeybindings(primaryKey, secondaryKey)
+    local action = "CLICK DreamFishSecureFishingFrame:RightButton"
+    local key1, key2 = GetBindingKey(action)
+
+    -- Clear both slots to prevent overlap loops
+    if key1 then SetBinding(key1, nil) end
+    if key2 then SetBinding(key2, nil) end
+
+    -- Re-bind the new primary key, and put back the old secondary key if it existed (or vice-versa)
+    if primaryKey then
+        if primaryKey and primaryKey ~= "" then SetBinding(primaryKey, action) end
+        if key2 and key2 ~= "" and key2 ~= primaryKey then SetBinding(key2, action) end
+    elseif secondaryKey then
+        if key1 and key1 ~= "" and key1 ~= secondaryKey then SetBinding(key1, action) end
+        if secondaryKey and secondaryKey ~= "" then SetBinding(secondaryKey, action) end
+    else
+        -- No new keys provided, so just clear the binding entirely
+        SetBinding(action, nil)
+    end
+
+    SaveBindings(GetCurrentBindingSet())
 end
 
 function Fishing:PrepareFishingClickAction()
@@ -244,10 +269,7 @@ function Fishing:ArmBobberInteractOverride()
 
     -- arm EasyStrike by overriding the native INTERACTTARGET binding with a secure click on the fishing frame
     local owner = self.clickFrame
-    local boundKeys = { self.hotkey or profileDB.castHotkeyKeybind }
-    if not boundKeys[1] or boundKeys[1] == "" then
-        boundKeys = { GetBindingKey("CLICK DreamFishSecureFishingFrame:RightButton") }
-    end
+    local boundKeys = self:GetKeybindings()
 
     self:Trace("EasyStrike", "override hotkey1=" .. tostring(boundKeys[1] or "none") .. " hotkey2=" .. tostring(boundKeys[2] or "none"))
 

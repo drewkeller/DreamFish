@@ -16,7 +16,6 @@ ns.Fishing.Defaults = {
             castByDoubleRightClick = true,
             castBySingleRightClickWhenFishing = false,
             castByHotkey = true,
-            castHotkeyKeybind = nil,
             strikeByRightClick = false,
             strikeByHotkey = true,
             selectedRaftToy = 0,
@@ -128,11 +127,29 @@ function Fishing:GetModuleOptions()
                             desc = "Use a hotkey to begin fishing.",
                             width = "full",
                         }),
-                        castHotkeyKeybind = self:AddOption({
+                        castHotkeyKeybind1 = self:AddOption({
                             type = "keybinding",
                             name = "",
                             desc = "Set the keybinding for the hotkey casting mode.",
                             width = 1.0,
+                            get = function()
+                                return self:GetKeybindings()[1]
+                            end,
+                            set = function(_, value)
+                                self:SetKeybindings(value, nil)
+                            end,
+                        }),
+                        castHotkeyKeybind2 = self:AddOption({
+                            type = "keybinding",
+                            name = "",
+                            desc = "Set the keybinding for the hotkey casting mode.",
+                            width = 1.0,
+                            get = function()
+                                return self:GetKeybindings()[2]
+                            end,
+                            set = function(_, value)
+                                self:SetKeybindings(nil, value)
+                            end,
                         }),
                     },
                 }),
