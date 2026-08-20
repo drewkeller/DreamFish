@@ -22,6 +22,9 @@ function DreamFish:OnInitialize()
     -- Add config options to the Blizzard interface options dialog
     self.optionsFrame, self.optionsCategoryID = LibStub("AceConfigDialog-3.0"):AddToBlizOptions(addonName, addonName)
 
+    -- Set up "live loading" of module options tables when the user opens the
+    -- config dialog, so that modules can populate items dependent on OnInitialize
+    -- before the options table is built.
     local Fishing = DreamFish:GetModule("Fishing")
     local LootTracker = DreamFish:GetModule("LootTracker")
 
@@ -32,14 +35,14 @@ function DreamFish:OnInitialize()
         return LootTracker:GetOptionsTable()
     end)
 
+    -- Nest these items as subcategories below the addon's main menu item
     LibStub("AceConfigDialog-3.0"):AddToBlizOptions(addonName .. "_Fishing", "Fishing", addonName)
     LibStub("AceConfigDialog-3.0"):AddToBlizOptions(addonName .. "_LootTracker", "Loot Tracker", addonName)
-
-    -- Nest the Profiles pane as a subcategory directly under your main menu
     LibStub("AceConfigDialog-3.0"):AddToBlizOptions(addonName .. "_Profile", "Profiles", addonName)
 
 
     self:Print("Loaded profile: " .. self.db:GetCurrentProfile())
+    ns.CallAddonInitializers(self)
 
     self.db.RegisterCallback("DreamFish", "OnProfileChanged", RefreshConfigUI)
     self.db.RegisterCallback("DreamFish", "OnProfileCopied", RefreshConfigUI)

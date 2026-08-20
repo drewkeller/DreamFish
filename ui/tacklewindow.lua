@@ -1,6 +1,18 @@
 local addonName, ns = ...
+local DreamFish = LibStub("AceAddon-3.0"):GetAddon(addonName)
 
 ns.ui = ns.ui or {}
+
+local globalDB, profileDB, charDB
+local state
+local function Initialize()
+    globalDB = ns.DreamFishDB.global
+    profileDB = ns.DreamFishDB.profile
+    charDB = ns.DreamFishDB.char
+    state = ns.DreamFish.state
+end
+ns.AddonInitializers = ns.AddonInitializers or {}
+table.insert(ns.AddonInitializers, Initialize)
 
 local WINDOW_WIDTH, WINDOW_HEIGHT = 550, 450
 local TAB_HEIGHT = 24
@@ -57,7 +69,24 @@ local function CreateWindowFrame()
     window:EnableMouse(true)
     window:RegisterForDrag("LeftButton")
     window:SetScript("OnDragStart", window.StartMoving)
-    window:SetScript("OnDragStop", window.StopMovingOrSizing)
+    window:SetScript("OnDragStop", function(self)
+        self:StopMovingOrSizing()
+        if globalDB then
+            local point, _, relativePoint, x, y = self:GetPoint(1)
+            globalDB.windowPositions["tackleWindow"] = {
+                point = point or "CENTER",
+                relativePoint = relativePoint or "CENTER",
+                x = math.floor((x or 0) + 0.5),
+                y = math.floor((y or 0) + 0.5),
+            }
+        end
+    end)
+    if globalDB and type(globalDB.windowPositions["tackleWindow"]) == "table" then
+        local pos = globalDB.windowPositions["tackleWindow"]
+        window:SetPoint(pos.point or "CENTER", UIParent, pos.relativePoint or "CENTER", tonumber(pos.x) or 0, tonumber(pos.y) or 0)
+    else
+        window:SetPoint("CENTER")
+    end
     window:SetClampedToScreen(true)
     window:Hide()
 
