@@ -297,7 +297,7 @@ function Fishing:BuildPolesTab(content)
         return tonumber(itemID) == tonumber(ns.fishing.const.underlightAnglerItemID)
     end
 
-    local function IsFishingPoleItemID(itemID)
+    local function IsFishingPoleItemIDAndNotUnderlightAngler(itemID)
         if not itemID or IsUnderlightAnglerItemID(itemID) then
             return false
         end
@@ -311,30 +311,33 @@ function Fishing:BuildPolesTab(content)
         return isLegacyFishingPole or isFishingProfessionTool
     end
 
-    local function GetAvailableFishingPoles()
-        local poles = {}
+    local function GetEquipmentAvailableForSlot(slotID, validatorFunc)
+        local items = {}
         local seen = {}
 
-        local function AddPole(itemID)
+        local function AddItem(itemID)
             itemID = tonumber(itemID)
-            if not itemID or seen[itemID] or IsUnderlightAnglerItemID(itemID) or not IsFishingPoleItemID(itemID) then
+            if not itemID or seen[itemID] then
+                return
+            end
+            if validatorFunc and not validatorFunc(itemID) then
                 return
             end
 
             seen[itemID] = true
             local name = C_Item.GetItemInfo(itemID) or ("item:" .. itemID)
-            table.insert(poles, { itemID = itemID, name = name })
+            table.insert(items, { itemID = itemID, name = name })
         end
 
         for bag = 0, NUM_BAG_SLOTS do
             for slot = 1, C_Container.GetContainerNumSlots(bag) do
-                AddPole(C_Container.GetContainerItemID(bag, slot))
+                AddItem(C_Container.GetContainerItemID(bag, slot))
             end
         end
 
-        AddPole(GetInventoryItemID("player", 28))
-        table.sort(poles, function(left, right) return left.name < right.name end)
-        return poles
+        AddItem(GetInventoryItemID("player", slotID))
+        table.sort(items, function(left, right) return left.name < right.name end)
+        return items
     end
 
     local leftColumn = CreateFrame("Frame", nil, content)
@@ -374,7 +377,7 @@ function Fishing:BuildPolesTab(content)
         GameTooltip:Hide()
     end)
     polePickerButton:SetScript("OnClick", function(button)
-        local items = GetAvailableFishingPoles()
+        local items = GetEquipmentAvailableForSlot(28, IsFishingPoleItemIDAndNotUnderlightAngler)
         if polePickerMenu:IsShown() then
             polePickerMenu:Hide()
             return
@@ -465,6 +468,19 @@ function Fishing:OpenTackleWindow()
     ns.ui.TackleWindow:Open("poles")
 end
 
+
+function Fishing:BuildBuffsTab(content)
+    local charDB = self.db.char
+
+    local instructions = content:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
+    instructions:SetPoint("TOPLEFT", content, "TOPLEFT", 0, 0)
+    instructions:SetText("Buffs:\n"
+        .. "• This is the buffs tab.")
+    instructions:SetWidth(500)
+    instructions:SetJustifyH("LEFT")
+    instructions:SetTextColor(0.8, 0.8, 0.8, 1.0)
+end
+
 function Fishing:RegisterTackleWindowTab()
     ns.ui.TackleWindow:RegisterTab({
         id = "poles",
@@ -472,10 +488,10 @@ function Fishing:RegisterTackleWindowTab()
         order = 1,
         build = function(content) self:BuildPolesTab(content) end,
     })
-    -- ns.ui.TackleWindow:RegisterTab({
-    --     id = "buffs",
-    --     title = "Buffs",
-    --     order = 2,
-    --     --build = function(content) self:BuildBuffsTab(content) end,
-    -- })
+    ns.ui.TackleWindow:RegisterTab({
+        id = "buffs",
+        title = "Buffs",
+        order = 2,
+        build = function(content) self:BuildBuffsTab(content) end,
+    })
 end

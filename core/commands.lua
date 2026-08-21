@@ -31,11 +31,24 @@ function ns:RegisterChatCommands()
 end
 
 function DreamFish:SlashCommand(input)
-    if not input or input:trim() == "" then
+    local cleanInput = input and input:trim():lower() or ""
+
+    if cleanInput == "" then
         -- Open graphical option frame if typed completely bare
         Settings.OpenToCategory(self.optionsCategoryID or (self.optionsFrame and self.optionsFrame.name) or "DreamFish")
+
+    elseif cleanInput == "tackle" then
+        -- Open or toggle your specific tackle frame window
+        -- if ns.ui.TackleWindow then
+        --     ns.ui.TackleWindow:Show()
+        -- else
+        --     print("|cffff0000DreamFish Error:|r Tackle window frame not found.")
+        -- end
+        DreamFish:OpenDialogWindow("DreamFishDialog")
+
     else
-        -- Pass all sub-arguments straight to the AceConfig command interpreter engine
+        -- Pass all other sub-arguments straight to the AceConfig command interpreter engine
+        -- Note: We pass the original 'input' string here to preserve case sensitivity for other commands
         LibStub("AceConfigCmd-3.0"):HandleCommand("df", "DreamFish", NormalizeSlashInput(input))
     end
 end

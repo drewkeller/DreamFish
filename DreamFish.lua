@@ -35,11 +35,12 @@ function DreamFish:OnInitialize()
         return LootTracker:GetOptionsTable()
     end)
 
+    LibStub("AceConfig-3.0"):RegisterOptionsTable("DreamFishDialog", ns.DreamFishDialogOptions)
+
     -- Nest these items as subcategories below the addon's main menu item
     LibStub("AceConfigDialog-3.0"):AddToBlizOptions(addonName .. "_Fishing", "Fishing", addonName)
     LibStub("AceConfigDialog-3.0"):AddToBlizOptions(addonName .. "_LootTracker", "Loot Tracker", addonName)
     LibStub("AceConfigDialog-3.0"):AddToBlizOptions(addonName .. "_Profile", "Profiles", addonName)
-
 
     self:Print("Loaded profile: " .. self.db:GetCurrentProfile())
     ns.CallAddonInitializers(self)

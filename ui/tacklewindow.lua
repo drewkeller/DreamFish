@@ -10,6 +10,8 @@ local function Initialize()
     profileDB = ns.DreamFishDB.profile
     charDB = ns.DreamFishDB.char
     state = ns.DreamFish.state
+
+    DreamFish:Debug("Initializing TackleWindow UI module")
 end
 ns.AddonInitializers = ns.AddonInitializers or {}
 table.insert(ns.AddonInitializers, Initialize)
@@ -57,14 +59,13 @@ local function CreateWindowFrame()
     window:SetFrameStrata("DIALOG")
     window:SetToplevel(true)
     window:SetBackdrop({
-        bgFile = "Interface/DialogFrame/UI-DialogBox-Background",
+        bgFile = "Interface/ChatFrame/ChatFrameBackground",
         edgeFile = "Interface/DialogFrame/UI-DialogBox-Border",
         tile = true,
         tileSize = 32,
         edgeSize = 32,
         insets = { left = 11, right = 12, top = 12, bottom = 11 },
     })
-    window:SetBackdropColor(0.1, 0.1, 0.1, 0.95)
     window:SetMovable(true)
     window:EnableMouse(true)
     window:RegisterForDrag("LeftButton")
@@ -90,12 +91,17 @@ local function CreateWindowFrame()
     window:SetClampedToScreen(true)
     window:Hide()
 
-    local title = window:CreateFontString(nil, "OVERLAY", "GameFontNormalLarge")
-    title:SetPoint("TOPLEFT", window, "TOPLEFT", 16, -16)
-    title:SetText("Tackle Manager")
+    window:SetBackdropColor(0.1, 0.1, 0.1, 0.8)
+    window:SetBackdropBorderColor(0.4, 0.4, 0.4, 1)
 
-    local closeBtn = CreateFrame("Button", nil, window, "UIPanelCloseButton")
-    closeBtn:SetPoint("TOPRIGHT", window, "TOPRIGHT", -6, -6)
+    local title = window:CreateFontString(nil, "OVERLAY", "GameFontNormalLarge")
+    title:SetPoint("TOPLEFT", window, "TOPLEFT", 20, -20)
+    title:SetText("DreamFish")
+
+    -- 3. Create a standardized Close Button
+    local closeButton = CreateFrame("Button", "$parentCloseButton", window, "UIPanelCloseButton")
+    closeButton:SetPoint("TOPRIGHT", window, "TOPRIGHT", -4, -4)
+    window.CloseButton = closeButton -- Expose it explicitly on the window object
 
     window.tabStrip = CreateFrame("Frame", nil, window)
     window.tabStrip:SetPoint("TOPLEFT", window, "TOPLEFT", 16, -44)
@@ -185,6 +191,10 @@ function TackleWindow:Open(tabId)
     return window
 end
 
+function TackleWindow:Show()
+    return self:Open()
+end
+
 function TackleWindow:Close()
     if self.frame then
         self.frame:Hide()
@@ -198,5 +208,27 @@ function TackleWindow:Toggle(tabId)
         self:Open(tabId)
     end
 end
+
+function DreamFish:RestoreWindowPosition(frame, windowKey)
+    if not frame then return end
+
+    local globalDB = self.db and self.db.global -- Adjust this path to match your AceDB variable
+    if globalDB and globalDB.windowPositions and globalDB.windowPositions[windowKey] then
+        local saved = globalDB.windowPositions[windowKey]
+
+        frame:ClearAllPoints()
+        frame:SetPoint(
+            saved.point or "CENTER",
+            UIParent,
+            saved.relativePoint or "CENTER",
+            saved.x or 0,
+            saved.y or 0
+        )
+    else
+        frame:ClearAllPoints()
+        frame:SetPoint("CENTER", UIParent, "CENTER", 0, 0)
+    end
+end
+
 
 ns.ui.TackleWindow = TackleWindow

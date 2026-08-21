@@ -30,6 +30,7 @@ core/defaults.lua
 core/utils.lua
 core/utils.audio.lua
 core/utils.toys.lua
+core/utils.ui.lua
 core/module_prototype.lua
 # core/module_api.lua
 # core/api_resolver.lua
@@ -39,6 +40,7 @@ looting/loottracker.options.lua
 looting/loottracker.lua
 
 # UI widgets and components
+ui/equipmentDropBox.lua
 ui/itemdropbox.lua
 ui/tacklewindow.lua
 
@@ -73,6 +75,7 @@ fishing/fishing.lua
 # audio/alerts.lua
 
 # UI system (commands, config)
+ui/dreamfishdialog.lua
 # ui/commands.lua
 # ui/ace_widget_factory.lua
 # ui/buff_item_drop_box.lua
