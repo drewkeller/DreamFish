@@ -8,12 +8,10 @@ end
 
 local function GetItemID(dbKey)
     local entry = GetFishingCharDB()[dbKey]
-    DreamFish:Debug("GetItemID for dbKey " .. tostring(dbKey) .. " returned " .. tostring(entry and entry.itemID))
     return type(entry) == "table" and entry.itemID or nil
 end
 
 local function SetItemID(dbKey, itemID)
-    DreamFish:Debug("SetItemID for dbKey " .. tostring(dbKey) .. " to " .. tostring(itemID))
     local charDB = GetFishingCharDB()
     charDB[dbKey] = charDB[dbKey] or {}
     charDB[dbKey].itemID = tonumber(itemID) or nil
@@ -59,7 +57,6 @@ local function AutoDetectUnderlightAngler()
 
     if DreamFish:IsItemAvailableForEquip(anglerID) then
         SetItemID("underlightAngler", anglerID)
-        DreamFish:Debug("Auto-populated Underlight Angler into settings.")
         return true -- State changed!
     end
 
@@ -70,29 +67,74 @@ local function GetEquipmentAvailableForSlot(slotID, validatorFunc)
     local items = {}
     local seen = {}
 
-    local function AddItem(itemID)
+    -- Helper to process an item using its live physical coordinates
+    local function AddItem(itemID, bag, slot)
         itemID = tonumber(itemID)
-        if not itemID or seen[itemID] then
-            return
-        end
-        if validatorFunc and not validatorFunc(itemID) then
-            return
-        end
+        if not itemID or seen[itemID] then return end
+        if validatorFunc and not validatorFunc(itemID) then return end
 
         seen[itemID] = true
         local name = C_Item.GetItemInfo(itemID) or ("item:" .. itemID)
-        table.insert(items, { itemID = itemID, name = name })
-        DreamFish:Debug("Found item for slot " .. tostring(slotID) .. ": " .. tostring(name) .. " (itemID: " .. tostring(itemID) .. ")")
+
+        -- Fetch structural tooltip data directly from the physical container location
+        local tooltipData = nil
+        if bag and slot then
+            -- Fetching a pole from your inventory bags
+            tooltipData = C_TooltipInfo.GetBagItem(bag, slot)
+        else
+            -- Fetching the currently equipped pole from your player slot
+            tooltipData = C_TooltipInfo.GetInventoryItem("player", slotID)
+        end
+
+        local fishingBonus = 0
+        local realItemLevel = 0
+
+        if tooltipData and tooltipData.lines then
+            for _, line in ipairs(tooltipData.lines) do
+                if line.leftText then
+                    -- 1. Parse out your real scaled Item Level (e.g. 258)
+                    local iLvl = line.leftText:match("^Item%s+Level%s+([0-9]+)")
+                    if iLvl then realItemLevel = tonumber(iLvl) or 0 end
+
+                    -- 2. Parse out your true localized Midnight Fishing or generic Fishing Skill modifier
+                    local bonus = line.leftText:match("%+([0-9]+)%s+[^%s]*%s*Fishing") or line.leftText:match("by%s+([0-9]+)")
+                    if bonus then fishingBonus = tonumber(bonus) or fishingBonus end
+                end
+            end
+        end
+
+        -- If the item level parsing missed, fall back to basic skill bonuses as a sorting engine backup
+        local sortingWeight = realItemLevel > 0 and realItemLevel or fishingBonus
+
+        table.insert(items, {
+            itemID = itemID,
+            name = name,
+            itemLevel = sortingWeight, -- Prioritizes real level for dropdown sorting
+            -- Save location markers so our widget menu can generate the exact tooltip later
+            locationMarker = (bag and slot) and (bag .. "," .. slot) or "equipped"
+        })
     end
 
+    -- 1. Scan your player container bags safely
     for bag = 0, NUM_BAG_SLOTS do
         for slot = 1, C_Container.GetContainerNumSlots(bag) do
-            AddItem(C_Container.GetContainerItemID(bag, slot))
+            local itemID = C_Container.GetContainerItemID(bag, slot)
+            if itemID then AddItem(itemID, bag, slot) end
         end
     end
 
-    AddItem(GetInventoryItemID("player", slotID))
-    table.sort(items, function(left, right) return left.name < right.name end)
+    -- 2. Scan your player's equipped profession slot safely
+    local equippedID = GetInventoryItemID("player", slotID)
+    if equippedID then AddItem(equippedID, nil, nil) end
+
+    -- Sort the data structures array cleanly (highest item level floats to top)
+    table.sort(items, function(left, right)
+        if left.itemLevel ~= right.itemLevel then
+            return left.itemLevel > right.itemLevel
+        end
+        return left.name < right.name
+    end)
+
     return items
 end
 
@@ -103,18 +145,18 @@ local function GetPoleSelectorOptionsForDropDown()
 
     for _, info in ipairs(availablePoles) do
         if info.itemID then
-            listData[tostring(info.itemID)] = info.name
+            -- Format: "itemLevel:locationMarker:itemName"
+            listData[tostring(info.itemID)] = info.itemLevel .. ":" .. info.locationMarker .. ":" .. info.name
             hasItems = true
         end
     end
 
     if not hasItems then
-        listData[""] = "No fishing poles found"
+        listData[""] = "0:none:No fishing poles found"
     end
 
     return listData
 end
-
 
 local options = {
     type = "group",
@@ -123,7 +165,7 @@ local options = {
     args = {
         polesTab = {
             type = "group",
-            name = "Poles & Rods", -- This text appears on the first tab
+            name = "Poles & Rods",
             order = 1,
             args = {
                 -- using a description item to trigger "OnShown" updates
@@ -167,13 +209,11 @@ local options = {
                     end,
 
                     arg = {
+                        desc = "The pole used for fishing. Click to select from your available fishing poles.",
                         slotID = 28,
                         validateItemIDFunc = function(itemID) return IsFishingPoleItemIDAndNotUnderlightAngler(itemID) end,
                         getIsChecked = function() return GetIsChecked("primaryPole") end,
                         setIsChecked = function(value) SetIsChecked("primaryPole", value) end,
-
-                        -- Safe, localized scanning hook preserved cleanly by AceConfig
-                        --getAvailableOptions = function() return GetPoleSelectorOptionsForDropDown() end,
                     },
                 },
                 underlightAngler = {
@@ -187,6 +227,7 @@ local options = {
                     set = function(_, itemID) SetItemID("underlightAngler", itemID) end,
 
                     arg = {
+                        desc = "Always shown here if it is available in your bags or equipped.",
                         slotID = 28,
                         canRemoveItem = false,
                         validateItemIDFunc = function(itemID) return IsUnderlightAnglerItemID(itemID) end,

@@ -94,10 +94,8 @@ local function CreateEquipmentDropBox()
         -- 2. Handle Highlight Borders for equipped fishing items
         if widget.itemID and widget.itemID == GetEquippedProfessionItemID(widget.slotID) then
             border:SetColorTexture(0.9, 0.8, 0.2, 0.95) -- Yellow Highlight
-            DreamFish:Debug("Highlighting border for equipped itemID " .. tostring(widget.itemID))
         else
             border:SetColorTexture(0.42, 0.42, 0.42, 0.9) -- Default Dark Gray
-            DreamFish:Debug("Item is not equipped (" .. tostring(widget.itemID) ..")")
         end
 
         -- 3. Sync checkbox visual tick mark
@@ -117,7 +115,6 @@ local function CreateEquipmentDropBox()
                     -- 1. Validate the item safely at runtime
                     if newID and targetNode.arg and targetNode.arg.validateItemIDFunc then
                         if not targetNode.arg.validateItemIDFunc(newID) then
-                            DreamFish:Debug("Validation failed for itemID " .. tostring(newID))
                             return
                         end
                     end
@@ -147,16 +144,13 @@ local function CreateEquipmentDropBox()
     end
 
     local function AssignFromCursor()
-        DreamFish:Debug("AssignFromCursor called")
         local cursorType, id = GetCursorInfo()
         if cursorType == "item" and id then
-            DreamFish:Debug("Assigning from cursor: itemID=" .. tostring(id))
             CommitChanges(tonumber(id), widget.isChecked)
             ClearCursor()
             UpdateVisuals()
             return true
         end
-        DreamFish:Debug("Could not assign")
         return false
     end
 
@@ -166,8 +160,6 @@ local function CreateEquipmentDropBox()
         local dbKey = GetDBKeyFromWidgetLabel(widget.currentLabel)
 
         if dbKey then
-            widget.slotID = 28 -- Hardcode your profession inventory slot constant safely here
-
             -- 2. Reach directly into your addon namespace functions!
             -- This completely cuts out the race-condition dependency on AceConfig tables
             if type(ns.DreamFishDialogOptions) == "table" then
@@ -183,7 +175,20 @@ local function CreateEquipmentDropBox()
                     else
                         widget.isChecked = config.isChecked or false
                     end
-                    DreamFish:Debug("Database Link Established via direct node mapping! key=" .. dbKey .. " isChecked=" .. tostring(widget.isChecked))
+
+                    if config.desc and config.desc ~= "" then
+                        widget.descText = config.desc
+                        -- Bind hover rules onto the root background canvas panel frame
+                        frame:SetScript("OnEnter", function(this)
+                            GameTooltip:SetOwner(this, "ANCHOR_TOPLEFT", 0, 5)
+                            GameTooltip:SetText(widget.currentLabel or "Settings", 1, 1, 1)
+                            GameTooltip:AddLine(widget.descText, 0.9, 0.9, 0.9, true)
+                            GameTooltip:Show()
+                        end)
+                        frame:SetScript("OnLeave", function()
+                            GameTooltip:Hide()
+                        end)
+                    end
                 end
             end
         else
@@ -199,20 +204,128 @@ local function CreateEquipmentDropBox()
     eventFrame:SetScript("OnEvent", function(self, event, slot, hasCurrent)
         -- If slot is nil (some fallback states), trigger anyway just to be completely safe
         if not slot or slot == widget.slotID then
-            DreamFish:Debug("Equipment change event intercepted: " .. tostring(event) .. " for slot " .. tostring(slot))
             UpdateVisuals()
         end
     end)
 
+    local contextDropdownFrame = CreateFrame("Frame", "DreamFishTopLayerMenuFrame", UIParent, "UIDropDownMenuTemplate")
+
+    -- Define the isolated initialization layout logic loop
+    local function InitializeContextMenu()
+        if not widget.availableOptionsList then return end
+
+        -- Add Title row
+        local titleInfo = UIDropDownMenu_CreateInfo()
+        titleInfo.text = "Select Fishing Pole"
+        titleInfo.isTitle = true
+        titleInfo.notCheckable = true
+        UIDropDownMenu_AddButton(titleInfo)
+
+        -- Extract keys for sorting
+        local sortedKeys = {}
+        for itemIDStr in pairs(widget.availableOptionsList) do
+            if itemIDStr ~= "" then table.insert(sortedKeys, itemIDStr) end
+        end
+
+        -- Sort using pre-baked integer tokens
+        table.sort(sortedKeys, function(a, b)
+            local dataA = widget.availableOptionsList[a] or "0:none:Unknown"
+            local dataB = widget.availableOptionsList[b] or "0:none:Unknown"
+
+            local levelA = tonumber(dataA:match("^([0-9]+):")) or 0
+            local levelB = tonumber(dataB:match("^([0-9]+):")) or 0
+
+            if levelA ~= levelB then
+                return levelA > levelB
+            else
+                local nameA = dataA:match(":[^:]+:(.+)$") or ""
+                local nameB = dataB:match(":[^:]+:(.+)$") or ""
+                return nameA < nameB
+            end
+        end)
+
+        -- Generate interactive list row selections
+        for _, itemIDStr in ipairs(sortedKeys) do
+            local cleanID = tonumber(itemIDStr)
+            local rawPayload = widget.availableOptionsList[itemIDStr] or "0:none:Unknown"
+
+            -- FIX: Unpack our extended payload strings accurately using matching tokens
+            local currentLevel = tonumber(rawPayload:match("^([0-9]+):")) or 0
+            local locationMarker = rawPayload:match("^[^:]+:([^:]+):") or "none"
+            local cleanName = rawPayload:match("^[^:]+:[^:]+:(.+)$") or "Unknown"
+
+            -- Fetch structural rarity color hex values
+            local _, _, itemQuality = C_Item.GetItemInfo(cleanID or 0)
+            local itemColorHex = "ffffffff"
+            if itemQuality then
+                local r, g, b, hex = C_Item.GetItemQualityColor(itemQuality)
+                if hex then itemColorHex = hex end
+            end
+
+            -- Assemble displaying text formatting labels string
+            local displayName = currentLevel > 0 and ("[" .. currentLevel .. "] " .. cleanName) or cleanName
+            local coloredName = "|c" .. itemColorHex .. displayName .. "|r"
+
+            local info = UIDropDownMenu_CreateInfo()
+            info.text = coloredName
+            info.notCheckable = true
+            info.func = function()
+                local cleanIDNum = tonumber(itemIDStr) or nil
+                CommitChanges(cleanIDNum, widget.isChecked)
+            end
+
+            if cleanID and cleanID > 0 then
+                info.classicTooltip = true
+                info.tooltipTitle = cleanName
+
+                -- FIX: Use the location token to link the exact physical item to the mouseover frame
+                info.funcOnEnter = function(buttonFrame)
+                    GameTooltip:SetOwner(buttonFrame, "ANCHOR_RIGHT")
+
+                    if locationMarker == "equipped" then
+                        -- Pull directly from what the character is actively wearing
+                        GameTooltip:SetInventoryItem("player", widget.slotID)
+                    elseif locationMarker:find(",") then
+                        -- Pull directly from your specific bag coordinates
+                        local targetBag, targetSlot = locationMarker:match("^([0-9]+),([0-9]+)")
+                        if targetBag and targetSlot then
+                            GameTooltip:SetBagItem(tonumber(targetBag), tonumber(targetSlot))
+                        end
+                    else
+                        -- Fallback baseline if coordinates are unlinked
+                        GameTooltip:SetItemByID(cleanID)
+                    end
+
+                    if GameTooltip.SetFrameStrata then
+                        GameTooltip:SetFrameStrata("TOOLTIP")
+                    end
+                    GameTooltip:Show()
+                end
+
+                info.funcOnLeave = function()
+                    GameTooltip:Hide()
+                end
+            end
+
+            UIDropDownMenu_AddButton(info)
+        end
+    end
+
     -- SCRIPT ASSIGNMENTS
     boxFrame:SetScript("OnMouseUp", function(self, button)
         if button == "LeftButton" then
+            -- Check if the user is holding an item on their cursor to drop in.
             if AssignFromCursor() then return end
 
-            -- Open custom dropdown menu manually
             if widget.availableOptionsList then
-                -- Open a classic context menu filled with widget.availableOptionsList items
-                -- Alternatively, rely on modern WoW Menu APIs: MenuUtil.CreateContextMenu
+                -- Force the layout configuration into our drop target
+                UIDropDownMenu_Initialize(contextDropdownFrame, InitializeContextMenu, "MENU")
+
+                -- Force the created dropdown canvas up to the top visual strata layer
+                contextDropdownFrame:SetFrameStrata("TOOLTIP")
+
+                -- Toggle menu instantly positioned right at the cursor position
+                ToggleDropDownMenu(1, nil, contextDropdownFrame, "cursor", 0, 0)
             end
         elseif button == "RightButton" and IsShiftKeyDown() and widget.canRemoveItem then
             CommitChanges(nil, widget.isChecked)
@@ -220,7 +333,7 @@ local function CreateEquipmentDropBox()
     end)
 
     boxFrame:SetScript("OnDragStart", function()
-        if widget.itemID and widget.itemID > 0 then
+        if widget.itemID and widget.itemID > 0 and widget.canRemoveItem then
             C_Item.PickupItem(widget.itemID)
             CommitChanges(nil, widget.isChecked)
         end
@@ -231,7 +344,32 @@ local function CreateEquipmentDropBox()
     boxFrame:SetScript("OnEnter", function(self)
         if widget.itemID and widget.itemID > 0 then
             GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
-            GameTooltip:SetItemByID(widget.itemID)
+
+            -- 1. Check if this specific item is currently equipped in your profession slot
+            if GetInventoryItemID("player", widget.slotID) == widget.itemID then
+                GameTooltip:SetInventoryItem("player", widget.slotID)
+                GameTooltip:Show()
+                return
+            end
+
+            -- 2. If it's not equipped, scan your container bags to find its physical location
+            local foundInBags = false
+            for bag = 0, NUM_BAG_SLOTS do
+                for slot = 1, C_Container.GetContainerNumSlots(bag) do
+                    if C_Container.GetContainerItemID(bag, slot) == widget.itemID then
+                        GameTooltip:SetBagItem(bag, slot)
+                        foundInBags = true
+                        break
+                    end
+                end
+                if foundInBags then break end
+            end
+
+            -- 3. Fallback to generic template info if the item is not currently on your character
+            if not foundInBags then
+                GameTooltip:SetItemByID(widget.itemID)
+            end
+
             GameTooltip:Show()
         end
     end)
@@ -274,7 +412,6 @@ local function CreateEquipmentDropBox()
 
     widget.SetLabel = function(self, text)
         if self.label then
-            DreamFish:Debug("SetLabel called with text: " .. tostring(text))
             self.label:SetText(text or "")
 
             -- Save the label text string onto the widget so SetText can inspect it
@@ -283,7 +420,6 @@ local function CreateEquipmentDropBox()
     end
 
     widget.SetText = function(self, value)
-        DreamFish:Debug("SetText executing with payload: " .. tostring(value))
         if value and value ~= "" then
             widget.itemID = tonumber(value)
         else
@@ -296,15 +432,36 @@ local function CreateEquipmentDropBox()
 
     widget.SetList = function(self, list)
         self.availableOptionsList = list
-        DreamFish:Debug("Dropdown data list fed safely into custom widget.")
     end
 
-    -- FIX: AceConfig calls this to tell the widget which item key is selected
+    -- AceConfig calls this to tell the widget which item key is selected
     widget.SetValue = function(self, value)
         self:SetText(value)
     end
 
-    widget.SetDescription = function(self, text) end
+    widget.SetDescription = function(self, text)
+        if text and text ~= "" then
+            DreamFish:Debug("SetDescription called with text: " .. tostring(text))
+            widget.descText = text
+
+            -- Bind mouse hover scripting rules natively to the root structural canvas frame layer
+            frame:SetScript("OnEnter", function(this)
+                GameTooltip:SetOwner(this, "ANCHOR_TOPLEFT", 0, 5)
+                GameTooltip:SetText(widget.currentLabel or "Settings", 1, 1, 1) -- Title
+                GameTooltip:AddLine(widget.descText, 0.9, 0.9, 0.9, true)      -- Your 'desc' text wrapped cleanly
+                GameTooltip:Show()
+            end)
+
+            frame:SetScript("OnLeave", function()
+                GameTooltip:Hide()
+            end)
+        else
+            widget.descText = nil
+            frame:SetScript("OnEnter", nil)
+            frame:SetScript("OnLeave", nil)
+        end
+    end
+
     widget.SetDisabled = function(self, disabled) end
 
     widget.SetCustomData = function(self, data)
