@@ -2,7 +2,7 @@ local addonName, ns = ...
 local DreamFish = LibStub("AceAddon-3.0"):GetAddon(addonName)
 
 local AceGUI = LibStub("AceGUI-3.0")
-local WIDGET_NAME = "DreamFishCustomPreview"
+local WIDGET_NAME = "DreamFishEquipmentPreview"
 local WIDGET_VERSION = 2
 local WIDGET_WIDTH = 100
 local WIDGET_HEIGHT = 80
@@ -66,9 +66,21 @@ local function CreateEquipmentDropBox()
         itemID      = nil,
         isChecked   = false,
         slotID      = nil,
+        canRemoveItem = true,
     }
 
     -- LOCAL CORE UTILITIES
+
+    -- Translates the visual option titles straight into your database key strings
+    local function GetDBKeyFromWidgetLabel(label)
+        if not label then return nil end
+        if label:find("Underlight") or label:find("Angler") then
+            return "underlightAngler"
+        else
+            return "primaryPole"
+        end
+    end
+
     local function UpdateVisuals()
         -- 1. Manage Textures
         if widget.itemID and widget.itemID > 0 then
@@ -94,41 +106,44 @@ local function CreateEquipmentDropBox()
 
     -- Dispatches updates back into the user options database logic blocks
     local function CommitChanges(newID, newCheck)
-        -- Trace data straight out of the active widget runtime instance template
-        if widget.userdata then
-            local config = widget.userdata
+        if widget.currentLabel then
+            local dbKey = GetDBKeyFromWidgetLabel(widget.currentLabel)
 
-            -- Run validation callbacks
-            if newID and config.validateItemIDFunc then
-                if not config.validateItemIDFunc(newID) then
-                    DreamFish:Debug("Validation failed for itemID " .. tostring(newID))
+            if dbKey and type(ns.DreamFishDialogOptions) == "table" then
+                local polesArgs = ns.DreamFishDialogOptions.args.polesTab.args
+                local targetNode = polesArgs[dbKey]
+
+                if targetNode then
+                    -- 1. Validate the item safely at runtime
+                    if newID and targetNode.arg and targetNode.arg.validateItemIDFunc then
+                        if not targetNode.arg.validateItemIDFunc(newID) then
+                            DreamFish:Debug("Validation failed for itemID " .. tostring(newID))
+                            return
+                        end
+                    end
+
+                    -- 2. Call the master options table set handler directly
+                    if targetNode.set then
+                        targetNode.set(nil, newID and tostring(newID) or "")
+                    end
+
+                    -- 3. Update checkbox configuration status
+                    if targetNode.arg and targetNode.arg.setIsChecked then
+                        targetNode.arg.setIsChecked(newCheck)
+                    end
+
+                    -- 4. Notify the layout tree framework to refresh
+                    LibStub("AceConfigRegistry-3.0"):NotifyChange("DreamFishDialog")
                     return
                 end
             end
-
-            -- Update item ID via Ace Config native parent input 'set' routine
-            -- frame.obj.user is safe here because this fires much later via manual user interaction
-            if frame.obj and frame.obj.frame and frame.obj.frame.obj and frame.obj.frame.obj.user then
-                local user = frame.obj.frame.obj.user
-                if user.set then
-                    user.set(nil, newID and tostring(newID) or "")
-                end
-            end
-
-            -- Update checkbox status using your custom context configurations
-            if config.setIsChecked then
-                config.setIsChecked(newCheck)
-            end
-
-            -- Safely refresh the configuration tree layout view
-            LibStub("AceConfigRegistry-3.0"):NotifyChange("DreamFishDialog")
-        else
-            -- Structural array memory backup
-            DreamFish:Debug("Ecosystem unlinked. Saving to local state workspace matrix.")
-            widget.itemID = newID
-            widget.isChecked = newCheck
-            UpdateVisuals()
         end
+
+        -- Fallback memory layer matrix
+        DreamFish:Debug("Ecosystem unlinked. Saving to local state workspace matrix.")
+        widget.itemID = newID
+        widget.isChecked = newCheck
+        UpdateVisuals()
     end
 
     local function AssignFromCursor()
@@ -146,16 +161,6 @@ local function CreateEquipmentDropBox()
     end
 
     -- LOCAL DYNAMIC DATABASE MAPPER
-    -- Translates the visual option titles straight into your database key strings
-    local function GetDBKeyFromWidgetLabel(label)
-        if not label then return nil end
-        if label:find("Underlight") or label:find("Angler") then
-            return "underlightAngler"
-        else
-            return "primaryPole"
-        end
-    end
-
     local function ReadUserData(self)
         -- 1. Look up the database key dynamically based on the stored label string
         local dbKey = GetDBKeyFromWidgetLabel(widget.currentLabel)
@@ -200,11 +205,17 @@ local function CreateEquipmentDropBox()
     end)
 
     -- SCRIPT ASSIGNMENTS
-    boxFrame:SetScript("OnMouseUp", function(_, button)
+    boxFrame:SetScript("OnMouseUp", function(self, button)
         if button == "LeftButton" then
-            AssignFromCursor()
-        elseif button == "RightButton" and IsShiftKeyDown() then
-            CommitChanges(nil, widget.isChecked) -- Wipe the item slot
+            if AssignFromCursor() then return end
+
+            -- Open custom dropdown menu manually
+            if widget.availableOptionsList then
+                -- Open a classic context menu filled with widget.availableOptionsList items
+                -- Alternatively, rely on modern WoW Menu APIs: MenuUtil.CreateContextMenu
+            end
+        elseif button == "RightButton" and IsShiftKeyDown() and widget.canRemoveItem then
+            CommitChanges(nil, widget.isChecked)
         end
     end)
 
@@ -261,7 +272,6 @@ local function CreateEquipmentDropBox()
         if self.callbacks then table.wipe(self.callbacks) end
     end
 
-    -- 1. Redefine SetLabel to act purely as the visual title wrapper header
     widget.SetLabel = function(self, text)
         if self.label then
             DreamFish:Debug("SetLabel called with text: " .. tostring(text))
@@ -272,7 +282,6 @@ local function CreateEquipmentDropBox()
         end
     end
 
-    -- 1. SetText handles the direct item ID injection pass from Ace Config
     widget.SetText = function(self, value)
         DreamFish:Debug("SetText executing with payload: " .. tostring(value))
         if value and value ~= "" then
@@ -285,6 +294,12 @@ local function CreateEquipmentDropBox()
         ReadUserData(self)
     end
 
+    widget.SetList = function(self, list)
+        self.availableOptionsList = list
+        DreamFish:Debug("Dropdown data list fed safely into custom widget.")
+    end
+
+    -- FIX: AceConfig calls this to tell the widget which item key is selected
     widget.SetValue = function(self, value)
         self:SetText(value)
     end

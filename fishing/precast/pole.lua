@@ -32,44 +32,6 @@ local function GetEquippedProfessionItemID()
     return itemID
 end
 
-local function IsItemEquippedInAnyTrackedSlot(itemID)
-    local numeric = tonumber(itemID)
-    if not numeric or numeric <= 0 or type(GetInventoryItemID) ~= "function" then
-        return false
-    end
-
-    local maxSlot = (type(INVSLOT_LAST_EQUIPPED) == "number" and INVSLOT_LAST_EQUIPPED) or 19
-    if maxSlot < 40 then
-        maxSlot = 40
-    end
-    for slot = 1, maxSlot do
-        local ok, rawItemID = pcall(GetInventoryItemID, "player", slot)
-        if ok and tonumber(rawItemID) == numeric then
-            return true
-        end
-    end
-
-    return false
-end
-
-local function IsItemAvailableForEquip(itemID)
-    local numeric = tonumber(itemID)
-    if not numeric or numeric <= 0 then
-        return false
-    end
-
-    if IsItemEquippedInAnyTrackedSlot(numeric) then
-        return true
-    end
-
-    local bag, slot = DreamFish:FindItemInBags(numeric)
-    if bag and slot then
-        return true
-    end
-
-    return false
-end
-
 local function IsUnderlightAnglerItemID(itemID)
     local underlightID = tonumber(ns.fishing.const.underlightAnglerItemID)
     return tonumber(itemID) == underlightID
@@ -135,7 +97,7 @@ end
 local function GetSelectedFishingPoleDecision()
     local selections = GetConfiguredPoleSelections()
     local poleItemID = selections.primary.itemID
-    local hasItem = IsItemAvailableForEquip(poleItemID)
+    local hasItem = DreamFish:IsItemAvailableForEquip(poleItemID)
     local mounted = (type(IsMounted) == "function" and IsMounted()) or false
     local equippedItemID = GetEquippedProfessionItemID()
     local alreadyEquipped = poleItemID and equippedItemID and (poleItemID == equippedItemID) or false

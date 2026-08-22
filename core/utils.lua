@@ -90,3 +90,41 @@ function DreamFish:FindItemInBags(itemID)
     return nil, nil
 end
 
+local function IsItemEquippedInAnyTrackedSlot(itemID)
+    local numeric = tonumber(itemID)
+    if not numeric or numeric <= 0 or type(GetInventoryItemID) ~= "function" then
+        return false
+    end
+
+    local maxSlot = (type(INVSLOT_LAST_EQUIPPED) == "number" and INVSLOT_LAST_EQUIPPED) or 19
+    if maxSlot < 40 then
+        maxSlot = 40
+    end
+    for slot = 1, maxSlot do
+        local ok, rawItemID = pcall(GetInventoryItemID, "player", slot)
+        if ok and tonumber(rawItemID) == numeric then
+            return true
+        end
+    end
+
+    return false
+end
+
+function DreamFish:IsItemAvailableForEquip(itemID)
+    local numeric = tonumber(itemID)
+    if not numeric or numeric <= 0 then
+        return false
+    end
+
+    if IsItemEquippedInAnyTrackedSlot(numeric) then
+        return true
+    end
+
+    local bag, slot = DreamFish:FindItemInBags(numeric)
+    if bag and slot then
+        return true
+    end
+
+    return false
+end
+

@@ -30,9 +30,91 @@ local function SetIsChecked(dbKey, isChecked)
     charDB[dbKey].isChecked = isChecked and true or false
 end
 
-local IsUnderlightAnglerItemID
-local IsFishingPoleItemIDAndNotUnderlightAngler
-local GetEquipmentAvailableForSlot
+local function IsUnderlightAnglerItemID(itemID)
+    return tonumber(itemID) == tonumber(ns.fishing.const.underlightAnglerItemID)
+end
+
+local function IsFishingPoleItemIDAndNotUnderlightAngler(itemID)
+    if not itemID or IsUnderlightAnglerItemID(itemID) then
+        return false
+    end
+
+    local _, itemType, itemSubtype, itemEquipLoc, _, classID, subclassID = C_Item.GetItemInfoInstant(itemID)
+    local isLegacyFishingPole = (itemType == "Weapon" and itemSubtype == "Fishing Poles")
+        or (classID == 2 and (subclassID == 20 or subclassID == 21))
+    local isFishingProfessionTool = itemEquipLoc == "INVTYPE_PROFESSION_TOOL"
+        and (itemType == "Fishing" or itemSubtype == "Fishing")
+
+    return isLegacyFishingPole or isFishingProfessionTool
+end
+
+local function AutoDetectUnderlightAngler()
+    local anglerID = tonumber(ns.fishing.const.underlightAnglerItemID)
+    if not anglerID then return false end
+
+    -- Guard: If it's already configured in the database, don't execute updates or trigger reloads
+    if GetItemID("underlightAngler") == anglerID then
+        return false
+    end
+
+    if DreamFish:IsItemAvailableForEquip(anglerID) then
+        SetItemID("underlightAngler", anglerID)
+        DreamFish:Debug("Auto-populated Underlight Angler into settings.")
+        return true -- State changed!
+    end
+
+    return false
+end
+
+local function GetEquipmentAvailableForSlot(slotID, validatorFunc)
+    local items = {}
+    local seen = {}
+
+    local function AddItem(itemID)
+        itemID = tonumber(itemID)
+        if not itemID or seen[itemID] then
+            return
+        end
+        if validatorFunc and not validatorFunc(itemID) then
+            return
+        end
+
+        seen[itemID] = true
+        local name = C_Item.GetItemInfo(itemID) or ("item:" .. itemID)
+        table.insert(items, { itemID = itemID, name = name })
+        DreamFish:Debug("Found item for slot " .. tostring(slotID) .. ": " .. tostring(name) .. " (itemID: " .. tostring(itemID) .. ")")
+    end
+
+    for bag = 0, NUM_BAG_SLOTS do
+        for slot = 1, C_Container.GetContainerNumSlots(bag) do
+            AddItem(C_Container.GetContainerItemID(bag, slot))
+        end
+    end
+
+    AddItem(GetInventoryItemID("player", slotID))
+    table.sort(items, function(left, right) return left.name < right.name end)
+    return items
+end
+
+local function GetPoleSelectorOptionsForDropDown()
+    local availablePoles = GetEquipmentAvailableForSlot(28, IsFishingPoleItemIDAndNotUnderlightAngler)
+    local listData = {}
+    local hasItems = false
+
+    for _, info in ipairs(availablePoles) do
+        if info.itemID then
+            listData[tostring(info.itemID)] = info.name
+            hasItems = true
+        end
+    end
+
+    if not hasItems then
+        listData[""] = "No fishing poles found"
+    end
+
+    return listData
+end
+
 
 local options = {
     type = "group",
@@ -44,6 +126,18 @@ local options = {
             name = "Poles & Rods", -- This text appears on the first tab
             order = 1,
             args = {
+                -- using a description item to trigger "OnShown" updates
+                onPolesShownTrigger = {
+                    type = "description",
+                    name = function()
+                        local updated = AutoDetectUnderlightAngler()
+                        if updated then
+                            LibStub("AceConfigRegistry-3.0"):NotifyChange(addonName)
+                        end
+                        return ""
+                    end,
+                    order = 0,
+                },
                 polesNotes = {
                     type = "description",
                     name = "Modes:\n"
@@ -55,21 +149,31 @@ local options = {
                     fontSize = "medium"
                 },
                 primaryPole = {
-                    type = "input",
+                    type = "select",
                     name = "Fishing Pole",
                     order = 2,
                     width = "normal",
-                    dialogControl = "DreamFishCustomPreview",
+                    dialogControl = "DreamFishEquipmentPreview",
 
-                    get = function() return tostring(GetItemID("primaryPole") or "") end,
-                    set = function(_, itemID) SetItemID("primaryPole", itemID) end,
+                    get = function()
+                        local savedID = GetItemID("primaryPole")
+                        return savedID and tostring(savedID) or ""
+                    end,
+                    set = function(_, itemID)
+                        SetItemID("primaryPole", itemID)
+                    end,
+                    values = function()
+                        return GetPoleSelectorOptionsForDropDown()
+                    end,
 
-                    -- NATIVE IMMUTABLE STORAGE: Instantly available as self.userdata
                     arg = {
                         slotID = 28,
-                        validateItemIDFunc = IsFishingPoleItemIDAndNotUnderlightAngler,
+                        validateItemIDFunc = function(itemID) return IsFishingPoleItemIDAndNotUnderlightAngler(itemID) end,
                         getIsChecked = function() return GetIsChecked("primaryPole") end,
                         setIsChecked = function(value) SetIsChecked("primaryPole", value) end,
+
+                        -- Safe, localized scanning hook preserved cleanly by AceConfig
+                        --getAvailableOptions = function() return GetPoleSelectorOptionsForDropDown() end,
                     },
                 },
                 underlightAngler = {
@@ -77,14 +181,15 @@ local options = {
                     name = "Underlight Angler",
                     order = 3,
                     width = "normal",
-                    dialogControl = "DreamFishCustomPreview",
+                    dialogControl = "DreamFishEquipmentPreview",
 
                     get = function() return tostring(GetItemID("underlightAngler") or "") end,
                     set = function(_, itemID) SetItemID("underlightAngler", itemID) end,
 
                     arg = {
                         slotID = 28,
-                        validateItemIDFunc = IsUnderlightAnglerItemID,
+                        canRemoveItem = false,
+                        validateItemIDFunc = function(itemID) return IsUnderlightAnglerItemID(itemID) end,
                         getIsChecked = function() return GetIsChecked("underlightAngler") end,
                         setIsChecked = function(value) SetIsChecked("underlightAngler", value) end,
                     },
@@ -107,51 +212,4 @@ local options = {
     },
 }
 
-IsUnderlightAnglerItemID = function (itemID)
-    return tonumber(itemID) == tonumber(ns.fishing.const.underlightAnglerItemID)
-end
-
-IsFishingPoleItemIDAndNotUnderlightAngler = function(itemID)
-    if not itemID or IsUnderlightAnglerItemID(itemID) then
-        return false
-    end
-
-    local _, itemType, itemSubtype, itemEquipLoc, _, classID, subclassID = C_Item.GetItemInfoInstant(itemID)
-    local isLegacyFishingPole = (itemType == "Weapon" and itemSubtype == "Fishing Poles")
-        or (classID == 2 and (subclassID == 20 or subclassID == 21))
-    local isFishingProfessionTool = itemEquipLoc == "INVTYPE_PROFESSION_TOOL"
-        and (itemType == "Fishing" or itemSubtype == "Fishing")
-
-    return isLegacyFishingPole or isFishingProfessionTool
-end
-
 ns.DreamFishDialogOptions = options
-
-GetEquipmentAvailableForSlot = function (slotID, validatorFunc)
-    local items = {}
-    local seen = {}
-
-    local function AddItem(itemID)
-        itemID = tonumber(itemID)
-        if not itemID or seen[itemID] then
-            return
-        end
-        if validatorFunc and not validatorFunc(itemID) then
-            return
-        end
-
-        seen[itemID] = true
-        local name = C_Item.GetItemInfo(itemID) or ("item:" .. itemID)
-        table.insert(items, { itemID = itemID, name = name })
-    end
-
-    for bag = 0, NUM_BAG_SLOTS do
-        for slot = 1, C_Container.GetContainerNumSlots(bag) do
-            AddItem(C_Container.GetContainerItemID(bag, slot))
-        end
-    end
-
-    AddItem(GetInventoryItemID("player", slotID))
-    table.sort(items, function(left, right) return left.name < right.name end)
-    return items
-end

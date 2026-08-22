@@ -41,8 +41,6 @@ looting/loottracker.lua
 
 # UI widgets and components
 ui/equipmentDropBox.lua
-ui/itemdropbox.lua
-ui/tacklewindow.lua
 
 fishing/fishing.init.lua
 fishing/fishing.const.lua

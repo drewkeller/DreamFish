@@ -38,12 +38,6 @@ function DreamFish:SlashCommand(input)
         Settings.OpenToCategory(self.optionsCategoryID or (self.optionsFrame and self.optionsFrame.name) or "DreamFish")
 
     elseif cleanInput == "tackle" then
-        -- Open or toggle your specific tackle frame window
-        -- if ns.ui.TackleWindow then
-        --     ns.ui.TackleWindow:Show()
-        -- else
-        --     print("|cffff0000DreamFish Error:|r Tackle window frame not found.")
-        -- end
         DreamFish:OpenDialogWindow("DreamFishDialog")
 
     else

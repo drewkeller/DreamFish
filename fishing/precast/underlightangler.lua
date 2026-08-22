@@ -21,7 +21,7 @@ local function GetUnderlightAnglerEquipDecision()
     local selections = ns.precast.GetConfiguredPoleSelections()
     local isSelected = selections.underlight.isChecked
     local itemID = ns.fishing.const.underlightAnglerItemID or nil
-    local hasItem = ns.precast.IsItemAvailableForEquip(itemID)
+    local hasItem = DreamFish:IsItemAvailableForEquip(itemID)
     local mounted = IsMounted()
     local equippedItemID = ns.precast.GetEquippedProfessionItemID()
     local alreadyEquipped = itemID

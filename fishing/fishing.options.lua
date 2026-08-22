@@ -269,7 +269,7 @@ function Fishing:GetModuleOptions()
                     name = "Open Tackle Manager",
                     desc = "Open a window to manage fishing tackle (poles, rafts, bobbers).",
                     order = 3,
-                    func = function() Fishing:OpenTackleWindow() end,
+                    func = function() DreamFish:OpenDialogWindow("DreamFishDialog") end,
                     width = "full",
                 } -- Tackle manager button
             },
@@ -455,43 +455,3 @@ function Fishing:BuildPolesTab(content)
     self.poleBorderRefreshers.underlightAngler = updateAnglerBorder
 end
 
-function Fishing:RefreshPoleBorders()
-    if not self.poleBorderRefreshers then
-        return
-    end
-    for _, refreshBorder in pairs(self.poleBorderRefreshers) do
-        refreshBorder()
-    end
-end
-
-function Fishing:OpenTackleWindow()
-    ns.ui.TackleWindow:Open("poles")
-end
-
-
-function Fishing:BuildBuffsTab(content)
-    local charDB = self.db.char
-
-    local instructions = content:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
-    instructions:SetPoint("TOPLEFT", content, "TOPLEFT", 0, 0)
-    instructions:SetText("Buffs:\n"
-        .. "• This is the buffs tab.")
-    instructions:SetWidth(500)
-    instructions:SetJustifyH("LEFT")
-    instructions:SetTextColor(0.8, 0.8, 0.8, 1.0)
-end
-
-function Fishing:RegisterTackleWindowTab()
-    ns.ui.TackleWindow:RegisterTab({
-        id = "poles",
-        title = "Rods & Poles",
-        order = 1,
-        build = function(content) self:BuildPolesTab(content) end,
-    })
-    ns.ui.TackleWindow:RegisterTab({
-        id = "buffs",
-        title = "Buffs",
-        order = 2,
-        build = function(content) self:BuildBuffsTab(content) end,
-    })
-end
