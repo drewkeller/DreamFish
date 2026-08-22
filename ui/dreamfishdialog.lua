@@ -183,12 +183,18 @@ local options = {
                 polesNotes = {
                     type = "description",
                     name = "Modes:\n"
-                        .. "• Auto-swap: Check both boxes \n"
-                        .. "   (swap occurs when starting/stopping fishing)\n"
-                        .. "• Single-pole: Only check one box.\n"
-                        .. "• Manual: Leave both boxes unchecked.",
+                        .. "• Auto-swap: |cFF999999Check both boxes|r\n"
+                        .. "   |cFF999999(swap occurs when starting/stopping fishing)|r\n"
+                        .. "• Single-pole: |cFF999999Only check one box.|r\n"
+                        .. "• Manual: |cFF999999Leave both boxes unchecked.|r",
                     order = 1,
                     fontSize = "medium"
+                },
+                spacer = {
+                    type = "description",
+                    name = " ",
+                    order = 1.5,
+                    fontSize = "small"
                 },
                 primaryPole = {
                     type = "select",

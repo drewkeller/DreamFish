@@ -50,6 +50,10 @@ local function CreateEquipmentDropBox()
     icon:SetPoint("TOPLEFT", boxFrame, "TOPLEFT", 2, -2)
     icon:SetPoint("BOTTOMRIGHT", boxFrame, "BOTTOMRIGHT", -2, 2)
 
+    local noteString = boxFrame:CreateFontString(nil, "OVERLAY", "GameFontNormal")
+    noteString:SetPoint("CENTER", boxFrame, "CENTER", 0, 0)
+    noteString:SetText("Drop\nor\nclick")
+
     -- Checkbox
     local checkboxFrame = CreateFrame("CheckButton", nil, frame, "SettingsCheckboxTemplate")
     checkboxFrame:SetPoint("TOPLEFT", boxFrame, "TOPRIGHT", 5, 0)
@@ -86,9 +90,11 @@ local function CreateEquipmentDropBox()
         if widget.itemID and widget.itemID > 0 then
             local iconPath = C_Item.GetItemIconByID(widget.itemID)
             icon:SetTexture(iconPath or "Interface\\Icons\\INV_Misc_QuestionMark")
+            noteString:Hide()
         else
             icon:SetTexture(nil)
             DreamFish:Debug("widget.itemID is nil")
+            noteString:Show()
         end
 
         -- 2. Handle Highlight Borders for equipped fishing items
