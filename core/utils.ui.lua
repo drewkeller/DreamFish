@@ -1,6 +1,12 @@
 local addonName, ns = ...
 local DreamFish = LibStub("AceAddon-3.0"):GetAddon(addonName)
 
+DreamFish:RegisterTraceSource("utils.ui")
+
+local function TraceUi(windowName, msg)
+    DreamFish:Trace("utils.ui", tostring(windowName) .. ": " .. tostring(msg))
+end
+
 local function GetDialogFrame(dialog)
     return dialog and (dialog.frame or dialog) or nil
 end
@@ -49,41 +55,21 @@ local function ClearDialogStatusPosition(status)
     status.left = nil
 end
 
-function DreamFish:SaveDialogPosition(frame, windowName)
-    local dialogFrame = GetDialogFrame(frame)
-    if not dialogFrame then return end
-
-    -- Ensure the global tracking tables exist inside your FishingDB
+function DreamFish:SaveDialogFrameCoordinates(windowName, dialogFrame)
     local globalDB = DreamFish and DreamFish.db and DreamFish.db.global
-    if globalDB then
+    if globalDB and dialogFrame then
         globalDB.windowPositions = globalDB.windowPositions or {}
-
-        local status = GetDialogStatusTable(windowName)
-        local width = status and status.width or dialogFrame:GetWidth()
-        local height = status and status.height or dialogFrame:GetHeight()
-        local top = status and status.top or dialogFrame:GetTop()
-        local left = status and status.left or dialogFrame:GetLeft()
-
-        if not IsDialogPositionVisible(top, left, width, height) then
-            DreamFish:Debug("Skipped saving off-screen position for window " .. windowName .. ".")
-            return
-        end
-
-        if status then
-            status.width = width
-            status.height = height
-            status.top = top
-            status.left = left
-        end
-
-        -- Pull current coordinates relative to the master UI screen overlay parent
+        local width = dialogFrame:GetWidth()
+        local height = dialogFrame:GetHeight()
+        local top = dialogFrame:GetTop()
+        local left = dialogFrame:GetLeft()
         globalDB.windowPositions[windowName] = {
             width = math.floor((width or 700) + 0.5),
             height = math.floor((height or 500) + 0.5),
             top = math.floor(top + 0.5),
             left = math.floor(left + 0.5),
         }
-        DreamFish:Debug("Saved window " .. windowName .. " to positions database.")
+        --TraceUi(windowName, "Saved window coordinates to positions database.")
     end
 end
 
@@ -128,7 +114,7 @@ function DreamFish:RestoreDialogPosition(frame, windowName)
                 saved.y or 0
             )
         end
-        DreamFish:Debug("Restored window " .. windowName .. " from positions database.")
+        TraceUi(windowName, "Restored window from positions database.")
     elseif dialogFrame then
         -- Fallback default position if no coordinate footprint exists yet
         dialogFrame:ClearAllPoints()
@@ -149,16 +135,52 @@ function DreamFish:OpenDialogWindow(windowName)
     AceConfigDialog:Open(windowName)
     local dialog = AceConfigDialog.OpenFrames and AceConfigDialog.OpenFrames[windowName]
     local dialogFrame = GetDialogFrame(dialog)
+    TraceUi(windowName, "OpenDialogWindow")
 
-    if dialogFrame then
+    if dialogFrame and dialog then
         -- 4. Restore again for old point-based saved positions and then persist AceGUI status on close.
         self:RestoreDialogPosition(dialogFrame, windowName)
 
-        if not dialogFrame.DreamFishPositionHooked then
-            dialogFrame:HookScript("OnHide", function()
-                DreamFish:SaveDialogPosition(dialogFrame, windowName)
-            end)
+        -- Intercept various events
+        if dialogFrame.DreamFishPositionHooked then
+            TraceUi(windowName, "Dialog frame events already hooked, skipping.")
+        else
+            TraceUi(windowName, "Hooking dialog frame events")
             dialogFrame.DreamFishPositionHooked = true
+
+            -- Hook the standard close event
+            dialogFrame:HookScript("OnHide", function()
+                DreamFish:SaveDialogFrameCoordinates(windowName, dialogFrame)
+            end)
+
+            -- Monitor window movement and scaling
+            dialogFrame:HookScript("OnSizeChanged", function()
+                --TraceUi(windowName, "OnSizeChanged")
+                DreamFish:SaveDialogFrameCoordinates(windowName, dialogFrame)
+            end)
+
+            -- Monitor hardware tracking loops using a safe gate to capture moving offsets instantly
+            local lastLeft, lastTop = dialogFrame:GetLeft(), dialogFrame:GetTop()
+            dialogFrame:HookScript("OnUpdate", function(self)
+                local currentLeft = self:GetLeft()
+                local currentTop = self:GetTop()
+
+                -- If coordinates changed, the player is dragging or scaling the frame right now
+                if currentLeft ~= lastLeft or currentTop ~= lastTop then
+                    lastLeft = currentLeft
+                    lastTop = currentTop
+
+                    DreamFish:SaveDialogFrameCoordinates(windowName, dialogFrame)
+                end
+            end)
+
+            -- Hook the resizer frame components if they exist for scaling safety
+            if dialog.resizer then
+                dialog.resizer:HookScript("OnMouseUp", function()
+                    --TraceUi(windowName, "OnMouseUp resizer")
+                    DreamFish:SaveDialogFrameCoordinates(windowName, dialogFrame)
+                end)
+            end
         end
     end
 
