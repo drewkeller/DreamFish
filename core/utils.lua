@@ -12,6 +12,12 @@ function DreamFish:Debug(msg, ...)
     end
 end
 
+function DreamFish:Trace(source, msg, ...)
+    if self.db and self.db.profile and self.db.profile.traceMode and self.db.profile.traceMode[source] then
+        self:Print("|cFF999999[" .. source .. "]|r ", msg, ...)
+    end
+end
+
 function DreamFish:FormatDuration(seconds)
     local n = tonumber(seconds)
     if not n or n < 0 then

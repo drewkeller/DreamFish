@@ -24,6 +24,35 @@ function ns:GeneralOptions()
                     end
                 end,
             },
+            traceGroup ={
+                order = 2,
+                type = "group",
+                name = "Trace sources",
+                inline = true,
+                args = (function()
+                    if not DreamFish.db or not DreamFish.db.profile or not DreamFish.db.profile.traceMode then
+                        return {}
+                    end
+                    local traceArgs = {}
+                    for source, _ in pairs(DreamFish.db.profile.traceMode) do
+                        traceArgs[source] = {
+                            order = 1,
+                            type = "toggle",
+                            name = source,
+                            desc = "Enables trace output for the " .. source .. " trace source.",
+                            get = function()
+                                return DreamFish.db.profile.traceMode[source]
+                            end,
+                            set = function(_, value)
+                                DreamFish.db.profile.traceMode[source] = value
+                                local state = value and "|cFF00FF00ON|r" or "|cFFFF0000OFF|r"
+                                DreamFish:Print("Trace source '" .. source .. "' is now " .. state .. ".")
+                            end,
+                        }
+                    end
+                    return traceArgs
+                end)(),
+            },
             spacer = {
                 order = 5,
                 type = "description",
