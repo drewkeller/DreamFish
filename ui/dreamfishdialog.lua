@@ -2,6 +2,11 @@ local addonName, ns = ...
 local DreamFish = LibStub("AceAddon-3.0"):GetAddon(addonName)
 local Fishing = DreamFish:GetModule("Fishing")
 
+DreamFish:RegisterTraceSource("ui.dreamfishdialog")
+local function Trace(msg)
+    DreamFish:Trace("ui.dreamfishdialog", msg)
+end
+
 local function GetFishingCharDB()
     return Fishing.db and Fishing.db.char or {}
 end
@@ -30,6 +35,29 @@ end
 
 local function IsUnderlightAnglerItemID(itemID)
     return tonumber(itemID) == tonumber(ns.fishing.const.underlightAnglerItemID)
+end
+
+local function GetBuffItem(category, index)
+    local charDB = GetFishingCharDB()
+    charDB.buffs = charDB.buffs or {}
+    charDB.buffs[category] = charDB.buffs[category] or {}
+    charDB.buffs[category][index] = charDB.buffs[category][index] or {}
+    return charDB.buffs[category][index]
+end
+
+local function SetBuffItem(category, index, itemID)
+    local charDB = GetFishingCharDB()
+    charDB.buffs = charDB.buffs or {}
+    charDB.buffs[category] = charDB.buffs[category] or {}
+
+    charDB.buffs[category][index] = charDB.buffs[category][index] or {}
+    charDB.buffs[category][index].itemID = tonumber(itemID) or nil
+
+    if itemID then
+        Trace(tostring(category) .. "[" .. tostring(index) .. "] = " .. tostring(itemID))
+    else
+        Trace(tostring(category) .. "[" .. tostring(index) .. "] = cleared")
+    end
 end
 
 local function IsFishingPoleItemIDAndNotUnderlightAngler(itemID)
@@ -158,6 +186,19 @@ local function GetPoleSelectorOptionsForDropDown()
     return listData
 end
 
+-- Flattens the items to: flatlist[itemID] = "name:bag:slot"
+local function FlattenToNameBagSlot(foundInventoryItems)
+    local flatList = {}
+    for _, info in ipairs(foundInventoryItems) do
+        if info.itemID then
+            local name = C_Item.GetItemNameByID(info.itemID) or "Unknown"
+            flatList[tostring(info.itemID)] = name .. ":" .. tostring(info.bag) .. ":" .. tostring(info.slot)
+        end
+    end
+    return flatList
+end
+
+
 local options = {
     type = "group",
     name = "DreamFish Settings",
@@ -253,9 +294,152 @@ local options = {
                     name = "Configure the different consumables.",
                     order = 1,
                     fontSize = "medium",
+                },
+                consumablesSpacer = {
+                    type = "description",
+                    name = " ",
+                    order = 1.5,
+                    fontSize = "small",
+                },
+                -- case-matched to "fooddrink" category
+                fooddrinkGroup = {
+                    type = "group",
+                    name = "Food & Drink",
+                    order = 2,
+                    inline = true,
+                    args = {
+                        fooddrink_1 = {
+                            type = "select",
+                            name = " ",
+                            dialogControl = "DreamFishBuffItemDropBox",
+                            width = "half",
+                            get = function() return tostring(GetBuffItem("fooddrink", 1).itemID or "") end,
+                            set = function(_, value)
+                                    SetBuffItem("fooddrink", 1, value)
+                                end,
+                            values = function()
+                                -- get items that match the category
+                                local foundInventoryItems = DreamFish:FindItemsInBagsWhere(function(itemID, bag, slot)
+                                    return Fishing:IsBuffItemCategory("fooddrink", itemID, bag, slot)
+                                end)
+                                return FlattenToNameBagSlot(foundInventoryItems)
+                            end,
+                            arg = {
+                                validateItemIDFunc = function(itemID, bag, slot) return Fishing:IsBuffItemCategory("fooddrink", itemID, bag, slot) end,
+                                getIsChecked = function() return GetBuffItem("fooddrink", 1).isChecked or false end,
+                                setIsChecked = function(value)
+                                    GetBuffItem("fooddrink", 1).isChecked = value
+                                    Trace("fooddrink[1].isChecked = " .. tostring(value))
+                                end,
+                                categoryTitle = "Food/Drink",
+                                category = "fooddrink",
+                                index = 1,
+                            }
+                        },
+                    }
+                }, -- foodDrinkGroup
+                lureGroup = {
+                    type = "group",
+                    name = "Lures",
+                    order = 3,
+                    inline = true,
+                    args = {
+                        lure_1 = {
+                            type = "select",
+                            name = " ",
+                            dialogControl = "DreamFishBuffItemDropBox",
+                            width = "half",
+                            get = function() return tostring(GetBuffItem("lure", 1).itemID or "") end,
+                            set = function(_, value) SetBuffItem("lure", 1, value) end,
+                            values = function()
+                                local foundInventoryItems = DreamFish:FindItemsInBagsWhere(function(itemID, bag, slot)
+                                    return Fishing:IsBuffItemCategory("lure", itemID, bag, slot)
+                                end)
+                                return FlattenToNameBagSlot(foundInventoryItems)
+                            end,
+                            arg = {
+                                validateItemIDFunc = function(itemID, bag, slot) return Fishing:IsBuffItemCategory("lure", itemID, bag, slot) end,
+                                getIsChecked = function() return GetBuffItem("lure", 1).isChecked or false end,
+                                setIsChecked = function(value)
+                                    GetBuffItem("lure", 1).isChecked = value
+                                    Trace("lure[1].isChecked = " .. tostring(value))
+                                end,
+                                categoryTitle = "Lure",
+                                category = "lure",
+                                index = 1,
+                            }
+                        },
+                    }
+                },
+                baitGroup = {
+                    type = "group",
+                    name = "Bait",
+                    order = 4,
+                    inline = true,
+                    args = {
+                        bait_1 = {
+                            type = "select",
+                            name = " ",
+                            dialogControl = "DreamFishBuffItemDropBox",
+                            width = "half",
+                            get = function() return tostring(GetBuffItem("bait", 1).itemID or "") end,
+                            set = function(_, value) SetBuffItem("bait", 1, value) end,
+                            values = function()
+                                local foundInventoryItems = DreamFish:FindItemsInBagsWhere(function(itemID, bag, slot)
+                                    return Fishing:IsBuffItemCategory("bait", itemID, bag, slot)
+                                end)
+                                return FlattenToNameBagSlot(foundInventoryItems)
+                            end,
+                            arg = {
+                                validateItemIDFunc = function(itemID, bag, slot) return Fishing:IsBuffItemCategory("bait", itemID, bag, slot) end,
+                                getIsChecked = function() return GetBuffItem("bait", 1).isChecked or false end,
+                                setIsChecked = function(value)
+                                    GetBuffItem("bait", 1).isChecked = value
+                                    Trace("bait[1].isChecked = " .. tostring(value))
+                                end,
+                                categoryTitle = "Bait",
+                                category = "bait",
+                                index = 1,
+                            }
+                        },
+                    },
+                },
+                -- match to "other_consumable" category
+                other_consumableGroup = {
+                    type = "group",
+                    name = "Other Buffs",
+                    order = 5,
+                    inline = true,
+                    args = {
+                        otherBuffs_1 = {
+                            type = "select",
+                            name = " ",
+                            dialogControl = "DreamFishBuffItemDropBox",
+                            width = "half",
+                            get = function() return tostring(GetBuffItem("other_consumable", 1).itemID or "") end,
+                            set = function(_, value) SetBuffItem("other_consumable", 1, value) end,
+                            values = function()
+                                local foundInventoryItems = DreamFish:FindItemsInBagsWhere(function(itemID, bag, slot)
+                                    return Fishing:IsBuffItemCategory("other_consumable", itemID, bag, slot)
+                                end)
+                                return FlattenToNameBagSlot(foundInventoryItems)
+                            end,
+                            arg = {
+                                validateItemIDFunc = function(itemID, bag, slot) return Fishing:IsBuffItemCategory("other_consumable", itemID, bag, slot) end,
+                                getIsChecked = function() return GetBuffItem("other_consumable", 1).isChecked or false end,
+                                setIsChecked = function(value)
+                                    GetBuffItem("other_consumable", 1).isChecked = value
+                                    Trace("other_consumable[1].isChecked = " .. tostring(value))
+                                end,
+                                categoryTitle = "Buff",
+                                category = "other_consumable",
+                                index = 1,
+                            }
+                        },
+                    },
                 }
             },
-        },
+        }, -- buffsTab
     },
 }
 

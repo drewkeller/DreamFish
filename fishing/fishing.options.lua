@@ -25,7 +25,7 @@ ns.Fishing.Defaults = {
             closeWindowOnEscape = true,
             lingerDuration = 10,
             buffs = {
-                foodDrink = {
+                fooddrink = {
                     { enabled = false, itemID = nil },
                     { enabled = false, itemID = nil },
                     { enabled = false, itemID = nil },

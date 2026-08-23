@@ -38,8 +38,8 @@ function DreamFish:SlashCommand(input)
         Settings.OpenToCategory(self.optionsCategoryID or (self.optionsFrame and self.optionsFrame.name) or "DreamFish")
 
     elseif cleanInput == "tackle" then
+        --DreamFish:OpenDialogWindow("DreamFishDialog", "buffsTab")
         DreamFish:OpenDialogWindow("DreamFishDialog")
-
     else
         -- Pass all other sub-arguments straight to the AceConfig command interpreter engine
         -- Note: We pass the original 'input' string here to preserve case sensitivity for other commands

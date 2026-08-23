@@ -35,6 +35,36 @@ function DreamFish:FindItemInBags(itemID)
     return nil, nil
 end
 
+function DreamFish:FindItemsInBagsWhere(predicate)
+    if type(predicate) ~= "function" then
+        return {}
+    end
+
+    local foundItems = {}
+    local bagCount = NUM_BAG_SLOTS or 4
+    for bag = 0, bagCount do
+        local slots = DreamFish:ContainerNumSlots(bag)
+        for slot = 1, slots do
+            local itemID = C_Container.GetContainerItemID(bag, slot)
+            if itemID and predicate(itemID, bag, slot) then
+                table.insert(foundItems, {bag = bag, slot = slot, itemID = itemID})
+            end
+        end
+    end
+
+    local reagentSlots = DreamFish:ContainerNumSlots(5)
+    if reagentSlots and reagentSlots > 0 then
+        for slot = 1, reagentSlots do
+            local itemID = C_Container.GetContainerItemID(5, slot)
+            if itemID and predicate(itemID, 5, slot) then
+                table.insert(foundItems, {bag = 5, slot = slot, itemID = itemID})
+            end
+        end
+    end
+
+    return foundItems
+end
+
 function DreamFish:CountItemInBags(itemID)
     local count = 0
     local bagCount = NUM_BAG_SLOTS or 4

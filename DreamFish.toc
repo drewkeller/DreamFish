@@ -38,13 +38,16 @@ core/module_prototype.lua
 # core/api_resolver.lua
 core/commands.lua
 
+# Initialization
+fishing/fishing.init.lua
+
 looting/loottracker.options.lua
 looting/loottracker.lua
 
 # UI widgets and components
+ui/buffItemDropBox.lua
 ui/equipmentDropBox.lua
 
-fishing/fishing.init.lua
 fishing/fishing.const.lua
 fishing/fishing.options.lua
 fishing/fishing.intercept.lua

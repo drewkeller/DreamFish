@@ -6,6 +6,7 @@ local WIDGET_NAME = "DreamFishEquipmentPreview"
 local WIDGET_VERSION = 2
 local WIDGET_WIDTH = 100
 local WIDGET_HEIGHT = 80
+local BOX_SIZE = 48
 
 local function GetEquippedProfessionItemID(slotID)
     if type(GetInventoryItemID) ~= "function" then return nil end
@@ -30,7 +31,7 @@ local function CreateEquipmentDropBox()
 
     -- Item Slot Button
     local boxFrame = CreateFrame("Button", nil, frame, "BackdropTemplate")
-    boxFrame:SetSize(48, 48)
+    boxFrame:SetSize(BOX_SIZE, BOX_SIZE)
     boxFrame:SetPoint("TOPLEFT", frame, "TOPLEFT", 5, -20)
     boxFrame:EnableMouse(true)
     boxFrame:RegisterForClicks("AnyUp")
@@ -54,9 +55,12 @@ local function CreateEquipmentDropBox()
     noteString:SetPoint("CENTER", boxFrame, "CENTER", 0, 0)
     noteString:SetText("Drop\nor\nclick")
 
-    -- Checkbox
+    -- Checkbox (compact Layout): Placed directly over top-left of the box
     local checkboxFrame = CreateFrame("CheckButton", nil, frame, "SettingsCheckboxTemplate")
     checkboxFrame:SetPoint("TOPLEFT", boxFrame, "TOPRIGHT", 5, 0)
+    checkboxFrame:SetSize(20, 20)
+    checkboxFrame:SetFrameStrata("MEDIUM")
+    checkboxFrame:SetFrameLevel(boxFrame:GetFrameLevel() + 5)
 
     local eventFrame = CreateFrame("Frame", nil, frame)
     eventFrame:RegisterEvent("PLAYER_EQUIPMENT_CHANGED")
