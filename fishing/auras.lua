@@ -264,3 +264,32 @@ end
 ns.GetAuraBySpellID = function(spellID)
     return Fishing:GetAuraBySpellID(spellID)
 end
+
+local function GetBuffTimingText(itemID)
+    if not profileDB or type(profileDB.buffAuraByItem) ~= "table" then
+        return "duration unknown (learning aura)"
+    end
+
+    local normalized = profileDB.buffAuraByItem[tostring(itemID)]
+    if type(normalized) ~= "table" or not normalized.spellID then
+        return "duration unknown (learning aura spell mapping)"
+    end
+
+    local itemDuration = normalized.duration
+    local aura = ns.GetAuraBySpellID(normalized.spellID)
+    if aura and aura.expirationTime and aura.expirationTime > 0 then
+        local remaining = math.max(0, aura.expirationTime - GetTime())
+        local activeTotal = aura.duration or remaining
+        return "item=" .. DreamFish:FormatDuration(itemDuration) .. ", active=" .. DreamFish:FormatDuration(remaining) .. " remaining / " .. DreamFish:FormatDuration(activeTotal) .. " total"
+    end
+
+    if itemDuration then
+        return "item=" .. DreamFish:FormatDuration(itemDuration) .. ", active aura not detected"
+    end
+    return "duration unknown (learning aura timings)"
+end
+
+function Fishing:AnnounceBuffUse(itemID, spellID)
+    local itemName = (type(C_Item.GetItemInfo) == "function" and C_Item.GetItemInfo(itemID)) or ("item:" .. tostring(itemID))
+    DreamFish:Print("Using buff: " .. tostring(itemName) .. " (" .. tostring(itemID) .. ", spellID=" .. tostring(spellID) .. ") [" .. GetBuffTimingText(itemID) .. "]")
+end

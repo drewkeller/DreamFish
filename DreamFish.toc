@@ -30,6 +30,7 @@ core/init.lua
 core/defaults.lua
 core/utils.lua
 core/utils.audio.lua
+core/utils.inventory.lua
 core/utils.toys.lua
 core/utils.ui.lua
 core/module_prototype.lua
