@@ -269,7 +269,7 @@ function Fishing:GetModuleOptions()
                 },
                 openTackleWindow = {
                     type = "execute",
-                    name = "Open Tackle Manager",
+                    name = "Open Tackle Box",
                     desc = "Open a window to manage fishing tackle (poles, rafts, bobbers).",
                     order = 3,
                     func = function() DreamFish:OpenDialogWindow("DreamFishDialog") end,

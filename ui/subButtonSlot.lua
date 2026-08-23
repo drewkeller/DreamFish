@@ -90,22 +90,46 @@ local function CreateSubButtonSlot(parentCanvas, slotIndex)
             Trace("SyncVisuals: updating slot " .. tostring(slot.index) .. " with itemID " .. tostring(slot.itemID) .. " and checked state " .. tostring(slot.isChecked))
             box.icon:SetTexture(C_Item.GetItemIconByID(slot.itemID) or "Interface\\Icons\\INV_Misc_QuestionMark")
 
-            -- FIX: Locate the item in bags so the SecureActionButton can fire it reliably
+            -- Locate item location in player inventories
             local bag, slotLoc = DreamFish:FindItemInBags(slot.itemID)
-            box:SetAttribute("type2", "item")
-            if bag and slotLoc then
-                box:SetAttribute("item2", string.format("%d %d", bag, slotLoc))
+            local isLureCategory = parentCanvas.arg and parentCanvas.arg.category == "lure"
+
+            -- UPDATE: Secure Application to Slot 28 via dynamic macro attributes
+            if isLureCategory then
+                -- Lures require structured sequencing; setting it to a secure macro ensures
+                -- it uses the item and applies it onto the fishing equipment weapon slot securely.
+                box:SetAttribute("type2", "macro")
+                if bag and slotLoc then
+                    box:SetAttribute("macrotext2", string.format("/use %d %d\n/use 28", bag, slotLoc))
+                else
+                    box:SetAttribute("macrotext2", string.format("/use item:%d\n/use 28", slot.itemID))
+                end
             else
-                box:SetAttribute("item2", "item:" .. slot.itemID)
+                -- Generic items (Food, Drinks, Buffs) activate natively off standard item targets
+                box:SetAttribute("type2", "item")
+                if bag and slotLoc then
+                    box:SetAttribute("item2", string.format("%d %d", bag, slotLoc))
+                else
+                    box:SetAttribute("item2", "item:" .. slot.itemID)
+                end
             end
         else
             box.icon:SetTexture(nil)
             box:SetAttribute("type2", nil)
             box:SetAttribute("item2", nil)
+            box:SetAttribute("macrotext2", nil)
         end
         checkbox:SetChecked(slot.isChecked)
         UpdateCountDisplay()
     end
+
+    local eventFrame = CreateFrame("Frame", nil, frame)
+    eventFrame:RegisterEvent("BAG_UPDATE_DELAYED")
+    eventFrame:SetScript("OnEvent", function(self, event, ...)
+        if event == "BAG_UPDATE_DELAYED" then
+            UpdateCountDisplay()
+        end
+    end)
 
     local function CommitChanges(newItemID, newChecked)
         slot.itemID = newItemID or nil

@@ -36,6 +36,10 @@ function DreamFish:SlashCommand(input)
     if cleanInput == "" then
         -- Open graphical option frame if typed completely bare
         Settings.OpenToCategory(self.optionsCategoryID or (self.optionsFrame and self.optionsFrame.name) or "DreamFish")
+        -- keep/reopen tackle box window
+        C_Timer.After(0.01, function()
+            DreamFish:OpenDialogWindow("DreamFishDialog")
+        end)
 
     elseif cleanInput == "tackle" then
         --DreamFish:OpenDialogWindow("DreamFishDialog", "buffsTab")

@@ -195,7 +195,7 @@ end
 
 local options = {
     type = "group",
-    name = "DreamFish Settings",
+    name = "DreamFish Tackle Box",
     childGroups = "tab",
     args = {
         polesTab = {
@@ -278,17 +278,35 @@ local options = {
             name = "Consumables",
             order = 2,
             args = {
-                consumablesDescription = {
-                    type = "description",
-                    name = "Configure the different consumables.", -- FIX 1: Keep this as a static flat string parameter baseline
-                    order = 1,
-                    fontSize = "medium",
-                },
-                consumablesSpacer = {
+                notesSpacer = {
                     type = "description",
                     name = " ",
-                    order = 1.5,
-                    fontSize = "small",
+                    order = 900,
+                    fontSize = "medium",
+                },
+                notesCollapser = {
+                    type = "toggle",
+                    name = "Notes",
+                    order = 901,
+                    width = "full",
+                    get = function()
+                        return ns.DreamFishDialogOptions.args.buffsTab.args.notesDescription.hidden ~= true
+                    end,
+                    set = function(_, value)
+                        ns.DreamFishDialogOptions.args.buffsTab.args.notesDescription.hidden = not value
+                        LibStub("AceConfigRegistry-3.0"):NotifyChange(addonName)
+                    end,
+                },
+                notesDescription = {
+                    type = "description",
+                    name = "|cFF999999Drag items from your bags into the boxes above"
+                        .. " or click a box to select from your available items.|r\n\n"
+                        .. "|cFF999999Buffs are automatically applied during fishing pre-casting.|r\n"
+                        .. "|cFF999999  * Each category is processed in the order shown, top to bottom.|r\n"
+                        .. "|cFF999999  * Items are applied left to right within each category.|r",
+                    order = 902,
+                    fontSize = "medium",
+                    hidden = function() return ns.DreamFishDialogOptions.args.buffsTab.args.notesDescription.hidden == true end,
                 },
             },
         },
@@ -327,71 +345,83 @@ local function GetCachedInventoryList(categoryKey)
     return cachedScanResults[categoryKey] or {}
 end
 
--- FIX 2: Single, clean, non-overlapping matrix generator pass sweep loop
+local expandedStates = {}
+
 for _, config in ipairs(gridMatrix) do
-    local inlineGroupKey = config.key .. "Group"
+    local headerKey = config.key .. "HeaderToggle"
+    local canvasKey = config.key .. "CanvasSlot"
 
-    options.args.buffsTab.args[inlineGroupKey] = {
-        type = "group",
-        name = config.groupName,
-        order = config.order,
-        inline = true,
-        args = {
-            -- HIGH-PERFORMANCE REWRITE: Switch type to "execute" to permanently bypass title validation math
-            gridCanvasSlot = {
-                type = "execute",
-                name = " ",
-                dialogControl = "DreamFishBuffItemDropBox",
-                width = "normal",
-                order = 1,
-                get = function() return config.key end,
-                func = function() end, -- Standard execute callback placeholder
-                control = config.key,
-                arg = {
-                    category = config.key,
-                    slots = config.slots,
-                    categoryTitle = config.title,
-                    -- Function, not a static value: bag contents must be re-scanned each time the dropdown opens
-                    dropdownMenuData = function() return GetCachedInventoryList(config.key) end,
+    if expandedStates[config.key] == nil then
+        expandedStates[config.key] = true
+    end
 
-                    GetItemValue = function(idx)
-                        local entry = GetBuffItem(config.key, idx)
-                        local result = entry and entry.itemID and tostring(entry.itemID) or ""
-                        return result
-                    end,
-                    SetItemValue = function(idx, val)
-                        -- Write directly into the live char table; GetBuffItem only ever hands back a disposable copy
-                        if Fishing.db and Fishing.db.char then
-                            Fishing.db.char.buffs = Fishing.db.char.buffs or {}
-                            Fishing.db.char.buffs[config.key] = Fishing.db.char.buffs[config.key] or {}
-                            Fishing.db.char.buffs[config.key][idx] = Fishing.db.char.buffs[config.key][idx] or { enabled = false, itemID = nil }
-                            Fishing.db.char.buffs[config.key][idx].itemID = tonumber(val) or nil
-                        else
-                            Trace("SetItemValue: ABORTED, Fishing.db.char unavailable for " .. config.key .. "[" .. tostring(idx) .. "]")
-                        end
-                    end,
-                    -- FIX: Directly write the visibility status parameter to the real schema field reference
-                    GetCheckedValue = function(idx)
-                        if Fishing.db and Fishing.db.char and Fishing.db.char.buffs and Fishing.db.char.buffs[config.key] and Fishing.db.char.buffs[config.key][idx] then
-                            return Fishing.db.char.buffs[config.key][idx].enabled or false
-                        end
-                        return false
-                    end,
-                    SetCheckedValue = function(idx, val)
-                        if Fishing.db and Fishing.db.char then
-                            Fishing.db.char.buffs = Fishing.db.char.buffs or {}
-                            Fishing.db.char.buffs[config.key] = Fishing.db.char.buffs[config.key] or {}
-                            Fishing.db.char.buffs[config.key][idx] = Fishing.db.char.buffs[config.key][idx] or { enabled = false, itemID = nil }
+    -- Inject the flat Interactive "Header"
+    options.args.buffsTab.args[headerKey] = {
+        type = "toggle",
+        name = function() return config.groupName end,
+        desc = "Click to toggle display visibility of the " .. config.groupName .. " items.",
+        order = config.order * 2,
+        width = "full",
+        get = function()
+            return expandedStates[config.key]
+        end,
+        set = function(_, value)
+            expandedStates[config.key] = value
+            LibStub("AceConfigRegistry-3.0"):NotifyChange(addonName)
+        end,
+    }
 
-                            Fishing.db.char.buffs[config.key][idx].enabled = val and true or false
-                            Trace(config.key .. "[" .. idx .. "].enabled = " .. tostring(val))
-                        end
-                    end,
-                    validateItemIDFunc = function(itemID, bag, slot)
-                        return Fishing:IsBuffItemCategory(config.key, itemID, bag, slot)
-                    end,
-                }
-            }
+    -- Inject the Grid DropBox Canvas
+    options.args.buffsTab.args[canvasKey] = {
+        type = "execute",
+        name = " ",
+        dialogControl = "DreamFishBuffItemDropBox",
+        width = "normal",
+        order = (config.order * 2) + 1,
+        hidden = function()
+            return expandedStates[config.key] == false
+        end,
+        get = function() return config.key end,
+        func = function() end,
+        control = config.key,
+        arg = {
+            category = config.key,
+            slots = config.slots,
+            categoryTitle = config.title,
+            dropdownMenuData = function() return GetCachedInventoryList(config.key) end,
+
+            GetItemValue = function(idx)
+                local entry = GetBuffItem(config.key, idx)
+                return entry and entry.itemID and tostring(entry.itemID) or ""
+            end,
+            SetItemValue = function(idx, val)
+                if Fishing.db and Fishing.db.char then
+                    Fishing.db.char.buffs = Fishing.db.char.buffs or {}
+                    Fishing.db.char.buffs[config.key] = Fishing.db.char.buffs[config.key] or {}
+                    Fishing.db.char.buffs[config.key][idx] = Fishing.db.char.buffs[config.key][idx] or { enabled = false, itemID = nil }
+                    Fishing.db.char.buffs[config.key][idx].itemID = tonumber(val) or nil
+                else
+                    Trace("SetItemValue: ABORTED, Fishing.db.char unavailable for " .. config.key .. "[" .. tostring(idx) .. "]")
+                end
+            end,
+            GetCheckedValue = function(idx)
+                if Fishing.db and Fishing.db.char and Fishing.db.char.buffs and Fishing.db.char.buffs[config.key] and Fishing.db.char.buffs[config.key][idx] then
+                    return Fishing.db.char.buffs[config.key][idx].enabled or false
+                end
+                return false
+            end,
+            SetCheckedValue = function(idx, val)
+                if Fishing.db and Fishing.db.char then
+                    Fishing.db.char.buffs = Fishing.db.char.buffs or {}
+                    Fishing.db.char.buffs[config.key] = Fishing.db.char.buffs[config.key] or {}
+                    Fishing.db.char.buffs[config.key][idx] = Fishing.db.char.buffs[config.key][idx] or { enabled = false, itemID = nil }
+                    Fishing.db.char.buffs[config.key][idx].enabled = val and true or false
+                    Trace(config.key .. "[" .. idx .. "].enabled = " .. tostring(val))
+                end
+            end,
+            validateItemIDFunc = function(itemID, bag, slot)
+                return Fishing:IsBuffItemCategory(config.key, itemID, bag, slot)
+            end,
         }
     }
 end

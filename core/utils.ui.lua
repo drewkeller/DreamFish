@@ -142,6 +142,16 @@ function DreamFish:OpenDialogWindow(windowName, tabOrGroupName)
         -- 4. Restore again for old point-based saved positions and then persist AceGUI status on close.
         self:RestoreDialogPosition(dialogFrame, windowName)
 
+        if dialogFrame.frame then
+            dialogFrame.frame:SetFrameStrata("BACKGROUND")
+            dialogFrame.frame:SetFrameLevel(1)
+            TraceUi(windowName, "(1) Set frame strata to BACKGROUND and level to 1")
+        else
+            dialogFrame:SetFrameStrata("BACKGROUND")
+            dialogFrame:SetFrameLevel(1)
+            TraceUi(windowName, "(2) Set frame strata to BACKGROUND and level to 1")
+        end
+
         -- Intercept various events
         if dialogFrame.DreamFishPositionHooked then
             TraceUi(windowName, "Dialog frame events already hooked, skipping.")

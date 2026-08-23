@@ -30,6 +30,7 @@ function Fishing:OnModuleEnable()
     self:RegisterEvent("PLAYER_REGEN_DISABLED",        "OnCombatStarted")
     self:RegisterEvent("PLAYER_STARTED_MOVING",        "OnMovementStarted")
     self:RegisterEvent("PLAYER_MOUNT_DISPLAY_CHANGED", "OnMountDisplayChanged")
+    self:RegisterEvent("UNIT_SPELLCAST_START",         "OnSpellCastStarted")
     self:RegisterEvent("UNIT_SPELLCAST_SUCCEEDED",     "OnSpellcastChannelStarted")
     self:RegisterEvent("UNIT_SPELLCAST_CHANNEL_STOP",  "OnSpellcastChannelEnded")
     self:RegisterEvent("PLAYER_EQUIPMENT_CHANGED",     "OnEquipmentChanged")
@@ -308,6 +309,9 @@ function Fishing:ClearBobberInteractOverride()
     self:SuspendRightClickStrike()
 end
 
+function Fishing:OnSpellCastStarted(event, unit, _, spellID, ...)
+end
+
 function Fishing:OnSpellcastChannelStarted(event, unit, ...)
     if unit ~= "player" then
         return
@@ -319,6 +323,7 @@ function Fishing:OnSpellcastChannelStarted(event, unit, ...)
     local _, spellID = ...
 
     if spellID ~= ns.fishing.const.fishingSpellID then
+        --Fishing:Trace("aura", "Spellcast channel started for non-fishing spellID=" .. tostring(spellID))
         return
     end
 
