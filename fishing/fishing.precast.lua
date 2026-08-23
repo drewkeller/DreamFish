@@ -13,7 +13,7 @@ table.insert(ns.FishingInitializers, Initialize)
 
 Fishing:RegisterTraceSource("precast")
 
-local DUE_BUFF_CATEGORY_ORDER = { "food_drink", "lure", "bait", "bobber", "other_consumable" }
+local DUE_BUFF_CATEGORY_ORDER = { "foodDrink", "lure", "bait", "bobber", "other_consumable" }
 
 function Fishing:ResolveBobberApplyAction()
     local selectedToyID = profileDB.bobberSelector and tonumber(DreamFish.addon.bobberSelector:GetText()) or nil

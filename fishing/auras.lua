@@ -151,14 +151,14 @@ function Fishing:UpdatePendingBuffObservation()
         end
 
         local floorDuration = math.max(existingDuration or 0, knownDuration or 0)
-        if category == "food_drink" then
+        if category == "foodDrink" then
             local foodDrinkExpected = math.max(knownDuration or 0, existingDuration or 0)
             if foodDrinkExpected > 0 then
                 floorDuration = math.max(floorDuration, foodDrinkExpected * 0.5)
             end
         end
 
-        if category == "food_drink" and floorDuration <= 0 and bestDuration > 0 and bestDuration < 60 then
+        if category == "foodDrink" and floorDuration <= 0 and bestDuration > 0 and bestDuration < 60 then
             if self.state then
                 self.state.buffItemTransientUntil = self.state.buffItemTransientUntil or {}
                 local now = GetTime()
@@ -174,7 +174,7 @@ function Fishing:UpdatePendingBuffObservation()
         -- Do not overwrite a known/learned long-duration mapping with a shorter
         -- transient aura that appears during observation.
         if floorDuration > 0 and bestDuration < floorDuration then
-            if category == "food_drink" and bestDuration > 0 and self.state then
+            if category == "foodDrink" and bestDuration > 0 and self.state then
                 self.state.buffItemTransientUntil = self.state.buffItemTransientUntil or {}
                 local now = GetTime()
                 local transientUntil = (bestExpirationTime and bestExpirationTime > now)

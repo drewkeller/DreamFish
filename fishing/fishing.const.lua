@@ -58,7 +58,7 @@ ns.fishing = { const = {
         [241316] = { spellID = 1236763, duration = 3600, category = "other_consumable", }, -- Haranir Phial of Perception (2)
         [241317] = { spellID = 1236763, duration = 1800, category = "other_consumable", }, -- Haranir Phial of Perception (1)
         [241148] = { spellID = 1237919, duration = 1800, category = "other_consumable", }, -- Amani Angler's Ward
-        [242299] = { spellID = 1269152, duration = 3600, category = "food_drink", }, -- Sanguithorn Tea
+        [242299] = { spellID = 1269152, duration = 3600, category = "foodDrink", }, -- Sanguithorn Tea
         [262651] = { spellID = 1284999, duration = 600, category = "lure", }, -- Pointed Spikesnail
         [241145] = { spellID = 1237964, duration = 1800, category = "bait", }, -- Lucky Loa Lure
         [241147] = { spellID = 1237974, duration = 1800, category = "bait", }, -- Blood Hunter Lure

@@ -24,6 +24,36 @@ ns.Fishing.Defaults = {
             -- other
             closeWindowOnEscape = true,
             lingerDuration = 10,
+            buffs = {
+                foodDrink = {
+                    { enabled = false, itemID = nil },
+                    { enabled = false, itemID = nil },
+                    { enabled = false, itemID = nil },
+                    { enabled = false, itemID = nil },
+                },
+                lures = {
+                    { enabled = false, itemID = nil },
+                    { enabled = false, itemID = nil },
+                    { enabled = false, itemID = nil },
+                    { enabled = false, itemID = nil },
+                },
+                bait = {
+                    { enabled = false, itemID = nil },
+                    { enabled = false, itemID = nil },
+                    { enabled = false, itemID = nil },
+                    { enabled = false, itemID = nil },
+                },
+                other_consumable = {
+                    { enabled = false, itemID = nil },
+                    { enabled = false, itemID = nil },
+                    { enabled = false, itemID = nil },
+                    { enabled = false, itemID = nil },
+                    { enabled = false, itemID = nil },
+                    { enabled = false, itemID = nil },
+                    { enabled = false, itemID = nil },
+                    { enabled = false, itemID = nil },
+                },
+            }
 		},
 	},
 	char = {
