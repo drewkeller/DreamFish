@@ -24,6 +24,14 @@ ns.Fishing.Defaults = {
             -- other
             closeWindowOnEscape = true,
             lingerDuration = 10,
+		},
+	},
+	char = {
+		fishing = {
+            -- Tackle
+            primaryPole = { isChecked = false, itemID = nil },
+            underlightAngler = { isChecked = false, itemID = nil },
+            -- Buffs
             buffs = {
                 fooddrink = {
                     { enabled = false, itemID = nil },
@@ -31,7 +39,7 @@ ns.Fishing.Defaults = {
                     { enabled = false, itemID = nil },
                     { enabled = false, itemID = nil },
                 },
-                lures = {
+                lure = {
                     { enabled = false, itemID = nil },
                     { enabled = false, itemID = nil },
                     { enabled = false, itemID = nil },
@@ -54,41 +62,6 @@ ns.Fishing.Defaults = {
                     { enabled = false, itemID = nil },
                 },
             }
-		},
-	},
-	char = {
-		fishing = {
-            -- Tackle
-            primaryPole = { isChecked = false, itemID = nil },
-            underlightAngler = { isChecked = false, itemID = nil },
-            -- Buffs
-            buffItems = {
-                { enabled = false, itemID = nil },
-                { enabled = false, itemID = nil },
-                { enabled = false, itemID = nil },
-                { enabled = false, itemID = nil },
-                { enabled = false, itemID = nil },
-                { enabled = false, itemID = nil },
-                { enabled = false, itemID = nil },
-                { enabled = false, itemID = nil },
-                { enabled = false, itemID = nil },
-                { enabled = false, itemID = nil },
-                { enabled = false, itemID = nil },
-                { enabled = false, itemID = nil },
-                { enabled = false, itemID = nil },
-                { enabled = false, itemID = nil },
-                { enabled = false, itemID = nil },
-                { enabled = false, itemID = nil },
-                { enabled = false, itemID = nil },
-                { enabled = false, itemID = nil },
-                { enabled = false, itemID = nil },
-                { enabled = false, itemID = nil },
-                { enabled = false, itemID = nil },
-                { enabled = false, itemID = nil },
-                { enabled = false, itemID = nil },
-                { enabled = false, itemID = nil },
-                { enabled = false, itemID = nil },
-            },
         },
 	},
 }

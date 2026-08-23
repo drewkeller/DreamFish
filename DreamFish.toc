@@ -45,6 +45,7 @@ looting/loottracker.options.lua
 looting/loottracker.lua
 
 # UI widgets and components
+ui/subButtonSlot.lua
 ui/buffItemDropBox.lua
 ui/equipmentDropBox.lua
 

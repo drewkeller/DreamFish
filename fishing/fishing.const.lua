@@ -60,6 +60,7 @@ ns.fishing = { const = {
         [241148] = { spellID = 1237919, duration = 1800, category = "other_consumable", }, -- Amani Angler's Ward
         [242299] = { spellID = 1269152, duration = 3600, category = "fooddrink", }, -- Sanguithorn Tea
         [262651] = { spellID = 1284999, duration = 600, category = "lure", }, -- Pointed Spikesnail
+        [262650] = { spellID = 1284999, duration = 600, category = "lure", }, -- Writhing Wiggleworm (same spellID and text as Pointed Spikesnail)
         [241145] = { spellID = 1237964, duration = 1800, category = "bait", }, -- Lucky Loa Lure
         [241147] = { spellID = 1237974, duration = 1800, category = "bait", }, -- Blood Hunter Lure
         [241149] = { spellID = 1237965, duration = 1800, category = "bait", }, -- Ominous Octopus Lure

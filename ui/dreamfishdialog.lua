@@ -38,25 +38,34 @@ local function IsUnderlightAnglerItemID(itemID)
 end
 
 local function GetBuffItem(category, index)
-    local charDB = GetFishingCharDB()
-    charDB.buffs = charDB.buffs or {}
-    charDB.buffs[category] = charDB.buffs[category] or {}
-    charDB.buffs[category][index] = charDB.buffs[category][index] or {}
-    return charDB.buffs[category][index]
+    if Fishing.db and Fishing.db.char then
+        Fishing.db.char.buffs = Fishing.db.char.buffs or {}
+        Fishing.db.char.buffs[category] = Fishing.db.char.buffs[category] or {}
+        Fishing.db.char.buffs[category][index] = Fishing.db.char.buffs[category][index] or { enabled = false, itemID = nil }
+
+        local itemNode = Fishing.db.char.buffs[category][index]
+        return {
+            itemID = itemNode.itemID,
+            isChecked = itemNode.enabled
+        }
+    end
+    return { itemID = nil, isChecked = false }
 end
 
 local function SetBuffItem(category, index, itemID)
-    local charDB = GetFishingCharDB()
-    charDB.buffs = charDB.buffs or {}
-    charDB.buffs[category] = charDB.buffs[category] or {}
+    if Fishing.db and Fishing.db.char then
+        Fishing.db.char.buffs = Fishing.db.char.buffs or {}
+        Fishing.db.char.buffs[category] = Fishing.db.char.buffs[category] or {}
+        Fishing.db.char.buffs[category][index] = Fishing.db.char.buffs[category][index] or { enabled = false, itemID = nil }
 
-    charDB.buffs[category][index] = charDB.buffs[category][index] or {}
-    charDB.buffs[category][index].itemID = tonumber(itemID) or nil
+        local cleanID = tonumber(itemID) or nil
+        Fishing.db.char.buffs[category][index].itemID = cleanID
 
-    if itemID then
-        Trace(tostring(category) .. "[" .. tostring(index) .. "] = " .. tostring(itemID))
-    else
-        Trace(tostring(category) .. "[" .. tostring(index) .. "] = cleared")
+        if cleanID then
+            Trace(tostring(category) .. "[" .. tostring(index) .. "] = " .. tostring(cleanID))
+        else
+            Trace(tostring(category) .. "[" .. tostring(index) .. "] = cleared")
+        end
     end
 end
 
@@ -78,14 +87,13 @@ local function AutoDetectUnderlightAngler()
     local anglerID = tonumber(ns.fishing.const.underlightAnglerItemID)
     if not anglerID then return false end
 
-    -- Guard: If it's already configured in the database, don't execute updates or trigger reloads
     if GetItemID("underlightAngler") == anglerID then
         return false
     end
 
     if DreamFish:IsItemAvailableForEquip(anglerID) then
         SetItemID("underlightAngler", anglerID)
-        return true -- State changed!
+        return true
     end
 
     return false
@@ -95,7 +103,6 @@ local function GetEquipmentAvailableForSlot(slotID, validatorFunc)
     local items = {}
     local seen = {}
 
-    -- Helper to process an item using its live physical coordinates
     local function AddItem(itemID, bag, slot)
         itemID = tonumber(itemID)
         if not itemID or seen[itemID] then return end
@@ -104,13 +111,10 @@ local function GetEquipmentAvailableForSlot(slotID, validatorFunc)
         seen[itemID] = true
         local name = C_Item.GetItemInfo(itemID) or ("item:" .. itemID)
 
-        -- Fetch structural tooltip data directly from the physical container location
         local tooltipData = nil
         if bag and slot then
-            -- Fetching a pole from your inventory bags
             tooltipData = C_TooltipInfo.GetBagItem(bag, slot)
         else
-            -- Fetching the currently equipped pole from your player slot
             tooltipData = C_TooltipInfo.GetInventoryItem("player", slotID)
         end
 
@@ -120,30 +124,25 @@ local function GetEquipmentAvailableForSlot(slotID, validatorFunc)
         if tooltipData and tooltipData.lines then
             for _, line in ipairs(tooltipData.lines) do
                 if line.leftText then
-                    -- 1. Parse out your real scaled Item Level (e.g. 258)
                     local iLvl = line.leftText:match("^Item%s+Level%s+([0-9]+)")
                     if iLvl then realItemLevel = tonumber(iLvl) or 0 end
 
-                    -- 2. Parse out your true localized Midnight Fishing or generic Fishing Skill modifier
                     local bonus = line.leftText:match("%+([0-9]+)%s+[^%s]*%s*Fishing") or line.leftText:match("by%s+([0-9]+)")
                     if bonus then fishingBonus = tonumber(bonus) or fishingBonus end
                 end
             end
         end
 
-        -- If the item level parsing missed, fall back to basic skill bonuses as a sorting engine backup
         local sortingWeight = realItemLevel > 0 and realItemLevel or fishingBonus
 
         table.insert(items, {
             itemID = itemID,
             name = name,
-            itemLevel = sortingWeight, -- Prioritizes real level for dropdown sorting
-            -- Save location markers so our widget menu can generate the exact tooltip later
+            itemLevel = sortingWeight,
             locationMarker = (bag and slot) and (bag .. "," .. slot) or "equipped"
         })
     end
 
-    -- 1. Scan your player container bags safely
     for bag = 0, NUM_BAG_SLOTS do
         for slot = 1, C_Container.GetContainerNumSlots(bag) do
             local itemID = C_Container.GetContainerItemID(bag, slot)
@@ -151,11 +150,9 @@ local function GetEquipmentAvailableForSlot(slotID, validatorFunc)
         end
     end
 
-    -- 2. Scan your player's equipped profession slot safely
     local equippedID = GetInventoryItemID("player", slotID)
     if equippedID then AddItem(equippedID, nil, nil) end
 
-    -- Sort the data structures array cleanly (highest item level floats to top)
     table.sort(items, function(left, right)
         if left.itemLevel ~= right.itemLevel then
             return left.itemLevel > right.itemLevel
@@ -173,7 +170,6 @@ local function GetPoleSelectorOptionsForDropDown()
 
     for _, info in ipairs(availablePoles) do
         if info.itemID then
-            -- Format: "itemLevel:locationMarker:itemName"
             listData[tostring(info.itemID)] = info.itemLevel .. ":" .. info.locationMarker .. ":" .. info.name
             hasItems = true
         end
@@ -186,18 +182,16 @@ local function GetPoleSelectorOptionsForDropDown()
     return listData
 end
 
--- Flattens the items to: flatlist[itemID] = "name:bag:slot"
 local function FlattenToNameBagSlot(foundInventoryItems)
     local flatList = {}
     for _, info in ipairs(foundInventoryItems) do
         if info.itemID then
             local name = C_Item.GetItemNameByID(info.itemID) or "Unknown"
-            flatList[tostring(info.itemID)] = name .. ":" .. tostring(info.bag) .. ":" .. tostring(info.slot)
+            flatList[tostring(info.itemID)] = name .. ":0:0"
         end
     end
     return flatList
 end
-
 
 local options = {
     type = "group",
@@ -209,7 +203,6 @@ local options = {
             name = "Poles & Rods",
             order = 1,
             args = {
-                -- using a description item to trigger "OnShown" updates
                 onPolesShownTrigger = {
                     type = "description",
                     name = function()
@@ -243,7 +236,6 @@ local options = {
                     order = 2,
                     width = "normal",
                     dialogControl = "DreamFishEquipmentPreview",
-
                     get = function()
                         local savedID = GetItemID("primaryPole")
                         return savedID and tostring(savedID) or ""
@@ -254,7 +246,6 @@ local options = {
                     values = function()
                         return GetPoleSelectorOptionsForDropDown()
                     end,
-
                     arg = {
                         desc = "The pole used for fishing. Click to select from your available fishing poles.",
                         slotID = 28,
@@ -269,10 +260,8 @@ local options = {
                     order = 3,
                     width = "normal",
                     dialogControl = "DreamFishEquipmentPreview",
-
                     get = function() return tostring(GetItemID("underlightAngler") or "") end,
                     set = function(_, itemID) SetItemID("underlightAngler", itemID) end,
-
                     arg = {
                         desc = "Always shown here if it is available in your bags or equipped.",
                         slotID = 28,
@@ -291,7 +280,7 @@ local options = {
             args = {
                 consumablesDescription = {
                     type = "description",
-                    name = "Configure the different consumables.",
+                    name = "Configure the different consumables.", -- FIX 1: Keep this as a static flat string parameter baseline
                     order = 1,
                     fontSize = "medium",
                 },
@@ -301,146 +290,110 @@ local options = {
                     order = 1.5,
                     fontSize = "small",
                 },
-                -- case-matched to "fooddrink" category
-                fooddrinkGroup = {
-                    type = "group",
-                    name = "Food & Drink",
-                    order = 2,
-                    inline = true,
-                    args = {
-                        fooddrink_1 = {
-                            type = "select",
-                            name = " ",
-                            dialogControl = "DreamFishBuffItemDropBox",
-                            width = "half",
-                            get = function() return tostring(GetBuffItem("fooddrink", 1).itemID or "") end,
-                            set = function(_, value)
-                                    SetBuffItem("fooddrink", 1, value)
-                                end,
-                            values = function()
-                                -- get items that match the category
-                                local foundInventoryItems = DreamFish:FindItemsInBagsWhere(function(itemID, bag, slot)
-                                    return Fishing:IsBuffItemCategory("fooddrink", itemID, bag, slot)
-                                end)
-                                return FlattenToNameBagSlot(foundInventoryItems)
-                            end,
-                            arg = {
-                                validateItemIDFunc = function(itemID, bag, slot) return Fishing:IsBuffItemCategory("fooddrink", itemID, bag, slot) end,
-                                getIsChecked = function() return GetBuffItem("fooddrink", 1).isChecked or false end,
-                                setIsChecked = function(value)
-                                    GetBuffItem("fooddrink", 1).isChecked = value
-                                    Trace("fooddrink[1].isChecked = " .. tostring(value))
-                                end,
-                                categoryTitle = "Food/Drink",
-                                category = "fooddrink",
-                                index = 1,
-                            }
-                        },
-                    }
-                }, -- foodDrinkGroup
-                lureGroup = {
-                    type = "group",
-                    name = "Lures",
-                    order = 3,
-                    inline = true,
-                    args = {
-                        lure_1 = {
-                            type = "select",
-                            name = " ",
-                            dialogControl = "DreamFishBuffItemDropBox",
-                            width = "half",
-                            get = function() return tostring(GetBuffItem("lure", 1).itemID or "") end,
-                            set = function(_, value) SetBuffItem("lure", 1, value) end,
-                            values = function()
-                                local foundInventoryItems = DreamFish:FindItemsInBagsWhere(function(itemID, bag, slot)
-                                    return Fishing:IsBuffItemCategory("lure", itemID, bag, slot)
-                                end)
-                                return FlattenToNameBagSlot(foundInventoryItems)
-                            end,
-                            arg = {
-                                validateItemIDFunc = function(itemID, bag, slot) return Fishing:IsBuffItemCategory("lure", itemID, bag, slot) end,
-                                getIsChecked = function() return GetBuffItem("lure", 1).isChecked or false end,
-                                setIsChecked = function(value)
-                                    GetBuffItem("lure", 1).isChecked = value
-                                    Trace("lure[1].isChecked = " .. tostring(value))
-                                end,
-                                categoryTitle = "Lure",
-                                category = "lure",
-                                index = 1,
-                            }
-                        },
-                    }
-                },
-                baitGroup = {
-                    type = "group",
-                    name = "Bait",
-                    order = 4,
-                    inline = true,
-                    args = {
-                        bait_1 = {
-                            type = "select",
-                            name = " ",
-                            dialogControl = "DreamFishBuffItemDropBox",
-                            width = "half",
-                            get = function() return tostring(GetBuffItem("bait", 1).itemID or "") end,
-                            set = function(_, value) SetBuffItem("bait", 1, value) end,
-                            values = function()
-                                local foundInventoryItems = DreamFish:FindItemsInBagsWhere(function(itemID, bag, slot)
-                                    return Fishing:IsBuffItemCategory("bait", itemID, bag, slot)
-                                end)
-                                return FlattenToNameBagSlot(foundInventoryItems)
-                            end,
-                            arg = {
-                                validateItemIDFunc = function(itemID, bag, slot) return Fishing:IsBuffItemCategory("bait", itemID, bag, slot) end,
-                                getIsChecked = function() return GetBuffItem("bait", 1).isChecked or false end,
-                                setIsChecked = function(value)
-                                    GetBuffItem("bait", 1).isChecked = value
-                                    Trace("bait[1].isChecked = " .. tostring(value))
-                                end,
-                                categoryTitle = "Bait",
-                                category = "bait",
-                                index = 1,
-                            }
-                        },
-                    },
-                },
-                -- match to "other_consumable" category
-                other_consumableGroup = {
-                    type = "group",
-                    name = "Other Buffs",
-                    order = 5,
-                    inline = true,
-                    args = {
-                        otherBuffs_1 = {
-                            type = "select",
-                            name = " ",
-                            dialogControl = "DreamFishBuffItemDropBox",
-                            width = "half",
-                            get = function() return tostring(GetBuffItem("other_consumable", 1).itemID or "") end,
-                            set = function(_, value) SetBuffItem("other_consumable", 1, value) end,
-                            values = function()
-                                local foundInventoryItems = DreamFish:FindItemsInBagsWhere(function(itemID, bag, slot)
-                                    return Fishing:IsBuffItemCategory("other_consumable", itemID, bag, slot)
-                                end)
-                                return FlattenToNameBagSlot(foundInventoryItems)
-                            end,
-                            arg = {
-                                validateItemIDFunc = function(itemID, bag, slot) return Fishing:IsBuffItemCategory("other_consumable", itemID, bag, slot) end,
-                                getIsChecked = function() return GetBuffItem("other_consumable", 1).isChecked or false end,
-                                setIsChecked = function(value)
-                                    GetBuffItem("other_consumable", 1).isChecked = value
-                                    Trace("other_consumable[1].isChecked = " .. tostring(value))
-                                end,
-                                categoryTitle = "Buff",
-                                category = "other_consumable",
-                                index = 1,
-                            }
-                        },
-                    },
-                }
             },
-        }, -- buffsTab
+        },
     },
 }
+
+-- ============================================================================
+-- HIGH-PERFORMANCE DYNAMIC CANVASES MATRIX GENERATOR
+-- ============================================================================
+local gridMatrix = {
+    { key = "fooddrink",        title = "Food/Drink", groupName = "Food & Drink", slots = 5,  order = 2 },
+    { key = "lure",             title = "Lure",       groupName = "Lures",        slots = 5,  order = 3 },
+    { key = "bait",             title = "Bait",       groupName = "Bait",         slots = 5,  order = 4 },
+    { key = "other_consumable", title = "Buff",       groupName = "Other Buffs",  slots = 10, order = 5 },
+}
+
+-- Performance Cache Buffers: Prevents redundant bag scans from bottlenecking AceConfig
+local cachedScanResults = {}
+local lastScanTimestamp = 0
+
+local function GetCachedInventoryList(categoryKey)
+    local now = GetTime()
+
+    if not cachedScanResults[categoryKey] or (now - lastScanTimestamp > 0.5) then
+        cachedScanResults = {}
+        lastScanTimestamp = now
+
+        for _, config in ipairs(gridMatrix) do
+            local foundItems = DreamFish:FindItemsInBagsWhere(function(itemID, bag, slot)
+                return Fishing:IsBuffItemCategory(config.key, itemID, bag, slot)
+            end)
+            cachedScanResults[config.key] = FlattenToNameBagSlot(foundItems)
+        end
+    end
+
+    return cachedScanResults[categoryKey] or {}
+end
+
+-- FIX 2: Single, clean, non-overlapping matrix generator pass sweep loop
+for _, config in ipairs(gridMatrix) do
+    local inlineGroupKey = config.key .. "Group"
+
+    options.args.buffsTab.args[inlineGroupKey] = {
+        type = "group",
+        name = config.groupName,
+        order = config.order,
+        inline = true,
+        args = {
+            -- HIGH-PERFORMANCE REWRITE: Switch type to "execute" to permanently bypass title validation math
+            gridCanvasSlot = {
+                type = "execute",
+                name = " ",
+                dialogControl = "DreamFishBuffItemDropBox",
+                width = "normal",
+                order = 1,
+                get = function() return config.key end,
+                func = function() end, -- Standard execute callback placeholder
+                control = config.key,
+                arg = {
+                    category = config.key,
+                    slots = config.slots,
+                    categoryTitle = config.title,
+                    -- Function, not a static value: bag contents must be re-scanned each time the dropdown opens
+                    dropdownMenuData = function() return GetCachedInventoryList(config.key) end,
+
+                    GetItemValue = function(idx)
+                        local entry = GetBuffItem(config.key, idx)
+                        local result = entry and entry.itemID and tostring(entry.itemID) or ""
+                        return result
+                    end,
+                    SetItemValue = function(idx, val)
+                        -- Write directly into the live char table; GetBuffItem only ever hands back a disposable copy
+                        if Fishing.db and Fishing.db.char then
+                            Fishing.db.char.buffs = Fishing.db.char.buffs or {}
+                            Fishing.db.char.buffs[config.key] = Fishing.db.char.buffs[config.key] or {}
+                            Fishing.db.char.buffs[config.key][idx] = Fishing.db.char.buffs[config.key][idx] or { enabled = false, itemID = nil }
+                            Fishing.db.char.buffs[config.key][idx].itemID = tonumber(val) or nil
+                        else
+                            Trace("SetItemValue: ABORTED, Fishing.db.char unavailable for " .. config.key .. "[" .. tostring(idx) .. "]")
+                        end
+                    end,
+                    -- FIX: Directly write the visibility status parameter to the real schema field reference
+                    GetCheckedValue = function(idx)
+                        if Fishing.db and Fishing.db.char and Fishing.db.char.buffs and Fishing.db.char.buffs[config.key] and Fishing.db.char.buffs[config.key][idx] then
+                            return Fishing.db.char.buffs[config.key][idx].enabled or false
+                        end
+                        return false
+                    end,
+                    SetCheckedValue = function(idx, val)
+                        if Fishing.db and Fishing.db.char then
+                            Fishing.db.char.buffs = Fishing.db.char.buffs or {}
+                            Fishing.db.char.buffs[config.key] = Fishing.db.char.buffs[config.key] or {}
+                            Fishing.db.char.buffs[config.key][idx] = Fishing.db.char.buffs[config.key][idx] or { enabled = false, itemID = nil }
+
+                            Fishing.db.char.buffs[config.key][idx].enabled = val and true or false
+                            Trace(config.key .. "[" .. idx .. "].enabled = " .. tostring(val))
+                        end
+                    end,
+                    validateItemIDFunc = function(itemID, bag, slot)
+                        return Fishing:IsBuffItemCategory(config.key, itemID, bag, slot)
+                    end,
+                }
+            }
+        }
+    }
+end
 
 ns.DreamFishDialogOptions = options
