@@ -59,10 +59,11 @@ function DreamFish:SaveDialogFrameCoordinates(windowName, dialogFrame)
     local globalDB = DreamFish and DreamFish.db and DreamFish.db.global
     if globalDB and dialogFrame then
         globalDB.windowPositions = globalDB.windowPositions or {}
-        local width = dialogFrame:GetWidth()
-        local height = dialogFrame:GetHeight()
-        local top = dialogFrame:GetTop()
-        local left = dialogFrame:GetLeft()
+        local status = GetDialogStatusTable(windowName)
+        local width = status and status.width or dialogFrame:GetWidth()
+        local height = status and status.height or dialogFrame:GetHeight()
+        local top = status and status.top or dialogFrame:GetTop()
+        local left = status and status.left or dialogFrame:GetLeft()
         globalDB.windowPositions[windowName] = {
             width = math.floor((width or 700) + 0.5),
             height = math.floor((height or 500) + 0.5),
@@ -122,7 +123,7 @@ function DreamFish:RestoreDialogPosition(frame, windowName)
     end
 end
 
-function DreamFish:OpenDialogWindow(windowName)
+function DreamFish:OpenDialogWindow(windowName, tabOrGroupName)
     -- 1. Tell AceConfigRegistry to refresh data variables across fields
     LibStub("AceConfigRegistry-3.0"):NotifyChange(windowName)
 
@@ -132,7 +133,7 @@ function DreamFish:OpenDialogWindow(windowName)
     self:RestoreDialogPosition(nil, windowName)
 
     -- 3. Open the window frame and capture its AceGUI widget from AceConfigDialog's registry.
-    AceConfigDialog:Open(windowName)
+    AceConfigDialog:Open(windowName, tabOrGroupName)
     local dialog = AceConfigDialog.OpenFrames and AceConfigDialog.OpenFrames[windowName]
     local dialogFrame = GetDialogFrame(dialog)
     TraceUi(windowName, "OpenDialogWindow")
