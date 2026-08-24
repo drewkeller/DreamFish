@@ -218,8 +218,8 @@ function Fishing:UpdatePendingBuffObservation()
         DreamFish:Print("Buff tracked for item:" .. tostring(itemID)
             .. " [spellID=" .. tostring(bestSpellID)
             .. (auraName and (", aura=" .. tostring(auraName)) or "")
-            .. ", item=" .. DreamFish.buff.FormatDuration(bestDuration)
-            .. ", active=" .. DreamFish.buff.FormatDuration(bestDuration) .. " total]")
+            .. ", item=" .. DreamFish:FormatDuration(bestDuration)
+            .. ", active=" .. DreamFish:FormatDuration(bestDuration) .. " total]")
         self.state.pendingBuffObservation = nil
     end
 end

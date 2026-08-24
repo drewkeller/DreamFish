@@ -34,6 +34,7 @@ function Fishing:OnModuleEnable()
     self:RegisterEvent("UNIT_SPELLCAST_SUCCEEDED",     "OnSpellcastChannelStarted")
     self:RegisterEvent("UNIT_SPELLCAST_CHANNEL_STOP",  "OnSpellcastChannelEnded")
     self:RegisterEvent("PLAYER_EQUIPMENT_CHANGED",     "OnEquipmentChanged")
+    self:RegisterEvent("BAG_UPDATE_DELAYED",           "OnBagUpdateDelayed")
     self:RegisterEvent("UNIT_AURA",                    "OnAurasChanged")
     self:RegisterEvent("LOOT_READY",                   "OnLootReady")
     self:RegisterEvent("LOOT_CLOSED",                  "OnLootClosed")
@@ -53,11 +54,18 @@ function Fishing:OnModuleDisable()
     self:UnregisterEvent("UNIT_SPELLCAST_STOP")
     self:UnregisterEvent("UNIT_SPELLCAST_CHANNEL_STOP")
     self:UnregisterEvent("PLAYER_EQUIPMENT_CHANGED")
+    self:UnregisterEvent("BAG_UPDATE_DELAYED")
     self:UnregisterEvent("UNIT_AURA")
     self:UnregisterEvent("LOOT_READY")
     self:UnregisterEvent("LOOT_CLOSED")
     --self:UnregisterEvent("BAG_UPDATE_DELAYED")
     self:RemoveClickFrame()
+end
+
+function Fishing:OnBagUpdateDelayed()
+    if type(self.ConfirmPendingBuffUse) == "function" then
+        self:ConfirmPendingBuffUse()
+    end
 end
 
 function Fishing:GetKeybindings()
@@ -98,9 +106,9 @@ function Fishing:OnAurasChanged(event, unit, updateInfo)
     if type(unit) == "string" and unit ~= "player" then
         return
     end
-    if not self:IsInFishingSession() then
-        return
-    end
+    -- if not self:IsInFishingSession() then
+    --     return
+    -- end
     -- is this really needed? if outside of fishing session, it gets called constantly
     if self:IsFishingState(ns.fishing.states.IDLE)
         or self:IsFishingState(ns.fishing.states.PRECASTING)
@@ -134,7 +142,7 @@ function Fishing:OnAurasChanged(event, unit, updateInfo)
     end
 
     if not hasAddedAuras and not hasRemovedAuras then
-        self:Trace("aura", "No known fishing aura changes detected")
+        --self:Trace("aura", "No added or removed auras (existing updated?)")
     end
 end
 
@@ -321,6 +329,10 @@ function Fishing:OnSpellcastChannelStarted(event, unit, ...)
 
     -- args are (castGUID, spellID, ...); some events add extra trailing numeric args, so don't scan for "any number"
     local _, spellID = ...
+
+    if type(self.ConfirmPendingBuffUse) == "function" then
+        self:ConfirmPendingBuffUse(spellID)
+    end
 
     if spellID ~= ns.fishing.const.fishingSpellID then
         --Fishing:Trace("aura", "Spellcast channel started for non-fishing spellID=" .. tostring(spellID))

@@ -78,10 +78,19 @@ local function CreateSubButtonSlot(parentCanvas, slotIndex)
     local function UpdateCountDisplay()
         if slot.itemID and slot.itemID > 0 then
             local count = C_Item.GetItemCount(slot.itemID, false, false, false, false) or 0
-            box.countText:SetText(tostring(math.max(0, count)))
-            Fishing.state.buffItemLastKnownCount[slot.itemID] = math.max(0, count)
+            count = math.max(0, count)
+            box.countText:SetText(tostring(count))
+            if count == 0 then
+                box.countText:SetTextColor(1, 0.2, 0.2, 1)
+                box.icon:SetVertexColor(0.45, 0.45, 0.45, 1)
+            else
+                box.countText:SetTextColor(1, 1, 1, 1)
+                box.icon:SetVertexColor(1, 1, 1, 1)
+            end
+            Fishing.state.buffItemLastKnownCount[slot.itemID] = count
         else
             box.countText:SetText("")
+            box.countText:SetTextColor(1, 1, 1, 1)
         end
     end
 
@@ -132,8 +141,15 @@ local function CreateSubButtonSlot(parentCanvas, slotIndex)
     end)
 
     local function CommitChanges(newItemID, newChecked)
+        local previousItemID = slot.itemID
         slot.itemID = newItemID or nil
-        slot.isChecked = newChecked and true or false
+        if not slot.itemID or slot.itemID <= 0 then
+            slot.isChecked = false
+        elseif previousItemID ~= slot.itemID then
+            slot.isChecked = true
+        else
+            slot.isChecked = newChecked and true or false
+        end
 
         if parentCanvas.arg then
             -- 1. Pass the absolute variable straight to your updated database setters
@@ -146,13 +162,6 @@ local function CreateSubButtonSlot(parentCanvas, slotIndex)
 
             if LibStub("AceConfigRegistry-3.0") then
                 Trace("Notifying AceConfigRegistry of changes to " .. tostring(parentCanvas.arg and parentCanvas.arg.category) .. "[" .. tostring(slot.index) .. "]")
-
-                -- This one allows changes to appear in the dialog, but doesn't seem to save to database
-                -- or even when closing the dialog
-                --LibStub("AceConfigRegistry-3.0"):NotifyChange("DreamFish")
-
-                -- This one does not show changes in the dialog, not sure about the database
-                -- Perhaps due to some other conflict or misalignment
                 LibStub("AceConfigRegistry-3.0"):NotifyChange("DreamFishDialog")
             end
         end

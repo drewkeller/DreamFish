@@ -104,9 +104,35 @@ local function GetKnownSpellAndDuration(itemID)
     return spellID, duration
 end
 
+local function IsFishingLureApplied()
+    if not C_TooltipInfo or type(C_TooltipInfo.GetInventoryItem) ~= "function" then
+        return false
+    end
+
+    local ok, tooltipData = pcall(C_TooltipInfo.GetInventoryItem, "player", 28)
+    if not ok or type(tooltipData) ~= "table" or type(tooltipData.lines) ~= "table" then
+        return false
+    end
+
+    for _, line in ipairs(tooltipData.lines) do
+        local leftText = type(line) == "table" and line.leftText or nil
+        local rightText = type(line) == "table" and line.rightText or nil
+        local text = string.lower(tostring(leftText or "") .. " " .. tostring(rightText or ""))
+        if text:find("fishing lure", 1, true) then
+            return true
+        end
+    end
+
+    return false
+end
+
 local function IsDue(itemID, category, now)
     state.buffItemLastUseAt = state.buffItemLastUseAt or {}
     state.buffItemTransientUntil = state.buffItemTransientUntil or {}
+
+    if category == "lure" and IsFishingLureApplied() then
+        return false, "fishing_lure_already_applied"
+    end
 
     if category == "fooddrink" and (tonumber(state.buffItemTransientUntil[itemID]) or 0) > now then
         return false, "transient_buff_active"
@@ -117,7 +143,18 @@ local function IsDue(itemID, category, now)
     end
     local pending = state.pendingBuffObservation
     if type(pending) == "table" and tonumber(pending.itemID) == itemID then
-        return false, "pending_observation" .. LastUseString(lastUse, nil)
+        local known = GetKnownBuff(itemID)
+        local isKnownDuration = type(known) == "table"
+            and tonumber(known.spellID)
+            and tonumber(known.duration)
+        if not isKnownDuration then
+            return false, "pending_observation" .. LastUseString(lastUse, nil)
+        end
+        state.pendingBuffObservation = nil
+    end
+    local pendingUse = state.pendingBuffUse
+    if type(pendingUse) == "table" and tonumber(pendingUse.itemID) == itemID then
+        return false, "pending_use"
     end
     if state.buffUnknownDurationSuppressed and (state.buffUnknownDurationSuppressed[itemID]
         or state.buffUnknownDurationSuppressed[tostring(itemID)]) then
@@ -133,7 +170,11 @@ local function IsDue(itemID, category, now)
         refreshLead = math.max(refreshLead, math.min(15, math.max(3, knownDuration * 0.10)))
     end
     if remaining ~= nil then
-        return remaining <= refreshLead
+        if remaining <= refreshLead then
+            return true, "remaining_duration_due " .. LastUseString(lastUse, knownDuration)
+        else
+            return false, "remaining_duration_not_due " .. LastUseString(lastUse, knownDuration)
+        end
     end
 
     local aura = spellID and type(Fishing.GetAuraBySpellID) == "function"
@@ -153,26 +194,90 @@ local function IsDue(itemID, category, now)
             return false, "known_duration_aura_missing" .. LastUseString(lastUse, knownDuration)
         end
     end
-    return true
+    return true, "unknown_duration_no_aura " .. LastUseString(lastUse, knownDuration)
 end
 
-local function RecordBuffUse(itemID)
+local function QueueBuffUse(itemID)
+    local itemSpellID = nil
+    if C_Item and type(C_Item.GetItemSpell) == "function" then
+        local spellID = C_Item.GetItemSpell(itemID)
+        itemSpellID = tonumber(spellID)
+    end
+    local known = GetKnownBuff(itemID)
+    local knownSpellID = type(known) == "table" and tonumber(known.spellID) or nil
+    state.pendingBuffUse = {
+        itemID = itemID,
+        itemSpellID = itemSpellID or knownSpellID,
+        knownSpellID = knownSpellID,
+        countBefore = DreamFish:CountItemInBags(itemID),
+        auraBefore = type(Fishing.BuildHelpfulAuraSnapshot) == "function"
+            and Fishing:BuildHelpfulAuraSnapshot()
+            or {},
+        expiresAt = GetNow() + 5,
+    }
+end
+
+function Fishing:ConfirmPendingBuffUse(successSpellID)
+    local pending = state.pendingBuffUse
+    if type(pending) ~= "table" then
+        return
+    end
+
     local now = GetNow()
-    state.buffItemLastUseAt = state.buffItemLastUseAt or {}
-    state.buffItemLastUseAt[itemID] = now
-    if type(Fishing.BuildHelpfulAuraSnapshot) == "function" then
-        state.pendingBuffObservation = {
-            itemID = itemID,
-            before = Fishing:BuildHelpfulAuraSnapshot(),
-            expiresAt = now + 20,
-        }
+    local itemID = tonumber(pending.itemID)
+    local countAfter = itemID and DreamFish:CountItemInBags(itemID) or nil
+    local confirmedBySpell = tonumber(successSpellID)
+        and (tonumber(pending.itemSpellID) == tonumber(successSpellID)
+            or tonumber(pending.knownSpellID) == tonumber(successSpellID))
+    local confirmedByCount = countAfter and pending.countBefore and countAfter < pending.countBefore
+    if confirmedBySpell or confirmedByCount then
+        state.pendingBuffUse = nil
+        local lastUses = type(state.buffItemLastUseAt) == "table" and state.buffItemLastUseAt or {}
+        state.buffItemLastUseAt = lastUses
+        rawset(lastUses, itemID, now)
+        local known = GetKnownBuff(itemID)
+        local spellID = type(known) == "table" and tonumber(known.spellID) or nil
+        local isKnownDuration = type(known) == "table"
+            and tonumber(known.spellID)
+            and tonumber(known.duration)
+        if not isKnownDuration then
+            state.pendingBuffObservation = {
+                itemID = itemID,
+                before = pending.auraBefore or {},
+                expiresAt = now + 20,
+            }
+        else
+            state.pendingBuffObservation = nil
+        end
+        if type(Fishing.AnnounceBuffUse) == "function" then
+            Fishing:AnnounceBuffUse(itemID, spellID)
+        end
+        Trace("Confirmed consumable use: " .. Item(itemID))
+    elseif now >= (tonumber(pending.expiresAt) or 0) then
+        state.pendingBuffUse = nil
+        Trace("Consumable use not confirmed; leaving due state unchanged: " .. Item(itemID))
     end
 end
 
 local function GetConsumableUseDecision()
     local decision = { shouldApply = false }
+    if type(Fishing.ConfirmPendingBuffUse) == "function" then
+        Fishing:ConfirmPendingBuffUse()
+    end
     if type(Fishing.UpdatePendingBuffObservation) == "function" then
         Fishing:UpdatePendingBuffObservation()
+    end
+    if type(state.pendingBuffUse) == "table" then
+        Trace("Skipping consumable scan: use confirmation pending for "
+            .. Item(state.pendingBuffUse.itemID))
+        local pendingItemID = tonumber(state.pendingBuffUse.itemID)
+        local pendingKnown = GetKnownBuff(pendingItemID)
+        local pendingCategory = type(pendingKnown) == "table" and pendingKnown.category or "other_consumable"
+        return {
+            shouldApply = pendingItemID and pendingItemID > 0 or false,
+            itemID = pendingItemID,
+            category = pendingCategory,
+        }
     end
     local configured = charDB and charDB.buffs
     if type(configured) ~= "table" then
@@ -189,14 +294,14 @@ local function GetConsumableUseDecision()
                     --Trace("Checking due consumable: " .. Item(itemID) .. " (" .. tostring(category) .. ")")
                     if not itemID or itemID <= 0 then
                         --Trace("Skipping due consumable: invalid itemID")
-                    elseif not DreamFish:FindItemInBags(itemID) then
-                        Trace("Skipping due consumable: not found in bags " .. Item(itemID, category))
                     elseif not DreamFish:IsCooldownReady(itemID) then
                         Trace("Skipping due consumable: cooldown not ready " .. Item(itemID) .. " " .. DreamFish:GetDebugCooldownText(itemID))
                     else
                         local isDue, reason = IsDue(itemID, category, GetNow())
                         if not isDue then
                             Trace("Skipping due consumable: not due " .. Item(itemID, category) .. " (" .. tostring(reason) .. ")")
+                        elseif not DreamFish:FindItemInBags(itemID) then
+                            Trace("Skipping due consumable: not found in bags " .. Item(itemID, category))
                         elseif category == "lure" then
                             local poleID = type(ns.precast.GetEquippedProfessionItemID) == "function"
                                 and ns.precast.GetEquippedProfessionItemID()
@@ -204,13 +309,13 @@ local function GetConsumableUseDecision()
                             if not poleID or poleID <= 0 then
                                 WarnMissingProfessionFishingPoleForLure()
                             else
-                                RecordBuffUse(itemID)
-                                Trace("Lure is due for use: " .. Item(itemID))
+                                QueueBuffUse(itemID)
+                                DreamFish:Debug("Lure is queued: " .. Item(itemID))
                                 return { shouldApply = true, itemID = itemID, category = category }
                             end
                         else
-                            Trace("Consumable is due for use: " .. Item(itemID, category))
-                            RecordBuffUse(itemID)
+                            DreamFish:Debug("Consumable is queued: " .. Item(itemID, category))
+                            QueueBuffUse(itemID)
                             return { shouldApply = true, itemID = itemID, category = category }
                         end
                     end
