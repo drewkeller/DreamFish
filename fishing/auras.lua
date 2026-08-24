@@ -63,17 +63,30 @@ function Fishing:UpdatePendingBuffObservation()
         return
     end
 
-    if type(globalDB.buffItems) ~= "table" then
+    local configured = charDB and charDB.buffs
+    if type(configured) ~= "table" then
         self.state.pendingBuffObservation = nil
         return
     end
 
     local hasConfiguredBuffItems = false
-    for _, entry in ipairs(globalDB.buffItems) do
-        local itemID = type(entry) == "table" and tonumber(entry.itemID) or nil
-        if itemID and itemID > 0 and not (type(entry) == "table" and entry.enabled == false) then
-            hasConfiguredBuffItems = true
-            break
+    local configuredItemIDs = {}
+    for _, items in pairs(configured) do
+        if type(items) == "table" then
+            for _, entry in ipairs(items) do
+                local itemID = type(entry) == "table" and tonumber(entry.itemID) or nil
+                if itemID and itemID > 0 and not (type(entry) == "table" and entry.enabled == false) then
+                    hasConfiguredBuffItems = true
+                    configuredItemIDs[itemID] = true
+                end
+            end
+        end
+    end
+    if self.state.buffUnknownDurationSuppressed then
+        for itemID in pairs(self.state.buffUnknownDurationSuppressed) do
+            if not configuredItemIDs[tonumber(itemID)] then
+                self.state.buffUnknownDurationSuppressed[itemID] = nil
+            end
         end
     end
     if not hasConfiguredBuffItems then

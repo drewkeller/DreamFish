@@ -37,70 +37,21 @@ function Fishing:ResolveBobberApplyAction()
 end
 
 local function HasConfiguredBuffItems()
-    if type(charDB.buffItems) ~= "table" then
+    if type(charDB.buffs) ~= "table" then
         return false
     end
-    for _, entry in ipairs(charDB.buffItems) do
+    for _, items in pairs(charDB.buffs) do
+        if type(items) ~= "table" then
+            return false
+        end
+        for _, entry in ipairs(items) do
         local itemID = type(entry) == "table" and tonumber(entry.itemID) or nil
         if itemID and itemID > 0 and not (type(entry) == "table" and entry.enabled == false) then
             return true
         end
-    end
-    return false
-end
-
-local function HasAnyActiveBaitAura()
-    for _, known in pairs(ns.fishing.const.knownBuffItems) do
-        local spellID = tonumber(known.spellID)
-        if known.category == "bait" and spellID > 0 then
-            local aura = Fishing:GetAuraBySpellID(spellID)
-            if aura and aura.expirationTime and aura.expirationTime > 0 then
-                return true
-            end
         end
     end
-
     return false
-end
-
--- local function GetNextReadyDueBuffItemForCategory(category, excludedBuffItemIDs)
---     local hadUnavailableDueBuff = false
---     while true do
---         local candidateItemID, dueStatus = GetNextDueBuffItem(true, excludedBuffItemIDs, category)
---         if not candidateItemID then
---             hadUnavailableDueBuff = (dueStatus == "due_unavailable") or hadUnavailableDueBuff
---             return nil, hadUnavailableDueBuff
---         end
---         if DreamFish:IsItemReadyForUse(candidateItemID) then
---             return candidateItemID, hadUnavailableDueBuff
---         end
---         -- DebugBuffMessage("Skipping due buff on cooldown this click: "
---         --     .. GetDebugItemLabel(candidateItemID) .. " " .. GetDebugCooldownText(candidateItemID))
---         excludedBuffItemIDs[candidateItemID] = true
---     end
--- end
-
-GetNextReadyDueBuffItem = function(seedExcludedBuffItemIDs)
-    if not HasConfiguredBuffItems() then
-        return nil, false, nil
-    end
-
-    local excludedBuffItemIDs = seedExcludedBuffItemIDs or {}
-    local hadUnavailableDueBuff = false
-
-    -- for _, category in ipairs(DUE_BUFF_CATEGORY_ORDER) do
-    --     if category == "bait" and HasAnyActiveBaitAura() then
-    --         DreamFish:Trace("buffs", "Skipping bait category pass: active bait aura detected")
-    --     else
-    --         local candidateItemID, unavailableInCategory = GetNextReadyDueBuffItemForCategory(category, excludedBuffItemIDs)
-    --         hadUnavailableDueBuff = hadUnavailableDueBuff or unavailableInCategory
-    --         if candidateItemID then
-    --             return candidateItemID, hadUnavailableDueBuff, category
-    --         end
-    --     end
-    -- end
-
-    return nil, hadUnavailableDueBuff, nil
 end
 
 local function FinalizeSecureFishingAction(fishingFrame, macroLines, raftExclusiveWhileSwimming, hasConsumableAction)
@@ -191,17 +142,16 @@ ConfigureFishingClickAction = function()
     end
 
     -- Buff item
-    local dueBuffItemID, dueBuffCategory = nil, nil
     if not hasItemUseAction then
-        dueBuffItemID, dueBuffCategory = GetNextCastableDueBuffItem()
-        if dueBuffItemID then
-            InsertUseItemMacroLine(macroLines, dueBuffItemID)
+        local consumableDecision = ns.precast.GetConsumableUseDecision()
+        if consumableDecision.shouldApply then
+            InsertUseItemMacroLine(macroLines, consumableDecision.itemID)
             hasItemUseAction = true
-            if dueBuffCategory == "lure" then
+            if consumableDecision.category == "lure" then
                 table.insert(macroLines, "/use 28") -- apply lure to fishing profession equipment slot
             end
-            Fishing:Trace("precast", "Configured due buff (" .. tostring(dueBuffCategory) .. "): "
-                .. DreamFish:GetDebugItemLabel(dueBuffItemID) .. " " .. DreamFish:GetDebugCooldownText(dueBuffItemID))
+            Fishing:Trace("precast", "Configured due buff (" .. tostring(consumableDecision.category) .. "): "
+                .. DreamFish:GetDebugItemLabel(consumableDecision.itemID) .. " " .. DreamFish:GetDebugCooldownText(consumableDecision.itemID))
         end
     else
         Fishing.clickFrame:SetAttribute("dreamfisher_duebuff", nil)
