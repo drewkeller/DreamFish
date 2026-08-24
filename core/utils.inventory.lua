@@ -77,6 +77,17 @@ function DreamFish:CountItemInBags(itemID)
             end
         end
     end
+
+    local reagentSlots = DreamFish:ContainerNumSlots(5)
+    if reagentSlots and reagentSlots > 0 then
+        for slot = 1, reagentSlots do
+            if C_Container.GetContainerItemID(5, slot) == itemID then
+                local itemInfo = C_Container.GetContainerItemInfo(5, slot)
+                count = count + (itemInfo and itemInfo.stackCount or 0)
+            end
+        end
+    end
+
     return count
 end
 

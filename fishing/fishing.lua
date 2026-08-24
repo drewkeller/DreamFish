@@ -66,6 +66,9 @@ function Fishing:OnBagUpdateDelayed()
     if type(self.ConfirmPendingBuffUse) == "function" then
         self:ConfirmPendingBuffUse()
     end
+    if type(self.CheckEnabledBuffItemsDepleted) == "function" then
+        self:CheckEnabledBuffItemsDepleted()
+    end
 end
 
 function Fishing:GetKeybindings()
@@ -210,6 +213,7 @@ function Fishing:EndFishingSession(reason)
     self:ClearBobberInteractOverride()
     self:ReleaseClickCapture()
     ns.precast.EquipUnderlightAnglerAfterFishing(reason)
+    ns.fishing.state.buffDepletionAlerted = nil
     self:SetFishingState(ns.fishing.states.IDLE, reason)
 end
 
@@ -383,6 +387,9 @@ end
 function Fishing:OnCastStarted(reason)
     self:SetFishingState(ns.fishing.states.PRECASTING, reason)
     self:SendMessage("FISHING_CAST_STARTED")
+    if type(self.CheckEnabledBuffItemsDepleted) == "function" then
+        self:CheckEnabledBuffItemsDepleted()
+    end
     self:PrepareFishingClickAction()
     self:StartMouseButtonWatch()
 

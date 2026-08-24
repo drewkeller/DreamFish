@@ -272,7 +272,7 @@ function Fishing:GetTrackedBuffRemaining(itemID)
                     duration = knownDuration or trackedDuration or (tonumber(aura.duration) or 0),
                 }
             end
-            return math.max(0, aura.expirationTime - GetTime())
+            return math.max(0, aura.expirationTime - GetTime()), tonumber(aura.duration)
         end
     end
 

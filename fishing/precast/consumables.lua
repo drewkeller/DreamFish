@@ -33,7 +33,7 @@ local function LastUseString(lastUse, duration)
     local now = (type(GetTime) == "function") and GetTime() or 0
     local elapsed = now - lastUse
     if duration and duration > 0 then
-        return string.format("last used %.1f seconds ago (duration %.1f seconds)", elapsed, duration)
+        return string.format("last used %.1f seconds ago (%.1f seconds remaining)", elapsed, math.max(0, duration - elapsed))
     end
     return string.format("last used %.1f seconds ago", elapsed)
 end
@@ -105,21 +105,44 @@ local function GetKnownSpellAndDuration(itemID)
 end
 
 local function IsFishingLureApplied()
-    if not C_TooltipInfo or type(C_TooltipInfo.GetInventoryItem) ~= "function" then
+    if not C_TooltipInfo then
         return false
     end
 
-    local ok, tooltipData = pcall(C_TooltipInfo.GetInventoryItem, "player", 28)
-    if not ok or type(tooltipData) ~= "table" or type(tooltipData.lines) ~= "table" then
+    local function TooltipHasLure(tooltipData)
+        if type(tooltipData) ~= "table" or type(tooltipData.lines) ~= "table" then
+            return false
+        end
+        for _, line in ipairs(tooltipData.lines) do
+            if type(line) == "table" then
+                local text = string.lower(table.concat({
+                    tostring(line.leftText or ""),
+                    tostring(line.rightText or ""),
+                    tostring(line.text or ""),
+                }, " "))
+                if text:find("fishing lure", 1, true) then
+                    return true
+                end
+            end
+        end
         return false
     end
 
-    for _, line in ipairs(tooltipData.lines) do
-        local leftText = type(line) == "table" and line.leftText or nil
-        local rightText = type(line) == "table" and line.rightText or nil
-        local text = string.lower(tostring(leftText or "") .. " " .. tostring(rightText or ""))
-        if text:find("fishing lure", 1, true) then
+    if type(C_TooltipInfo.GetInventoryItem) == "function" then
+        local ok, tooltipData = pcall(C_TooltipInfo.GetInventoryItem, "player", 28)
+        if ok and TooltipHasLure(tooltipData) then
             return true
+        end
+    end
+
+    if type(GetInventoryItemLink) == "function"
+        and type(C_TooltipInfo.GetHyperlink) == "function" then
+        local itemLink = GetInventoryItemLink("player", 28)
+        if itemLink then
+            local ok, tooltipData = pcall(C_TooltipInfo.GetHyperlink, itemLink)
+            if ok and TooltipHasLure(tooltipData) then
+                return true
+            end
         end
     end
 
@@ -161,19 +184,21 @@ local function IsDue(itemID, category, now)
         return false, "unknown_duration_suppressed"
     end
 
-    local remaining = type(Fishing.GetTrackedBuffRemaining) == "function"
-        and Fishing:GetTrackedBuffRemaining(itemID)
-        or nil
+    local remaining, auraDuration = nil, nil
+    if type(Fishing.GetTrackedBuffRemaining) == "function" then
+        remaining, auraDuration = Fishing:GetTrackedBuffRemaining(itemID)
+    end
     local spellID, knownDuration = GetKnownSpellAndDuration(itemID)
+    local activeDuration = auraDuration and auraDuration > 0 and auraDuration or knownDuration
     local refreshLead = ns.fishing.const.maxFishingCastSeconds + ns.fishing.const.buffPreRefreshSafetySeconds
-    if knownDuration and knownDuration > 0 then
-        refreshLead = math.max(refreshLead, math.min(15, math.max(3, knownDuration * 0.10)))
+    if activeDuration and activeDuration > 0 then
+        refreshLead = math.max(refreshLead, math.min(15, math.max(3, activeDuration * 0.10)))
     end
     if remaining ~= nil then
         if remaining <= refreshLead then
-            return true, "remaining_duration_due " .. LastUseString(lastUse, knownDuration)
+            return true, "remaining_duration_due " .. LastUseString(lastUse, activeDuration)
         else
-            return false, "remaining_duration_not_due " .. LastUseString(lastUse, knownDuration)
+            return false, "remaining_duration_not_due " .. LastUseString(lastUse, activeDuration)
         end
     end
 
@@ -197,7 +222,7 @@ local function IsDue(itemID, category, now)
     return true, "unknown_duration_no_aura " .. LastUseString(lastUse, knownDuration)
 end
 
-local function QueueBuffUse(itemID)
+local function QueueBuffUse(itemID, category)
     local itemSpellID = nil
     if C_Item and type(C_Item.GetItemSpell) == "function" then
         local spellID = C_Item.GetItemSpell(itemID)
@@ -207,6 +232,7 @@ local function QueueBuffUse(itemID)
     local knownSpellID = type(known) == "table" and tonumber(known.spellID) or nil
     state.pendingBuffUse = {
         itemID = itemID,
+        category = category,
         itemSpellID = itemSpellID or knownSpellID,
         knownSpellID = knownSpellID,
         countBefore = DreamFish:CountItemInBags(itemID),
@@ -215,6 +241,54 @@ local function QueueBuffUse(itemID)
             or {},
         expiresAt = GetNow() + 5,
     }
+end
+
+function Fishing:IsFoodDrinkTransientActive()
+    local transientUntil = type(state.buffItemTransientUntil) == "table"
+        and state.buffItemTransientUntil
+        or nil
+    if not transientUntil then
+        return false
+    end
+
+    local now = GetNow()
+    local activeUntil = nil
+    for itemID, expiresAt in pairs(transientUntil) do
+        if tonumber(expiresAt) and tonumber(expiresAt) > now then
+            local known = GetKnownBuff(itemID)
+            if type(known) == "table" and known.category == "fooddrink" then
+                activeUntil = math.max(activeUntil or 0, tonumber(expiresAt))
+            end
+        end
+    end
+    return activeUntil ~= nil, activeUntil
+end
+
+function Fishing:CheckEnabledBuffItemsDepleted()
+    if not self:IsInFishingSession() or state.buffDepletionAlerted then
+        return
+    end
+
+    local configured = charDB and charDB.buffs
+    if type(configured) ~= "table" then
+        return
+    end
+
+    for _, items in pairs(configured) do
+        if type(items) == "table" then
+            for _, entry in ipairs(items) do
+                local itemID = type(entry) == "table" and tonumber(entry.itemID) or nil
+                if itemID and itemID > 0 and entry.enabled ~= false
+                    and DreamFish:CountItemInBags(itemID) == 0 then
+                    local itemName = (C_Item and type(C_Item.GetItemInfo) == "function" and C_Item.GetItemInfo(itemID))
+                        or "Unknown buff item"
+                    state.buffDepletionAlerted = true
+                    DreamFish:Alert("Buff item depleted: " .. tostring(itemName) .. " (" .. tostring(itemID) .. ")")
+                    return
+                end
+            end
+        end
+    end
 end
 
 function Fishing:ConfirmPendingBuffUse(successSpellID)
@@ -237,6 +311,13 @@ function Fishing:ConfirmPendingBuffUse(successSpellID)
         rawset(lastUses, itemID, now)
         local known = GetKnownBuff(itemID)
         local spellID = type(known) == "table" and tonumber(known.spellID) or nil
+        if pending.category == "fooddrink" then
+            local transientUntil = type(state.buffItemTransientUntil) == "table"
+                and state.buffItemTransientUntil
+                or {}
+            state.buffItemTransientUntil = transientUntil
+            rawset(transientUntil, itemID, now + 10)
+        end
         local isKnownDuration = type(known) == "table"
             and tonumber(known.spellID)
             and tonumber(known.duration)
@@ -252,6 +333,7 @@ function Fishing:ConfirmPendingBuffUse(successSpellID)
         if type(Fishing.AnnounceBuffUse) == "function" then
             Fishing:AnnounceBuffUse(itemID, spellID)
         end
+        self:CheckEnabledBuffItemsDepleted()
         Trace("Confirmed consumable use: " .. Item(itemID))
     elseif now >= (tonumber(pending.expiresAt) or 0) then
         state.pendingBuffUse = nil
@@ -264,8 +346,19 @@ local function GetConsumableUseDecision()
     if type(Fishing.ConfirmPendingBuffUse) == "function" then
         Fishing:ConfirmPendingBuffUse()
     end
+    Fishing:CheckEnabledBuffItemsDepleted()
     if type(Fishing.UpdatePendingBuffObservation) == "function" then
         Fishing:UpdatePendingBuffObservation()
+    end
+    local foodDrinkTransientActive, transientUntil = Fishing:IsFoodDrinkTransientActive()
+    if foodDrinkTransientActive then
+        local warningUntil = tonumber(state.buffTransientWarningUntil) or 0
+        if warningUntil < transientUntil then
+            state.buffTransientWarningUntil = transientUntil
+            DreamFish:Alert("A buff is still being applied. Wait before casting.")
+        end
+        Trace("Skipping consumable scan: food/drink transient block active")
+        return decision
     end
     if type(state.pendingBuffUse) == "table" then
         Trace("Skipping consumable scan: use confirmation pending for "
@@ -309,13 +402,13 @@ local function GetConsumableUseDecision()
                             if not poleID or poleID <= 0 then
                                 WarnMissingProfessionFishingPoleForLure()
                             else
-                                QueueBuffUse(itemID)
+                                QueueBuffUse(itemID, category)
                                 DreamFish:Debug("Lure is queued: " .. Item(itemID))
                                 return { shouldApply = true, itemID = itemID, category = category }
                             end
                         else
                             DreamFish:Debug("Consumable is queued: " .. Item(itemID, category))
-                            QueueBuffUse(itemID)
+                            QueueBuffUse(itemID, category)
                             return { shouldApply = true, itemID = itemID, category = category }
                         end
                     end
