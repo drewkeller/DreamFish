@@ -39,7 +39,7 @@ local function GetBobberUseDecision()
     local toyID = tonumber(profileDB.selectedBobberToy) or nil
     local hasBobberSelected = toyID and toyID > 0
     local hasToy = hasBobberSelected and DreamFish:IsToyOwned(toyID) or false
-    local bobberReady = hasToy and DreamFish:IsItemReadyForUse(toyID)
+    local bobberReady = hasToy and DreamFish:IsCooldownReady(toyID)
     local bobberAuraRemaining = hasToy and GetBobberAuraRemainingSeconds(toyID) or nil
     local castLead = ns.fishing.const.maxFishingCastSeconds + ns.fishing.const.buffPreRefreshSafetySeconds
     local needsRefreshForCast = (bobberAuraRemaining == nil) or (bobberAuraRemaining <= castLead)

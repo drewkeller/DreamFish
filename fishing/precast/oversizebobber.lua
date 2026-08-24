@@ -44,7 +44,7 @@ local function GetOversizedBobberDecision()
     local toyID = ns.fishing.const and ns.fishing.const.oversizedBobberItemID or 0
     local hasBobberSelected = profileDB.useOversizedBobber
     local hasToy = hasBobberSelected and DreamFish:IsToyOwned(toyID) or false
-    local isReady = hasToy and DreamFish:IsItemReadyForUse(toyID)
+    local isReady = hasToy and DreamFish:IsCooldownReady(toyID)
     local auraRemaining = hasToy and GetOversizedBobberAuraRemainingSeconds() or nil
     local castLead = ns.fishing.const.maxFishingCastSeconds + ns.fishing.const.buffPreRefreshSafetySeconds
     local needsRefresh = (auraRemaining == nil) or (auraRemaining <= castLead)

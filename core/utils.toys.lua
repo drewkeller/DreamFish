@@ -20,7 +20,7 @@ function DreamFish:IsToyOwned(itemID)
     return ownedToyItemCache[numeric]
 end
 
-function DreamFish:IsItemReadyForUse(itemID)
+function DreamFish:IsCooldownReady(itemID)
     local numeric = tonumber(itemID)
     if not numeric or numeric <= 0 then
         return true

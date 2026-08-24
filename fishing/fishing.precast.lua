@@ -21,7 +21,7 @@ function Fishing:ResolveBobberApplyAction()
         return nil, "Apply Bobber (none)", false
     end
 
-    if DreamFish:IsItemReadyForUse(selectedToyID) then
+    if DreamFish:IsCooldownReady(selectedToyID) then
         return selectedToyID, "Apply Bobber", true
     end
 
@@ -29,7 +29,7 @@ function Fishing:ResolveBobberApplyAction()
     if oversizedEnabled
         and selectedToyID ~= ns.fishing.const.oversizedBobberItemID
         and DreamFish:IsToyOwned(ns.fishing.const.oversizedBobberItemID)
-        and DreamFish:IsItemReadyForUse(ns.fishing.const.oversizedBobberItemID) then
+        and DreamFish:IsCooldownReady(ns.fishing.const.oversizedBobberItemID) then
         return ns.fishing.const.oversizedBobberItemID, "Oversize Bobber", true
     end
 

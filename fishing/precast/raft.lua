@@ -34,7 +34,7 @@ local function GetRaftUseDecision()
     local toyID = tonumber(profileDB.selectedRaftToy) or nil
     local hasRaftSelected = toyID and toyID > 0
     local hasToy = hasRaftSelected and DreamFish:IsToyOwned(toyID) or false
-    local isReady = hasToy and DreamFish:IsItemReadyForUse(toyID)
+    local isReady = hasToy and DreamFish:IsCooldownReady(toyID)
     local swimming = IsSwimming()
     local auraRemaining = (hasToy and swimming) and GetRaftAuraRemainingSeconds(toyID) or nil
     local castLead = ns.fishing.const.maxFishingCastSeconds + ns.fishing.const.buffPreRefreshSafetySeconds
