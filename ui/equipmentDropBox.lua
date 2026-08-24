@@ -40,7 +40,7 @@ local function CreateEquipmentDropBox()
     -- Visual Border and Background Layers for the slot
     local border = boxFrame:CreateTexture(nil, "BORDER")
     border:SetAllPoints(boxFrame)
-    border:SetColorTexture(0.42, 0.42, 0.42, 0.9)
+    border:SetColorTexture(0.42, 0.42, 0.42, 0.0)
 
     local inner = boxFrame:CreateTexture(nil, "ARTWORK")
     inner:SetPoint("TOPLEFT", boxFrame, "TOPLEFT", 1, -1)
@@ -73,7 +73,7 @@ local function CreateEquipmentDropBox()
         label       = labelString,
         itemID      = nil,
         isChecked   = false,
-        slotID      = nil,
+        slotID      = 28,
         canRemoveItem = true,
     }
 
@@ -105,7 +105,7 @@ local function CreateEquipmentDropBox()
         if widget.itemID and widget.itemID == GetEquippedProfessionItemID(widget.slotID) then
             border:SetColorTexture(0.9, 0.8, 0.2, 0.95) -- Yellow Highlight
         else
-            border:SetColorTexture(0.42, 0.42, 0.42, 0.9) -- Default Dark Gray
+            border:SetColorTexture(0.42, 0.42, 0.42, 0.0) -- Default Dark Gray
         end
 
         -- 3. Sync checkbox visual tick mark
@@ -414,7 +414,7 @@ local function CreateEquipmentDropBox()
 
         self.frame:Hide()
         self.itemID = nil
-        self.slotID = nil
+        self.slotID = 28
         self.isChecked = false
         self.currentLabel = nil
         if self.callbacks then table.wipe(self.callbacks) end
@@ -479,6 +479,8 @@ local function CreateEquipmentDropBox()
         for key, value in pairs(data or {}) do
             user[key] = value
         end
+        self.slotID = data and data.slotID or 28
+        self.canRemoveItem = data and data.canRemoveItem ~= false or true
     end
 
     widget.SetFontObject = function(self, font) if self.label and font then self.label:SetFontObject(font) end end

@@ -29,7 +29,6 @@ local function GetUnderlightAnglerEquipDecision()
         and (itemID == equippedItemID)
         or false
     local shouldEquip = selections.underlight.isChecked
-        and (not selections.primary.isChecked)
         and hasItem
         and not mounted
         and not alreadyEquipped
@@ -42,6 +41,8 @@ local function GetUnderlightAnglerEquipDecision()
         Trace("Underlight Angler is not owned")
     elseif mounted then
         Trace("Player is mounted")
+    elseif alreadyEquipped then
+        Trace("Underlight Angler is already equipped")
     else
         Trace("Underlight Angler will not be equipped for unknown reason")
     end
@@ -86,5 +87,10 @@ local function EquipUnderlightAnglerAfterFishing(reason)
     return false
 end
 
+local function ApplySelectedUnderlightAngler()
+    return EquipUnderlightAnglerAfterFishing("selection changed")
+end
+
 ns.precast.GetUnderlightAnglerEquipDecision = GetUnderlightAnglerEquipDecision
+ns.precast.ApplySelectedUnderlightAngler = ApplySelectedUnderlightAngler
 ns.precast.EquipUnderlightAnglerAfterFishing = EquipUnderlightAnglerAfterFishing

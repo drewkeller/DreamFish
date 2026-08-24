@@ -31,6 +31,10 @@ local function SetIsChecked(dbKey, isChecked)
     local charDB = GetFishingCharDB()
     charDB[dbKey] = charDB[dbKey] or {}
     charDB[dbKey].isChecked = isChecked and true or false
+    if not InCombatLockdown() then
+        ns.precast.ApplySelectedFishingPole()
+        --Fishing:PrepareFishingClickAction()
+    end
 end
 
 local function IsUnderlightAnglerItemID(itemID)
