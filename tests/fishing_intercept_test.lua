@@ -266,9 +266,9 @@ assert(clicksPropagated, "suppressed click cleanup must restore mouse propagatio
 profile.castBySingleRightClickWhenFishing = false
 
 preClickCallback(Fishing.clickFrame, "RightButton", true)
-assert(castStartedCount == 2, "hotkey button-down must start the fishing session")
+assert(castStartedCount == 3, "hotkey button-down must start the fishing session")
 preClickCallback(Fishing.clickFrame, "RightButton", false)
-assert(castStartedCount == 2, "hotkey button-up must not restart the fishing session")
+assert(castStartedCount == 3, "hotkey button-up must not restart the fishing session")
 
 profile.castByHotkey = false
 local mouseActionsBeforeHotkey = gameMouseActions
@@ -279,14 +279,14 @@ profile.castByHotkey = true
 rightMouseDown = true
 leftMouseDown = true
 preClickCallback(Fishing.clickFrame, "RightButton", true)
-assert(castStartedCount == 2, "mixed left and right clicks must not trigger the hotkey")
+assert(castStartedCount == 3, "mixed left and right clicks must not trigger the hotkey")
 assert(secureAttributes.type == nil, "mixed left and right clicks must clear the captured action")
 
 secureAttributes.type = "macro"
 leftMouseDown = false
 shiftKeyDown = true
 preClickCallback(Fishing.clickFrame, "RightButton", true)
-assert(castStartedCount == 2, "modified right clicks must not trigger the hotkey")
+assert(castStartedCount == 3, "modified right clicks must not trigger the hotkey")
 assert(secureAttributes.type == nil, "modified right clicks must clear the captured action")
 
 shiftKeyDown = false

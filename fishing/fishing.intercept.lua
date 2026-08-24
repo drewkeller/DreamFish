@@ -184,6 +184,9 @@ function Fishing:HookPreClickWithHandler()
                 return
             end
             self:Trace("hotkey", "PreClick state=" .. tostring(ns.fishing.state.current))
+            if not self:IsInFishingSession() then
+                self:OnCastStarted("Hotkey")
+            end
         end)
     end
 end
