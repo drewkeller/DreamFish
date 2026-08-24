@@ -182,20 +182,17 @@ addon.const = {
         [142530] = { spellID = 231338, duration = 3600, category = "bobber", }, -- Tugboat (Bobber toy aura)
         [143662] = { spellID = 232613, duration = 3600, category = "bobber", }, -- Wooden Pepe (Bobber toy aura)
         -- Midnight fishing consumables
-        [238374] = { spellID = 1237942, duration = 30, category = "other_consumable", }, -- Tender Lumifin
-        [238365] = { spellID = 1237942, duration = 30, category = "other_consumable", }, -- Sin'dorei Swarmer
-        [238371] = { spellID = 1237942, duration = 30, category = "other_consumable", }, -- Arcane Wyrmfish
-        [238382] = { spellID = 1237942, duration = 30, category = "other_consumable", }, -- Gore Guppy
-        [238366] = { spellID = 1237942, duration = 30, category = "other_consumable", }, -- Lynxfish
-        [238367] = { spellID = 1235216, duration = 30, category = "other_consumable", }, -- Root Crab
-        [238369] = { spellID = 1235216, duration = 30, category = "other_consumable", }, -- Bloomtail Minnow
-        [238370] = { spellID = 1237942, duration = 30, category = "other_consumable", }, -- Shimmer Spinefish
-        [238381] = { spellID = 1237942, duration = 30, category = "other_consumable", }, -- Hollow Grouper
+        [238365] = { spellID = 1303623, duration = 30, category = "other_consumable", }, -- Sin'dorei Swarmer
+        [238382] = { spellID = 1303623, duration = 30, category = "other_consumable", }, -- Gore Guppy
+        [238366] = { spellID = 1303623, duration = 30, category = "other_consumable", }, -- Lynxfish
+        [238367] = { spellID = 1303624, duration = 30, category = "other_consumable", }, -- Root Crab
+        [238371] = { spellID = 1303624, duration = 30, category = "other_consumable", }, -- Arcane Wyrmfish
         [241316] = { spellID = 1236763, duration = 3600, category = "other_consumable", }, -- Haranir Phial of Perception (2)
         [241317] = { spellID = 1236763, duration = 1800, category = "other_consumable", }, -- Haranir Phial of Perception (1)
         [241148] = { spellID = 1237919, duration = 1800, category = "other_consumable", }, -- Amani Angler's Ward
         [242299] = { spellID = 1269152, duration = 3600, category = "food_drink", }, -- Sanguithorn Tea
         [262651] = { spellID = 1284999, duration = 600, category = "lure", }, -- Pointed Spikesnail
+        [262650] = { spellID = 1284999, duration = 600, category = "lure", }, -- Writhing Wiggleworm (same spellID and text as Pointed Spikesnail)
         [241145] = { spellID = 1237964, duration = 1800, category = "bait", }, -- Lucky Loa Lure
         [241147] = { spellID = 1237974, duration = 1800, category = "bait", }, -- Blood Hunter Lure
         [241149] = { spellID = 1237965, duration = 1800, category = "bait", }, -- Ominous Octopus Lure
