@@ -1,6 +1,8 @@
 -- The second return value (ns) is a private table shared across files
 local addonName, ns = ...
 local DreamFish = ns.DreamFish
+local AceConfig = LibStub("AceConfig-3.0")
+local AceConfigDialog = LibStub("AceConfigDialog-3.0")
 
 local function RefreshConfigUI()
     LibStub("AceConfigRegistry-3.0"):NotifyChange(addonName)
@@ -28,26 +30,28 @@ function DreamFish:OnInitialize()
     local Fishing = DreamFish:GetModule("Fishing")
     local LootTracker = DreamFish:GetModule("LootTracker")
 
-    LibStub("AceConfig-3.0"):RegisterOptionsTable(addonName .. "_Fishing", function()
+    AceConfig:RegisterOptionsTable(addonName .. "_Fishing", function()
         return Fishing:GetOptionsTable()
     end)
-    LibStub("AceConfig-3.0"):RegisterOptionsTable(addonName .. "_LootTracker", function()
+    AceConfig:RegisterOptionsTable(addonName .. "_LootTracker", function()
         return LootTracker:GetOptionsTable()
     end)
 
-    LibStub("AceConfig-3.0"):RegisterOptionsTable("DreamFishDialog", ns.DreamFishDialogOptions)
+    AceConfig:RegisterOptionsTable("DreamFishDialog", ns.DreamFishDialogOptions)
+    AceConfigDialog:SetDefaultSize("DreamFishDialog", 400, 700)
+    DreamFish:SetDefaultPosition("DreamFishDialog", 50, 1080)
 
     -- Nest these items as subcategories below the addon's main menu item
-    LibStub("AceConfigDialog-3.0"):AddToBlizOptions(addonName .. "_Fishing", "Fishing", addonName)
-    LibStub("AceConfigDialog-3.0"):AddToBlizOptions(addonName .. "_LootTracker", "Loot Tracker", addonName)
-    LibStub("AceConfigDialog-3.0"):AddToBlizOptions(addonName .. "_Profile", "Profiles", addonName)
+    AceConfigDialog:AddToBlizOptions(addonName .. "_Fishing", "Fishing", addonName)
+    AceConfigDialog:AddToBlizOptions(addonName .. "_LootTracker", "Loot Tracker", addonName)
+    AceConfigDialog:AddToBlizOptions(addonName .. "_Profile", "Profiles", addonName)
 
     self:Print("Loaded profile: " .. self.db:GetCurrentProfile())
     ns.CallAddonInitializers(self)
 
-    self.db.RegisterCallback("DreamFish", "OnProfileChanged", RefreshConfigUI)
-    self.db.RegisterCallback("DreamFish", "OnProfileCopied", RefreshConfigUI)
-    self.db.RegisterCallback("DreamFish", "OnProfileReset", RefreshConfigUI)
+    self.db.RegisterCallback(self, "OnProfileChanged", RefreshConfigUI)
+    self.db.RegisterCallback(self, "OnProfileCopied", RefreshConfigUI)
+    self.db.RegisterCallback(self, "OnProfileReset", RefreshConfigUI)
 end
 
 function DreamFish:OnEnable()

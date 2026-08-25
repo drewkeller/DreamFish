@@ -9,60 +9,56 @@ ns.Fishing.Defaults = {
         },
     },
     profile = {
-		fishing = {
-			moduleEnabled = true,
-			debug = false,
-            traceMode = {},
-            castByDoubleRightClick = true,
-            castBySingleRightClickWhenFishing = false,
-            castByHotkey = true,
-            strikeByRightClick = false,
-            strikeByHotkey = true,
-            selectedRaftToy = 0,
-            selectedBobberToy = 0,
-            useOversizedBobber = false,
-            -- other
-            closeWindowOnEscape = true,
-            lingerDuration = 10,
-		},
+        moduleEnabled = true,
+        debug = false,
+        traceMode = {},
+        castByDoubleRightClick = true,
+        castBySingleRightClickWhenFishing = false,
+        castByHotkey = true,
+        strikeByRightClick = false,
+        strikeByHotkey = true,
+        selectedRaftToy = 0,
+        selectedBobberToy = 0,
+        useOversizedBobber = false,
+        -- other
+        closeWindowOnEscape = true,
+        lingerDuration = 10,
 	},
 	char = {
-		fishing = {
-            -- Tackle
-            primaryPole = { isChecked = false, itemID = nil },
-            underlightAngler = { isChecked = false, itemID = nil },
-            -- Buffs
-            buffs = {
-                fooddrink = {
-                    { enabled = false, itemID = nil },
-                    { enabled = false, itemID = nil },
-                    { enabled = false, itemID = nil },
-                    { enabled = false, itemID = nil },
-                },
-                lure = {
-                    { enabled = false, itemID = nil },
-                    { enabled = false, itemID = nil },
-                    { enabled = false, itemID = nil },
-                    { enabled = false, itemID = nil },
-                },
-                bait = {
-                    { enabled = false, itemID = nil },
-                    { enabled = false, itemID = nil },
-                    { enabled = false, itemID = nil },
-                    { enabled = false, itemID = nil },
-                },
-                other_consumable = {
-                    { enabled = false, itemID = nil },
-                    { enabled = false, itemID = nil },
-                    { enabled = false, itemID = nil },
-                    { enabled = false, itemID = nil },
-                    { enabled = false, itemID = nil },
-                    { enabled = false, itemID = nil },
-                    { enabled = false, itemID = nil },
-                    { enabled = false, itemID = nil },
-                },
-            }
-        },
+        -- Tackle
+        primaryPole = { isChecked = false, itemID = nil },
+        underlightAngler = { isChecked = false, itemID = nil },
+        -- Buffs
+        buffs = {
+            fooddrink = {
+                { enabled = false, itemID = nil },
+                { enabled = false, itemID = nil },
+                { enabled = false, itemID = nil },
+                { enabled = false, itemID = nil },
+            },
+            lure = {
+                { enabled = false, itemID = nil },
+                { enabled = false, itemID = nil },
+                { enabled = false, itemID = nil },
+                { enabled = false, itemID = nil },
+            },
+            bait = {
+                { enabled = false, itemID = nil },
+                { enabled = false, itemID = nil },
+                { enabled = false, itemID = nil },
+                { enabled = false, itemID = nil },
+            },
+            other_consumable = {
+                { enabled = false, itemID = nil },
+                { enabled = false, itemID = nil },
+                { enabled = false, itemID = nil },
+                { enabled = false, itemID = nil },
+                { enabled = false, itemID = nil },
+                { enabled = false, itemID = nil },
+                { enabled = false, itemID = nil },
+                { enabled = false, itemID = nil },
+            },
+        }
 	},
 }
 
@@ -217,7 +213,7 @@ function Fishing:GetModuleOptions()
                         },
                         applyRaft = {
                             type = "execute",
-                            name = "Apply Raft",
+                            name = "Apply",
                             desc = "Manually apply the selected raft now.",
                             order = 2,
                             func = "ApplyRaft",
@@ -252,7 +248,7 @@ function Fishing:GetModuleOptions()
                         },
                         applyBobber = {
                             type = "execute",
-                            name = "Apply Bobber",
+                            name = "Apply",
                             desc = "Manually apply the selected bobber now.",
                             order = 2,
                             func = "ApplyBobber",

@@ -3,28 +3,24 @@ local DreamFish = LibStub("AceAddon-3.0"):GetAddon(addonName)
 
 ns.LootTracker = { Defaults = {
     profile = {
-        lootTracker = {
-            moduleEnabled = true,
-            debug = false,
-            -- start of non-prototype options
-            minQualityFilter = 0,
-            showWindowOnStartup = false,
-            windowVisible = true,
-            windowPos = {
-                point = "CENTER",
-                xOfs = 0,
-                yOfs = 0,
-                width = 280,
-                height = 340,
-            }
+        moduleEnabled = true,
+        debug = false,
+        -- start of non-prototype options
+        minQualityFilter = 0,
+        showWindowOnStartup = false,
+        windowVisible = true,
+        windowPos = {
+            point = "CENTER",
+            xOfs = 0,
+            yOfs = 0,
+            width = 280,
+            height = 340,
         }
     },
     char = {
-        lootTracker = {
-            itemsLooted = 0,
-            lootedItems = {},
-            lootedCurrencies = {},
-        }
+        itemsLooted = 0,
+        lootedItems = {},
+        lootedCurrencies = {},
     }
 } }
 

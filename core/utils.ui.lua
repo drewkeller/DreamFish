@@ -3,7 +3,7 @@ local DreamFish = LibStub("AceAddon-3.0"):GetAddon(addonName)
 
 DreamFish:RegisterTraceSource("utils.ui")
 
-local function TraceUi(windowName, msg)
+local function Trace(windowName, msg)
     DreamFish:Trace("utils.ui", tostring(windowName) .. ": " .. tostring(msg))
 end
 
@@ -62,15 +62,21 @@ function DreamFish:SaveDialogFrameCoordinates(windowName, dialogFrame)
         local status = GetDialogStatusTable(windowName)
         local width = status and status.width or dialogFrame:GetWidth()
         local height = status and status.height or dialogFrame:GetHeight()
-        local top = status and status.top or dialogFrame:GetTop()
-        local left = status and status.left or dialogFrame:GetLeft()
+        local top = (status and status.top) or dialogFrame:GetTop()
+        local left = (status and status.left) or dialogFrame:GetLeft()
+
+        -- Frame may not yet be positioned (e.g. still centering); skip saving until it is.
+        if not top or not left then
+            return
+        end
+
         globalDB.windowPositions[windowName] = {
-            width = math.floor((width or 700) + 0.5),
-            height = math.floor((height or 500) + 0.5),
+            width = math.floor((width or 400) + 0.5),
+            height = math.floor((height or 700) + 0.5),
             top = math.floor(top + 0.5),
             left = math.floor(left + 0.5),
         }
-        --TraceUi(windowName, "Saved window coordinates to positions database.")
+        --Trace(windowName, "Saved window coordinates to positions database.")
     end
 end
 
@@ -115,11 +121,23 @@ function DreamFish:RestoreDialogPosition(frame, windowName)
                 saved.y or 0
             )
         end
-        TraceUi(windowName, "Restored window from positions database.")
+        Trace(windowName, "Restored window from positions database.")
     elseif dialogFrame then
         -- Fallback default position if no coordinate footprint exists yet
         dialogFrame:ClearAllPoints()
         dialogFrame:SetPoint("CENTER", UIParent, "CENTER", 0, 0)
+    end
+end
+
+function DreamFish:SetDefaultPosition(windowName, left, top)
+    local globalDB = DreamFish and DreamFish.db and DreamFish.db.global
+    if globalDB then
+        globalDB.windowPositions = globalDB.windowPositions or {}
+        globalDB.windowPositions[windowName] = globalDB.windowPositions[windowName] or {}
+        if globalDB.windowPositions[windowName].left == nil and globalDB.windowPositions[windowName].top == nil then
+            globalDB.windowPositions[windowName].left = left
+            globalDB.windowPositions[windowName].top = top
+        end
     end
 end
 
@@ -136,7 +154,7 @@ function DreamFish:OpenDialogWindow(windowName, tabOrGroupName)
     AceConfigDialog:Open(windowName, tabOrGroupName)
     local dialog = AceConfigDialog.OpenFrames and AceConfigDialog.OpenFrames[windowName]
     local dialogFrame = GetDialogFrame(dialog)
-    TraceUi(windowName, "OpenDialogWindow")
+    Trace(windowName, "OpenDialogWindow")
 
     if dialogFrame and dialog then
         -- 4. Restore again for old point-based saved positions and then persist AceGUI status on close.
@@ -145,18 +163,18 @@ function DreamFish:OpenDialogWindow(windowName, tabOrGroupName)
         if dialogFrame.frame then
             dialogFrame.frame:SetFrameStrata("BACKGROUND")
             dialogFrame.frame:SetFrameLevel(1)
-            TraceUi(windowName, "(1) Set frame strata to BACKGROUND and level to 1")
+            Trace(windowName, "(1) Set frame strata to BACKGROUND and level to 1")
         else
             dialogFrame:SetFrameStrata("BACKGROUND")
             dialogFrame:SetFrameLevel(1)
-            TraceUi(windowName, "(2) Set frame strata to BACKGROUND and level to 1")
+            Trace(windowName, "(2) Set frame strata to BACKGROUND and level to 1")
         end
 
         -- Intercept various events
         if dialogFrame.DreamFishPositionHooked then
-            TraceUi(windowName, "Dialog frame events already hooked, skipping.")
+            Trace(windowName, "Dialog frame events already hooked, skipping.")
         else
-            TraceUi(windowName, "Hooking dialog frame events")
+            Trace(windowName, "Hooking dialog frame events")
             dialogFrame.DreamFishPositionHooked = true
 
             -- Hook the standard close event
@@ -166,7 +184,7 @@ function DreamFish:OpenDialogWindow(windowName, tabOrGroupName)
 
             -- Monitor window movement and scaling
             dialogFrame:HookScript("OnSizeChanged", function()
-                --TraceUi(windowName, "OnSizeChanged")
+                --Trace(windowName, "OnSizeChanged")
                 DreamFish:SaveDialogFrameCoordinates(windowName, dialogFrame)
             end)
 
