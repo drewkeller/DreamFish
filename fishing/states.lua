@@ -45,9 +45,13 @@ ns.fishing = ns.fishing or {}
 ns.fishing.state = ns.fishing.state or {}
 ns.fishing.states = FISHING_STATES
 
+Fishing:RegisterTraceSource("states")
+
 local function Trace(state, reason)
-    if DreamFish.db.profile.debugMode then
-        DreamFish:Print("|cFF999999[", FISHING_STATE_NAMES[state] or tostring(state), "]|r ", tostring(reason))
+    if Fishing.db and Fishing.db.profile and Fishing.db.profile.traceMode and Fishing.db.profile.traceMode["states"] then
+        if DreamFish.db.profile.debugMode then
+            DreamFish:Print("|cFF999999[", FISHING_STATE_NAMES[state] or tostring(state), "]|r ", tostring(reason))
+        end
     end
 end
 

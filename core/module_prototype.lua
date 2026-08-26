@@ -77,20 +77,27 @@ end
 function ModulePrototype:OnInitialize()
     local addonDB = DreamFish and DreamFish.db
 
-    if addonDB and type(addonDB.RegisterNamespace) == "function" then
-        self.db = addonDB:RegisterNamespace(self.moduleConfig.dbKey, self.moduleConfig.defaults)
-    else
-        local defaults = self.moduleConfig.defaults or {}
-        local profileDefaults = type(defaults.profile) == "table"
-            and (defaults.profile[self.moduleConfig.dbKey] or defaults.profile)
-            or {}
-        local charDefaults = type(defaults.char) == "table"
-            and (defaults.char[self.moduleConfig.dbKey] or defaults.char)
-            or {}
-        local globalDefaults = type(defaults.global) == "table"
-            and (defaults.global[self.moduleConfig.dbKey] or defaults.global)
-            or {}
+    -- Module defaults nest each section under dbKey, but namespaces (and the
+    -- fallback db below) already scope storage to dbKey, so unwrap here or
+    -- the defaults silently never reach self.db.profile/char/global.
+    local defaults = self.moduleConfig.defaults or {}
+    local profileDefaults = type(defaults.profile) == "table"
+        and (defaults.profile[self.moduleConfig.dbKey] or defaults.profile)
+        or {}
+    local charDefaults = type(defaults.char) == "table"
+        and (defaults.char[self.moduleConfig.dbKey] or defaults.char)
+        or {}
+    local globalDefaults = type(defaults.global) == "table"
+        and (defaults.global[self.moduleConfig.dbKey] or defaults.global)
+        or {}
 
+    if addonDB and type(addonDB.RegisterNamespace) == "function" then
+        self.db = addonDB:RegisterNamespace(self.moduleConfig.dbKey, {
+            profile = profileDefaults,
+            char = charDefaults,
+            global = globalDefaults,
+        })
+    else
         local profileNamespace = {}
         local charNamespace = {}
         local globalNamespace = {}
@@ -201,6 +208,9 @@ function ModulePrototype:GetStandardModuleOptions()
                                 type = "toggle",
                                 name = source,
                                 desc = "Enables trace output for the " .. source .. " trace source.",
+                                disabled = function()
+                                    return not self.db.profile.debug
+                                end,
                                 get = function()
                                     return self.db.profile.traceMode[source]
                                 end,
