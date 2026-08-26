@@ -1,11 +1,11 @@
 local addonName, ns = ...
-local DreamFish = LibStub("AceAddon-3.0"):GetAddon(addonName)
-local Fishing = DreamFish:GetModule("Fishing")
+local Addon = LibStub("AceAddon-3.0"):GetAddon(addonName)
+local Fishing = Addon:GetModule("Fishing")
 
-DreamFish:RegisterTraceSource("subbuttonslot")
+Addon:RegisterTraceSource("subbuttonslot")
 
 local function Trace(msg)
-    DreamFish:Trace("subbuttonslot", msg)
+    Addon:Trace("subbuttonslot", msg)
 end
 
 local BOX_SIZE = 48
@@ -100,7 +100,7 @@ local function CreateSubButtonSlot(parentCanvas, slotIndex)
             box.icon:SetTexture(C_Item.GetItemIconByID(slot.itemID) or "Interface\\Icons\\INV_Misc_QuestionMark")
 
             -- Locate item location in player inventories
-            local bag, slotLoc = DreamFish:FindItemInBags(slot.itemID)
+            local bag, slotLoc = Addon:FindItemInBags(slot.itemID)
             local isLureCategory = parentCanvas.arg and parentCanvas.arg.category == "lure"
 
             -- UPDATE: Secure Application to Slot 28 via dynamic macro attributes
@@ -173,7 +173,7 @@ local function CreateSubButtonSlot(parentCanvas, slotIndex)
         if parentCanvas.arg and type(parentCanvas.arg.validateItemIDFunc) == "function" then
             -- Look up the item's live physical container bag and slot coordinates
             -- so Fishing:IsBuffItemCategory can accurately execute its tooltip checks
-            local bag, slotLoc = DreamFish:FindItemInBags(itemID)
+            local bag, slotLoc = Addon:FindItemInBags(itemID)
             if not bag or not slotLoc then
                 local cursorType, cursorID = GetCursorInfo()
                 if cursorType == "item" and tonumber(cursorID) == tonumber(itemID) then

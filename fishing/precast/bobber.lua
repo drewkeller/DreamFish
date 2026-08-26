@@ -1,6 +1,6 @@
 local addonName, ns = ...
-local DreamFish = LibStub("AceAddon-3.0"):GetAddon(addonName)
-local Fishing = DreamFish:GetModule("Fishing")
+local Addon = LibStub("AceAddon-3.0"):GetAddon(addonName)
+local Fishing = Addon:GetModule("Fishing")
 
 local globalDB, profileDB, charDB
 local function Initialize()
@@ -38,8 +38,8 @@ end
 local function GetBobberUseDecision()
     local toyID = tonumber(profileDB.selectedBobberToy) or nil
     local hasBobberSelected = toyID and toyID > 0
-    local hasToy = hasBobberSelected and DreamFish:IsToyOwned(toyID) or false
-    local bobberReady = hasToy and DreamFish:IsCooldownReady(toyID)
+    local hasToy = hasBobberSelected and Addon:IsToyOwned(toyID) or false
+    local bobberReady = hasToy and Addon:IsCooldownReady(toyID)
     local bobberAuraRemaining = hasToy and GetBobberAuraRemainingSeconds(toyID) or nil
     local castLead = ns.fishing.const.maxFishingCastSeconds + ns.fishing.const.buffPreRefreshSafetySeconds
     local needsRefreshForCast = (bobberAuraRemaining == nil) or (bobberAuraRemaining <= castLead)
@@ -61,7 +61,7 @@ local function GetBobberUseDecision()
     elseif not hasToy then
         Trace("Bobber is not owned")
     elseif not bobberReady then
-        Trace("Bobber toy on cooldown: " .. DreamFish:GetDebugCooldownText(toyID))
+        Trace("Bobber toy on cooldown: " .. Addon:GetDebugCooldownText(toyID))
     elseif not needsRefreshForCast then
         Trace("Bobber aura remaining sufficient for cast")
     elseif mounted then

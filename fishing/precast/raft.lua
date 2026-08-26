@@ -1,6 +1,6 @@
 local addonName, ns = ...
-local DreamFish = LibStub("AceAddon-3.0"):GetAddon(addonName)
-local Fishing = DreamFish:GetModule("Fishing")
+local Addon = LibStub("AceAddon-3.0"):GetAddon(addonName)
+local Fishing = Addon:GetModule("Fishing")
 
 local globalDB, profileDB, charDB
 local function Initialize()
@@ -33,8 +33,8 @@ end
 local function GetRaftUseDecision()
     local toyID = tonumber(profileDB.selectedRaftToy) or nil
     local hasRaftSelected = toyID and toyID > 0
-    local hasToy = hasRaftSelected and DreamFish:IsToyOwned(toyID) or false
-    local isReady = hasToy and DreamFish:IsCooldownReady(toyID)
+    local hasToy = hasRaftSelected and Addon:IsToyOwned(toyID) or false
+    local isReady = hasToy and Addon:IsCooldownReady(toyID)
     local swimming = IsSwimming()
     local auraRemaining = (hasToy and swimming) and GetRaftAuraRemainingSeconds(toyID) or nil
     local castLead = ns.fishing.const.maxFishingCastSeconds + ns.fishing.const.buffPreRefreshSafetySeconds
@@ -59,7 +59,7 @@ local function GetRaftUseDecision()
     elseif not hasToy then
         Trace("Raft is not owned")
     elseif not isReady then
-        Trace("Raft toy on cooldown: " .. DreamFish:GetDebugCooldownText(toyID))
+        Trace("Raft toy on cooldown: " .. Addon:GetDebugCooldownText(toyID))
     elseif not needsRefresh then
         Trace("Raft aura remaining sufficient for cast")
     elseif not (swimming or auraRemaining ~= nil) then

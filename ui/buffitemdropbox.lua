@@ -1,9 +1,9 @@
 local addonName, ns = ...
-local DreamFish = LibStub("AceAddon-3.0"):GetAddon(addonName)
-local Fishing = DreamFish:GetModule("Fishing")
+local Addon = LibStub("AceAddon-3.0"):GetAddon(addonName)
+local Fishing = Addon:GetModule("Fishing")
 local AceGUI = LibStub("AceGUI-3.0")
 
-DreamFish:RegisterTraceSource("buffitemdropbox")
+Addon:RegisterTraceSource("buffitemdropbox")
 
 local WIDGET_NAME = "DreamFishBuffItemDropBox"
 local WIDGET_VERSION = 1
@@ -16,7 +16,7 @@ Fishing.state.buffItemLastKnownCount = Fishing.state.buffItemLastKnownCount or {
 Fishing.state.buffItemLastUseAt = Fishing.state.buffItemLastUseAt or {}
 
 local function Trace(msg)
-    DreamFish:Trace("buffitemdropbox", msg)
+    Addon:Trace("buffitemdropbox", msg)
 end
 
 local function CreateBuffItemWidget()
@@ -99,8 +99,8 @@ local function CreateBuffItemWidget()
         end
 
         local arg = self.arg
-        if not arg and ns.DreamFishDialogOptions and self.category then
-            local buffsTab = ns.DreamFishDialogOptions.args and ns.DreamFishDialogOptions.args.buffsTab
+        if not arg and ns.DialogOptions and self.category then
+            local buffsTab = ns.DialogOptions.args and ns.DialogOptions.args.buffsTab
             local buffArgs = buffsTab and buffsTab.args
             if buffArgs then
                 -- Match directly against the precise group key container

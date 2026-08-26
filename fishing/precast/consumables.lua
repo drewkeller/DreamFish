@@ -1,6 +1,6 @@
 local addonName, ns = ...
-local DreamFish = LibStub("AceAddon-3.0"):GetAddon(addonName)
-local Fishing = DreamFish:GetModule("Fishing")
+local Addon = LibStub("AceAddon-3.0"):GetAddon(addonName)
+local Fishing = Addon:GetModule("Fishing")
 
 Fishing:RegisterTraceSource("buffs")
 
@@ -21,9 +21,9 @@ end
 
 local function Item(itemID, category)
     if category then
-        return DreamFish:GetDebugItemLabel(itemID) .. " (" .. tostring(category) .. ")"
+        return Addon:GetDebugItemLabel(itemID) .. " (" .. tostring(category) .. ")"
     end
-    return DreamFish:GetDebugItemLabel(itemID)
+    return Addon:GetDebugItemLabel(itemID)
 end
 
 local function LastUseString(lastUse, duration)
@@ -48,8 +48,8 @@ local function WarnMissingProfessionFishingPoleForLure()
     state.lureMissingPoleWarningAt = now
 
     local warningText = "Cannot apply lure: no fishing pole equipped in profession slot."
-    DreamFish:Alert(warningText)
-    DreamFish:Print(warningText)
+    Addon:Alert(warningText)
+    Addon:Print(warningText)
 end
 
 local function GetNow()
@@ -235,7 +235,7 @@ local function QueueBuffUse(itemID, category)
         category = category,
         itemSpellID = itemSpellID or knownSpellID,
         knownSpellID = knownSpellID,
-        countBefore = DreamFish:CountItemInBags(itemID),
+        countBefore = Addon:CountItemInBags(itemID),
         auraBefore = type(Fishing.BuildHelpfulAuraSnapshot) == "function"
             and Fishing:BuildHelpfulAuraSnapshot()
             or {},
@@ -279,11 +279,11 @@ function Fishing:CheckEnabledBuffItemsDepleted()
             for _, entry in ipairs(items) do
                 local itemID = type(entry) == "table" and tonumber(entry.itemID) or nil
                 if itemID and itemID > 0 and entry.enabled ~= false
-                    and DreamFish:CountItemInBags(itemID) == 0 then
+                    and Addon:CountItemInBags(itemID) == 0 then
                     local itemName = (C_Item and type(C_Item.GetItemInfo) == "function" and C_Item.GetItemInfo(itemID))
                         or "Unknown buff item"
                     state.buffDepletionAlerted = true
-                    DreamFish:Alert("Buff item depleted: " .. tostring(itemName) .. " (" .. tostring(itemID) .. ")")
+                    Addon:Alert("Buff item depleted: " .. tostring(itemName) .. " (" .. tostring(itemID) .. ")")
                     return
                 end
             end
@@ -299,7 +299,7 @@ function Fishing:ConfirmPendingBuffUse(successSpellID)
 
     local now = GetNow()
     local itemID = tonumber(pending.itemID)
-    local countAfter = itemID and DreamFish:CountItemInBags(itemID) or nil
+    local countAfter = itemID and Addon:CountItemInBags(itemID) or nil
     local confirmedBySpell = tonumber(successSpellID)
         and (tonumber(pending.itemSpellID) == tonumber(successSpellID)
             or tonumber(pending.knownSpellID) == tonumber(successSpellID))
@@ -355,7 +355,7 @@ local function GetConsumableUseDecision()
         local warningUntil = tonumber(state.buffTransientWarningUntil) or 0
         if warningUntil < transientUntil then
             state.buffTransientWarningUntil = transientUntil
-            DreamFish:Alert("A buff is still being applied. Wait before casting.")
+            Addon:Alert("A buff is still being applied. Wait before casting.")
         end
         Trace("Skipping consumable scan: food/drink transient block active")
         return decision
@@ -387,13 +387,13 @@ local function GetConsumableUseDecision()
                     --Trace("Checking due consumable: " .. Item(itemID) .. " (" .. tostring(category) .. ")")
                     if not itemID or itemID <= 0 then
                         --Trace("Skipping due consumable: invalid itemID")
-                    elseif not DreamFish:IsCooldownReady(itemID) then
-                        Trace("Skipping due consumable: cooldown not ready " .. Item(itemID) .. " " .. DreamFish:GetDebugCooldownText(itemID))
+                    elseif not Addon:IsCooldownReady(itemID) then
+                        Trace("Skipping due consumable: cooldown not ready " .. Item(itemID) .. " " .. Addon:GetDebugCooldownText(itemID))
                     else
                         local isDue, reason = IsDue(itemID, category, GetNow())
                         if not isDue then
                             Trace("Skipping due consumable: not due " .. Item(itemID, category) .. " (" .. tostring(reason) .. ")")
-                        elseif not DreamFish:FindItemInBags(itemID) then
+                        elseif not Addon:FindItemInBags(itemID) then
                             Trace("Skipping due consumable: not found in bags " .. Item(itemID, category))
                         elseif category == "lure" then
                             local poleID = type(ns.precast.GetEquippedProfessionItemID) == "function"
@@ -403,11 +403,11 @@ local function GetConsumableUseDecision()
                                 WarnMissingProfessionFishingPoleForLure()
                             else
                                 QueueBuffUse(itemID, category)
-                                DreamFish:Debug("Lure is queued: " .. Item(itemID))
+                                Addon:Debug("Lure is queued: " .. Item(itemID))
                                 return { shouldApply = true, itemID = itemID, category = category }
                             end
                         else
-                            DreamFish:Debug("Consumable is queued: " .. Item(itemID, category))
+                            Addon:Debug("Consumable is queued: " .. Item(itemID, category))
                             QueueBuffUse(itemID, category)
                             return { shouldApply = true, itemID = itemID, category = category }
                         end

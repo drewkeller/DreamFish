@@ -1,6 +1,6 @@
 local addonName, ns = ...
-local DreamFish = LibStub("AceAddon-3.0"):GetAddon(addonName)
-local LootTracker = DreamFish:GetModule("LootTracker")
+local Addon = LibStub("AceAddon-3.0"):GetAddon(addonName)
+local LootTracker = Addon:GetModule("LootTracker")
 local AceGUI = LibStub("AceGUI-3.0")
 
 local globalDB, profileDB, charDB
@@ -198,7 +198,7 @@ function LootTracker:CreateLootTrackerWindow()
         charDB.lootedItems = {}
         charDB.lootedCurrencies = {}
         self:UpdateTrackerDisplay()
-        print("|cFF00FF00[DreamFish]|r History track cleared.")
+        print("|cFF00FF00[LootTracker]|r History track cleared.")
     end)
 
     -- Strip the button from AceGUI flow and hard-anchor it to the window's bottom margin

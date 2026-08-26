@@ -1,6 +1,6 @@
 local addonName, ns = ...
-local DreamFish = LibStub("AceAddon-3.0"):GetAddon(addonName)
-local Fishing = DreamFish:GetModule("Fishing")
+local Addon = LibStub("AceAddon-3.0"):GetAddon(addonName)
+local Fishing = Addon:GetModule("Fishing")
 
 Fishing:RegisterTraceSource("auras")
 local function Trace(msg)
@@ -164,8 +164,8 @@ function Fishing:UpdatePendingBuffObservation()
         local category = nil
         if type(known) == "table" and type(known.category) == "string" and known.category ~= "" then
             category = known.category
-        elseif DreamFish.buff and type(DreamFish.buff.GetBuffItemCategory) == "function" then
-            category = DreamFish.buff.GetBuffItemCategory(itemID)
+        elseif Addon.buff and type(Addon.buff.GetBuffItemCategory) == "function" then
+            category = Addon.buff.GetBuffItemCategory(itemID)
         end
 
         local floorDuration = math.max(existingDuration or 0, knownDuration or 0)
@@ -215,11 +215,11 @@ function Fishing:UpdatePendingBuffObservation()
         if self.state and self.state.buffItemTransientUntil then
             self.state.buffItemTransientUntil[itemID] = nil
         end
-        DreamFish:Print("Buff tracked for item:" .. tostring(itemID)
+        Addon:Print("Buff tracked for item:" .. tostring(itemID)
             .. " [spellID=" .. tostring(bestSpellID)
             .. (auraName and (", aura=" .. tostring(auraName)) or "")
-            .. ", item=" .. DreamFish:FormatDuration(bestDuration)
-            .. ", active=" .. DreamFish:FormatDuration(bestDuration) .. " total]")
+            .. ", item=" .. Addon:FormatDuration(bestDuration)
+            .. ", active=" .. Addon:FormatDuration(bestDuration) .. " total]")
         self.state.pendingBuffObservation = nil
     end
 end
@@ -298,18 +298,18 @@ local function GetBuffTimingText(itemID)
     if aura and aura.expirationTime and aura.expirationTime > 0 then
         local remaining = math.max(0, aura.expirationTime - GetTime())
         local activeTotal = aura.duration or remaining
-        return "item=" .. DreamFish:FormatDuration(itemDuration) .. ", active=" .. DreamFish:FormatDuration(remaining) .. " remaining / " .. DreamFish:FormatDuration(activeTotal) .. " total"
+        return "item=" .. Addon:FormatDuration(itemDuration) .. ", active=" .. Addon:FormatDuration(remaining) .. " remaining / " .. Addon:FormatDuration(activeTotal) .. " total"
     end
 
     if itemDuration then
-        return "item=" .. DreamFish:FormatDuration(itemDuration) .. ", active aura not detected"
+        return "item=" .. Addon:FormatDuration(itemDuration) .. ", active aura not detected"
     end
     return "duration unknown (learning aura timings)"
 end
 
 function Fishing:AnnounceBuffUse(itemID, spellID)
     local itemName = (type(C_Item.GetItemInfo) == "function" and C_Item.GetItemInfo(itemID)) or ("item:" .. tostring(itemID))
-    DreamFish:Print("Using buff: " .. tostring(itemName) .. " (" .. tostring(itemID) .. ", spellID=" .. tostring(spellID) .. ") [" .. GetBuffTimingText(itemID) .. "]")
+    Addon:Print("Using buff: " .. tostring(itemName) .. " (" .. tostring(itemID) .. ", spellID=" .. tostring(spellID) .. ") [" .. GetBuffTimingText(itemID) .. "]")
 end
 
 local function EnsureCategoryTooltipFrame()
@@ -425,14 +425,14 @@ local function GetBuffItemCategory(itemID, bag, slot)
     if globalDB and type(globalDB.buffAuraByItem) == "table" then
         local normalized = globalDB.buffAuraByItem[tostring(itemID)]
         if type(normalized) == "table" and normalized.category then
-            Trace("Category from buffAuraByItem: " .. tostring(normalized.category) .. " " .. DreamFish:GetDebugItemLabel(itemID))
+            Trace("Category from buffAuraByItem: " .. tostring(normalized.category) .. " " .. Addon:GetDebugItemLabel(itemID))
             return tostring(normalized.category)
         end
     end
     if ns.fishing.const and type(ns.fishing.const.knownBuffItems) == "table" then
         local known = ns.fishing.const.knownBuffItems[tonumber(itemID)]
         if type(known) == "table" and known.category then
-            Trace("Category from knownBuffItems: " .. tostring(known.category) .. " " .. DreamFish:GetDebugItemLabel(itemID))
+            Trace("Category from knownBuffItems: " .. tostring(known.category) .. " " .. Addon:GetDebugItemLabel(itemID))
             return tostring(known.category)
         end
     end
@@ -458,17 +458,17 @@ local function GetBuffItemCategory(itemID, bag, slot)
     if itemTypeText:find("consumable", 1, true) ~= nil then
         if itemSubTypeText:find("food", 1, true) ~= nil or itemSubTypeText:find("drink", 1, true) ~= nil then
             result = "fooddrink"
-            Trace("Category suggested by item info: " .. result .. " " .. DreamFish:GetDebugItemLabel(itemID))
+            Trace("Category suggested by item info: " .. result .. " " .. Addon:GetDebugItemLabel(itemID))
         elseif itemSubTypeText:find("item enhancement", 1, true) ~= nil
             or itemSubTypeText:find("enchant", 1, true) ~= nil
             or itemSubTypeText:find("weapon", 1, true) ~= nil then
             result = "lure"
-            Trace("Category suggested by item info: " .. result .. " " .. DreamFish:GetDebugItemLabel(itemID))
+            Trace("Category suggested by item info: " .. result .. " " .. Addon:GetDebugItemLabel(itemID))
         end
     end
 
     if not result and TooltipSuggestsLure(numeric, bag, slot) then
-        Trace("Category suggested by tooltip: lure " .. DreamFish:GetDebugItemLabel(itemID))
+        Trace("Category suggested by tooltip: lure " .. Addon:GetDebugItemLabel(itemID))
         result = "lure"
     end
 
@@ -486,13 +486,13 @@ end
 function Fishing:IsBuffItemCategory(category, itemID, bag, slot)
     local normalizedCategory = type(category) == "string" and string.lower(category) or nil
     if not normalizedCategory or normalizedCategory == "" then
-        Trace("IsBuffItemCategory: invalid category provided: " .. tostring(category) .. " " .. DreamFish:GetDebugItemLabel(itemID))
+        Trace("IsBuffItemCategory: invalid category provided: " .. tostring(category) .. " " .. Addon:GetDebugItemLabel(itemID))
         return false
     end
 
     local itemCategory = GetBuffItemCategory(itemID, bag, slot)
     if not itemCategory or itemCategory == "" then
-        Trace("IsBuffItemCategory: unable to determine category for item: " .. DreamFish:GetDebugItemLabel(itemID))
+        Trace("IsBuffItemCategory: unable to determine category for item: " .. Addon:GetDebugItemLabel(itemID))
         return false
     end
 

@@ -1,10 +1,10 @@
 local addonName, ns = ...
-local DreamFish = LibStub("AceAddon-3.0"):GetAddon(addonName)
-local Fishing = DreamFish:GetModule("Fishing")
+local Addon = LibStub("AceAddon-3.0"):GetAddon(addonName)
+local Fishing = Addon:GetModule("Fishing")
 
-DreamFish:RegisterTraceSource("ui.dreamfishdialog")
+Addon:RegisterTraceSource("ui.dreamfishdialog")
 local function Trace(msg)
-    DreamFish:Trace("ui.dreamfishdialog", msg)
+    Addon:Trace("ui.dreamfishdialog", msg)
 end
 
 local function GetFishingCharDB()
@@ -95,7 +95,7 @@ local function AutoDetectUnderlightAngler()
         return false
     end
 
-    if DreamFish:IsItemAvailableForEquip(anglerID) then
+    if Addon:IsItemAvailableForEquip(anglerID) then
         SetItemID("underlightAngler", anglerID)
         return true
     end
@@ -199,7 +199,7 @@ end
 
 local options = {
     type = "group",
-    name = "DreamFish Tackle Box",
+    name = addonName .. " Tackle Box",
     childGroups = "tab",
     args = {
         polesTab = {
@@ -294,10 +294,10 @@ local options = {
                     order = 901,
                     width = "full",
                     get = function()
-                        return ns.DreamFishDialogOptions.args.buffsTab.args.notesDescription.hidden ~= true
+                        return ns.DialogOptions.args.buffsTab.args.notesDescription.hidden ~= true
                     end,
                     set = function(_, value)
-                        ns.DreamFishDialogOptions.args.buffsTab.args.notesDescription.hidden = not value
+                        ns.DialogOptions.args.buffsTab.args.notesDescription.hidden = not value
                         LibStub("AceConfigRegistry-3.0"):NotifyChange(addonName)
                     end,
                 },
@@ -310,7 +310,7 @@ local options = {
                         .. "|cFF999999  * Items are applied left to right within each category.|r",
                     order = 902,
                     fontSize = "medium",
-                    hidden = function() return ns.DreamFishDialogOptions.args.buffsTab.args.notesDescription.hidden == true end,
+                    hidden = function() return ns.DialogOptions.args.buffsTab.args.notesDescription.hidden == true end,
                 },
             },
         },
@@ -339,7 +339,7 @@ local function GetCachedInventoryList(categoryKey)
         lastScanTimestamp = now
 
         for _, config in ipairs(gridMatrix) do
-            local foundItems = DreamFish:FindItemsInBagsWhere(function(itemID, bag, slot)
+            local foundItems = Addon:FindItemsInBagsWhere(function(itemID, bag, slot)
                 return Fishing:IsBuffItemCategory(config.key, itemID, bag, slot)
             end)
             cachedScanResults[config.key] = FlattenToNameBagSlot(foundItems)
@@ -430,4 +430,4 @@ for _, config in ipairs(gridMatrix) do
     }
 end
 
-ns.DreamFishDialogOptions = options
+ns.DialogOptions = options

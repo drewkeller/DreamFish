@@ -1,10 +1,10 @@
 local addonName, ns = ...
-local DreamFish = LibStub("AceAddon-3.0"):GetAddon(addonName)
+local Addon = LibStub("AceAddon-3.0"):GetAddon(addonName)
 
 local ownedToyOptionsCache = {}
 local ownedToyItemCache = {}
 
-function DreamFish:IsToyOwned(itemID)
+function Addon:IsToyOwned(itemID)
     local numeric = tonumber(itemID)
     if not numeric or numeric <= 0 then
         return false
@@ -20,7 +20,7 @@ function DreamFish:IsToyOwned(itemID)
     return ownedToyItemCache[numeric]
 end
 
-function DreamFish:IsCooldownReady(itemID)
+function Addon:IsCooldownReady(itemID)
     local numeric = tonumber(itemID)
     if not numeric or numeric <= 0 then
         return true
@@ -41,7 +41,7 @@ function DreamFish:IsCooldownReady(itemID)
     return (start + duration) <= (now + 0.05)
 end
 
-function DreamFish:BuildOwnedToyOptions(candidateIDs, includeDefaultLabel)
+function Addon:BuildOwnedToyOptions(candidateIDs, includeDefaultLabel)
     local defaultKey = tostring(includeDefaultLabel or "")
     local candidateKey = (type(candidateIDs) == "table") and candidateIDs or "__non_table__"
 
@@ -72,7 +72,7 @@ function DreamFish:BuildOwnedToyOptions(candidateIDs, includeDefaultLabel)
         local name = type(toy) == "table" and toy.name or nil
         if numeric and numeric > 0 and not seen[numeric] then
             seen[numeric] = true
-            if DreamFish:IsToyOwned(numeric) then
+            if Addon:IsToyOwned(numeric) then
                 options[numeric] = (type(name) == "string" and name ~= "") and name or ("item:" .. tostring(numeric))
             end
         end
@@ -82,8 +82,8 @@ function DreamFish:BuildOwnedToyOptions(candidateIDs, includeDefaultLabel)
     return options
 end
 
-function DreamFish:BuildOwnedToySortingKeys(candidateIDs, includeDefault)
-    local values = DreamFish:BuildOwnedToyOptions(candidateIDs, includeDefault)
+function Addon:BuildOwnedToySortingKeys(candidateIDs, includeDefault)
+    local values = Addon:BuildOwnedToyOptions(candidateIDs, includeDefault)
     local keys = {}
     if type(includeDefault) == "string" and includeDefault ~= "" and values[0] ~= nil then
         table.insert(keys, 0)

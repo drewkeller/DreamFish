@@ -15,10 +15,14 @@ else
   exit 1
 fi
 
-rm -rf "$ADDON_DIR"/*
+if [[ -d $ADDONS_DIR ]]; then
+  rm -rf "$ADDON_DIR"/*
+else
+  mkdir -p "$ADDONS_DIR"
+fi
 
 # Copy the main addon files to the addon directory
-cp -fa DreamFish.lua DreamFish.toc Bindings.lua Bindings.xml  \
+cp -fa $ADDON_NAME.lua $ADDON_NAME.toc Bindings.lua Bindings.xml  \
   "$ADDON_DIR"
 
 # Copy the addon subdirectories to the addon directory

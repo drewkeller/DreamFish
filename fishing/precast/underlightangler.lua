@@ -1,6 +1,6 @@
 local addonName, ns = ...
-local DreamFish = LibStub("AceAddon-3.0"):GetAddon(addonName)
-local Fishing = DreamFish:GetModule("Fishing")
+local Addon = LibStub("AceAddon-3.0"):GetAddon(addonName)
+local Fishing = Addon:GetModule("Fishing")
 
 local globalDB, profileDB, charDB
 local function Initialize()
@@ -21,7 +21,7 @@ local function GetUnderlightAnglerEquipDecision()
     local selections = ns.precast.GetConfiguredPoleSelections()
     local isSelected = selections.underlight.isChecked
     local itemID = ns.fishing.const.underlightAnglerItemID or nil
-    local hasItem = DreamFish:IsItemAvailableForEquip(itemID)
+    local hasItem = Addon:IsItemAvailableForEquip(itemID)
     local mounted = IsMounted()
     local equippedItemID = ns.precast.GetEquippedProfessionItemID()
     local alreadyEquipped = itemID
@@ -67,7 +67,7 @@ local function EquipUnderlightAnglerAfterFishing(reason)
         return true
     end
 
-    local bag, slot = DreamFish:FindItemInBags(itemID)
+    local bag, slot = Addon:FindItemInBags(itemID)
     if bag and slot and C_Container and C_Container.PickupContainerItem and EquipCursorItem then
         C_Container.PickupContainerItem(bag, slot)
         EquipCursorItem(28)

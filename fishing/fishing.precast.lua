@@ -1,6 +1,6 @@
 local addonName, ns = ...
-local DreamFish = LibStub("AceAddon-3.0"):GetAddon(addonName)
-local Fishing = DreamFish:GetModule("Fishing")
+local Addon = LibStub("AceAddon-3.0"):GetAddon(addonName)
+local Fishing = Addon:GetModule("Fishing")
 
 local globalDB, profileDB, charDB
 local function Initialize()
@@ -16,20 +16,20 @@ Fishing:RegisterTraceSource("precast")
 local DUE_BUFF_CATEGORY_ORDER = { "fooddrink", "lure", "bait", "bobber", "other_consumable" }
 
 function Fishing:ResolveBobberApplyAction()
-    local selectedToyID = profileDB.bobberSelector and tonumber(DreamFish.addon.bobberSelector:GetText()) or nil
+    local selectedToyID = profileDB.bobberSelector and tonumber(Addon.addon.bobberSelector:GetText()) or nil
     if not selectedToyID or selectedToyID <= 0 then
         return nil, "Apply Bobber (none)", false
     end
 
-    if DreamFish:IsCooldownReady(selectedToyID) then
+    if Addon:IsCooldownReady(selectedToyID) then
         return selectedToyID, "Apply Bobber", true
     end
 
     local oversizedEnabled = profileDB.useOversizedBobber
     if oversizedEnabled
         and selectedToyID ~= ns.fishing.const.oversizedBobberItemID
-        and DreamFish:IsToyOwned(ns.fishing.const.oversizedBobberItemID)
-        and DreamFish:IsCooldownReady(ns.fishing.const.oversizedBobberItemID) then
+        and Addon:IsToyOwned(ns.fishing.const.oversizedBobberItemID)
+        and Addon:IsCooldownReady(ns.fishing.const.oversizedBobberItemID) then
         return ns.fishing.const.oversizedBobberItemID, "Oversize Bobber", true
     end
 
@@ -105,10 +105,10 @@ ConfigureFishingClickAction = function()
         InsertUseItemMacroLine(macroLines, raftDecision.toyID)
         hasItemUseAction = true
         Fishing:Trace("precast", "Configured raft: "
-            .. DreamFish:GetDebugItemLabel(raftDecision.toyID) .. " " .. DreamFish:GetDebugCooldownText(raftDecision.toyID))
+            .. Addon:GetDebugItemLabel(raftDecision.toyID) .. " " .. Addon:GetDebugCooldownText(raftDecision.toyID))
         if raftDecision.swimming then
             raftExclusive = true
-            DreamFish:Trace("precast", "Raft needed while swimming; skipping other pre-cast items this click")
+            Addon:Trace("precast", "Raft needed while swimming; skipping other pre-cast items this click")
         end
     end
 
@@ -116,14 +116,14 @@ ConfigureFishingClickAction = function()
     if (not raftExclusive) and poleDecision.shouldApply then
         InsertEquipItemMacroLine(macroLines, poleDecision.itemID)
         Fishing:Trace("precast", "Configured fishing pole: "
-            .. DreamFish:GetDebugItemLabel(poleDecision.itemID))
+            .. Addon:GetDebugItemLabel(poleDecision.itemID))
     end
 
     -- Underlight Angler
     if (not raftExclusive) and underlightDecision.shouldEquip then
         InsertEquipItemMacroLine(macroLines, underlightDecision.itemID)
         Fishing:Trace("precast", "Configured Underlight Angler: "
-            .. DreamFish:GetDebugItemLabel(underlightDecision.itemID))
+            .. Addon:GetDebugItemLabel(underlightDecision.itemID))
     end
 
     -- Bobber
@@ -131,7 +131,7 @@ ConfigureFishingClickAction = function()
         InsertUseItemMacroLine(macroLines, bobberDecision.toyID)
         hasItemUseAction = true
         Fishing:Trace("precast", "Configured bobber: "
-            .. DreamFish:GetDebugItemLabel(bobberDecision.toyID) .. " " .. DreamFish:GetDebugCooldownText(bobberDecision.toyID))
+            .. Addon:GetDebugItemLabel(bobberDecision.toyID) .. " " .. Addon:GetDebugCooldownText(bobberDecision.toyID))
     end
 
     -- Oversize bobber
@@ -151,7 +151,7 @@ ConfigureFishingClickAction = function()
                 table.insert(macroLines, "/use 28") -- apply lure to fishing profession equipment slot
             end
             Fishing:Trace("precast", "Configured due buff (" .. tostring(consumableDecision.category) .. "): "
-                .. DreamFish:GetDebugItemLabel(consumableDecision.itemID) .. " " .. DreamFish:GetDebugCooldownText(consumableDecision.itemID))
+                .. Addon:GetDebugItemLabel(consumableDecision.itemID) .. " " .. Addon:GetDebugCooldownText(consumableDecision.itemID))
         end
     else
         Fishing.clickFrame:SetAttribute("dreamfisher_duebuff", nil)

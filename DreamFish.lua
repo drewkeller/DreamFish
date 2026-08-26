@@ -1,15 +1,17 @@
 -- The second return value (ns) is a private table shared across files
 local addonName, ns = ...
-local DreamFish = ns.DreamFish
+local Addon = ns.Addon
 local AceConfig = LibStub("AceConfig-3.0")
 local AceConfigDialog = LibStub("AceConfigDialog-3.0")
+
+local DialogName = addonName .. "Dialog"
 
 local function RefreshConfigUI()
     LibStub("AceConfigRegistry-3.0"):NotifyChange(addonName)
 end
 
-function DreamFish:OnInitialize()
-    self.db = LibStub("AceDB-3.0"):New("DreamFishDB", ns.DatabaseDefaults, true)
+function Addon:OnInitialize()
+    self.db = LibStub("AceDB-3.0"):New(addonName .. "DB", ns.DatabaseDefaults, true)
 
     -- Generate profile options table and register it
     self.profileOptions = LibStub("AceDBOptions-3.0"):GetOptionsTable(self.db)
@@ -27,8 +29,8 @@ function DreamFish:OnInitialize()
     -- Set up "live loading" of module options tables when the user opens the
     -- config dialog, so that modules can populate items dependent on OnInitialize
     -- before the options table is built.
-    local Fishing = DreamFish:GetModule("Fishing")
-    local LootTracker = DreamFish:GetModule("LootTracker")
+    local Fishing = Addon:GetModule("Fishing")
+    local LootTracker = Addon:GetModule("LootTracker")
 
     AceConfig:RegisterOptionsTable(addonName .. "_Fishing", function()
         return Fishing:GetOptionsTable()
@@ -37,9 +39,9 @@ function DreamFish:OnInitialize()
         return LootTracker:GetOptionsTable()
     end)
 
-    AceConfig:RegisterOptionsTable("DreamFishDialog", ns.DreamFishDialogOptions)
-    AceConfigDialog:SetDefaultSize("DreamFishDialog", 400, 700)
-    DreamFish:SetDefaultPosition("DreamFishDialog", 50, 1080)
+    AceConfig:RegisterOptionsTable(DialogName, ns.DialogOptions)
+    AceConfigDialog:SetDefaultSize(DialogName, 400, 700)
+    Addon:SetDefaultPosition(DialogName, 50, 1080)
 
     -- Nest these items as subcategories below the addon's main menu item
     AceConfigDialog:AddToBlizOptions(addonName .. "_Fishing", "Fishing", addonName)
@@ -54,11 +56,11 @@ function DreamFish:OnInitialize()
     self.db.RegisterCallback(self, "OnProfileReset", RefreshConfigUI)
 end
 
-function DreamFish:OnEnable()
+function Addon:OnEnable()
     ns.RegisterChatCommands()
     self:RegisterEvent("PLAYER_ENTERING_WORLD")
 end
 
-function DreamFish:PLAYER_ENTERING_WORLD(event, isLogin, isReload)
-    self:Print("Hello World from DreamFish!")
+function Addon:PLAYER_ENTERING_WORLD(event, isLogin, isReload)
+    self:Print("Hello World from " .. addonName .. "!")
 end

@@ -1,10 +1,10 @@
 local addonName, ns = ...
-local DreamFish = LibStub("AceAddon-3.0"):GetAddon(addonName)
+local Addon = LibStub("AceAddon-3.0"):GetAddon(addonName)
 
-DreamFish:RegisterTraceSource("utils.ui")
+Addon:RegisterTraceSource("utils.ui")
 
 local function Trace(windowName, msg)
-    DreamFish:Trace("utils.ui", tostring(windowName) .. ": " .. tostring(msg))
+    Addon:Trace("utils.ui", tostring(windowName) .. ": " .. tostring(msg))
 end
 
 local function GetDialogFrame(dialog)
@@ -55,8 +55,8 @@ local function ClearDialogStatusPosition(status)
     status.left = nil
 end
 
-function DreamFish:SaveDialogFrameCoordinates(windowName, dialogFrame)
-    local globalDB = DreamFish and DreamFish.db and DreamFish.db.global
+function Addon:SaveDialogFrameCoordinates(windowName, dialogFrame)
+    local globalDB = Addon and Addon.db and Addon.db.global
     if globalDB and dialogFrame then
         globalDB.windowPositions = globalDB.windowPositions or {}
         local status = GetDialogStatusTable(windowName)
@@ -80,10 +80,10 @@ function DreamFish:SaveDialogFrameCoordinates(windowName, dialogFrame)
     end
 end
 
-function DreamFish:RestoreDialogPosition(frame, windowName)
+function Addon:RestoreDialogPosition(frame, windowName)
     local dialogFrame = GetDialogFrame(frame)
 
-    local globalDB = DreamFish and DreamFish.db and DreamFish.db.global
+    local globalDB = Addon and Addon.db and Addon.db.global
     if globalDB and globalDB.windowPositions and globalDB.windowPositions[windowName] then
         local saved = globalDB.windowPositions[windowName]
         local status = GetDialogStatusTable(windowName)
@@ -129,8 +129,8 @@ function DreamFish:RestoreDialogPosition(frame, windowName)
     end
 end
 
-function DreamFish:SetDefaultPosition(windowName, left, top)
-    local globalDB = DreamFish and DreamFish.db and DreamFish.db.global
+function Addon:SetDefaultPosition(windowName, left, top)
+    local globalDB = Addon and Addon.db and Addon.db.global
     if globalDB then
         globalDB.windowPositions = globalDB.windowPositions or {}
         globalDB.windowPositions[windowName] = globalDB.windowPositions[windowName] or {}
@@ -141,7 +141,7 @@ function DreamFish:SetDefaultPosition(windowName, left, top)
     end
 end
 
-function DreamFish:OpenDialogWindow(windowName, tabOrGroupName)
+function Addon:OpenDialogWindow(windowName, tabOrGroupName)
     -- 1. Tell AceConfigRegistry to refresh data variables across fields
     LibStub("AceConfigRegistry-3.0"):NotifyChange(windowName)
 
@@ -179,13 +179,13 @@ function DreamFish:OpenDialogWindow(windowName, tabOrGroupName)
 
             -- Hook the standard close event
             dialogFrame:HookScript("OnHide", function()
-                DreamFish:SaveDialogFrameCoordinates(windowName, dialogFrame)
+                Addon:SaveDialogFrameCoordinates(windowName, dialogFrame)
             end)
 
             -- Monitor window movement and scaling
             dialogFrame:HookScript("OnSizeChanged", function()
                 --Trace(windowName, "OnSizeChanged")
-                DreamFish:SaveDialogFrameCoordinates(windowName, dialogFrame)
+                Addon:SaveDialogFrameCoordinates(windowName, dialogFrame)
             end)
 
             -- Monitor hardware tracking loops using a safe gate to capture moving offsets instantly
@@ -199,7 +199,7 @@ function DreamFish:OpenDialogWindow(windowName, tabOrGroupName)
                     lastLeft = currentLeft
                     lastTop = currentTop
 
-                    DreamFish:SaveDialogFrameCoordinates(windowName, dialogFrame)
+                    Addon:SaveDialogFrameCoordinates(windowName, dialogFrame)
                 end
             end)
 
@@ -207,7 +207,7 @@ function DreamFish:OpenDialogWindow(windowName, tabOrGroupName)
             if dialog.resizer then
                 dialog.resizer:HookScript("OnMouseUp", function()
                     --TraceUi(windowName, "OnMouseUp resizer")
-                    DreamFish:SaveDialogFrameCoordinates(windowName, dialogFrame)
+                    Addon:SaveDialogFrameCoordinates(windowName, dialogFrame)
                 end)
             end
         end

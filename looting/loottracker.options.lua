@@ -1,5 +1,5 @@
 local addonName, ns = ...
-local DreamFish = LibStub("AceAddon-3.0"):GetAddon(addonName)
+local Addon = LibStub("AceAddon-3.0"):GetAddon(addonName)
 
 ns.LootTracker = { Defaults = {
     profile = {
@@ -24,7 +24,7 @@ ns.LootTracker = { Defaults = {
     }
 } }
 
-local LootTracker = DreamFish:NewModule("LootTracker", ns.ModulePrototype, "AceConsole-3.0", "AceEvent-3.0")
+local LootTracker = Addon:NewModule("LootTracker", ns.ModulePrototype, "AceConsole-3.0", "AceEvent-3.0")
 LootTracker:Configure({
     displayName = "Loot Tracker",
     dbKey = "lootTracker",

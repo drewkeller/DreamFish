@@ -1,6 +1,6 @@
 local addonName, ns = ...
-local DreamFish = LibStub("AceAddon-3.0"):GetAddon(addonName)
-local Fishing = DreamFish:GetModule("Fishing")
+local Addon = LibStub("AceAddon-3.0"):GetAddon(addonName)
+local Fishing = Addon:GetModule("Fishing")
 
 local globalDB, profileDB, charDB
 local function Initialize()
@@ -43,8 +43,8 @@ local function GetOversizedBobberDecision()
 
     local toyID = ns.fishing.const and ns.fishing.const.oversizedBobberItemID or 0
     local hasBobberSelected = profileDB.useOversizedBobber
-    local hasToy = hasBobberSelected and DreamFish:IsToyOwned(toyID) or false
-    local isReady = hasToy and DreamFish:IsCooldownReady(toyID)
+    local hasToy = hasBobberSelected and Addon:IsToyOwned(toyID) or false
+    local isReady = hasToy and Addon:IsCooldownReady(toyID)
     local auraRemaining = hasToy and GetOversizedBobberAuraRemainingSeconds() or nil
     local castLead = ns.fishing.const.maxFishingCastSeconds + ns.fishing.const.buffPreRefreshSafetySeconds
     local needsRefresh = (auraRemaining == nil) or (auraRemaining <= castLead)
@@ -66,7 +66,7 @@ local function GetOversizedBobberDecision()
     elseif not hasToy then
         Trace("Oversize bobber is not owned")
     elseif not isReady then
-        Trace("Oversize bobber toy on cooldown: " .. DreamFish:GetDebugCooldownText(toyID))
+        Trace("Oversize bobber toy on cooldown: " .. Addon:GetDebugCooldownText(toyID))
     elseif not needsRefresh then
         Trace("Oversize bobber aura remaining sufficient for cast")
     elseif mounted then

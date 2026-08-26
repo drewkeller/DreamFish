@@ -1,7 +1,7 @@
 local addonName, ns = ...
-local DreamFish = LibStub("AceAddon-3.0"):GetAddon(addonName)
-local LootTracker = DreamFish:GetModule("LootTracker")
-local Fishing = DreamFish:GetModule("Fishing")
+local Addon = LibStub("AceAddon-3.0"):GetAddon(addonName)
+local LootTracker = Addon:GetModule("LootTracker")
+local Fishing = Addon:GetModule("Fishing")
 
 function ns:GeneralOptions()
     local options = {
@@ -14,13 +14,13 @@ function ns:GeneralOptions()
                 desc = "Enables debug mode for the addon, providing additional output for troubleshooting.",
                 order = 1,
                 width = "full",
-                get = function(info) return DreamFish.db.profile.debugMode end,
+                get = function(info) return Addon.db.profile.debugMode end,
                 set = function(info, value)
-                    DreamFish.db.profile.debugMode = value
+                    Addon.db.profile.debugMode = value
                     if value then
-                        DreamFish:Print("Debug Mode is now |cFF00FF00ON|r.")
+                        Addon:Print("Debug Mode is now |cFF00FF00ON|r.")
                     else
-                        DreamFish:Print("Debug Mode is now |cFFFF0000OFF|r.")
+                        Addon:Print("Debug Mode is now |cFFFF0000OFF|r.")
                     end
                 end,
             },
@@ -30,23 +30,23 @@ function ns:GeneralOptions()
                 name = "Trace sources",
                 inline = true,
                 args = (function()
-                    if not DreamFish.db or not DreamFish.db.profile or not DreamFish.db.profile.traceMode then
+                    if not Addon.db or not Addon.db.profile or not Addon.db.profile.traceMode then
                         return {}
                     end
                     local traceArgs = {}
-                    for source, _ in pairs(DreamFish.db.profile.traceMode) do
+                    for source, _ in pairs(Addon.db.profile.traceMode) do
                         traceArgs[source] = {
                             order = 1,
                             type = "toggle",
                             name = source,
                             desc = "Enables trace output for the " .. source .. " trace source.",
                             get = function()
-                                return DreamFish.db.profile.traceMode[source]
+                                return Addon.db.profile.traceMode[source]
                             end,
                             set = function(_, value)
-                                DreamFish.db.profile.traceMode[source] = value
+                                Addon.db.profile.traceMode[source] = value
                                 local state = value and "|cFF00FF00ON|r" or "|cFFFF0000OFF|r"
-                                DreamFish:Print("Trace source '" .. source .. "' is now " .. state .. ".")
+                                Addon:Print("Trace source '" .. source .. "' is now " .. state .. ".")
                             end,
                         }
                     end
@@ -101,7 +101,7 @@ end
 function ns:GetOptionsTable()
     return ns:GeneralOptions()
     -- local options = {
-    --     name = "DreamFish",
+    --     name = addonName,
     --     type = "group",
     --     args = {
     --         general = ns:GeneralOptions(),

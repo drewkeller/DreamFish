@@ -1,6 +1,6 @@
 local addonName, ns = ...
-DreamFish = LibStub("AceAddon-3.0"):NewAddon(addonName, "AceConsole-3.0", "AceEvent-3.0")
-ns.DreamFish = DreamFish
+Addon = LibStub("AceAddon-3.0"):NewAddon(addonName, "AceConsole-3.0", "AceEvent-3.0")
+ns.Addon = Addon
 
 
 local globalDB, profileDB, charDB
@@ -17,12 +17,12 @@ end
 
 function ns.CallAddonInitializers(self)
     -- access the database within "Fishing" functions using self.db
-    -- In local functions, use ns.DreamFishDB
-    ns.DreamFishDB = self.db
+    -- In local functions, use ns.AddonDB
+    ns.AddonDB = self.db
 
-    globalDB = ns.DreamFishDB.global
-    profileDB = ns.DreamFishDB.profile
-    charDB = ns.DreamFishDB.char
+    globalDB = ns.AddonDB.global
+    profileDB = ns.AddonDB.profile
+    charDB = ns.AddonDB.char
 
     globalDB.windowPositions = globalDB.windowPositions or {}
 
@@ -33,7 +33,7 @@ function ns.CallAddonInitializers(self)
     InitializeTraceSources(self)
 end
 
-function DreamFish:RegisterTraceSource(source)
+function Addon:RegisterTraceSource(source)
     if not self.db or not self.db.profile then
         -- Modules often register trace sources at file-load time, before OnInitialize runs
         self.pendingTraceSources = self.pendingTraceSources or {}

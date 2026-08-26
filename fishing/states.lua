@@ -1,6 +1,6 @@
 local addonName, ns = ...
-local DreamFish = LibStub("AceAddon-3.0"):GetAddon(addonName)
-local Fishing = DreamFish:GetModule("Fishing")
+local Addon = LibStub("AceAddon-3.0"):GetAddon(addonName)
+local Fishing = Addon:GetModule("Fishing")
 
 local FISHING_STATES = {
     IDLE = 1,
@@ -49,8 +49,8 @@ Fishing:RegisterTraceSource("states")
 
 local function Trace(state, reason)
     if Fishing.db and Fishing.db.profile and Fishing.db.profile.traceMode and Fishing.db.profile.traceMode["states"] then
-        if DreamFish.db.profile.debugMode then
-            DreamFish:Print("|cFF999999[", FISHING_STATE_NAMES[state] or tostring(state), "]|r ", tostring(reason))
+        if Addon.db.profile.debugMode then
+            Addon:Print("|cFF999999[", FISHING_STATE_NAMES[state] or tostring(state), "]|r ", tostring(reason))
         end
     end
 end

@@ -1,5 +1,5 @@
 local addonName, ns = ...
-local DreamFish = LibStub("AceAddon-3.0"):GetAddon(addonName)
+local Addon = LibStub("AceAddon-3.0"):GetAddon(addonName)
 
 local ModulePrototype = {}
 ns.ModulePrototype = ModulePrototype
@@ -49,13 +49,13 @@ end
 
 function ModulePrototype:Debug(message, ...)
     if self.db and self.db.profile and self.db.profile.debug then
-        DreamFish:Print("|cFF9ACDFF[" .. self.moduleConfig.displayName .. "]|r ", message, ...)
+        Addon:Print("|cFF9ACDFF[" .. self.moduleConfig.displayName .. "]|r ", message, ...)
     end
 end
 
 function ModulePrototype:Trace(source, msg, ...)
     if self.db and self.db.profile and self.db.profile.traceMode and self.db.profile.traceMode[source] then
-        DreamFish:Print("|cFF999999[" .. source .. "]|r ", msg, ...)
+        Addon:Print("|cFF999999[" .. source .. "]|r ", msg, ...)
     end
 end
 
@@ -75,7 +75,7 @@ function ModulePrototype:RegisterTraceSource(source)
 end
 
 function ModulePrototype:OnInitialize()
-    local addonDB = DreamFish and DreamFish.db
+    local addonDB = Addon and Addon.db
 
     -- Module defaults nest each section under dbKey, but namespaces (and the
     -- fallback db below) already scope storage to dbKey, so unwrap here or
@@ -189,7 +189,7 @@ function ModulePrototype:GetStandardModuleOptions()
                     set = function(_, value)
                         self.db.profile.debug = value
                         local state = value and "|cFF00FF00ON|r" or "|cFFFF0000OFF|r"
-                        DreamFish:Print(config.displayName .. " debug mode is now " .. state .. ".")
+                        Addon:Print(config.displayName .. " debug mode is now " .. state .. ".")
                     end,
                 },
                 traceGroup ={
@@ -217,7 +217,7 @@ function ModulePrototype:GetStandardModuleOptions()
                                 set = function(_, value)
                                     self.db.profile.traceMode[source] = value
                                     local state = value and "|cFF00FF00ON|r" or "|cFFFF0000OFF|r"
-                                    DreamFish:Print(config.displayName .. " trace source '" .. source .. "' is now " .. state .. ".")
+                                    Addon:Print(config.displayName .. " trace source '" .. source .. "' is now " .. state .. ".")
                                 end,
                             }
                         end

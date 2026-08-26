@@ -1,24 +1,24 @@
 local addonName, ns = ...
-local DreamFish = LibStub("AceAddon-3.0"):GetAddon(addonName)
+local Addon = LibStub("AceAddon-3.0"):GetAddon(addonName)
 
-function DreamFish:Alert(msg, ...)
-    DreamFish:PlayWarningCue()
+function Addon:Alert(msg, ...)
+    Addon:PlayWarningCue()
     RaidWarningUtil.AddMessage(msg, ChatTypeInfo["SYSTEM"])
 end
 
-function DreamFish:Debug(msg, ...)
+function Addon:Debug(msg, ...)
     if self.db.profile.debugMode then
         self:Print("|cFF9ACDFF[Debug]|r ", msg, ...)
     end
 end
 
-function DreamFish:Trace(source, msg, ...)
+function Addon:Trace(source, msg, ...)
     if self.db and self.db.profile and self.db.profile.traceMode and self.db.profile.traceMode[source] then
         self:Print("|cFF999999[" .. source .. "]|r ", msg, ...)
     end
 end
 
-function DreamFish:FormatDuration(seconds)
+function Addon:FormatDuration(seconds)
     local n = tonumber(seconds)
     if not n or n < 0 then
         return "unknown"
@@ -32,7 +32,7 @@ function DreamFish:FormatDuration(seconds)
     return tostring(secs) .. "s"
 end
 
-function DreamFish:GetDebugItemLabel(itemID)
+function Addon:GetDebugItemLabel(itemID)
     local numeric = tonumber(itemID)
     if not numeric or numeric <= 0 then
         return "unknown"
@@ -44,7 +44,7 @@ function DreamFish:GetDebugItemLabel(itemID)
     return "item:" .. tostring(numeric)
 end
 
-function DreamFish:GetDebugCooldownText(itemID)
+function Addon:GetDebugCooldownText(itemID)
     local numeric = tonumber(itemID)
     if not numeric or numeric <= 0 then
         return "cooldown=unknown"

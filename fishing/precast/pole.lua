@@ -1,6 +1,6 @@
 local addonName, ns = ...
-local DreamFish = LibStub("AceAddon-3.0"):GetAddon(addonName)
-local Fishing = DreamFish:GetModule("Fishing")
+local Addon = LibStub("AceAddon-3.0"):GetAddon(addonName)
+local Fishing = Addon:GetModule("Fishing")
 
 local globalDB, profileDB, charDB
 local function Initialize()
@@ -49,7 +49,7 @@ local function NormalizePoleSelection(value, validateItemID)
         itemID = nil
     end
     if itemID and isChecked == true then
-        isAvailable = DreamFish:IsItemAvailableForEquip(itemID)
+        isAvailable = Addon:IsItemAvailableForEquip(itemID)
     end
     if not itemID then
         isChecked = false
@@ -102,7 +102,7 @@ end
 local function GetSelectedFishingPoleDecision()
     local selections = GetConfiguredPoleSelections()
     local poleItemID = selections.primary.itemID
-    local hasItem = DreamFish:IsItemAvailableForEquip(poleItemID)
+    local hasItem = Addon:IsItemAvailableForEquip(poleItemID)
     local mounted = (type(IsMounted) == "function" and IsMounted()) or false
     local equippedItemID = GetEquippedProfessionItemID()
     local alreadyEquipped = poleItemID and equippedItemID and (poleItemID == equippedItemID) or false
@@ -148,7 +148,7 @@ local function TryEquipItemToProfessionSlot(itemID)
     end
 
     local function TryEquipFromBagCursor(targetSlot)
-        local bag, slot = DreamFish:FindItemInBags(itemID)
+        local bag, slot = Addon:FindItemInBags(itemID)
         if bag == nil or slot == nil then
             return false
         end
@@ -165,7 +165,7 @@ local function TryEquipItemToProfessionSlot(itemID)
                     lastDispatchedMethod = "cursor-fallback:EquipItemByName:slot" .. tostring(targetSlot)
                     if IsNowEquipped() then
                         Trace("Pole equip succeeded via " .. tostring(lastDispatchedMethod)
-                            .. " " .. DreamFish:GetDebugItemLabel(itemID))
+                            .. " " .. Addon:GetDebugItemLabel(itemID))
                         return true
                     end
                 end
@@ -197,7 +197,7 @@ local function TryEquipItemToProfessionSlot(itemID)
 
         if IsNowEquipped() then
             Trace("Pole equip succeeded via " .. tostring(lastDispatchedMethod)
-                .. " " .. DreamFish:GetDebugItemLabel(itemID))
+                .. " " .. Addon:GetDebugItemLabel(itemID))
             return true
         end
 
@@ -217,28 +217,28 @@ local function TryEquipItemToProfessionSlot(itemID)
             C_Timer.After(0.1, function()
                 if IsNowEquipped() then
                     Trace("Pole equip completed on delayed verify via "
-                        .. tostring(lastDispatchedMethod or "unknown") .. ": " .. DreamFish:GetDebugItemLabel(itemID))
+                        .. tostring(lastDispatchedMethod or "unknown") .. ": " .. Addon:GetDebugItemLabel(itemID))
                     return
                 end
 
                 C_Timer.After(0.35, function()
                     if IsNowEquipped() then
                         Trace("Pole equip completed on extended verify via "
-                            .. tostring(lastDispatchedMethod or "unknown") .. ": " .. DreamFish:GetDebugItemLabel(itemID))
+                            .. tostring(lastDispatchedMethod or "unknown") .. ": " .. Addon:GetDebugItemLabel(itemID))
                     else
-                        Trace("Failed to equip configured pole after delayed verify " .. DreamFish:GetDebugItemLabel(itemID))
+                        Trace("Failed to equip configured pole after delayed verify " .. Addon:GetDebugItemLabel(itemID))
                     end
                 end)
             end)
             Trace("Pole equip request dispatched via " .. tostring(lastDispatchedMethod or "unknown")
-                .. "; awaiting delayed verification: " .. DreamFish:GetDebugItemLabel(itemID))
+                .. "; awaiting delayed verification: " .. Addon:GetDebugItemLabel(itemID))
         else
-            Trace("Pole equip request dispatched; timer unavailable for delayed verification: " .. DreamFish:GetDebugItemLabel(itemID))
+            Trace("Pole equip request dispatched; timer unavailable for delayed verification: " .. Addon:GetDebugItemLabel(itemID))
         end
         return true
     end
 
-    Trace("Failed to equip configured pole " .. DreamFish:GetDebugItemLabel(itemID))
+    Trace("Failed to equip configured pole " .. Addon:GetDebugItemLabel(itemID))
     return false
 end
 
@@ -256,10 +256,10 @@ local function ApplySelectedFishingPole()
         Trace("Pole to equip is: none")
         itemToEquip = nil
     elseif canEquipPrimary and (Fishing:IsInFishingSession() or not canEquipUnderlight) then
-        Trace("Pole to equip is: " .. DreamFish:GetDebugItemLabel(primary.itemID))
+        Trace("Pole to equip is: " .. Addon:GetDebugItemLabel(primary.itemID))
         itemToEquip = primary.itemID
     elseif canEquipUnderlight then
-        Trace("Pole to equip is: " .. DreamFish:GetDebugItemLabel(underlight.itemID))
+        Trace("Pole to equip is: " .. Addon:GetDebugItemLabel(underlight.itemID))
         itemToEquip = underlight.itemID
     end
 

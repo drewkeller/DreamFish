@@ -1,6 +1,6 @@
 local addonName, ns = ...
-local DreamFish = LibStub("AceAddon-3.0"):GetAddon(addonName)
-local Fishing = DreamFish:GetModule("Fishing")
+local Addon = LibStub("AceAddon-3.0"):GetAddon(addonName)
+local Fishing = Addon:GetModule("Fishing")
 
 ns.Fishing.Defaults = {
     global = {
@@ -204,10 +204,10 @@ function Fishing:GetModuleOptions()
                             desc = "Choose the raft to be used when fishing. Applied automatically when casting the fishing line.",
                             order = 1,
                             values = function()
-                                return DreamFish:BuildOwnedToyOptions(ns.fishing.const.raftToyItemIDs, "No Raft")
+                                return Addon:BuildOwnedToyOptions(ns.fishing.const.raftToyItemIDs, "No Raft")
                             end,
                             sorting = function()
-                                return DreamFish:BuildOwnedToySortingKeys(ns.fishing.const.raftToyItemIDs, "No Raft")
+                                return Addon:BuildOwnedToySortingKeys(ns.fishing.const.raftToyItemIDs, "No Raft")
                             end,
                             width = 1.5,
                         },
@@ -239,10 +239,10 @@ function Fishing:GetModuleOptions()
                             desc = "Choose the bobber to be used when fishing. Applied automatically when casting the fishing line.",
                             order = 1,
                             values = function()
-                                return DreamFish:BuildOwnedToyOptions(ns.fishing.const.bobberToyItemIDs, "Standard Bobber")
+                                return Addon:BuildOwnedToyOptions(ns.fishing.const.bobberToyItemIDs, "Standard Bobber")
                             end,
                             sorting = function()
-                                return DreamFish:BuildOwnedToySortingKeys(ns.fishing.const.bobberToyItemIDs, "Standard Bobber")
+                                return Addon:BuildOwnedToySortingKeys(ns.fishing.const.bobberToyItemIDs, "Standard Bobber")
                             end,
                             width = 1.5,
                         },
@@ -268,7 +268,7 @@ function Fishing:GetModuleOptions()
                     name = "Open Tackle Box",
                     desc = "Open a window to manage fishing tackle (poles, rafts, bobbers).",
                     order = 3,
-                    func = function() DreamFish:OpenDialogWindow("DreamFishDialog") end,
+                    func = function() Addon:OpenDialogWindow("DreamFishDialog") end,
                     width = "full",
                 } -- Tackle manager button
             },
