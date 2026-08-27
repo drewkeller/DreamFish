@@ -1,10 +1,10 @@
 local addonName, ns = ...
-local Addon = LibStub("AceAddon-3.0"):GetAddon(addonName)
+local Addon = ns.Addon
 local Fishing = Addon:GetModule("Fishing")
 
 Addon:RegisterTraceSource("ui.dreamfishdialog")
 local function Trace(msg)
-    Addon:Trace("ui.dreamfishdialog", msg)
+    ns.Utils("ui.dreamfishdialog", msg)
 end
 
 local function GetFishingCharDB()

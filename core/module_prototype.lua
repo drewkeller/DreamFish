@@ -1,8 +1,27 @@
 local addonName, ns = ...
-local Addon = LibStub("AceAddon-3.0"):GetAddon(addonName)
+local Addon = ns.Addon
 
 local ModulePrototype = {}
 ns.ModulePrototype = ModulePrototype
+
+-- 1. Shared trace source registry constructor
+function ModulePrototype:RegisterTraceSource(sourceName, description)
+    if not self.registeredTraces then self.registeredTraces = {} end
+
+    self.registeredTraces[sourceName] = description or sourceName
+
+    -- If the database namespace is already active, register the default toggle value
+    if self.db and self.db.RegisterDefaults then
+        local injection = { profile = { traces = { [sourceName] = false } } }
+        self.db:RegisterDefaults(injection)
+    end
+end
+
+-- 2. Shared shorthand trace method wrapper
+function ModulePrototype:Trace(source, msg, ...)
+    ns.Utils.Trace(self.moduleName, source, msg, ...)
+    Addon:Print("|cFF999999[" .. source .. "]|r ", msg, ...)
+end
 
 local function MergeDefaults(target, source)
     for key, value in pairs(source) do
@@ -53,26 +72,6 @@ function ModulePrototype:Debug(message, ...)
     end
 end
 
-function ModulePrototype:Trace(source, msg, ...)
-    if self.db and self.db.profile and self.db.profile.traceMode and self.db.profile.traceMode[source] then
-        Addon:Print("|cFF999999[" .. source .. "]|r ", msg, ...)
-    end
-end
-
-function ModulePrototype:RegisterTraceSource(source)
-    if not self.db or not self.db.profile then
-        -- Modules often register trace sources at file-load time, before OnInitialize runs
-        self.pendingTraceSources = self.pendingTraceSources or {}
-        table.insert(self.pendingTraceSources, source)
-        return
-    end
-    if not self.db.profile.traceMode then
-        self.db.profile.traceMode = {}
-    end
-    if not self.db.profile.traceMode[source] then
-        self.db.profile.traceMode[source] = false
-    end
-end
 
 function ModulePrototype:OnInitialize()
     local addonDB = Addon and Addon.db
@@ -323,3 +322,6 @@ function ModulePrototype:GetOptionsTable()
         args = args,
     }
 end
+
+-- Inform the addon that all future NewModule calls should receive this blueprint
+ns.Addon:SetDefaultModulePrototype(ModulePrototype)

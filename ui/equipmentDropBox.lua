@@ -1,5 +1,5 @@
 local addonName, ns = ...
-local Addon = LibStub("AceAddon-3.0"):GetAddon(addonName)
+local Addon = ns.Addon
 
 local AceGUI = LibStub("AceGUI-3.0")
 local WIDGET_NAME = "DreamFishEquipmentPreview"

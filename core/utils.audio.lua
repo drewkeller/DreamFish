@@ -1,5 +1,5 @@
 local addonName, ns = ...
-local Addon = LibStub("AceAddon-3.0"):GetAddon(addonName)
+local Addon = ns.Addon
 
 function Addon:PlayWarningCue()
     if type(PlaySound) == "function" and SOUNDKIT then

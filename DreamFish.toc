@@ -25,6 +25,8 @@ Libs/AceEvent-3.0/AceEvent-3.0.xml
 Libs/AceHook-3.0/AceHook-3.0.xml
 Libs/AceTimer-3.0/AceTimer-3.0.xml
 
+DreamFish.lua
+
 # Core modules (load first)
 core/init.lua
 core/defaults.lua
@@ -39,7 +41,8 @@ core/module_prototype.lua
 core/commands.lua
 
 # Initialization
-fishing/fishing.init.lua
+#fishing/fishing.init.lua
+fishing/fishing.lua
 
 looting/loottracker.options.lua
 looting/loottracker.lua
@@ -61,7 +64,6 @@ fishing/precast/pole.lua
 fishing/precast/raft.lua
 fishing/precast/underlightangler.lua
 fishing/fishing.precast.lua
-fishing/fishing.lua
 
 # Buff system (tracking, timing, management)
 # buff/tracking.lua
@@ -89,5 +91,4 @@ ui/dreamfishdialog.lua
 # Main coordinator (runs after all modules load)
 Bindings.lua
 core/options.lua
-DreamFish.lua
 

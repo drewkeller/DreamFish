@@ -1,5 +1,5 @@
 local addonName, ns = ...
-local Addon = LibStub("AceAddon-3.0"):GetAddon(addonName)
+local Addon = ns.Addon
 local Fishing = Addon:GetModule("Fishing")
 
 local globalDB, profileDB, charDB
@@ -11,7 +11,7 @@ end
 ns.FishingInitializers = ns.FishingInitializers or {}
 table.insert(ns.FishingInitializers, Initialize)
 
-Fishing:RegisterTraceSource("mouse")
+--Fishing:RegisterTraceSource("mouse")
 
 local lastClickTime = 0
 local lastSingleFishingClickTime = 0

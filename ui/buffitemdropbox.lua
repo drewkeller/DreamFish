@@ -1,5 +1,5 @@
 local addonName, ns = ...
-local Addon = LibStub("AceAddon-3.0"):GetAddon(addonName)
+local Addon = ns.Addon
 local Fishing = Addon:GetModule("Fishing")
 local AceGUI = LibStub("AceGUI-3.0")
 
@@ -16,7 +16,7 @@ Fishing.state.buffItemLastKnownCount = Fishing.state.buffItemLastKnownCount or {
 Fishing.state.buffItemLastUseAt = Fishing.state.buffItemLastUseAt or {}
 
 local function Trace(msg)
-    Addon:Trace("buffitemdropbox", msg)
+    ns.Utils("buffitemdropbox", msg)
 end
 
 local function CreateBuffItemWidget()

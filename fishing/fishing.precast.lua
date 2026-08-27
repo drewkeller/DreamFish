@@ -1,5 +1,5 @@
 local addonName, ns = ...
-local Addon = LibStub("AceAddon-3.0"):GetAddon(addonName)
+local Addon = ns.Addon
 local Fishing = Addon:GetModule("Fishing")
 
 local globalDB, profileDB, charDB
@@ -108,7 +108,7 @@ ConfigureFishingClickAction = function()
             .. Addon:GetDebugItemLabel(raftDecision.toyID) .. " " .. Addon:GetDebugCooldownText(raftDecision.toyID))
         if raftDecision.swimming then
             raftExclusive = true
-            Addon:Trace("precast", "Raft needed while swimming; skipping other pre-cast items this click")
+            ns.Utils("precast", "Raft needed while swimming; skipping other pre-cast items this click")
         end
     end
 

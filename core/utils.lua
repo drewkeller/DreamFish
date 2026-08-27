@@ -1,5 +1,7 @@
 local addonName, ns = ...
-local Addon = LibStub("AceAddon-3.0"):GetAddon(addonName)
+local Addon = ns.Addon
+local Utils = {}
+ns.Utils = Utils
 
 function Addon:Alert(msg, ...)
     Addon:PlayWarningCue()
@@ -12,9 +14,15 @@ function Addon:Debug(msg, ...)
     end
 end
 
-function Addon:Trace(source, msg, ...)
-    if self.db and self.db.profile and self.db.profile.traceMode and self.db.profile.traceMode[source] then
-        self:Print("|cFF999999[" .. source .. "]|r ", msg, ...)
+function ns.Utils.Trace(module, source, msg, ...)
+    if not (Addon and Addon.db and Addon.db.profile and Addon.db.profile.moduleEnabled) then
+        return
+    end
+
+    if not (module and module.db and module.db.profile.traces) then return end
+
+    if module.db and module.db.profile and module.db.profile.traceMode and module.db.profile.traceMode[source] then
+        Addon:Print("|cFF999999[" .. source .. "]|r ", msg, ...)
     end
 end
 

@@ -1,6 +1,13 @@
 local addonName, ns = ...
-local Addon = LibStub("AceAddon-3.0"):GetAddon(addonName)
-local Fishing = Addon:GetModule("Fishing")
+local Addon = ns.Addon
+local Fishing = Addon:NewModule("Fishing", ns.ModulePrototype, "AceConsole-3.0", "AceEvent-3.0", "AceTimer-3.0", "AceHook-3.0")
+
+ns.Fishing = Fishing
+ns.precast = {}
+ns.FishingInitializers = ns.FishingInitializers or {}
+ns.fishing = {}
+ns.fishing.const = {}
+ns.fishing.state = {}
 
 local globalDB, profileDB, charDB
 ns.FishingInitializers = ns.FishingInitializers or {}

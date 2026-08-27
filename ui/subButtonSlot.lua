@@ -1,11 +1,11 @@
 local addonName, ns = ...
-local Addon = LibStub("AceAddon-3.0"):GetAddon(addonName)
+local Addon = ns.Addon
 local Fishing = Addon:GetModule("Fishing")
 
 Addon:RegisterTraceSource("subbuttonslot")
 
 local function Trace(msg)
-    Addon:Trace("subbuttonslot", msg)
+    ns.Utils("subbuttonslot", msg)
 end
 
 local BOX_SIZE = 48

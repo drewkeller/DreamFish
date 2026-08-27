@@ -1,5 +1,5 @@
 local addonName, ns = ...
-local Addon = LibStub("AceAddon-3.0"):GetAddon(addonName)
+local Addon = ns.Addon
 local LootTracker = Addon:GetModule("LootTracker")
 local Fishing = Addon:GetModule("Fishing")
 

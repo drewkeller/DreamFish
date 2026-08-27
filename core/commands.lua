@@ -1,5 +1,5 @@
 local addonName, ns = ...
-local Addon = LibStub("AceAddon-3.0"):GetAddon(addonName)
+local Addon = ns.Addon
 
 local DialogName = addonName .. "Dialog"
 
@@ -27,7 +27,7 @@ local function NormalizeSlashInput(input)
     return normalized
 end
 
-function ns:RegisterChatCommands()
+function Addon:RegisterChatCommands()
     Addon:RegisterChatCommand("dreamfish", "SlashCommand")
     Addon:RegisterChatCommand("df", "SlashCommand")
 end

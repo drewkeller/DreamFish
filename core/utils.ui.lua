@@ -1,10 +1,11 @@
 local addonName, ns = ...
-local Addon = LibStub("AceAddon-3.0"):GetAddon(addonName)
+local Addon = ns.Addon
+local Utils = ns.Utils
 
 Addon:RegisterTraceSource("utils.ui")
 
 local function Trace(windowName, msg)
-    Addon:Trace("utils.ui", tostring(windowName) .. ": " .. tostring(msg))
+    ns.Utils.Trace("utils.ui", tostring(windowName) .. ": " .. tostring(msg))
 end
 
 local function GetDialogFrame(dialog)
@@ -190,6 +191,7 @@ function Addon:OpenDialogWindow(windowName, tabOrGroupName)
 
             -- Monitor hardware tracking loops using a safe gate to capture moving offsets instantly
             local lastLeft, lastTop = dialogFrame:GetLeft(), dialogFrame:GetTop()
+
             dialogFrame:HookScript("OnUpdate", function(self)
                 local currentLeft = self:GetLeft()
                 local currentTop = self:GetTop()

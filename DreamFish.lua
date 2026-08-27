@@ -1,6 +1,7 @@
 -- The second return value (ns) is a private table shared across files
 local addonName, ns = ...
-local Addon = ns.Addon
+Addon = LibStub("AceAddon-3.0"):NewAddon(addonName, "AceConsole-3.0", "AceEvent-3.0")
+ns.Addon = Addon
 local AceConfig = LibStub("AceConfig-3.0")
 local AceConfigDialog = LibStub("AceConfigDialog-3.0")
 
@@ -49,7 +50,7 @@ function Addon:OnInitialize()
     AceConfigDialog:AddToBlizOptions(addonName .. "_Profile", "Profiles", addonName)
 
     self:Print("Loaded profile: " .. self.db:GetCurrentProfile())
-    ns.CallAddonInitializers(self)
+    self:CallAddonInitializers()
 
     self.db.RegisterCallback(self, "OnProfileChanged", RefreshConfigUI)
     self.db.RegisterCallback(self, "OnProfileCopied", RefreshConfigUI)
@@ -57,7 +58,7 @@ function Addon:OnInitialize()
 end
 
 function Addon:OnEnable()
-    ns.RegisterChatCommands()
+    self:RegisterChatCommands()
     self:RegisterEvent("PLAYER_ENTERING_WORLD")
 end
 

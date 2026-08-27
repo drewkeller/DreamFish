@@ -1,9 +1,6 @@
 local addonName, ns = ...
-Addon = LibStub("AceAddon-3.0"):NewAddon(addonName, "AceConsole-3.0", "AceEvent-3.0")
-ns.Addon = Addon
+local Addon = ns.Addon
 
-
-local globalDB, profileDB, charDB
 ns.AddonInitializers = ns.AddonInitializers or {}
 
 function InitializeTraceSources(self)
@@ -15,16 +12,8 @@ function InitializeTraceSources(self)
     end
 end
 
-function ns.CallAddonInitializers(self)
-    -- access the database within "Fishing" functions using self.db
-    -- In local functions, use ns.AddonDB
-    ns.AddonDB = self.db
-
-    globalDB = ns.AddonDB.global
-    profileDB = ns.AddonDB.profile
-    charDB = ns.AddonDB.char
-
-    globalDB.windowPositions = globalDB.windowPositions or {}
+function Addon:CallAddonInitializers()
+    self.db.global.windowPositions = self.db.global.windowPositions or {}
 
     for _, initializerFunc in ipairs(ns.AddonInitializers) do
         initializerFunc(self)
