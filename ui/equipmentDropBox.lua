@@ -206,6 +206,25 @@ local function CreateEquipmentDropBox()
             widget.isChecked = false
         end
 
+        if not widget.itemID or widget.itemID == 0 then
+            -- Query the player's live character sheet inventory slot
+            local activelyEquippedItemID = GetEquippedProfessionItemID(widget.slotID)
+
+            if activelyEquippedItemID then
+                ns.Utils.Debug("No saved configuration found. Auto-populating from equipped slot: " .. activelyEquippedItemID)
+
+                -- Force the live item identification number into your widget state
+                widget.itemID = activelyEquippedItemID
+
+                -- Enable the auto-swap automation toggle checkmark by default
+                widget.isChecked = true
+
+                -- Propagate this discovered configuration back into your primary options database
+                CommitChanges(activelyEquippedItemID, true)
+                return -- CommitChanges handles its own execution redraw sequence, break early
+            end
+        end
+
         -- Redraw the icons, highlights, and checkboxes instantly
         UpdateVisuals()
     end
