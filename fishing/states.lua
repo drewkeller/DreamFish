@@ -76,7 +76,7 @@ function Fishing:SetFishingState(state, reason)
 end
 
 function Fishing:IsInFishingSession()
-    return false --self.state.isFishing
+    return self.state.isFishing
 end
 
 function Fishing:CanStartCast()

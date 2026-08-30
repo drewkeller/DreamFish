@@ -2,7 +2,7 @@ local addonName, ns = ...
 local Addon = ns.Addon
 local Fishing = ns.Fishing
 
---Fishing:RegisterTraceSource("mouse")
+Fishing:RegisterTraceSource("mouse")
 
 local lastClickTime = 0
 local lastSingleFishingClickTime = 0
@@ -126,23 +126,29 @@ function Fishing:HandleMouseDown(_, button)
     self:Trace("mouse", "Physical right click state=" .. tostring(self.state.current))
 
     if not self:IsFishingState(ns.Fishing.states.WAITING_FOR_BITE) then
-        local isDoubleClick = self:IsDoubleClick()
-        local isSecondSingleFishingClick = self.db.profile.castBySingleRightClickWhenFishing
-            and isDoubleClick
-            and (GetTime() - lastSingleFishingClickTime) <= doubleClickDelay
-        if isSecondSingleFishingClick then
-            lastSingleFishingClickTime = 0
-            suppressCapturedClick = true
-            self.clickFrame:SetAttribute("type", "macro")
-            self.clickFrame:SetAttribute("spell", nil)
-            self.clickFrame:SetAttribute("macrotext", "/stopmacro")
-            self.clickFrame:SetPropagateMouseClicks(false)
-            self:Trace("mouse", "Suppressing second click during single-click fishing")
-        elseif self.db.profile.castBySingleRightClickWhenFishing and self:IsInFishingSession() then
+        -- Catch single-click recasting WHILE IN A SESSION before polling double-click registers
+        if self.db.profile.castBySingleRightClickWhenFishing and self:IsInFishingSession() then
+            -- If this click happened instantly after another single click, suppress it to prevent double-casting loops
+            if (GetTime() - lastSingleFishingClickTime) <= doubleClickDelay then
+                lastSingleFishingClickTime = 0
+                suppressCapturedClick = true
+                self.clickFrame:SetAttribute("type", "macro")
+                self.clickFrame:SetAttribute("spell", nil)
+                self.clickFrame:SetAttribute("macrotext", "/stopmacro")
+                self.clickFrame:SetPropagateMouseClicks(false)
+                self:Trace("mouse", "Suppressing second click during single-click fishing")
+                return
+            end
+
             lastSingleFishingClickTime = GetTime()
-            self:Trace("mouse", "Single right click detected while fishing")
+            self:Trace("mouse", "Single right click detected while fishing (Session Active)")
+            self:PrepareFishingClickAction()
             self:OnCastStarted("Single right click while fishing")
-        elseif isDoubleClick and self.db.profile.castByDoubleRightClick then
+            return
+        end
+
+        local isDoubleClick = self:IsDoubleClick()
+        if isDoubleClick and self.db.profile.castByDoubleRightClick then
             self:Trace("mouse", "Double right click detected")
             self:OnCastStarted("Double right click")
         else
