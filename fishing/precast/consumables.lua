@@ -175,9 +175,13 @@ local function IsDue(itemID, category, now)
     if type(pendingUse) == "table" and tonumber(pendingUse.itemID) == itemID then
         return false, "pending_use"
     end
-    if state.buffUnknownDurationSuppressed and (state.buffUnknownDurationSuppressed[itemID]
-        or state.buffUnknownDurationSuppressed[tostring(itemID)]) then
-        return false, "unknown_duration_suppressed"
+    -- Update your suppression check loop so it cleanly handles temporary item blocks
+    if state.buffUnknownDurationSuppressed and state.buffUnknownDurationSuppressed[itemID] then
+        if now > state.buffUnknownDurationSuppressed[itemID] then
+            state.buffUnknownDurationSuppressed[itemID] = nil -- Suppression expired, clear it
+        else
+            return false, "zone_failure_suppressed_active" -- unknown or zone failure
+        end
     end
 
     local remaining, auraDuration = nil, nil
@@ -326,6 +330,7 @@ function Fishing:ConfirmPendingBuffUse(successSpellID)
         else
             self.state.pendingBuffObservation = nil
         end
+        ns.Utils.Debug("Confirmed consumable use: " .. Item(itemID) .. " (spellID=" .. tostring(spellID) .. ")")
         if type(Fishing.AnnounceBuffUse) == "function" then
             Fishing:AnnounceBuffUse(itemID, spellID)
         end
@@ -333,7 +338,16 @@ function Fishing:ConfirmPendingBuffUse(successSpellID)
         Trace("Confirmed consumable use: " .. Item(itemID))
     elseif now >= (tonumber(pending.expiresAt) or 0) then
         self.state.pendingBuffUse = nil
-        Trace("Consumable use not confirmed; leaving due state unchanged: " .. Item(itemID))
+
+        -- If an item fails to apply (e.g. wrong zone), temporarily suppress it
+        -- for 10 seconds so the addon stops spamming it on consecutive click releases
+        local itemID = tonumber(pending.itemID)
+        if itemID then
+            self.state.buffUnknownDurationSuppressed = self.state.buffUnknownDurationSuppressed or {}
+            self.state.buffUnknownDurationSuppressed[itemID] = now + 10
+            Trace("Consumable use failed/timeout. Suppressing item for 10s: " .. Item(itemID))
+            ns.Utils.Alert("Consumable use failed: " .. Item(itemID) .. ". Suppressing for 10 seconds.")
+        end
     end
 end
 
