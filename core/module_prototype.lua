@@ -16,18 +16,22 @@ function ModulePrototype:RegisterTraceSource(sourceName, description)
     end
 end
 
-function ModulePrototype:Trace(sourceName, msg)
+function ModulePrototype:Print(msg, ...)
+    ns.Utils.Print(msg, ...)
+end
+
+function ModulePrototype:Trace(sourceName, msg, ...)
     if not (self.db and self.db.profile and self.db.profile.traces) then
         return
     end
     if self.db.profile.traces[sourceName] then
-        ns.Utils.Print("|cFF999999[" .. sourceName .. "]|r " .. tostring(msg))
+        ns.Utils.Print("|cFF999999[" .. sourceName .. "]|r " .. tostring(msg), ...)
     end
 end
 
-function ModulePrototype:Debug(message)
+function ModulePrototype:Debug(message, ...)
     if self.db and self.db.profile and self.db.profile.debugEnabled then
-        ns.Utils.Print("|cFF9ACDFF[" .. self.config.displayName .. "]|r " .. tostring(message))
+        ns.Utils.Print("|cFF9ACDFF[" .. self.config.displayName .. "]|r " .. tostring(message), ...)
     end
 end
 
@@ -152,7 +156,7 @@ function ModulePrototype:GetDebugGroup()
                     set = function(_, value)
                         targetModule.db.profile.debugEnabled = value
                         local state = value and "|cFF00FF00ON|r" or "|cFFFF0000OFF|r"
-                        Addon:Print(config.displayName .. " debug mode is now " .. state .. ".")
+                        self:Print(config.displayName .. " debug mode is now " .. state .. ".")
                     end,
                 },
                 traceGroup ={

@@ -4,6 +4,8 @@ local Fishing = ns.Fishing
 local state = ns.Fishing.state
 
 Fishing:RegisterTraceSource("buffs")
+state.buffItemLastUseAt = state.buffItemLastUseAt or {}
+state.buffItemTransientUntil = state.buffItemTransientUntil or {}
 
 local globalDB, profileDB, charDB
 ns.moduleInitializers["Fishing"].RegisterInitializer(function(self)
@@ -45,8 +47,8 @@ local function WarnMissingProfessionFishingPoleForLure()
     state.lureMissingPoleWarningAt = now
 
     local warningText = "Cannot apply lure: no fishing pole equipped in profession slot."
-    Addon:Alert(warningText)
-    Addon:Print(warningText)
+    ns.Utils.Alert(warningText)
+    ns.Utils.Print(warningText)
 end
 
 local function GetNow()
@@ -147,9 +149,6 @@ local function IsFishingLureApplied()
 end
 
 local function IsDue(itemID, category, now)
-    state.buffItemLastUseAt = state.buffItemLastUseAt or {}
-    state.buffItemTransientUntil = state.buffItemTransientUntil or {}
-
     if category == "lure" and IsFishingLureApplied() then
         return false, "fishing_lure_already_applied"
     end
@@ -280,7 +279,7 @@ function Fishing:CheckEnabledBuffItemsDepleted()
                     local itemName = (C_Item and type(C_Item.GetItemInfo) == "function" and C_Item.GetItemInfo(itemID))
                         or "Unknown buff item"
                     state.buffDepletionAlerted = true
-                    Addon:Alert("Buff item depleted: " .. tostring(itemName) .. " (" .. tostring(itemID) .. ")")
+                    ns.Utils.Alert("Buff item depleted: " .. tostring(itemName) .. " (" .. tostring(itemID) .. ")")
                     return
                 end
             end
@@ -352,7 +351,7 @@ local function GetConsumableUseDecision(self)
         local warningUntil = tonumber(self.state.buffTransientWarningUntil) or 0
         if warningUntil < transientUntil then
             self.state.buffTransientWarningUntil = transientUntil
-            Addon:Alert("A buff is still being applied. Wait before casting.")
+            ns.Utils.Alert("A buff is still being applied. Wait before casting.")
         end
         Trace("Skipping consumable scan: food/drink transient block active")
         return decision
@@ -400,11 +399,11 @@ local function GetConsumableUseDecision(self)
                                 WarnMissingProfessionFishingPoleForLure()
                             else
                                 QueueBuffUse(itemID, category)
-                                ns.Utils.Debug("Lure is queued: " .. Item(itemID))
+                                Trace("Lure is queued: " .. Item(itemID))
                                 return { shouldApply = true, itemID = itemID, category = category }
                             end
                         else
-                            ns.Utils.Debug("Consumable is queued: " .. Item(itemID, category))
+                            Trace("Consumable is queued: " .. Item(itemID, category))
                             QueueBuffUse(itemID, category)
                             return { shouldApply = true, itemID = itemID, category = category }
                         end

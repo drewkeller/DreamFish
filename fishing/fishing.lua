@@ -49,7 +49,7 @@ function Fishing:OnModuleEnable()
     self:RegisterEvent("UNIT_AURA",                    "OnAurasChanged")
     self:RegisterEvent("LOOT_READY",                   "OnLootReady")
     self:RegisterEvent("LOOT_CLOSED",                  "OnLootClosed")
-    --self:RegisterEvent("BAG_UPDATE_DELAYED",           "OnBagUpdateDelayed") -- check bag space
+
     self:ApplyKeybinding()
     self:PrepareFishingClickAction()
 end
@@ -69,7 +69,6 @@ function Fishing:OnModuleDisable()
     self:UnregisterEvent("UNIT_AURA")
     self:UnregisterEvent("LOOT_READY")
     self:UnregisterEvent("LOOT_CLOSED")
-    --self:UnregisterEvent("BAG_UPDATE_DELAYED")
     self:RemoveClickFrame()
 end
 

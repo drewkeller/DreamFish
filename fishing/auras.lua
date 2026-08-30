@@ -1,6 +1,10 @@
 local addonName, ns = ...
 local Addon = ns.Addon
 local Fishing = ns.Fishing
+local state = ns.Fishing.state
+
+state.buffItemLastUseAt = state.buffItemLastUseAt or {}
+state.buffItemTransientUntil = state.buffItemTransientUntil or {}
 
 Fishing:RegisterTraceSource("auras")
 local function Trace(msg)
@@ -206,7 +210,7 @@ function Fishing:UpdatePendingBuffObservation()
         if self.state and self.state.buffItemTransientUntil then
             self.state.buffItemTransientUntil[itemID] = nil
         end
-        Addon:Print("Buff tracked for item:" .. tostring(itemID)
+        self:Print("Buff tracked for item:" .. tostring(itemID)
             .. " [spellID=" .. tostring(bestSpellID)
             .. (auraName and (", aura=" .. tostring(auraName)) or "")
             .. ", item=" .. ns.Utils.FormatDuration(bestDuration)
@@ -300,7 +304,7 @@ end
 
 function Fishing:AnnounceBuffUse(itemID, spellID)
     local itemName = (type(C_Item.GetItemInfo) == "function" and C_Item.GetItemInfo(itemID)) or ("item:" .. tostring(itemID))
-    Addon:Print("Using buff: " .. tostring(itemName) .. " (" .. tostring(itemID) .. ", spellID=" .. tostring(spellID) .. ") [" .. self:GetBuffTimingText(itemID) .. "]")
+    self:Print("Using buff: " .. tostring(itemName) .. " (" .. tostring(itemID) .. ", spellID=" .. tostring(spellID) .. ") [" .. self:GetBuffTimingText(itemID) .. "]")
 end
 
 local function EnsureCategoryTooltipFrame()

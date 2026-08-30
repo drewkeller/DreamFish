@@ -123,7 +123,7 @@ function Fishing:HandleMouseDown(_, button)
         return
     end
 
-    self:Trace("mouse", "Physical right click state=" .. tostring(self.state.current))
+    self:Trace("mouse", "Physical right click state=" .. Fishing:CurrentStateName())
 
     if not self:IsFishingState(ns.Fishing.states.WAITING_FOR_BITE) then
         -- Catch single-click recasting WHILE IN A SESSION before polling double-click registers
@@ -180,7 +180,7 @@ function Fishing:HookPreClickWithHandler()
                 self:Trace("hotkey", "PreClick detected but hotkey casting is disabled")
                 return
             end
-            self:Trace("hotkey", "PreClick state=" .. tostring(self.state.current))
+            self:Trace("hotkey", "PreClick state=" .. Fishing:CurrentStateName())
             if not self:IsInFishingSession()
                 or self:IsFishingState(ns.Fishing.states.LINGERING) then
                 self:OnCastStarted("Hotkey")

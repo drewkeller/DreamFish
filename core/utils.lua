@@ -16,7 +16,17 @@ function ns.Utils.IsCoreLoaded()
 end
 
 function ns.Utils.Print(msg, ...)
-    DEFAULT_CHAT_FRAME:AddMessage("|cFF9ACDFF[" .. addonName .. "]|r " .. tostring(msg), ...)
+    local output = "|cFF9ACDFF[" .. addonName .. "]|r " .. tostring(msg)
+
+    if select("#", ...) > 0 then
+        local extra = {}
+        for i = 1, select("#", ...) do
+            table.insert(extra, tostring(select(i, ...)))
+        end
+        output = output .. " " .. table.concat(extra, " ")
+    end
+
+    DEFAULT_CHAT_FRAME:AddMessage(output)
 end
 
 -- Intended for core debugging. Normally, modules should use self:Debug()
@@ -32,7 +42,7 @@ function ns.Utils.Dump(msg, item, ...)
     if type(msg) == "table" then
         DevTools_Dump(msg)
     else
-        ns.Utils.Print("|cFF9ACDFF[Dump]|r ", msg, ...)
+        ns.Utils.Print("|cFF9ACDFF[Dump]|r ", msg, item, ...)
     end
     if type(item) == "table" then
         DevTools_Dump(item)

@@ -2,6 +2,12 @@ local addonName, ns = ...
 local Addon = ns.Addon
 ns.Fishing = Addon:NewModule("Fishing", "AceConsole-3.0", "AceEvent-3.0", "AceTimer-3.0", "AceHook-3.0")
 ns.Fishing.const = ns.moduleConstants["Fishing"]
+ns.Fishing.state = {
+    current = {},
+    buffItemLastUseAt = {},
+    pendingBuffObservation = {},
+    buffUnknownDurationSuppressed = {},
+}
 
 ns.moduleDefaults["Fishing"] = {
     global = {

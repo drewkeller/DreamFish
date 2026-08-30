@@ -173,7 +173,7 @@ function Fishing:GetModuleOptions()
                                 return ns.Utils.BuildOwnedToyOptions(ns.Fishing.const.raftToyItemIDs, "No Raft")
                             end,
                             sorting = function()
-                                return ns.Utils.BuildOwnedToyOptions(ns.Fishing.const.raftToyItemIDs, "No Raft")
+                                return ns.Utils.BuildOwnedToySortingKeys(ns.Fishing.const.raftToyItemIDs, "No Raft")
                             end,
                             width = 1.5,
                         },
@@ -208,7 +208,7 @@ function Fishing:GetModuleOptions()
                                 return ns.Utils.BuildOwnedToyOptions(ns.Fishing.const.bobberToyItemIDs, "Standard Bobber")
                             end,
                             sorting = function()
-                                return ns.Utils.BuildOwnedToyOptions(ns.Fishing.const.bobberToyItemIDs, "Standard Bobber")
+                                return ns.Utils.BuildOwnedToySortingKeys(ns.Fishing.const.bobberToyItemIDs, "Standard Bobber")
                             end,
                             width = 1.5,
                         },

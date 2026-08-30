@@ -5,7 +5,7 @@ local Fishing = ns.Fishing
 Addon:RegisterTraceSource("subbuttonslot")
 
 local function Trace(msg)
-    ns.Utils("subbuttonslot", msg)
+    ns.Utils.CoreTrace("subbuttonslot", msg)
 end
 
 local BOX_SIZE = 48
@@ -87,7 +87,7 @@ local function CreateSubButtonSlot(parentCanvas, slotIndex)
                 box.countText:SetTextColor(1, 1, 1, 1)
                 box.icon:SetVertexColor(1, 1, 1, 1)
             end
-            Fishing.state.buffItemLastKnownCount[slot.itemID] = count
+            --Fishing.state.buffItemLastKnownCount[slot.itemID] = count
         else
             box.countText:SetText("")
             box.countText:SetTextColor(1, 1, 1, 1)

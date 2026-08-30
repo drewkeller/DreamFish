@@ -42,9 +42,9 @@ local function GetOptions()
             set = function(info, value)
                 Addon.db.profile.debugEnabled = value
                 if value then
-                    Addon:Print("Debug Mode is now |cFF00FF00ON|r.")
+                    ns.Utils.Print("Debug Mode is now |cFF00FF00ON|r.")
                 else
-                    Addon:Print("Debug Mode is now |cFFFF0000OFF|r.")
+                    ns.Utils.Print("Debug Mode is now |cFFFF0000OFF|r.")
                 end
             end,
         },

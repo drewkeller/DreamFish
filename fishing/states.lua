@@ -20,15 +20,15 @@ for name, value in pairs(FISHING_STATES) do
 end
 
 local FISHING_STATE_FLAGS = {
-    [FISHING_STATES.IDLE]                    = { isFishing = false, isCastInProgress = false, isBobberActive = false, castActive = false, lootActive = false },
-    [FISHING_STATES.PRECASTING]              = { isFishing = true,  isCastInProgress = true,  isBobberActive = true,  castActive = false, lootActive = false },
-    [FISHING_STATES.CASTING]                 = { isFishing = true,  isCastInProgress = true,  isBobberActive = false, castActive = true,  lootActive = false },
-    [FISHING_STATES.WAITING_FOR_BITE]        = { isFishing = true,  isCastInProgress = true,  isBobberActive = false, castActive = false, lootActive = false },
-    [FISHING_STATES.BITE_DETECTED]           = { isFishing = true,  isCastInProgress = true,  isBobberActive = true,  castActive = false, lootActive = false },
-    [FISHING_STATES.WAITING_FOR_LOOT_WINDOW] = { isFishing = true,  isCastInProgress = true,  isBobberActive = true,  castActive = false, lootActive = false },
-    [FISHING_STATES.LOOTING]                 = { isFishing = true,  isCastInProgress = false, isBobberActive = false, castActive = false, lootActive = true  },
-    [FISHING_STATES.LINGERING]               = { isFishing = true,  isCastInProgress = false, isBobberActive = false, castActive = false, lootActive = false },
-    [FISHING_STATES.CANCELLING]              = { isFishing = false, isCastInProgress = false, isBobberActive = false, castActive = false, lootActive = false },
+    [FISHING_STATES.IDLE]                    = { isFishing = false, isCastInProgress = false, isBobberActive = false, isCastActive = false, lootActive = false },
+    [FISHING_STATES.PRECASTING]              = { isFishing = true,  isCastInProgress = true,  isBobberActive = false, isCastActive = false, lootActive = false },
+    [FISHING_STATES.CASTING]                 = { isFishing = true,  isCastInProgress = true,  isBobberActive = false, isCastActive = true,  lootActive = false },
+    [FISHING_STATES.WAITING_FOR_BITE]        = { isFishing = true,  isCastInProgress = true,  isBobberActive = false, isCastActive = true,  lootActive = false },
+    [FISHING_STATES.BITE_DETECTED]           = { isFishing = true,  isCastInProgress = true,  isBobberActive = true,  isCastActive = false, lootActive = false },
+    [FISHING_STATES.WAITING_FOR_LOOT_WINDOW] = { isFishing = true,  isCastInProgress = true,  isBobberActive = true,  isCastActive = false, lootActive = false },
+    [FISHING_STATES.LOOTING]                 = { isFishing = true,  isCastInProgress = false, isBobberActive = false, isCastActive = false, lootActive = true  },
+    [FISHING_STATES.LINGERING]               = { isFishing = true,  isCastInProgress = false, isBobberActive = false, isCastActive = false, lootActive = false },
+    [FISHING_STATES.CANCELLING]              = { isFishing = false, isCastInProgress = false, isBobberActive = false, isCastActive = false, lootActive = false },
 }
 
 --[[
@@ -41,13 +41,14 @@ local FISHING_STATE_FLAGS = {
     - FISHING_LOOT_CLOSED
 ]]
 
+Fishing.state.current = FISHING_STATES.IDLE
 ns.Fishing.states = FISHING_STATES
 
 Fishing:RegisterTraceSource("states")
 
 local function Trace(state, reason)
     if Fishing.db and Fishing.db.profile and Fishing.db.profile.traces and Fishing.db.profile.traces["states"] then
-        Addon:Print("|cFF999999[" .. (FISHING_STATE_NAMES[state] or tostring(state)) .. "]|r ", reason)
+        ns.Utils.Print("|cFF999999[" .. (FISHING_STATE_NAMES[state] or tostring(state)) .. "]|r ", reason)
     end
 end
 
