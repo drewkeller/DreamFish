@@ -1,32 +1,76 @@
 local addonName, ns = ...
-local Addon = ns.Addon
+local Addon = nil
 local Utils = {}
 ns.Utils = Utils
 
-function Addon:Alert(msg, ...)
-    Addon:PlayWarningCue()
+function ns.Utils.IsCoreLoaded()
+    if Addon then return true end
+
+    local success, addonObj = pcall(LibStub("AceAddon-3.0").GetAddon, LibStub("AceAddon-3.0"), addonName)
+    if success and addonObj then
+        Addon = addonObj
+        return true
+    end
+
+    return false
+end
+
+function ns.Utils.Print(msg, ...)
+    DEFAULT_CHAT_FRAME:AddMessage("|cFF9ACDFF[" .. addonName .. "]|r " .. tostring(msg), ...)
+end
+
+-- Intended for core debugging. Normally, modules should use self:Debug()
+function ns.Utils.Debug(msg, ...)
+    if Addon and Addon.db then
+        if Addon.db.profile.debugEnabled then
+            ns.Utils.Print("|cFF9ACDFF[Debug]|r " .. tostring(msg), ...)
+        end
+    end
+end
+
+function ns.Utils.Dump(msg, item, ...)
+    if type(msg) == "table" then
+        DevTools_Dump(msg)
+    else
+        ns.Utils.Print("|cFF9ACDFF[Dump]|r ", msg, ...)
+    end
+    if type(item) == "table" then
+        DevTools_Dump(item)
+    else
+        ns.Utils.Print("|cFF9ACDFF[Dump]|r ", msg, item, ...)
+    end
+end
+
+function ns.Utils.DebugDump(msg, item, ...)
+    if Addon and Addon.db then
+        if Addon.db.profile.debugEnabled then
+            ns.Utils.Dump(msg, item, ...)
+        end
+    end
+end
+
+function ns.Utils.Alert(msg, ...)
+    if ns.Utils.IsCoreLoaded() and Addon then
+        ns.Utils.PlayWarningCue()
+    end
     RaidWarningUtil.AddMessage(msg, ChatTypeInfo["SYSTEM"])
 end
 
-function Addon:Debug(msg, ...)
-    if self.db.profile.debugMode then
-        self:Print("|cFF9ACDFF[Debug]|r ", msg, ...)
-    end
-end
-
-function ns.Utils.Trace(module, source, msg, ...)
-    if not (Addon and Addon.db and Addon.db.profile and Addon.db.profile.moduleEnabled) then
+function ns.Utils.CoreTrace(source, msg, ...)
+    if not (Addon and Addon.db) then
         return
     end
 
-    if not (module and module.db and module.db.profile.traces) then return end
+    if not source or not msg then
+        return
+    end
 
-    if module.db and module.db.profile and module.db.profile.traceMode and module.db.profile.traceMode[source] then
-        Addon:Print("|cFF999999[" .. source .. "]|r ", msg, ...)
+    if Addon.db.profile.traces[source] then
+        ns.Utils.Print("|cFF999999[" .. source .. "]|r ", msg, ...)
     end
 end
 
-function Addon:FormatDuration(seconds)
+function ns.Utils.FormatDuration(seconds)
     local n = tonumber(seconds)
     if not n or n < 0 then
         return "unknown"
@@ -40,7 +84,7 @@ function Addon:FormatDuration(seconds)
     return tostring(secs) .. "s"
 end
 
-function Addon:GetDebugItemLabel(itemID)
+function ns.Utils.GetDebugItemLabel(itemID)
     local numeric = tonumber(itemID)
     if not numeric or numeric <= 0 then
         return "unknown"
@@ -52,7 +96,7 @@ function Addon:GetDebugItemLabel(itemID)
     return "item:" .. tostring(numeric)
 end
 
-function Addon:GetDebugCooldownText(itemID)
+function ns.Utils.GetDebugCooldownText(itemID)
     local numeric = tonumber(itemID)
     if not numeric or numeric <= 0 then
         return "cooldown=unknown"

@@ -1,7 +1,7 @@
 local addonName, ns = ...
 local Addon = ns.Addon
 
-ns.fishing = { const = {
+ns.moduleConstants["Fishing"] = {
     bobberToyItemIDs = {
         { id = 180993, name = "Bat Visage" },
         { id = 142528, name = "Can of Worms" },
@@ -117,4 +117,4 @@ ns.fishing = { const = {
         [124674] = { spellID = 185587, duration = 600, category = "lure", }, -- Day-Old Darkmoon Doughnut
         [118391] = { spellID = 174471, duration = 600, category = "lure", }, -- Worm Supreme
     },
-} }
+}

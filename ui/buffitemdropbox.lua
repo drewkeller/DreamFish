@@ -1,6 +1,6 @@
 local addonName, ns = ...
 local Addon = ns.Addon
-local Fishing = Addon:GetModule("Fishing")
+local Fishing = ns.Fishing
 local AceGUI = LibStub("AceGUI-3.0")
 
 Addon:RegisterTraceSource("buffitemdropbox")

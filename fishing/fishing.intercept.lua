@@ -1,15 +1,6 @@
 local addonName, ns = ...
 local Addon = ns.Addon
-local Fishing = Addon:GetModule("Fishing")
-
-local globalDB, profileDB, charDB
-local function Initialize()
-    globalDB = ns.FishingDB.global
-    profileDB = ns.FishingDB.profile
-    charDB = ns.FishingDB.char
-end
-ns.FishingInitializers = ns.FishingInitializers or {}
-table.insert(ns.FishingInitializers, Initialize)
+local Fishing = ns.Fishing
 
 --Fishing:RegisterTraceSource("mouse")
 
@@ -132,11 +123,11 @@ function Fishing:HandleMouseDown(_, button)
         return
     end
 
-    self:Trace("mouse", "Physical right click state=" .. tostring(ns.fishing.state.current))
+    self:Trace("mouse", "Physical right click state=" .. tostring(self.state.current))
 
-    if not self:IsFishingState(ns.fishing.states.WAITING_FOR_BITE) then
+    if not self:IsFishingState(ns.Fishing.states.WAITING_FOR_BITE) then
         local isDoubleClick = self:IsDoubleClick()
-        local isSecondSingleFishingClick = profileDB.castBySingleRightClickWhenFishing
+        local isSecondSingleFishingClick = self.db.profile.castBySingleRightClickWhenFishing
             and isDoubleClick
             and (GetTime() - lastSingleFishingClickTime) <= doubleClickDelay
         if isSecondSingleFishingClick then
@@ -147,11 +138,11 @@ function Fishing:HandleMouseDown(_, button)
             self.clickFrame:SetAttribute("macrotext", "/stopmacro")
             self.clickFrame:SetPropagateMouseClicks(false)
             self:Trace("mouse", "Suppressing second click during single-click fishing")
-        elseif profileDB.castBySingleRightClickWhenFishing and self:IsInFishingSession() then
+        elseif self.db.profile.castBySingleRightClickWhenFishing and self:IsInFishingSession() then
             lastSingleFishingClickTime = GetTime()
             self:Trace("mouse", "Single right click detected while fishing")
             self:OnCastStarted("Single right click while fishing")
-        elseif isDoubleClick and profileDB.castByDoubleRightClick then
+        elseif isDoubleClick and self.db.profile.castByDoubleRightClick then
             self:Trace("mouse", "Double right click detected")
             self:OnCastStarted("Double right click")
         else
@@ -179,15 +170,15 @@ function Fishing:HookPreClickWithHandler()
                 return
             end
 
-            if not profileDB.castByHotkey then
+            if not self.db.profile.castByHotkey then
                 self:Trace("hotkey", "PreClick detected but hotkey casting is disabled")
                 return
             end
-            self:Trace("hotkey", "PreClick state=" .. tostring(ns.fishing.state.current))
+            self:Trace("hotkey", "PreClick state=" .. tostring(self.state.current))
             if not self:IsInFishingSession()
-                or self:IsFishingState(ns.fishing.states.LINGERING) then
+                or self:IsFishingState(ns.Fishing.states.LINGERING) then
                 self:OnCastStarted("Hotkey")
-            elseif self:IsFishingState(ns.fishing.states.PRECASTING) then
+            elseif self:IsFishingState(ns.Fishing.states.PRECASTING) then
                 self:PrepareFishingClickAction()
             end
         end)
@@ -222,7 +213,7 @@ function Fishing:HideClickFrame()
             suppressCapturedClick = false
             self:PrepareFishingClickAction()
         end
-        if not profileDB.castBySingleRightClickWhenFishing or not self:IsInFishingSession() then
+        if not self.db.profile.castBySingleRightClickWhenFishing or not self:IsInFishingSession() then
             ClearOverrideBindings(self.clickFrame)
         end
         self.clickFrame:Hide()

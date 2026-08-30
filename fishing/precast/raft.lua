@@ -1,15 +1,6 @@
 local addonName, ns = ...
 local Addon = ns.Addon
-local Fishing = Addon:GetModule("Fishing")
-
-local globalDB, profileDB, charDB
-local function Initialize()
-    globalDB = ns.FishingDB.global
-    profileDB = ns.FishingDB.profile
-    charDB = ns.FishingDB.char
-end
-ns.FishingInitializers = ns.FishingInitializers or {}
-table.insert(ns.FishingInitializers, Initialize)
+local Fishing = ns.Fishing
 
 Fishing:RegisterTraceSource("raft")
 local function Trace(msg)
@@ -30,14 +21,14 @@ local function GetRaftAuraRemainingSeconds(raftToyID)
     return math.max(0, aura.expirationTime - GetTime())
 end
 
-local function GetRaftUseDecision()
-    local toyID = tonumber(profileDB.selectedRaftToy) or nil
+local function GetRaftUseDecision(self)
+    local toyID = tonumber(self.db.profile.selectedRaftToy) or nil
     local hasRaftSelected = toyID and toyID > 0
-    local hasToy = hasRaftSelected and Addon:IsToyOwned(toyID) or false
-    local isReady = hasToy and Addon:IsCooldownReady(toyID)
+    local hasToy = hasRaftSelected and ns.Utils.IsToyOwned(toyID) or false
+    local isReady = hasToy and ns.Utils.IsCooldownReady(toyID)
     local swimming = IsSwimming()
     local auraRemaining = (hasToy and swimming) and GetRaftAuraRemainingSeconds(toyID) or nil
-    local castLead = ns.fishing.const.maxFishingCastSeconds + ns.fishing.const.buffPreRefreshSafetySeconds
+    local castLead = ns.Fishing.const.maxFishingCastSeconds + ns.Fishing.const.buffPreRefreshSafetySeconds
     if auraRemaining == nil and hasToy then
         -- If aura can't be observed while not swimming, try once more without the swim gate.
         auraRemaining = GetRaftAuraRemainingSeconds(toyID)
@@ -59,7 +50,7 @@ local function GetRaftUseDecision()
     elseif not hasToy then
         Trace("Raft is not owned")
     elseif not isReady then
-        Trace("Raft toy on cooldown: " .. Addon:GetDebugCooldownText(toyID))
+        Trace("Raft toy on cooldown: " .. ns.Utils.GetDebugCooldownText(toyID))
     elseif not needsRefresh then
         Trace("Raft aura remaining sufficient for cast")
     elseif not (swimming or auraRemaining ~= nil) then

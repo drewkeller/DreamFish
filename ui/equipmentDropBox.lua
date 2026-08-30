@@ -97,7 +97,7 @@ local function CreateEquipmentDropBox()
             noteString:Hide()
         else
             icon:SetTexture(nil)
-            Addon:Debug("widget.itemID is nil")
+            ns.Utils.Debug("widget.itemID is nil")
             noteString:Show()
         end
 
@@ -147,7 +147,7 @@ local function CreateEquipmentDropBox()
         end
 
         -- Fallback memory layer matrix
-        Addon:Debug("Ecosystem unlinked. Saving to local state workspace matrix.")
+        ns.Utils.Debug("Ecosystem unlinked. Saving to local state workspace matrix.")
         widget.itemID = newID
         widget.isChecked = newCheck
         UpdateVisuals()
@@ -202,7 +202,7 @@ local function CreateEquipmentDropBox()
                 end
             end
         else
-            Addon:Debug("Warning: Could not determine database key from widget label: " .. tostring(widget.currentLabel))
+            ns.Utils.Debug("Warning: Could not determine database key from widget label: " .. tostring(widget.currentLabel))
             widget.isChecked = false
         end
 
@@ -451,7 +451,7 @@ local function CreateEquipmentDropBox()
 
     widget.SetDescription = function(self, text)
         if text and text ~= "" then
-            Addon:Debug("SetDescription called with text: " .. tostring(text))
+            ns.Utils.Debug("SetDescription called with text: " .. tostring(text))
             widget.descText = text
 
             -- Bind mouse hover scripting rules natively to the root structural canvas frame layer

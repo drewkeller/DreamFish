@@ -4,7 +4,6 @@ local Addon = ns.Addon
 local ModulePrototype = {}
 ns.ModulePrototype = ModulePrototype
 
--- 1. Shared trace source registry constructor
 function ModulePrototype:RegisterTraceSource(sourceName, description)
     if not self.registeredTraces then self.registeredTraces = {} end
 
@@ -17,37 +16,19 @@ function ModulePrototype:RegisterTraceSource(sourceName, description)
     end
 end
 
--- 2. Shared shorthand trace method wrapper
-function ModulePrototype:Trace(source, msg, ...)
-    ns.Utils.Trace(self.moduleName, source, msg, ...)
-    Addon:Print("|cFF999999[" .. source .. "]|r ", msg, ...)
-end
-
-local function MergeDefaults(target, source)
-    for key, value in pairs(source) do
-        if type(value) == "table" then
-            if target[key] == nil then
-                target[key] = {}
-            end
-
-            assert(type(target[key]) == "table", "Module default conflicts with existing default: " .. key)
-            MergeDefaults(target[key], value)
-        elseif target[key] == nil then
-            target[key] = value
-        end
+function ModulePrototype:Trace(sourceName, msg)
+    if not (self.db and self.db.profile and self.db.profile.traces) then
+        return
+    end
+    if self.db.profile.traces[sourceName] then
+        ns.Utils.Print("|cFF999999[" .. sourceName .. "]|r " .. tostring(msg))
     end
 end
 
-function ModulePrototype:Configure(config)
-    assert(type(config) == "table", "Module configuration must be a table")
-    assert(config.displayName, "Module configuration requires displayName")
-    assert(config.dbKey, "Module configuration requires dbKey")
-    assert(config.defaults, "Module configuration requires defaults")
-
-    self.moduleConfig = config
-    ns.DatabaseDefaults = ns.DatabaseDefaults or {}
-    MergeDefaults(ns.DatabaseDefaults, config.defaults)
-    return self
+function ModulePrototype:Debug(message)
+    if self.db and self.db.profile and self.db.profile.debugEnabled then
+        ns.Utils.Print("|cFF9ACDFF[" .. self.config.displayName .. "]|r " .. tostring(message))
+    end
 end
 
 function ModulePrototype:IsModuleEnabled()
@@ -66,75 +47,25 @@ function ModulePrototype:SetModuleEnabled(enabled)
     end
 end
 
-function ModulePrototype:Debug(message, ...)
-    if self.db and self.db.profile and self.db.profile.debug then
-        Addon:Print("|cFF9ACDFF[" .. self.moduleConfig.displayName .. "]|r ", message, ...)
-    end
-end
-
-
 function ModulePrototype:OnInitialize()
-    local addonDB = Addon and Addon.db
+    local moduleName = self:GetName()
 
-    -- Module defaults nest each section under dbKey, but namespaces (and the
-    -- fallback db below) already scope storage to dbKey, so unwrap here or
-    -- the defaults silently never reach self.db.profile/char/global.
-    local defaults = self.moduleConfig.defaults or {}
-    local profileDefaults = type(defaults.profile) == "table"
-        and (defaults.profile[self.moduleConfig.dbKey] or defaults.profile)
-        or {}
-    local charDefaults = type(defaults.char) == "table"
-        and (defaults.char[self.moduleConfig.dbKey] or defaults.char)
-        or {}
-    local globalDefaults = type(defaults.global) == "table"
-        and (defaults.global[self.moduleConfig.dbKey] or defaults.global)
-        or {}
+    self.config = self:GetModuleConfig()
+    assert(type(self.config) == "table", "Module configuration must be a table")
+    assert(self.config.moduleName, "Module configuration requires moduleName")
+    assert(self.config.displayName, "Module configuration requires displayName")
+    assert(self.config.dbKey, "Module configuration requires dbKey")
 
-    if addonDB and type(addonDB.RegisterNamespace) == "function" then
-        self.db = addonDB:RegisterNamespace(self.moduleConfig.dbKey, {
-            profile = profileDefaults,
-            char = charDefaults,
-            global = globalDefaults,
-        })
-    else
-        local profileNamespace = {}
-        local charNamespace = {}
-        local globalNamespace = {}
+    self.db = Addon.db:RegisterNamespace(moduleName, {
+        profile = {},
+        char = {},
+        global = {},
+    })
 
-        if addonDB then
-            addonDB.profile = type(addonDB.profile) == "table" and addonDB.profile or {}
-            addonDB.char = type(addonDB.char) == "table" and addonDB.char or {}
-            addonDB.global = type(addonDB.global) == "table" and addonDB.global or {}
-
-            profileNamespace = type(addonDB.profile[self.moduleConfig.dbKey]) == "table"
-                and addonDB.profile[self.moduleConfig.dbKey]
-                or {}
-            charNamespace = type(addonDB.char[self.moduleConfig.dbKey]) == "table"
-                and addonDB.char[self.moduleConfig.dbKey]
-                or {}
-            globalNamespace = type(addonDB.global[self.moduleConfig.dbKey]) == "table"
-                and addonDB.global[self.moduleConfig.dbKey]
-                or {}
-
-            addonDB.profile[self.moduleConfig.dbKey] = profileNamespace
-            addonDB.char[self.moduleConfig.dbKey] = charNamespace
-            addonDB.global[self.moduleConfig.dbKey] = globalNamespace
-        end
-
-        self.db = {
-            profile = profileNamespace,
-            char = charNamespace,
-            global = globalNamespace,
-        }
-        MergeDefaults(self.db.profile, profileDefaults)
-        MergeDefaults(self.db.char, charDefaults)
-        MergeDefaults(self.db.global, globalDefaults)
+    if self.db and ns.moduleDefaults and ns.moduleDefaults[moduleName] then
+        local defaults = ns.moduleDefaults[moduleName]
+        self.db:RegisterDefaults(defaults)
     end
-
-    self.db = self.db or {}
-    self.db.profile = self.db.profile or {}
-    self.db.char = self.db.char or {}
-    self.db.global = self.db.global or {}
 
     if self.pendingTraceSources then
         for _, source in ipairs(self.pendingTraceSources) do
@@ -162,78 +93,6 @@ function ModulePrototype:OnDisable()
     end
 end
 
-function ModulePrototype:GetStandardModuleOptions()
-    local config = self.moduleConfig
-
-    return {
-        -- header = {
-        --     order = 10,
-        --     type = "header",
-        --     name = config.displayName,
-        -- },
-        debugTab = {
-            order = 999,
-            type = "group",
-            name = "Debug",
-            inline = false,
-            args = {
-                debug = {
-                    order = 20,
-                    type = "toggle",
-                    name = "Debug mode",
-                    desc = "Enables debug output for the " .. config.displayName .. " module.",
-                    get = function()
-                        return self.db.profile.debug
-                    end,
-                    set = function(_, value)
-                        self.db.profile.debug = value
-                        local state = value and "|cFF00FF00ON|r" or "|cFFFF0000OFF|r"
-                        Addon:Print(config.displayName .. " debug mode is now " .. state .. ".")
-                    end,
-                },
-                traceGroup ={
-                    order = 99,
-                    type = "group",
-                    name = "Trace sources",
-                    inline = true,
-                    args = (function()
-                        if not self.db or not self.db.profile or not self.db.profile.traceMode then
-                            return {}
-                        end
-                        local traceArgs = {}
-                        for source, _ in pairs(self.db.profile.traceMode) do
-                            traceArgs[source] = {
-                                order = 1,
-                                type = "toggle",
-                                name = source,
-                                desc = "Enables trace output for the " .. source .. " trace source.",
-                                disabled = function()
-                                    return not self.db.profile.debug
-                                end,
-                                get = function()
-                                    return self.db.profile.traceMode[source]
-                                end,
-                                set = function(_, value)
-                                    self.db.profile.traceMode[source] = value
-                                    local state = value and "|cFF00FF00ON|r" or "|cFFFF0000OFF|r"
-                                    Addon:Print(config.displayName .. " trace source '" .. source .. "' is now " .. state .. ".")
-                                end,
-                            }
-                        end
-                        return traceArgs
-                    end)(),
-                },
-            }
-        },
-        -- spacer = {
-        --     order = 30,
-        --     type = "description",
-        --     name = " ",
-        --     fontSize = "small",
-        -- },
-    }
-end
-
 function ModulePrototype:AddTab(tab)
     assert(type(tab) == "table", "Module tab must be a table")
 
@@ -250,66 +109,82 @@ function ModulePrototype:AddOption(option)
     return option
 end
 
+function ModulePrototype:GetDebugGroup()
+    assert(self.config.moduleName, "Module configuration requires moduleName")
+    assert(self.config.displayName, "Module configuration requires displayName")
+
+    local Addon = ns.Addon
+    local config = self.config
+    local moduleName = config.moduleName
+    local targetModule = Addon:GetModule(moduleName)
+
+    -- Scan the module's registered trace sources dynamically
+    local traceArgs = {}
+    local orderIdx = 1
+
+    if targetModule.registeredTraces then
+        for sourceName, description in pairs(targetModule.registeredTraces) do
+            traceArgs[sourceName] = {
+                name = sourceName,
+                desc = description, -- Adds a tooltip in the Blizzard UI
+                type = "toggle",
+                order = orderIdx,
+            }
+            orderIdx = orderIdx + 1
+        end
+    end
+
+    local options = {
+        debugTab = {
+            order = 999,
+            type = "group",
+            name = "Debug",
+            childGroups = config.childGroups or "tree",
+            args = {
+                debug = {
+                    order = 1,
+                    type = "toggle",
+                    name = "Debug mode",
+                    desc = "Enables debug output for the " .. config.displayName .. " module.",
+                    get = function()
+                        return targetModule.db.profile.debugEnabled
+                    end,
+                    set = function(_, value)
+                        targetModule.db.profile.debugEnabled = value
+                        local state = value and "|cFF00FF00ON|r" or "|cFFFF0000OFF|r"
+                        Addon:Print(config.displayName .. " debug mode is now " .. state .. ".")
+                    end,
+                },
+                traceGroup ={
+                    order = 2,
+                    type = "group",
+                    name = "Trace sources",
+                    inline = true,
+                    disabled = function() return not targetModule.db.profile.debugEnabled end,
+                    get = function(info) return targetModule.db.profile.traces[info[#info]] end,
+                    set = function(info, value)
+                        targetModule.db.profile.traces[info[#info]] = value
+                        local state = value and "|cFF00FF00ON|r" or "|cFFFF0000OFF|r"
+                        ns.Utils.Print("Trace source '" .. info[#info] .. "' is now " .. state .. ".")
+                    end,
+                    args = traceArgs, -- Dynamically injected from the loop above
+                },
+            },
+        },
+    }
+
+    return options
+end
+
 function ModulePrototype:GetOptionsTable()
-    local config = self.moduleConfig
-    local moduleOptions = self:GetStandardModuleOptions()
+    local config = self.config
     self.optionOrder = 0
     self.tabOrder = 0
 
-    local moduleEnabled = function()
-        return self:IsModuleEnabled()
-    end
-
-    for _, option in pairs(moduleOptions) do
-        -- does not affect headings or description elements
-        option.disabled = option.disabled or not moduleEnabled()
-    end
-
-    for key, option in pairs(self:GetModuleOptions()) do
-        moduleOptions[key] = option
-    end
-
-    local args = {}
-
-    if config.showEnableOption ~= false then
-        args.moduleEnabled = {
-            order = 0,
-            type = "toggle",
-            name = "Enable " .. config.displayName,
-            desc = "Enables the " .. config.displayName .. " module.",
-            get = moduleEnabled,
-            set = function(_, value)
-                self:SetModuleEnabled(value)
-            end,
-        }
-    end
-
-    if config.childGroups then
-        for key, option in pairs(moduleOptions) do
-            if option.type == "group" and option.disabled == nil then
-                option.disabled = function()
-                    return not moduleEnabled()
-                end
-            end
-            args[key] = option
-        end
-    else
-        args.moduleOptions = {
-            order = 3,
-            type = "group",
-            name = " ",
-            inline = true,
-            disabled = function()
-                return not moduleEnabled()
-            end,
-            args = moduleOptions,
-        }
-    end
-
-    return {
+    local optionsRoot = {
         name = config.displayName,
         type = "group",
-        childGroups = config.childGroups,
+        childGroups = config.childGroups or "tree",
         get = function(info)
             return self.db.profile[info[#info]]
         end,
@@ -319,8 +194,25 @@ function ModulePrototype:GetOptionsTable()
                 self:UpdateDisplayIfVisible()
             end
         end,
-        args = args,
+        args = {}
     }
+
+    local moduleOptions = self:GetModuleOptions()
+    local debugOptions = self:GetDebugGroup()
+
+    -- put module tabs as children into the root args
+    if moduleOptions then
+        for key, value in pairs(moduleOptions) do
+            optionsRoot.args[key] = value
+        end
+    end
+    if debugOptions then
+        for key, value in pairs(debugOptions) do
+            optionsRoot.args[key] = value
+        end
+    end
+
+    return optionsRoot
 end
 
 -- Inform the addon that all future NewModule calls should receive this blueprint

@@ -1,19 +1,16 @@
 local addonName, ns = ...
 local Addon = ns.Addon
-local Fishing = Addon:GetModule("Fishing")
+local Fishing = ns.Fishing
+local state = ns.Fishing.state
 
 Fishing:RegisterTraceSource("buffs")
 
 local globalDB, profileDB, charDB
-local state
-local function Initialize()
-    globalDB = ns.FishingDB.global
-    profileDB = ns.FishingDB.profile
-    charDB = ns.FishingDB.char
-    state = ns.fishing.state
-end
-ns.FishingInitializers = ns.FishingInitializers or {}
-table.insert(ns.FishingInitializers, Initialize)
+ns.moduleInitializers["Fishing"].RegisterInitializer(function(self)
+    globalDB = self.db.global
+    profileDB = self.db.profile
+    charDB = self.db.char
+end)
 
 local function Trace(msg)
     Fishing:Trace("buffs", msg)
@@ -21,9 +18,9 @@ end
 
 local function Item(itemID, category)
     if category then
-        return Addon:GetDebugItemLabel(itemID) .. " (" .. tostring(category) .. ")"
+        return ns.Utils.GetDebugItemLabel(itemID) .. " (" .. tostring(category) .. ")"
     end
-    return Addon:GetDebugItemLabel(itemID)
+    return ns.Utils.GetDebugItemLabel(itemID)
 end
 
 local function LastUseString(lastUse, duration)
@@ -57,7 +54,7 @@ local function GetNow()
 end
 
 local function GetKnownBuff(itemID)
-    local known = ns.fishing.const and ns.fishing.const.knownBuffItems
+    local known = ns.Fishing.const and ns.Fishing.const.knownBuffItems
     return type(known) == "table" and known[tonumber(itemID)] or nil
 end
 
@@ -190,7 +187,7 @@ local function IsDue(itemID, category, now)
     end
     local spellID, knownDuration = GetKnownSpellAndDuration(itemID)
     local activeDuration = auraDuration and auraDuration > 0 and auraDuration or knownDuration
-    local refreshLead = ns.fishing.const.maxFishingCastSeconds + ns.fishing.const.buffPreRefreshSafetySeconds
+    local refreshLead = ns.Fishing.const.maxFishingCastSeconds + ns.Fishing.const.buffPreRefreshSafetySeconds
     if activeDuration and activeDuration > 0 then
         refreshLead = math.max(refreshLead, math.min(15, math.max(3, activeDuration * 0.10)))
     end
@@ -235,7 +232,7 @@ local function QueueBuffUse(itemID, category)
         category = category,
         itemSpellID = itemSpellID or knownSpellID,
         knownSpellID = knownSpellID,
-        countBefore = Addon:CountItemInBags(itemID),
+        countBefore = ns.Utils.CountItemInBags(itemID),
         auraBefore = type(Fishing.BuildHelpfulAuraSnapshot) == "function"
             and Fishing:BuildHelpfulAuraSnapshot()
             or {},
@@ -279,7 +276,7 @@ function Fishing:CheckEnabledBuffItemsDepleted()
             for _, entry in ipairs(items) do
                 local itemID = type(entry) == "table" and tonumber(entry.itemID) or nil
                 if itemID and itemID > 0 and entry.enabled ~= false
-                    and Addon:CountItemInBags(itemID) == 0 then
+                    and ns.Utils.CountItemInBags(itemID) == 0 then
                     local itemName = (C_Item and type(C_Item.GetItemInfo) == "function" and C_Item.GetItemInfo(itemID))
                         or "Unknown buff item"
                     state.buffDepletionAlerted = true
@@ -292,43 +289,43 @@ function Fishing:CheckEnabledBuffItemsDepleted()
 end
 
 function Fishing:ConfirmPendingBuffUse(successSpellID)
-    local pending = state.pendingBuffUse
+    local pending = self.state.pendingBuffUse
     if type(pending) ~= "table" then
         return
     end
 
     local now = GetNow()
     local itemID = tonumber(pending.itemID)
-    local countAfter = itemID and Addon:CountItemInBags(itemID) or nil
+    local countAfter = itemID and ns.Utils.CountItemInBags(itemID) or nil
     local confirmedBySpell = tonumber(successSpellID)
         and (tonumber(pending.itemSpellID) == tonumber(successSpellID)
             or tonumber(pending.knownSpellID) == tonumber(successSpellID))
     local confirmedByCount = countAfter and pending.countBefore and countAfter < pending.countBefore
     if confirmedBySpell or confirmedByCount then
-        state.pendingBuffUse = nil
-        local lastUses = type(state.buffItemLastUseAt) == "table" and state.buffItemLastUseAt or {}
-        state.buffItemLastUseAt = lastUses
+        self.state.pendingBuffUse = nil
+        local lastUses = type(self.state.buffItemLastUseAt) == "table" and self.state.buffItemLastUseAt or {}
+        self.state.buffItemLastUseAt = lastUses
         rawset(lastUses, itemID, now)
         local known = GetKnownBuff(itemID)
         local spellID = type(known) == "table" and tonumber(known.spellID) or nil
         if pending.category == "fooddrink" then
-            local transientUntil = type(state.buffItemTransientUntil) == "table"
-                and state.buffItemTransientUntil
+            local transientUntil = type(self.state.buffItemTransientUntil) == "table"
+                and self.state.buffItemTransientUntil
                 or {}
-            state.buffItemTransientUntil = transientUntil
+            self.state.buffItemTransientUntil = transientUntil
             rawset(transientUntil, itemID, now + 10)
         end
         local isKnownDuration = type(known) == "table"
             and tonumber(known.spellID)
             and tonumber(known.duration)
         if not isKnownDuration then
-            state.pendingBuffObservation = {
+            self.state.pendingBuffObservation = {
                 itemID = itemID,
                 before = pending.auraBefore or {},
                 expiresAt = now + 20,
             }
         else
-            state.pendingBuffObservation = nil
+            self.state.pendingBuffObservation = nil
         end
         if type(Fishing.AnnounceBuffUse) == "function" then
             Fishing:AnnounceBuffUse(itemID, spellID)
@@ -336,12 +333,12 @@ function Fishing:ConfirmPendingBuffUse(successSpellID)
         self:CheckEnabledBuffItemsDepleted()
         Trace("Confirmed consumable use: " .. Item(itemID))
     elseif now >= (tonumber(pending.expiresAt) or 0) then
-        state.pendingBuffUse = nil
+        self.state.pendingBuffUse = nil
         Trace("Consumable use not confirmed; leaving due state unchanged: " .. Item(itemID))
     end
 end
 
-local function GetConsumableUseDecision()
+local function GetConsumableUseDecision(self)
     local decision = { shouldApply = false }
     if type(Fishing.ConfirmPendingBuffUse) == "function" then
         Fishing:ConfirmPendingBuffUse()
@@ -352,18 +349,18 @@ local function GetConsumableUseDecision()
     end
     local foodDrinkTransientActive, transientUntil = Fishing:IsFoodDrinkTransientActive()
     if foodDrinkTransientActive then
-        local warningUntil = tonumber(state.buffTransientWarningUntil) or 0
+        local warningUntil = tonumber(self.state.buffTransientWarningUntil) or 0
         if warningUntil < transientUntil then
-            state.buffTransientWarningUntil = transientUntil
+            self.state.buffTransientWarningUntil = transientUntil
             Addon:Alert("A buff is still being applied. Wait before casting.")
         end
         Trace("Skipping consumable scan: food/drink transient block active")
         return decision
     end
-    if type(state.pendingBuffUse) == "table" then
+    if type(self.state.pendingBuffUse) == "table" then
         Trace("Skipping consumable scan: use confirmation pending for "
-            .. Item(state.pendingBuffUse.itemID))
-        local pendingItemID = tonumber(state.pendingBuffUse.itemID)
+            .. Item(self.state.pendingBuffUse.itemID))
+        local pendingItemID = tonumber(self.state.pendingBuffUse.itemID)
         local pendingKnown = GetKnownBuff(pendingItemID)
         local pendingCategory = type(pendingKnown) == "table" and pendingKnown.category or "other_consumable"
         return {
@@ -387,13 +384,13 @@ local function GetConsumableUseDecision()
                     --Trace("Checking due consumable: " .. Item(itemID) .. " (" .. tostring(category) .. ")")
                     if not itemID or itemID <= 0 then
                         --Trace("Skipping due consumable: invalid itemID")
-                    elseif not Addon:IsCooldownReady(itemID) then
-                        Trace("Skipping due consumable: cooldown not ready " .. Item(itemID) .. " " .. Addon:GetDebugCooldownText(itemID))
+                    elseif not ns.Utils.IsCooldownReady(itemID) then
+                        Trace("Skipping due consumable: cooldown not ready " .. Item(itemID) .. " " .. ns.Utils.GetDebugCooldownText(itemID))
                     else
                         local isDue, reason = IsDue(itemID, category, GetNow())
                         if not isDue then
                             Trace("Skipping due consumable: not due " .. Item(itemID, category) .. " (" .. tostring(reason) .. ")")
-                        elseif not Addon:FindItemInBags(itemID) then
+                        elseif not ns.Utils.FindItemInBags(itemID) then
                             Trace("Skipping due consumable: not found in bags " .. Item(itemID, category))
                         elseif category == "lure" then
                             local poleID = type(ns.precast.GetEquippedProfessionItemID) == "function"
@@ -403,11 +400,11 @@ local function GetConsumableUseDecision()
                                 WarnMissingProfessionFishingPoleForLure()
                             else
                                 QueueBuffUse(itemID, category)
-                                Addon:Debug("Lure is queued: " .. Item(itemID))
+                                ns.Utils.Debug("Lure is queued: " .. Item(itemID))
                                 return { shouldApply = true, itemID = itemID, category = category }
                             end
                         else
-                            Addon:Debug("Consumable is queued: " .. Item(itemID, category))
+                            ns.Utils.Debug("Consumable is queued: " .. Item(itemID, category))
                             QueueBuffUse(itemID, category)
                             return { shouldApply = true, itemID = itemID, category = category }
                         end

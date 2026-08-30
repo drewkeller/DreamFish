@@ -1,7 +1,6 @@
 -- The second return value (ns) is a private table shared across files
 local addonName, ns = ...
-Addon = LibStub("AceAddon-3.0"):NewAddon(addonName, "AceConsole-3.0", "AceEvent-3.0")
-ns.Addon = Addon
+local Addon = ns.Addon
 local AceConfig = LibStub("AceConfig-3.0")
 local AceConfigDialog = LibStub("AceConfigDialog-3.0")
 
@@ -11,15 +10,28 @@ local function RefreshConfigUI()
     LibStub("AceConfigRegistry-3.0"):NotifyChange(addonName)
 end
 
+local function MergeOptionsTables(self)
+    local options = ns.options
+    options.args.profiles = LibStub("AceDBOptions-3.0"):GetOptionsTable(self.db)
+
+    -- Merge submodule options into the main options table
+    for moduleName, optionTable in pairs(ns.moduleOptions) do
+        options.args.modules.args[moduleName] = optionTable
+    end
+end
+
 function Addon:OnInitialize()
     self.db = LibStub("AceDB-3.0"):New(addonName .. "DB", ns.DatabaseDefaults, true)
+
+    --MergeOptionsTables(self)
+    self:InitializeTraceSources()
 
     -- Generate profile options table and register it
     self.profileOptions = LibStub("AceDBOptions-3.0"):GetOptionsTable(self.db)
     LibStub("AceConfig-3.0"):RegisterOptionsTable(addonName .. "_Profile", self.profileOptions)
 
     -- Register a function ref (not a pre-built table) so the options are rebuilt fresh each time the
-    -- dialog opens, after module modules have finished OnInitialize and registered their trace sources.
+    -- dialog opens, after modules have finished OnInitialize and registered their trace sources.
     LibStub("AceConfig-3.0"):RegisterOptionsTable(addonName, function()
         return ns:GetOptionsTable()
     end)
@@ -48,9 +60,6 @@ function Addon:OnInitialize()
     AceConfigDialog:AddToBlizOptions(addonName .. "_Fishing", "Fishing", addonName)
     AceConfigDialog:AddToBlizOptions(addonName .. "_LootTracker", "Loot Tracker", addonName)
     AceConfigDialog:AddToBlizOptions(addonName .. "_Profile", "Profiles", addonName)
-
-    self:Print("Loaded profile: " .. self.db:GetCurrentProfile())
-    self:CallAddonInitializers()
 
     self.db.RegisterCallback(self, "OnProfileChanged", RefreshConfigUI)
     self.db.RegisterCallback(self, "OnProfileCopied", RefreshConfigUI)

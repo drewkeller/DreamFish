@@ -1,16 +1,20 @@
 local addonName, ns = ...
 local Addon = ns.Addon
-local Fishing = Addon:NewModule("Fishing", ns.ModulePrototype, "AceConsole-3.0", "AceEvent-3.0", "AceTimer-3.0", "AceHook-3.0")
+local Fishing = ns.Fishing
 
-ns.Fishing = Fishing
 ns.precast = {}
-ns.FishingInitializers = ns.FishingInitializers or {}
-ns.fishing = {}
-ns.fishing.const = {}
-ns.fishing.state = {}
 
-local globalDB, profileDB, charDB
-ns.FishingInitializers = ns.FishingInitializers or {}
+ns.Fishing.ConfigureFishingClickAction = ns.Fishing.ConfigureFishingClickAction or function(self) end
+
+ns.moduleInitializers["Fishing"] = {
+    initializerFuncs = {},
+    RegisterInitializer = function(func)
+        if type(func) == "function" then
+            table.insert(ns.moduleInitializers["Fishing"].initializerFuncs, func)
+        end
+    end,
+}
+
 local rightClickStrikeOwner
 
 Fishing:RegisterTraceSource("EasyStrike")
@@ -23,15 +27,15 @@ function Fishing:OnModuleInitialize()
     -- In local functions, use ns.FishingDB
     ns.FishingDB = self.db
 
-    globalDB = ns.FishingDB.global
-    profileDB = ns.FishingDB.profile
-    charDB = ns.FishingDB.char
-    for _, initializerFunc in ipairs(ns.FishingInitializers) do
+    self.state = {}
+
+    for _, initializerFunc in ipairs(ns.moduleInitializers["Fishing"].initializerFuncs) do
         initializerFunc(self)
     end
 end
 
 function Fishing:OnModuleEnable()
+    ns.Utils.Debug("Fishing:OnModuleEnable()")
     self:CreateClickFrame()
     self:RegisterEvent("PLAYER_REGEN_ENABLED",         "OnCombatEnded")
     self:RegisterEvent("PLAYER_REGEN_DISABLED",        "OnCombatStarted")
@@ -109,7 +113,7 @@ function Fishing:PrepareFishingClickAction()
     if not self.clickFrame or InCombatLockdown() then
         return
     end
-    ns.precast.ConfigureFishingClickAction()
+    ns.Fishing.ConfigureFishingClickAction(self)
 end
 
 function Fishing:OnAurasChanged(event, unit, updateInfo)
@@ -120,9 +124,9 @@ function Fishing:OnAurasChanged(event, unit, updateInfo)
     --     return
     -- end
     -- is this really needed? if outside of fishing session, it gets called constantly
-    if self:IsFishingState(ns.fishing.states.IDLE)
-        or self:IsFishingState(ns.fishing.states.PRECASTING)
-        or self:IsFishingState(ns.fishing.states.LINGERING) then
+    if self:IsFishingState(ns.Fishing.states.IDLE)
+        or self:IsFishingState(ns.Fishing.states.PRECASTING)
+        or self:IsFishingState(ns.Fishing.states.LINGERING) then
         self:PrepareFishingClickAction()
     end
     if not updateInfo then
@@ -160,9 +164,9 @@ function Fishing:OnEquipmentChanged(event, slotId)
     if slotId == FISHINGTOOLSLOT then
         self:Trace("pole", "Fishing pole changed")
         -- if hotkey cast fishing pole, prepare it again
-        if self:IsFishingState(ns.fishing.states.IDLE)
-            or self:IsFishingState(ns.fishing.states.PRECASTING)
-            or self:IsFishingState(ns.fishing.states.LINGERING) then
+        if self:IsFishingState(ns.Fishing.states.IDLE)
+            or self:IsFishingState(ns.Fishing.states.PRECASTING)
+            or self:IsFishingState(ns.Fishing.states.LINGERING) then
             self:PrepareFishingClickAction()
         end
         self:RefreshPoleBorders()
@@ -170,24 +174,24 @@ function Fishing:OnEquipmentChanged(event, slotId)
 end
 
 function Fishing:OnLootReady(event)
-    local current = ns.fishing.state.current
+    local current = self.state.current
     -- The hotkey strike is a native INTERACTTARGET override, so it produces no click we can hook;
     -- the loot window opening is the only signal that the bobber was struck successfully.
-    local isStrikeResult = current == ns.fishing.states.WAITING_FOR_LOOT_WINDOW
-        or current == ns.fishing.states.WAITING_FOR_BITE
-        or current == ns.fishing.states.BITE_DETECTED
-        or current == ns.fishing.states.CASTING
+    local isStrikeResult = current == ns.Fishing.states.WAITING_FOR_LOOT_WINDOW
+        or current == ns.Fishing.states.WAITING_FOR_BITE
+        or current == ns.Fishing.states.BITE_DETECTED
+        or current == ns.Fishing.states.CASTING
 
     if isStrikeResult then
         self:Trace("loot", "Loot window ready")
         self:StopWatchingStrikeKey()
         self:SendMessage("FISHING_LOOT_READY")
-        self:SetFishingState(ns.fishing.states.LOOTING, "loot window ready")
+        self:SetFishingState(ns.Fishing.states.LOOTING, "loot window ready")
     end
 end
 
 function Fishing:OnLootClosed(event)
-    if ns.fishing.state.current == ns.fishing.states.LOOTING then
+    if self.state.current == ns.Fishing.states.LOOTING then
         self:Trace("loot", "Loot window closed")
         self:SendMessage("FISHING_LOOT_CLOSED")
         self:StartLinger()
@@ -198,16 +202,16 @@ function Fishing:StartLinger()
     -- Recasting is allowed while lingering, so hand the hotkey and the secure action back to casting.
     self:ClearBobberInteractOverride()
     self:PrepareFishingClickAction()
-    self:SetFishingState(ns.fishing.states.LINGERING, "start linger")
+    self:SetFishingState(ns.Fishing.states.LINGERING, "start linger")
     self:ScheduleTimer(function()
-        if self:IsFishingState(ns.fishing.states.LINGERING) then
+        if self:IsFishingState(ns.Fishing.states.LINGERING) then
             self:EndLinger()
         end
-    end, profileDB.lingerDuration)
+    end, self.db.profile.lingerDuration)
 end
 
 function Fishing:EndLinger()
-    if self:IsFishingState(ns.fishing.states.LINGERING) then
+    if self:IsFishingState(ns.Fishing.states.LINGERING) then
         self:EndFishingSession("normally after linger")
     end
 end
@@ -220,12 +224,12 @@ function Fishing:EndFishingSession(reason)
     self:ClearBobberInteractOverride()
     self:ReleaseClickCapture()
     ns.precast.EquipUnderlightAnglerAfterFishing(reason)
-    ns.fishing.state.buffDepletionAlerted = nil
-    self:SetFishingState(ns.fishing.states.IDLE, reason)
+    self.state.buffDepletionAlerted = nil
+    self:SetFishingState(ns.Fishing.states.IDLE, reason)
 end
 
 function Fishing:CancelFishingSession(reason)
-    self:SetFishingState(ns.fishing.states.CANCELLING, reason)
+    self:SetFishingState(ns.Fishing.states.CANCELLING, reason)
     self:EndFishingSession("cancelled: " .. tostring(reason))
 end
 
@@ -252,8 +256,8 @@ end
 
 -- BUTTON2 lives on its own owner frame so it can be released without dropping the hotkey override.
 function Fishing:ArmRightClickStrike()
-    if InCombatLockdown() or not profileDB.strikeByRightClick then return end
-    if not self:IsFishingState(ns.fishing.states.WAITING_FOR_BITE) then return end
+    if InCombatLockdown() or not self.db.profile.strikeByRightClick then return end
+    if not self:IsFishingState(ns.Fishing.states.WAITING_FOR_BITE) then return end
     if IsMouseButtonDown("LeftButton") then return end
 
     if not rightClickStrikeOwner then
@@ -281,10 +285,10 @@ function Fishing:ConfigureBobberInteractAction()
 end
 
 function Fishing:ArmBobberInteractOverride()
-    if InCombatLockdown() or not (profileDB.strikeByRightClick or profileDB.strikeByHotkey) then
+    if InCombatLockdown() or not (self.db.profile.strikeByRightClick or self.db.profile.strikeByHotkey) then
         self:Trace("EasyStrike", "override skipped: combat=" .. tostring(InCombatLockdown())
-            .. " rightClick=" .. tostring(profileDB.strikeByRightClick)
-            .. " hotkey=" .. tostring(profileDB.strikeByHotkey))
+            .. " rightClick=" .. tostring(self.db.profile.strikeByRightClick)
+            .. " hotkey=" .. tostring(self.db.profile.strikeByHotkey))
         return false
     end
 
@@ -297,7 +301,7 @@ function Fishing:ArmBobberInteractOverride()
     local hotkeyApplied = false
     ClearOverrideBindings(owner)
     -- set up hotkey(s) to interract with the bobber
-    if profileDB.strikeByHotkey then
+    if self.db.profile.strikeByHotkey then
         for _, key in ipairs(boundKeys) do
             if key and key ~= "" then
                 SetOverrideBinding(owner, true, key, "INTERACTTARGET")
@@ -307,16 +311,16 @@ function Fishing:ArmBobberInteractOverride()
     end
     -- BUTTON2 is armed separately so mouse steering can reclaim it mid-cast.
 
-    local applied = hotkeyApplied or profileDB.strikeByRightClick
+    local applied = hotkeyApplied or self.db.profile.strikeByRightClick
     if applied then
         if hotkeyApplied then
             self:WatchStrikeKey(boundKeys[1])
         end
-        self:SetFishingState(ns.fishing.states.WAITING_FOR_BITE, "armed bobber interaction override")
+        self:SetFishingState(ns.Fishing.states.WAITING_FOR_BITE, "armed bobber interaction override")
         self:ArmRightClickStrike()
     end
     self:Trace("EasyStrike", "native interact override=" .. tostring(applied)
-        .. " state=" .. tostring(ns.fishing.state.current))
+        .. " state=" .. tostring(self.state.current))
     return applied
 end
 
@@ -345,12 +349,12 @@ function Fishing:OnSpellcastChannelStarted(event, unit, ...)
         self:ConfirmPendingBuffUse(spellID)
     end
 
-    if spellID ~= ns.fishing.const.fishingSpellID then
+    if spellID ~= ns.Fishing.const.fishingSpellID then
         --Fishing:Trace("aura", "Spellcast channel started for non-fishing spellID=" .. tostring(spellID))
         return
     end
 
-    self:SetFishingState(ns.fishing.states.CASTING, "spellcast")
+    self:SetFishingState(ns.Fishing.states.CASTING, "spellcast")
     -- The bobber can splash at any point during the channel and there's no event for it;
     -- the player has to watch for it, so the strike action must be ready for the whole cast.
     self:StartMouseButtonWatch()
@@ -366,21 +370,21 @@ function Fishing:OnSpellcastChannelEnded(event, unit, ...)
 
     local _, spellID = ...
 
-    local isFishingSpell = spellID == ns.fishing.const.fishingSpellID or spellID == 131476
+    local isFishingSpell = spellID == ns.Fishing.const.fishingSpellID or spellID == 131476
 
     if isFishingSpell then
         self:Trace("EasyStrike", "cast finished event=" .. tostring(event) .. " state=" .. self:CurrentStateName())
         -- Currently, looting happens in CASTING state and if we cancel fishing here, we don't get the loot.
-        if (ns.fishing.state.current == ns.fishing.states.WAITING_FOR_BITE) then
+        if (self.state.current == ns.Fishing.states.WAITING_FOR_BITE) then
             -- A last-moment strike stops the channel before LOOT_READY arrives, so give the loot window a chance.
             self:ScheduleTimer(function()
-                if self:IsFishingState(ns.fishing.states.WAITING_FOR_BITE) then
+                if self:IsFishingState(ns.Fishing.states.WAITING_FOR_BITE) then
                     self:CancelFishingSession("cast ended without a catch")
                 end
             end, 0.5)
-        elseif (ns.fishing.state.current == ns.fishing.states.WAITING_FOR_LOOT_WINDOW)
-            or (ns.fishing.state.current == ns.fishing.states.LOOTING)
-            or (ns.fishing.state.current == ns.fishing.states.LINGERING) then
+        elseif (self.state.current == ns.Fishing.states.WAITING_FOR_LOOT_WINDOW)
+            or (self.state.current == ns.Fishing.states.LOOTING)
+            or (self.state.current == ns.Fishing.states.LINGERING) then
             -- The strike landed; looting/linger owns the session end from here.
             self:Trace("EasyStrike", "cast ended with a catch")
         else
@@ -392,7 +396,7 @@ function Fishing:OnSpellcastChannelEnded(event, unit, ...)
 end
 
 function Fishing:OnCastStarted(reason)
-    self:SetFishingState(ns.fishing.states.PRECASTING, reason)
+    self:SetFishingState(ns.Fishing.states.PRECASTING, reason)
     self:SendMessage("FISHING_CAST_STARTED")
     if type(self.CheckEnabledBuffItemsDepleted) == "function" then
         self:CheckEnabledBuffItemsDepleted()
@@ -406,5 +410,3 @@ function Fishing:OnCastStarted(reason)
     -- Show the secure frame so the current click release can trigger the secure action.
     self.clickFrame:Show()
 end
-
-ns.precast.ConfigureFishingClickAction = ConfigureFishingClickAction

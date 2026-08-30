@@ -13,29 +13,31 @@
 ## X-WoWI-ID: 27165
 ## X-AddonProvider: GitHub
 
-# Embedded libraries (Ace3)
-Libs/LibStub/LibStub.lua
-Libs/AceAddon-3.0/AceAddon-3.0.xml
-Libs/AceGUI-3.0/AceGUI-3.0.xml
-Libs/AceConfig-3.0/AceConfig-3.0.xml
-Libs/AceConsole-3.0/AceConsole-3.0.xml
-Libs/AceDB-3.0/AceDB-3.0.xml
-Libs/AceDBOptions-3.0/AceDBOptions-3.0.xml
-Libs/AceEvent-3.0/AceEvent-3.0.xml
-Libs/AceHook-3.0/AceHook-3.0.xml
-Libs/AceTimer-3.0/AceTimer-3.0.xml
-
-DreamFish.lua
+embeds.xml
 
 # Core modules (load first)
-core/init.lua
-core/defaults.lua
+core/_init.lua
 core/utils.lua
 core/utils.audio.lua
 core/utils.inventory.lua
 core/utils.toys.lua
 core/utils.ui.lua
+
+# Defaults must be defined first
+core/_defaults.lua
+core/_options.lua
 core/module_prototype.lua
+fishing/_constants.lua
+fishing/_defaults.lua
+fishing/_options.lua
+looting/_defaults.lua
+looting/_options.lua
+
+# Module configs
+
+# Core initializers
+DreamFish.lua
+
 # core/module_api.lua
 # core/api_resolver.lua
 core/commands.lua
@@ -44,7 +46,6 @@ core/commands.lua
 #fishing/fishing.init.lua
 fishing/fishing.lua
 
-looting/loottracker.options.lua
 looting/loottracker.lua
 
 # UI widgets and components
@@ -52,8 +53,6 @@ ui/subButtonSlot.lua
 ui/buffItemDropBox.lua
 ui/equipmentDropBox.lua
 
-fishing/fishing.const.lua
-fishing/fishing.options.lua
 fishing/fishing.intercept.lua
 fishing/auras.lua
 fishing/states.lua
@@ -90,5 +89,5 @@ ui/dreamfishdialog.lua
 
 # Main coordinator (runs after all modules load)
 Bindings.lua
-core/options.lua
+
 

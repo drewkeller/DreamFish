@@ -23,6 +23,7 @@ fi
 
 # Copy the main addon files to the addon directory
 cp -fa $ADDON_NAME.lua $ADDON_NAME.toc Bindings.lua Bindings.xml  \
+  embeds.xml \
   "$ADDON_DIR"
 
 # Copy the addon subdirectories to the addon directory

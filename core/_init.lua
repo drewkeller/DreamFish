@@ -1,0 +1,34 @@
+local addonName, ns = ...
+Addon = LibStub("AceAddon-3.0"):NewAddon(addonName, "AceConsole-3.0", "AceEvent-3.0")
+ns.Addon = Addon
+
+ns.AddonInitializers = ns.AddonInitializers or {}
+
+function Addon:InitializeTraceSources()
+    if self.pendingCoreTraces then
+        for _, source in ipairs(self.pendingCoreTraces) do
+            ns.Utils.Print("Registering trace source: " .. tostring(source))
+            self:RegisterTraceSource(source)
+        end
+        self.pendingCoreTraces = nil
+    end
+end
+
+function Addon:RegisterTraceSource(source)
+    if not self.db or not self.db.profile then
+        -- Caches traces if registered at file-load time before OnInitialize runs
+        self.pendingCoreTraces = self.pendingCoreTraces or {}
+        table.insert(self.pendingCoreTraces, source)
+        return
+    end
+
+    -- Ensure the tables exist in your main SavedVariables profile
+    self.db.profile.traces = self.db.profile.traces or {}
+
+    if self.db.profile.traces[source] == nil then
+        ns.Utils.Print("Initializing trace source: " .. tostring(source))
+        self.db.profile.traces[source] = false -- Disabled by default
+    end
+end
+
+--ns.AddonInitializers = ns.AddonInitializers or {}

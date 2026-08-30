@@ -1,6 +1,6 @@
 local addonName, ns = ...
 local Addon = ns.Addon
-local Fishing = Addon:GetModule("Fishing")
+local Fishing = ns.Fishing
 
 local FISHING_STATES = {
     IDLE = 1,
@@ -41,26 +41,22 @@ local FISHING_STATE_FLAGS = {
     - FISHING_LOOT_CLOSED
 ]]
 
-ns.fishing = ns.fishing or {}
-ns.fishing.state = ns.fishing.state or {}
-ns.fishing.states = FISHING_STATES
+ns.Fishing.states = FISHING_STATES
 
 Fishing:RegisterTraceSource("states")
 
 local function Trace(state, reason)
-    if Fishing.db and Fishing.db.profile and Fishing.db.profile.traceMode and Fishing.db.profile.traceMode["states"] then
-        if Addon.db.profile.debugMode then
-            Addon:Print("|cFF999999[", FISHING_STATE_NAMES[state] or tostring(state), "]|r ", tostring(reason))
-        end
+    if Fishing.db and Fishing.db.profile and Fishing.db.profile.traces and Fishing.db.profile.traces["states"] then
+        Addon:Print("|cFF999999[" .. (FISHING_STATE_NAMES[state] or tostring(state)) .. "]|r ", reason)
     end
 end
 
 function Fishing:IsFishingState(state)
-    return ns.fishing.state.current == state
+    return self.state.current == state
 end
 
 function Fishing:CurrentStateName()
-    return FISHING_STATE_NAMES[ns.fishing.state.current] or tostring(ns.fishing.state.current)
+    return FISHING_STATE_NAMES[self.state.current] or tostring(self.state.current)
 end
 
 function Fishing:SetFishingState(state, reason)
@@ -70,24 +66,24 @@ function Fishing:SetFishingState(state, reason)
         Trace(state, reason)
     end
 
-    ns.fishing.state.current = state
+    self.state.current = state
     for key, value in pairs(FISHING_STATE_FLAGS[state]) do
-        ns.fishing.state[key] = value
+        self.state[key] = value
     end
     if state == FISHING_STATES.IDLE then
-        assert(not ns.fishing.state.isFishing, "Fishing state IDLE should not be isFishing")
+        assert(not self.state.isFishing, "Fishing state IDLE should not be isFishing")
     end
 end
 
 function Fishing:IsInFishingSession()
-    return ns.fishing.state.isFishing
+    return false --self.state.isFishing
 end
 
 function Fishing:CanStartCast()
-    return ns.fishing.state.current == ns.fishing.states.IDLE
-        or ns.fishing.state.current == ns.fishing.states.LINGERING
-        or ns.fishing.state.current == ns.fishing.states.PRECASTING -- allow multiple stages to apply buffs, etc before cast
-        or ns.fishing.state.current == ns.fishing.states.CASTING --recast for better placement, etc.
+    return self.state.current == FISHING_STATES.IDLE
+        or self.state.current == FISHING_STATES.LINGERING
+        or self.state.current == FISHING_STATES.PRECASTING -- allow multiple stages to apply buffs, etc before cast
+        or self.state.current == FISHING_STATES.CASTING --recast for better placement, etc.
 end
 
 Fishing:SetFishingState(FISHING_STATES.IDLE)

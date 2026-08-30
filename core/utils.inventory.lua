@@ -1,21 +1,20 @@
 local addonName, ns = ...
-local Addon = ns.Addon
 
-function Addon:ContainerNumSlots(bag)
+function ns.Utils.ContainerNumSlots(bag)
     if C_Container and C_Container.GetContainerNumSlots then
         return C_Container.GetContainerNumSlots(bag)
     end
     return 0
 end
 
-function Addon:FindItemInBags(itemID)
+function ns.Utils.FindItemInBags(itemID)
     if not itemID then
         return nil, nil
     end
 
     local bagCount = NUM_BAG_SLOTS or 4
     for bag = 0, bagCount do
-        local slots = Addon:ContainerNumSlots(bag)
+        local slots = ns.Utils.ContainerNumSlots(bag)
         for slot = 1, slots do
             if C_Container.GetContainerItemID(bag, slot) == itemID then
                 return bag, slot
@@ -23,7 +22,7 @@ function Addon:FindItemInBags(itemID)
         end
     end
 
-    local reagentSlots = Addon:ContainerNumSlots(5)
+    local reagentSlots = ns.Utils.ContainerNumSlots(5)
     if reagentSlots and reagentSlots > 0 then
         for slot = 1, reagentSlots do
             if C_Container.GetContainerItemID(5, slot) == itemID then
@@ -35,7 +34,7 @@ function Addon:FindItemInBags(itemID)
     return nil, nil
 end
 
-function Addon:FindItemsInBagsWhere(predicate)
+function ns.Utils.FindItemsInBagsWhere(predicate)
     if type(predicate) ~= "function" then
         return {}
     end
@@ -43,7 +42,7 @@ function Addon:FindItemsInBagsWhere(predicate)
     local foundItems = {}
     local bagCount = NUM_BAG_SLOTS or 4
     for bag = 0, bagCount do
-        local slots = Addon:ContainerNumSlots(bag)
+        local slots = ns.Utils.ContainerNumSlots(bag)
         for slot = 1, slots do
             local itemID = C_Container.GetContainerItemID(bag, slot)
             if itemID and predicate(itemID, bag, slot) then
@@ -52,7 +51,7 @@ function Addon:FindItemsInBagsWhere(predicate)
         end
     end
 
-    local reagentSlots = Addon:ContainerNumSlots(5)
+    local reagentSlots = ns.Utils.ContainerNumSlots(5)
     if reagentSlots and reagentSlots > 0 then
         for slot = 1, reagentSlots do
             local itemID = C_Container.GetContainerItemID(5, slot)
@@ -65,7 +64,7 @@ function Addon:FindItemsInBagsWhere(predicate)
     return foundItems
 end
 
-function Addon:CountItemInBags(itemID)
+function ns.Utils.CountItemInBags(itemID)
     local count = 0
     local bagCount = NUM_BAG_SLOTS or 4
     for bag = 0, bagCount do
@@ -78,7 +77,7 @@ function Addon:CountItemInBags(itemID)
         end
     end
 
-    local reagentSlots = Addon:ContainerNumSlots(5)
+    local reagentSlots = ns.Utils.ContainerNumSlots(5)
     if reagentSlots and reagentSlots > 0 then
         for slot = 1, reagentSlots do
             if C_Container.GetContainerItemID(5, slot) == itemID then
@@ -91,7 +90,7 @@ function Addon:CountItemInBags(itemID)
     return count
 end
 
-function Addon:IsItemEquippedInAnyTrackedSlot(itemID)
+function ns.Utils.IsItemEquippedInAnyTrackedSlot(itemID)
     local numeric = tonumber(itemID)
     if not numeric or numeric <= 0 or type(GetInventoryItemID) ~= "function" then
         return false
@@ -111,17 +110,17 @@ function Addon:IsItemEquippedInAnyTrackedSlot(itemID)
     return false
 end
 
-function Addon:IsItemAvailableForEquip(itemID)
+function ns.Utils.IsItemAvailableForEquip(itemID)
     local numeric = tonumber(itemID)
     if not numeric or numeric <= 0 then
         return false
     end
 
-    if Addon:IsItemEquippedInAnyTrackedSlot(numeric) then
+    if ns.Utils.IsItemEquippedInAnyTrackedSlot(numeric) then
         return true
     end
 
-    local bag, slot = Addon:FindItemInBags(numeric)
+    local bag, slot = ns.Utils.FindItemInBags(numeric)
     if bag and slot then
         return true
     end

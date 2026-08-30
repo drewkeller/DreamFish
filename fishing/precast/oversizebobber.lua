@@ -1,15 +1,13 @@
 local addonName, ns = ...
 local Addon = ns.Addon
-local Fishing = Addon:GetModule("Fishing")
+local Fishing = ns.Fishing
 
 local globalDB, profileDB, charDB
-local function Initialize()
-    globalDB = ns.FishingDB.global
-    profileDB = ns.FishingDB.profile
-    charDB = ns.FishingDB.char
-end
-ns.FishingInitializers = ns.FishingInitializers or {}
-table.insert(ns.FishingInitializers, Initialize)
+ns.moduleInitializers["Fishing"].RegisterInitializer(function(self)
+    globalDB = self.db.global
+    profileDB = self.db.profile
+    charDB = self.db.char
+end)
 
 Fishing:RegisterTraceSource("oversize")
 
@@ -22,9 +20,9 @@ local function GetOversizedBobberAuraRemainingSeconds()
         return nil
     end
 
-    local known = ns.fishing.const
-        and type(ns.fishing.const.knownBuffItems) == "table"
-        and ns.fishing.const.knownBuffItems[ns.fishing.const.oversizedBobberItemID]
+    local known = ns.Fishing.const
+        and type(ns.Fishing.const.knownBuffItems) == "table"
+        and ns.Fishing.const.knownBuffItems[ns.Fishing.const.oversizedBobberItemID]
         or nil
     local oversizedSpellID = type(known) == "table" and tonumber(known.spellID) or nil
     if not oversizedSpellID or oversizedSpellID <= 0 then
@@ -41,12 +39,12 @@ end
 
 local function GetOversizedBobberDecision()
 
-    local toyID = ns.fishing.const and ns.fishing.const.oversizedBobberItemID or 0
+    local toyID = ns.Fishing.const and ns.Fishing.const.oversizedBobberItemID or 0
     local hasBobberSelected = profileDB.useOversizedBobber
-    local hasToy = hasBobberSelected and Addon:IsToyOwned(toyID) or false
-    local isReady = hasToy and Addon:IsCooldownReady(toyID)
+    local hasToy = hasBobberSelected and ns.Utils.IsToyOwned(toyID) or false
+    local isReady = hasToy and ns.Utils.IsCooldownReady(toyID)
     local auraRemaining = hasToy and GetOversizedBobberAuraRemainingSeconds() or nil
-    local castLead = ns.fishing.const.maxFishingCastSeconds + ns.fishing.const.buffPreRefreshSafetySeconds
+    local castLead = ns.Fishing.const.maxFishingCastSeconds + ns.Fishing.const.buffPreRefreshSafetySeconds
     local needsRefresh = (auraRemaining == nil) or (auraRemaining <= castLead)
     local mounted = IsMounted()
     local swimming = IsSwimming()
@@ -66,7 +64,7 @@ local function GetOversizedBobberDecision()
     elseif not hasToy then
         Trace("Oversize bobber is not owned")
     elseif not isReady then
-        Trace("Oversize bobber toy on cooldown: " .. Addon:GetDebugCooldownText(toyID))
+        Trace("Oversize bobber toy on cooldown: " .. ns.Utils.GetDebugCooldownText(toyID))
     elseif not needsRefresh then
         Trace("Oversize bobber aura remaining sufficient for cast")
     elseif mounted then

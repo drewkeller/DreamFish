@@ -1,51 +1,42 @@
 local addonName, ns = ...
 local Addon = ns.Addon
+local LootTracker = ns.LootTracker
 
-ns.LootTracker = { Defaults = {
-    profile = {
-        moduleEnabled = true,
-        debug = false,
-        -- start of non-prototype options
-        minQualityFilter = 0,
-        showWindowOnStartup = false,
-        windowVisible = true,
-        windowPos = {
-            point = "CENTER",
-            xOfs = 0,
-            yOfs = 0,
-            width = 280,
-            height = 340,
-        }
-    },
-    char = {
-        itemsLooted = 0,
-        lootedItems = {},
-        lootedCurrencies = {},
+local function AddTab(tab)
+    tab.order = tab.order or 1
+    tab.args = tab.args or {}
+    return tab
+end
+
+local function AddOption(option)
+    option.order = option.order or 1
+    return option
+end
+
+function LootTracker:GetModuleConfig()
+    return {
+        moduleName = "LootTracker",
+        displayName = "Loot Tracker",
+        dbKey = "lootTracker",
+        defaults = ns.moduleDefaults.LootTracker,
+        showEnableOption = false,
+        childGroups = "tree",
     }
-} }
-
-local LootTracker = Addon:NewModule("LootTracker", ns.ModulePrototype, "AceConsole-3.0", "AceEvent-3.0")
-LootTracker:Configure({
-    displayName = "Loot Tracker",
-    dbKey = "lootTracker",
-    defaults = ns.LootTracker.Defaults,
-    showEnableOption = false,
-    childGroups = "tree",
-})
+end
 
 function LootTracker:GetModuleOptions()
-    return {
-        windowTab = self:AddTab({
+    local options = {
+        windowTab = AddTab({
             type = "group",
             name = "Window",
             args = {
-                showWindowOnStartup = self:AddOption({
+                showWindowOnStartup = AddOption({
                     type = "toggle",
                     name = "Show loot tracker on login",
                     desc = "Automatically displays the tracker frame canvas when you log into the character.",
                     width = "full",
                 }),
-                minQualityFilter = self:AddOption({
+                minQualityFilter = AddOption({
                     type = "select",
                     name = "Minimum quality filter",
                     desc = "Filters your text layout view logs based on item rarity rankings.",
@@ -58,15 +49,16 @@ function LootTracker:GetModuleOptions()
                         [4] = "|cFFa335eeEpic (Purple)|r",
                     },
                 }),
-                toggleUiButton = self:AddOption({
+                toggleUiButton = AddOption({
                     type = "execute",
                     name = "Toggle Tracker Window",
                     width = 2,
                     func = function()
-                        self:ToggleTrackerWindow()
+                        ns.Addon:GetModule("LootTracker"):ToggleTrackerWindow()
                     end,
                 }),
             }
-        }),
+        }), -- Window tab
     }
+    return options
 end

@@ -4,7 +4,7 @@ local Addon = ns.Addon
 local ownedToyOptionsCache = {}
 local ownedToyItemCache = {}
 
-function Addon:IsToyOwned(itemID)
+function ns.Utils.IsToyOwned(itemID)
     local numeric = tonumber(itemID)
     if not numeric or numeric <= 0 then
         return false
@@ -20,7 +20,7 @@ function Addon:IsToyOwned(itemID)
     return ownedToyItemCache[numeric]
 end
 
-function Addon:IsCooldownReady(itemID)
+function ns.Utils.IsCooldownReady(itemID)
     local numeric = tonumber(itemID)
     if not numeric or numeric <= 0 then
         return true
@@ -41,7 +41,7 @@ function Addon:IsCooldownReady(itemID)
     return (start + duration) <= (now + 0.05)
 end
 
-function Addon:BuildOwnedToyOptions(candidateIDs, includeDefaultLabel)
+function ns.Utils.BuildOwnedToyOptions(candidateIDs, includeDefaultLabel)
     local defaultKey = tostring(includeDefaultLabel or "")
     local candidateKey = (type(candidateIDs) == "table") and candidateIDs or "__non_table__"
 
@@ -72,7 +72,7 @@ function Addon:BuildOwnedToyOptions(candidateIDs, includeDefaultLabel)
         local name = type(toy) == "table" and toy.name or nil
         if numeric and numeric > 0 and not seen[numeric] then
             seen[numeric] = true
-            if Addon:IsToyOwned(numeric) then
+            if ns.Utils.IsToyOwned(numeric) then
                 options[numeric] = (type(name) == "string" and name ~= "") and name or ("item:" .. tostring(numeric))
             end
         end
@@ -82,8 +82,8 @@ function Addon:BuildOwnedToyOptions(candidateIDs, includeDefaultLabel)
     return options
 end
 
-function Addon:BuildOwnedToySortingKeys(candidateIDs, includeDefault)
-    local values = Addon:BuildOwnedToyOptions(candidateIDs, includeDefault)
+function ns.Utils.BuildOwnedToySortingKeys(candidateIDs, includeDefault)
+    local values = ns.Utils.BuildOwnedToyOptions(candidateIDs, includeDefault)
     local keys = {}
     if type(includeDefault) == "string" and includeDefault ~= "" and values[0] ~= nil then
         table.insert(keys, 0)

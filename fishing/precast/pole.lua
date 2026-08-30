@@ -1,15 +1,13 @@
 local addonName, ns = ...
 local Addon = ns.Addon
-local Fishing = Addon:GetModule("Fishing")
+local Fishing = ns.Fishing
 
 local globalDB, profileDB, charDB
-local function Initialize()
-    globalDB = ns.FishingDB.global
-    profileDB = ns.FishingDB.profile
-    charDB = ns.FishingDB.char
-end
-ns.FishingInitializers = ns.FishingInitializers or {}
-table.insert(ns.FishingInitializers, Initialize)
+ns.moduleInitializers["Fishing"].RegisterInitializer(function(self)
+    globalDB = self.db.global
+    profileDB = self.db.profile
+    charDB = self.db.char
+end)
 
 Fishing:RegisterTraceSource("pole")
 
@@ -33,7 +31,7 @@ local function GetEquippedProfessionItemID()
 end
 
 local function IsUnderlightAnglerItemID(itemID)
-    local underlightID = tonumber(ns.fishing.const.underlightAnglerItemID)
+    local underlightID = tonumber(ns.Fishing.const.underlightAnglerItemID)
     return tonumber(itemID) == underlightID
 end
 
@@ -49,7 +47,7 @@ local function NormalizePoleSelection(value, validateItemID)
         itemID = nil
     end
     if itemID and isChecked == true then
-        isAvailable = Addon:IsItemAvailableForEquip(itemID)
+        isAvailable = ns.Utils.IsItemAvailableForEquip(itemID)
     end
     if not itemID then
         isChecked = false
@@ -102,7 +100,7 @@ end
 local function GetSelectedFishingPoleDecision()
     local selections = GetConfiguredPoleSelections()
     local poleItemID = selections.primary.itemID
-    local hasItem = Addon:IsItemAvailableForEquip(poleItemID)
+    local hasItem = ns.Utils.IsItemAvailableForEquip(poleItemID)
     local mounted = (type(IsMounted) == "function" and IsMounted()) or false
     local equippedItemID = GetEquippedProfessionItemID()
     local alreadyEquipped = poleItemID and equippedItemID and (poleItemID == equippedItemID) or false
@@ -148,7 +146,7 @@ local function TryEquipItemToProfessionSlot(itemID)
     end
 
     local function TryEquipFromBagCursor(targetSlot)
-        local bag, slot = Addon:FindItemInBags(itemID)
+        local bag, slot = ns.Utils.FindItemInBags(itemID)
         if bag == nil or slot == nil then
             return false
         end
@@ -165,7 +163,7 @@ local function TryEquipItemToProfessionSlot(itemID)
                     lastDispatchedMethod = "cursor-fallback:EquipItemByName:slot" .. tostring(targetSlot)
                     if IsNowEquipped() then
                         Trace("Pole equip succeeded via " .. tostring(lastDispatchedMethod)
-                            .. " " .. Addon:GetDebugItemLabel(itemID))
+                            .. " " .. ns.Utils.GetDebugItemLabel(itemID))
                         return true
                     end
                 end
@@ -197,7 +195,7 @@ local function TryEquipItemToProfessionSlot(itemID)
 
         if IsNowEquipped() then
             Trace("Pole equip succeeded via " .. tostring(lastDispatchedMethod)
-                .. " " .. Addon:GetDebugItemLabel(itemID))
+                .. " " .. ns.Utils.GetDebugItemLabel(itemID))
             return true
         end
 
@@ -217,28 +215,28 @@ local function TryEquipItemToProfessionSlot(itemID)
             C_Timer.After(0.1, function()
                 if IsNowEquipped() then
                     Trace("Pole equip completed on delayed verify via "
-                        .. tostring(lastDispatchedMethod or "unknown") .. ": " .. Addon:GetDebugItemLabel(itemID))
+                        .. tostring(lastDispatchedMethod or "unknown") .. ": " .. ns.Utils.GetDebugItemLabel(itemID))
                     return
                 end
 
                 C_Timer.After(0.35, function()
                     if IsNowEquipped() then
                         Trace("Pole equip completed on extended verify via "
-                            .. tostring(lastDispatchedMethod or "unknown") .. ": " .. Addon:GetDebugItemLabel(itemID))
+                            .. tostring(lastDispatchedMethod or "unknown") .. ": " .. ns.Utils.GetDebugItemLabel(itemID))
                     else
-                        Trace("Failed to equip configured pole after delayed verify " .. Addon:GetDebugItemLabel(itemID))
+                        Trace("Failed to equip configured pole after delayed verify " .. ns.Utils.GetDebugItemLabel(itemID))
                     end
                 end)
             end)
             Trace("Pole equip request dispatched via " .. tostring(lastDispatchedMethod or "unknown")
-                .. "; awaiting delayed verification: " .. Addon:GetDebugItemLabel(itemID))
+                .. "; awaiting delayed verification: " .. ns.Utils.GetDebugItemLabel(itemID))
         else
-            Trace("Pole equip request dispatched; timer unavailable for delayed verification: " .. Addon:GetDebugItemLabel(itemID))
+            Trace("Pole equip request dispatched; timer unavailable for delayed verification: " .. ns.Utils.GetDebugItemLabel(itemID))
         end
         return true
     end
 
-    Trace("Failed to equip configured pole " .. Addon:GetDebugItemLabel(itemID))
+    Trace("Failed to equip configured pole " .. ns.Utils.GetDebugItemLabel(itemID))
     return false
 end
 
@@ -256,10 +254,10 @@ local function ApplySelectedFishingPole()
         Trace("Pole to equip is: none")
         itemToEquip = nil
     elseif canEquipPrimary and (Fishing:IsInFishingSession() or not canEquipUnderlight) then
-        Trace("Pole to equip is: " .. Addon:GetDebugItemLabel(primary.itemID))
+        Trace("Pole to equip is: " .. ns.Utils.GetDebugItemLabel(primary.itemID))
         itemToEquip = primary.itemID
     elseif canEquipUnderlight then
-        Trace("Pole to equip is: " .. Addon:GetDebugItemLabel(underlight.itemID))
+        Trace("Pole to equip is: " .. ns.Utils.GetDebugItemLabel(underlight.itemID))
         itemToEquip = underlight.itemID
     end
 

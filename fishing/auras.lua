@@ -1,20 +1,11 @@
 local addonName, ns = ...
 local Addon = ns.Addon
-local Fishing = Addon:GetModule("Fishing")
+local Fishing = ns.Fishing
 
 Fishing:RegisterTraceSource("auras")
 local function Trace(msg)
     Fishing:Trace("auras", msg)
 end
-
-local globalDB, profileDB, charDB
-local function Initialize()
-    globalDB = ns.FishingDB.global
-    profileDB = ns.FishingDB.profile
-    charDB = ns.FishingDB.char
-end
-ns.FishingInitializers = ns.FishingInitializers or {}
-table.insert(ns.FishingInitializers, Initialize)
 
 function Fishing:GetAuraBySpellID(spellID)
     if C_UnitAuras and C_UnitAuras.GetPlayerAuraBySpellID then
@@ -63,7 +54,7 @@ function Fishing:UpdatePendingBuffObservation()
         return
     end
 
-    local configured = charDB and charDB.buffs
+    local configured = self.db.char.buffs
     if type(configured) ~= "table" then
         self.state.pendingBuffObservation = nil
         return
@@ -108,9 +99,9 @@ function Fishing:UpdatePendingBuffObservation()
     local current = self:BuildHelpfulAuraSnapshot()
     local pendingItemID = tonumber(self.state.pendingBuffObservation.itemID)
     local pendingKnown = pendingItemID
-        and ns.fishing.const
-        and type(ns.fishing.const.knownBuffItems) == "table"
-        and ns.fishing.const.knownBuffItems[pendingItemID]
+        and ns.Fishing.const
+        and type(ns.Fishing.const.knownBuffItems) == "table"
+        and ns.Fishing.const.knownBuffItems[pendingItemID]
         or nil
     local pendingKnownSpellID = type(pendingKnown) == "table" and tonumber(pendingKnown.spellID) or nil
     local bestSpellID = nil
@@ -146,13 +137,13 @@ function Fishing:UpdatePendingBuffObservation()
     end
 
     if bestSpellID then
-        local itemID = pendingItemID
+        local itemID = pendingItemID or 0
         local key = tostring(itemID)
-        local existingTracked = globalDB.buffAuraByItem[key]
+        local existingTracked = self.db.global.buffAuraByItem[key]
         local existingDuration = type(existingTracked) == "table" and tonumber(existingTracked.duration) or 0
-        local known = ns.fishing.const
-            and type(ns.fishing.const.knownBuffItems) == "table"
-            and ns.fishing.const.knownBuffItems[itemID]
+        local known = ns.Fishing.const
+            and type(ns.Fishing.const.knownBuffItems) == "table"
+            and ns.Fishing.const.knownBuffItems[itemID]
             or nil
         local knownDuration = type(known) == "table" and tonumber(known.duration) or 0
 
@@ -205,7 +196,7 @@ function Fishing:UpdatePendingBuffObservation()
         end
 
         local auraName = (type(GetSpellInfo) == "function" and GetSpellInfo(bestSpellID)) or nil
-        globalDB.buffAuraByItem[key] = {
+        self.db.global.buffAuraByItem[key] = {
             spellID = bestSpellID,
             duration = bestDuration,
         }
@@ -218,8 +209,8 @@ function Fishing:UpdatePendingBuffObservation()
         Addon:Print("Buff tracked for item:" .. tostring(itemID)
             .. " [spellID=" .. tostring(bestSpellID)
             .. (auraName and (", aura=" .. tostring(auraName)) or "")
-            .. ", item=" .. Addon:FormatDuration(bestDuration)
-            .. ", active=" .. Addon:FormatDuration(bestDuration) .. " total]")
+            .. ", item=" .. ns.Utils.FormatDuration(bestDuration)
+            .. ", active=" .. ns.Utils.FormatDuration(bestDuration) .. " total]")
         self.state.pendingBuffObservation = nil
     end
 end
@@ -232,8 +223,8 @@ function Fishing:GetTrackedBuffRemaining(itemID)
 
     local knownSpellID = nil
     local knownDuration = nil
-    if ns.fishing.const and type(ns.fishing.const.knownBuffItems) == "table" then
-        local known = ns.fishing.const.knownBuffItems[numericItemID]
+    if ns.Fishing.const and type(ns.Fishing.const.knownBuffItems) == "table" then
+        local known = ns.Fishing.const.knownBuffItems[numericItemID]
         if type(known) == "table" and known.spellID then
             knownSpellID = tonumber(known.spellID)
             knownDuration = tonumber(known.duration)
@@ -242,8 +233,8 @@ function Fishing:GetTrackedBuffRemaining(itemID)
 
     local trackedSpellID = nil
     local trackedDuration = nil
-    if globalDB and type(globalDB.buffAuraByItem) == "table" then
-        local tracked = globalDB.buffAuraByItem[tostring(numericItemID)]
+    if self.db.global and type(self.db.global.buffAuraByItem) == "table" then
+        local tracked = self.db.global.buffAuraByItem[tostring(numericItemID)]
         if type(tracked) == "table" and tracked.spellID then
             trackedSpellID = tonumber(tracked.spellID)
             trackedDuration = tonumber(tracked.duration)
@@ -265,9 +256,9 @@ function Fishing:GetTrackedBuffRemaining(itemID)
                 and trackedSpellID
                 and trackedSpellID > 0
                 and trackedSpellID ~= knownSpellID
-                and Fishing.db
-                and type(globalDB.buffAuraByItem) == "table" then
-                globalDB.buffAuraByItem[tostring(numericItemID)] = {
+                and self.db
+                and type(self.db.global.buffAuraByItem) == "table" then
+                self.db.global.buffAuraByItem[tostring(numericItemID)] = {
                     spellID = knownSpellID,
                     duration = knownDuration or trackedDuration or (tonumber(aura.duration) or 0),
                 }
@@ -283,12 +274,12 @@ ns.GetAuraBySpellID = function(spellID)
     return Fishing:GetAuraBySpellID(spellID)
 end
 
-local function GetBuffTimingText(itemID)
-    if not globalDB or type(globalDB.buffAuraByItem) ~= "table" then
+function Fishing:GetBuffTimingText(itemID)
+    if not self.db.global or type(self.db.global.buffAuraByItem) ~= "table" then
         return "duration unknown (learning aura)"
     end
 
-    local normalized = globalDB.buffAuraByItem[tostring(itemID)]
+    local normalized = self.db.global.buffAuraByItem[tostring(itemID)]
     if type(normalized) ~= "table" or not normalized.spellID then
         return "duration unknown (learning aura spell mapping)"
     end
@@ -298,18 +289,18 @@ local function GetBuffTimingText(itemID)
     if aura and aura.expirationTime and aura.expirationTime > 0 then
         local remaining = math.max(0, aura.expirationTime - GetTime())
         local activeTotal = aura.duration or remaining
-        return "item=" .. Addon:FormatDuration(itemDuration) .. ", active=" .. Addon:FormatDuration(remaining) .. " remaining / " .. Addon:FormatDuration(activeTotal) .. " total"
+        return "item=" .. ns.Utils.FormatDuration(itemDuration) .. ", active=" .. ns.Utils.FormatDuration(remaining) .. " remaining / " .. ns.Utils.FormatDuration(activeTotal) .. " total"
     end
 
     if itemDuration then
-        return "item=" .. Addon:FormatDuration(itemDuration) .. ", active aura not detected"
+        return "item=" .. ns.Utils.FormatDuration(itemDuration) .. ", active aura not detected"
     end
     return "duration unknown (learning aura timings)"
 end
 
 function Fishing:AnnounceBuffUse(itemID, spellID)
     local itemName = (type(C_Item.GetItemInfo) == "function" and C_Item.GetItemInfo(itemID)) or ("item:" .. tostring(itemID))
-    Addon:Print("Using buff: " .. tostring(itemName) .. " (" .. tostring(itemID) .. ", spellID=" .. tostring(spellID) .. ") [" .. GetBuffTimingText(itemID) .. "]")
+    Addon:Print("Using buff: " .. tostring(itemName) .. " (" .. tostring(itemID) .. ", spellID=" .. tostring(spellID) .. ") [" .. self:GetBuffTimingText(itemID) .. "]")
 end
 
 local function EnsureCategoryTooltipFrame()
@@ -425,20 +416,20 @@ local function GetBuffItemCategory(itemID, bag, slot)
     if globalDB and type(globalDB.buffAuraByItem) == "table" then
         local normalized = globalDB.buffAuraByItem[tostring(itemID)]
         if type(normalized) == "table" and normalized.category then
-            Trace("Category from buffAuraByItem: " .. tostring(normalized.category) .. " " .. Addon:GetDebugItemLabel(itemID))
+            Trace("Category from buffAuraByItem: " .. tostring(normalized.category) .. " " .. ns.Utils.GetDebugItemLabel(itemID))
             return tostring(normalized.category)
         end
     end
-    if ns.fishing.const and type(ns.fishing.const.knownBuffItems) == "table" then
-        local known = ns.fishing.const.knownBuffItems[tonumber(itemID)]
+    if ns.Fishing.const and type(ns.Fishing.const.knownBuffItems) == "table" then
+        local known = ns.Fishing.const.knownBuffItems[tonumber(itemID)]
         if type(known) == "table" and known.category then
-            Trace("Category from knownBuffItems: " .. tostring(known.category) .. " " .. Addon:GetDebugItemLabel(itemID))
+            Trace("Category from knownBuffItems: " .. tostring(known.category) .. " " .. ns.Utils.GetDebugItemLabel(itemID))
             return tostring(known.category)
         end
     end
 
-    if ns.fishing.const and type(ns.fishing.const.bobberToyItemIDs) == "table" then
-        for _, toy in ipairs(ns.fishing.const.bobberToyItemIDs) do
+    if ns.Fishing.const and type(ns.Fishing.const.bobberToyItemIDs) == "table" then
+        for _, toy in ipairs(ns.Fishing.const.bobberToyItemIDs) do
             local toyItemID = tonumber(type(toy) == "table" and toy.id or toy)
             if toyItemID == numeric then
                 return "bobber"
@@ -458,17 +449,17 @@ local function GetBuffItemCategory(itemID, bag, slot)
     if itemTypeText:find("consumable", 1, true) ~= nil then
         if itemSubTypeText:find("food", 1, true) ~= nil or itemSubTypeText:find("drink", 1, true) ~= nil then
             result = "fooddrink"
-            Trace("Category suggested by item info: " .. result .. " " .. Addon:GetDebugItemLabel(itemID))
+            Trace("Category suggested by item info: " .. result .. " " .. ns.Utils.GetDebugItemLabel(itemID))
         elseif itemSubTypeText:find("item enhancement", 1, true) ~= nil
             or itemSubTypeText:find("enchant", 1, true) ~= nil
             or itemSubTypeText:find("weapon", 1, true) ~= nil then
             result = "lure"
-            Trace("Category suggested by item info: " .. result .. " " .. Addon:GetDebugItemLabel(itemID))
+            Trace("Category suggested by item info: " .. result .. " " .. ns.Utils.GetDebugItemLabel(itemID))
         end
     end
 
     if not result and TooltipSuggestsLure(numeric, bag, slot) then
-        Trace("Category suggested by tooltip: lure " .. Addon:GetDebugItemLabel(itemID))
+        Trace("Category suggested by tooltip: lure " .. ns.Utils.GetDebugItemLabel(itemID))
         result = "lure"
     end
 
@@ -486,13 +477,13 @@ end
 function Fishing:IsBuffItemCategory(category, itemID, bag, slot)
     local normalizedCategory = type(category) == "string" and string.lower(category) or nil
     if not normalizedCategory or normalizedCategory == "" then
-        Trace("IsBuffItemCategory: invalid category provided: " .. tostring(category) .. " " .. Addon:GetDebugItemLabel(itemID))
+        Trace("IsBuffItemCategory: invalid category provided: " .. tostring(category) .. " " .. ns.Utils.GetDebugItemLabel(itemID))
         return false
     end
 
     local itemCategory = GetBuffItemCategory(itemID, bag, slot)
     if not itemCategory or itemCategory == "" then
-        Trace("IsBuffItemCategory: unable to determine category for item: " .. Addon:GetDebugItemLabel(itemID))
+        Trace("IsBuffItemCategory: unable to determine category for item: " .. ns.Utils.GetDebugItemLabel(itemID))
         return false
     end
 
@@ -505,15 +496,15 @@ function Fishing:ResolveRecognizedCategory(itemID)
         return nil, false
     end
 
-    local known = ns.fishing.const
-        and type(ns.fishing.const.knownBuffItems) == "table"
-        and ns.fishing.const.knownBuffItems[numeric]
+    local known = ns.Fishing.const
+        and type(ns.Fishing.const.knownBuffItems) == "table"
+        and ns.Fishing.const.knownBuffItems[numeric]
         or nil
     if type(known) == "table" and type(known.category) == "string" and known.category ~= "" then
         return known.category, true
     end
 
-    if ns.fishing.buff and type(ns.fishing.buff.GetBuffItemCategory) == "function" then
+    if ns.Fishing.buff and type(ns.Fishing.buff.GetBuffItemCategory) == "function" then
         local category = GetBuffItemCategory(numeric)
         if category and category ~= "" then
             return category, true

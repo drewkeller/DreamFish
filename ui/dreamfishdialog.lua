@@ -1,6 +1,6 @@
 local addonName, ns = ...
 local Addon = ns.Addon
-local Fishing = Addon:GetModule("Fishing")
+local Fishing = ns.Fishing
 
 Addon:RegisterTraceSource("ui.dreamfishdialog")
 local function Trace(msg)
@@ -38,7 +38,7 @@ local function SetIsChecked(dbKey, isChecked)
 end
 
 local function IsUnderlightAnglerItemID(itemID)
-    return tonumber(itemID) == tonumber(ns.fishing.const.underlightAnglerItemID)
+    return tonumber(itemID) == tonumber(ns.Fishing.const.underlightAnglerItemID)
 end
 
 local function GetBuffItem(category, index)
@@ -88,14 +88,14 @@ local function IsFishingPoleItemIDAndNotUnderlightAngler(itemID)
 end
 
 local function AutoDetectUnderlightAngler()
-    local anglerID = tonumber(ns.fishing.const.underlightAnglerItemID)
+    local anglerID = tonumber(ns.Fishing.const.underlightAnglerItemID)
     if not anglerID then return false end
 
     if GetItemID("underlightAngler") == anglerID then
         return false
     end
 
-    if Addon:IsItemAvailableForEquip(anglerID) then
+    if ns.Utils.IsItemAvailableForEquip(anglerID) then
         SetItemID("underlightAngler", anglerID)
         return true
     end
@@ -339,7 +339,7 @@ local function GetCachedInventoryList(categoryKey)
         lastScanTimestamp = now
 
         for _, config in ipairs(gridMatrix) do
-            local foundItems = Addon:FindItemsInBagsWhere(function(itemID, bag, slot)
+            local foundItems = ns.Utils.FindItemsInBagsWhere(function(itemID, bag, slot)
                 return Fishing:IsBuffItemCategory(config.key, itemID, bag, slot)
             end)
             cachedScanResults[config.key] = FlattenToNameBagSlot(foundItems)

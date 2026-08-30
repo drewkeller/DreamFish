@@ -1,15 +1,13 @@
 local addonName, ns = ...
 local Addon = ns.Addon
-local Fishing = Addon:GetModule("Fishing")
+local Fishing = ns.Fishing
 
 local globalDB, profileDB, charDB
-local function Initialize()
-    globalDB = ns.FishingDB.global
-    profileDB = ns.FishingDB.profile
-    charDB = ns.FishingDB.char
-end
-ns.FishingInitializers = ns.FishingInitializers or {}
-table.insert(ns.FishingInitializers, Initialize)
+ns.moduleInitializers["Fishing"].RegisterInitializer(function(self)
+    globalDB = self.db.global
+    profileDB = self.db.profile
+    charDB = self.db.char
+end)
 
 Fishing:RegisterTraceSource("underlight")
 
@@ -20,8 +18,8 @@ end
 local function GetUnderlightAnglerEquipDecision()
     local selections = ns.precast.GetConfiguredPoleSelections()
     local isSelected = selections.underlight.isChecked
-    local itemID = ns.fishing.const.underlightAnglerItemID or nil
-    local hasItem = Addon:IsItemAvailableForEquip(itemID)
+    local itemID = ns.Fishing.const.underlightAnglerItemID or nil
+    local hasItem = ns.Utils.IsItemAvailableForEquip(itemID)
     local mounted = IsMounted()
     local equippedItemID = ns.precast.GetEquippedProfessionItemID()
     local alreadyEquipped = itemID
@@ -58,7 +56,7 @@ end
 
 local function EquipUnderlightAnglerAfterFishing(reason)
     local selection = ns.precast.GetConfiguredPoleSelections().underlight
-    local itemID = tonumber(ns.fishing.const.underlightAnglerItemID)
+    local itemID = tonumber(ns.Fishing.const.underlightAnglerItemID)
     if not selection.isChecked or not itemID or itemID <= 0 or InCombatLockdown() or IsMounted() then
         return false
     end
@@ -67,7 +65,7 @@ local function EquipUnderlightAnglerAfterFishing(reason)
         return true
     end
 
-    local bag, slot = Addon:FindItemInBags(itemID)
+    local bag, slot = ns.Utils.FindItemInBags(itemID)
     if bag and slot and C_Container and C_Container.PickupContainerItem and EquipCursorItem then
         C_Container.PickupContainerItem(bag, slot)
         EquipCursorItem(28)
