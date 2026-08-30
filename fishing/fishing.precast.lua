@@ -92,17 +92,14 @@ local function InsertEquipItemMacroLine(macroLines, itemID)
 end
 
 local function ConfigureFishingClickAction(self)
-    local raftDecision = ns.precast.GetRaftUseDecision(self)
-    local poleDecision = ns.precast.GetSelectedFishingPoleDecision()
-    local underlightDecision = ns.precast.GetUnderlightAnglerEquipDecision()
-    local bobberDecision = ns.precast.GetBobberUseDecision()
-    local oversizedDecision = ns.precast.GetOversizedBobberDecision()
+    --local underlightDecision = ns.precast.GetUnderlightAnglerEquipDecision()
     local macroLines = {}
 
     local hasItemUseAction = false
     local raftExclusive = false
 
     -- Raft
+    local raftDecision = ns.precast.GetRaftUseDecision(self)
     if raftDecision.shouldApply then
         InsertUseItemMacroLine(macroLines, raftDecision.toyID)
         hasItemUseAction = true
@@ -114,50 +111,51 @@ local function ConfigureFishingClickAction(self)
         end
     end
 
-    -- Pole
-    if (not raftExclusive) and poleDecision.shouldApply then
-        InsertEquipItemMacroLine(macroLines, poleDecision.itemID)
-        Trace("Configured fishing pole: "
-            .. ns.Utils.GetDebugItemLabel(poleDecision.itemID))
-    end
-
-    -- Underlight Angler
-    if (not raftExclusive) and underlightDecision.shouldEquip then
-        InsertEquipItemMacroLine(macroLines, underlightDecision.itemID)
-        Trace("Configured Underlight Angler: "
-            .. ns.Utils.GetDebugItemLabel(underlightDecision.itemID))
-    end
-
-    -- Bobber
-    if (not raftExclusive) and (not hasItemUseAction) and bobberDecision.shouldApply then
-        InsertUseItemMacroLine(macroLines, bobberDecision.toyID)
-        hasItemUseAction = true
-        Trace("Configured bobber: "
-            .. ns.Utils.GetDebugItemLabel(bobberDecision.toyID) .. " " .. ns.Utils.GetDebugCooldownText(bobberDecision.toyID))
-    end
-
-    -- Oversize bobber
-    if (not raftExclusive) and (not hasItemUseAction) and oversizedDecision.shouldApply then
-        InsertUseItemMacroLine(macroLines, oversizedDecision.toyID)
-        hasItemUseAction = true
-        Trace("Configured oversized bobber: "
-            .. ns.Utils.GetDebugItemLabel(oversizedDecision.toyID) .. " " .. ns.Utils.GetDebugCooldownText(oversizedDecision.toyID))
-    end
-
-    -- Buff item
-    if not hasItemUseAction then
-        local consumableDecision = ns.precast.GetConsumableUseDecision(self)
-        if consumableDecision.shouldApply then
-            InsertUseItemMacroLine(macroLines, consumableDecision.itemID)
+    if not raftExclusive then
+        -- Bobber
+        local bobberDecision = ns.precast.GetBobberUseDecision()
+        if (not hasItemUseAction) and bobberDecision.shouldApply then
+            InsertUseItemMacroLine(macroLines, bobberDecision.toyID)
             hasItemUseAction = true
-            if consumableDecision.category == "lure" then
-                table.insert(macroLines, "/use 28") -- apply lure to fishing profession equipment slot
-            end
-            Trace("Configured due buff (" .. tostring(consumableDecision.category) .. "): "
-                .. ns.Utils.GetDebugItemLabel(consumableDecision.itemID) .. " " .. ns.Utils.GetDebugCooldownText(consumableDecision.itemID))
+            Trace("Configured bobber: "
+                .. ns.Utils.GetDebugItemLabel(bobberDecision.toyID) .. " " .. ns.Utils.GetDebugCooldownText(bobberDecision.toyID))
         end
-    else
-        Fishing.clickFrame:SetAttribute("dreamfisher_duebuff", nil)
+
+        -- Oversize bobber
+        local oversizedDecision = ns.precast.GetOversizedBobberDecision()
+        if (not hasItemUseAction) and oversizedDecision.shouldApply then
+                InsertUseItemMacroLine(macroLines, oversizedDecision.toyID)
+                hasItemUseAction = true
+                Trace("Configured oversized bobber: "
+                    .. ns.Utils.GetDebugItemLabel(oversizedDecision.toyID) .. " " .. ns.Utils.GetDebugCooldownText(oversizedDecision.toyID))
+        end
+
+        -- Buff item
+        if not hasItemUseAction then
+            local consumableDecision = ns.precast.GetConsumableUseDecision(self)
+            if consumableDecision.shouldApply then
+                ns.Utils.Print("Applying due buff: " .. ns.Utils.GetDebugItemLabel(consumableDecision.itemID) .. " (" .. tostring(consumableDecision.category) .. ")")
+                InsertUseItemMacroLine(macroLines, consumableDecision.itemID)
+                hasItemUseAction = true
+                if consumableDecision.category == "lure" then
+                    table.insert(macroLines, "/use 28") -- apply lure to fishing profession equipment slot
+                end
+                Trace("Configured due buff (" .. tostring(consumableDecision.category) .. "): "
+                    .. ns.Utils.GetDebugItemLabel(consumableDecision.itemID) .. " " .. ns.Utils.GetDebugCooldownText(consumableDecision.itemID))
+            end
+        else
+            Fishing.clickFrame:SetAttribute("dreamfisher_duebuff", nil)
+        end
+
+        -- Pole
+        if not hasItemUseAction then
+            local poleDecision = ns.precast.GetSelectedFishingPoleDecision()
+            if poleDecision.shouldApply then
+                InsertEquipItemMacroLine(macroLines, poleDecision.itemID)
+                Trace("Configured fishing pole: "
+                    .. ns.Utils.GetDebugItemLabel(poleDecision.itemID))
+            end
+        end
     end
 
     local configured = FinalizeSecureFishingAction(

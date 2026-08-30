@@ -67,6 +67,17 @@ function Fishing:SetFishingState(state, reason)
         Trace(state, reason)
     end
 
+    local currentFlags = FISHING_STATE_FLAGS[self.state.current]
+    if currentFlags then
+        local oldState = self.state.current
+        local wasCastActive = currentFlags.isCastActive
+        local isCastActive = FISHING_STATE_FLAGS[state].isCastActive
+        if wasCastActive and not isCastActive then
+            ns.Utils.Print("Fishing cast ended: " .. (reason or "unknown reason"))
+            self:SendMessage("FISHING_CAST_ENDED", oldState, state)
+        end
+    end
+
     self.state.current = state
     for key, value in pairs(FISHING_STATE_FLAGS[state]) do
         self.state[key] = value

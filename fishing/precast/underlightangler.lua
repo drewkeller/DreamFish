@@ -30,6 +30,7 @@ local function GetUnderlightAnglerEquipDecision()
         and hasItem
         and not mounted
         and not alreadyEquipped
+        and not Fishing:CanStartCast()
 
     if shouldEquip then
         Trace("Underlight Angler can be equipped")
@@ -54,7 +55,7 @@ local function GetUnderlightAnglerEquipDecision()
     }
 end
 
-local function EquipUnderlightAnglerAfterFishing(reason)
+function Fishing:CheckAndEquipUnderlightAngler(reason)
     local selection = ns.precast.GetConfiguredPoleSelections().underlight
     local itemID = tonumber(ns.Fishing.const.underlightAnglerItemID)
     if not selection.isChecked or not itemID or itemID <= 0 or InCombatLockdown() or IsMounted() then
@@ -72,23 +73,25 @@ local function EquipUnderlightAnglerAfterFishing(reason)
         if ClearCursor then
             ClearCursor()
         end
-        Fishing:Trace("underlight", "Equipping Underlight Angler after fishing cancellation: " .. tostring(reason))
+        Trace("Equipping Underlight Angler after fishing cancellation: " .. tostring(reason))
         return true
     end
 
     if C_Item.EquipItemByName then
         C_Item.EquipItemByName("item:" .. itemID, 28)
-        Fishing:Trace("underlight", "Equipping Underlight Angler after fishing cancellation: " .. tostring(reason))
+        Trace("Equipping Underlight Angler after fishing cancellation: " .. tostring(reason))
         return true
     end
 
     return false
 end
 
-local function ApplySelectedUnderlightAngler()
-    return EquipUnderlightAnglerAfterFishing("selection changed")
+function Fishing:OnFishingCastEnded(event, oldState, newState)
+    ns.Utils.Print("Fishing cast ended message received; checking if Underlight Angler should be equipped.")
+    if self:CheckAndEquipUnderlightAngler("cast ended event: " .. tostring(newState)) then
+        ns.Utils.Print("Equipping Underlight Angler")
+        Trace("Equipped Underlight Angler after fishing cast ended")
+    end
 end
 
 ns.precast.GetUnderlightAnglerEquipDecision = GetUnderlightAnglerEquipDecision
-ns.precast.ApplySelectedUnderlightAngler = ApplySelectedUnderlightAngler
-ns.precast.EquipUnderlightAnglerAfterFishing = EquipUnderlightAnglerAfterFishing

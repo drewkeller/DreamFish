@@ -106,7 +106,7 @@ local function GetSelectedFishingPoleDecision()
     local alreadyEquipped = poleItemID and equippedItemID and (poleItemID == equippedItemID) or false
     local shouldApply = hasItem
         and selections.primary.isChecked
-        and Fishing:IsInFishingSession()
+        and Fishing:CanStartCast()
         and (not mounted)
         and (not alreadyEquipped)
 
@@ -261,7 +261,11 @@ local function ApplySelectedFishingPole()
         itemToEquip = underlight.itemID
     end
 
-    TryEquipItemToProfessionSlot(itemToEquip)
+    if(TryEquipItemToProfessionSlot(itemToEquip)) then
+        Trace("Successfully equipped selected pole: " .. ns.Utils.GetDebugItemLabel(itemToEquip))
+    else
+        Trace("Failed to equip selected pole: " .. ns.Utils.GetDebugItemLabel(itemToEquip))
+    end
 end
 
 ns.precast.GetSelectedFishingPoleDecision = GetSelectedFishingPoleDecision

@@ -50,6 +50,8 @@ function Fishing:OnModuleEnable()
     self:RegisterEvent("LOOT_READY",                   "OnLootReady")
     self:RegisterEvent("LOOT_CLOSED",                  "OnLootClosed")
 
+    self:RegisterMessage("FISHING_CAST_ENDED",         "OnFishingCastEnded")
+
     self:ApplyKeybinding()
     self:PrepareFishingClickAction()
 end
@@ -69,6 +71,7 @@ function Fishing:OnModuleDisable()
     self:UnregisterEvent("UNIT_AURA")
     self:UnregisterEvent("LOOT_READY")
     self:UnregisterEvent("LOOT_CLOSED")
+    self:UnregisterMessage("FISHING_CAST_ENDED")
     self:RemoveClickFrame()
 end
 
@@ -222,7 +225,7 @@ function Fishing:EndFishingSession(reason)
     self:StopMouseButtonWatch()
     self:ClearBobberInteractOverride()
     self:ReleaseClickCapture()
-    ns.precast.EquipUnderlightAnglerAfterFishing(reason)
+    self:CheckAndEquipUnderlightAngler(reason)
     self.state.buffDepletionAlerted = nil
     self:SetFishingState(ns.Fishing.states.IDLE, reason)
 end
@@ -239,6 +242,7 @@ end
 
 function Fishing:OnCombatEnded()
     self:UpdateKeybindsAfterCombat()
+    self:CheckAndEquipUnderlightAngler("combat ended")
 end
 
 function Fishing:OnMovementStarted()
@@ -369,6 +373,13 @@ function Fishing:OnSpellcastChannelEnded(event, unit, ...)
 
     local _, spellID = ...
 
+    -- If we are already looting or lingering, let those lifecycle states manage the session cleanup.
+    local current = self.state.current
+    if current == ns.Fishing.states.LOOTING or current == ns.Fishing.states.LINGERING then
+        self:Trace("EasyStrike", "Channel stop event ignored; already processing catch cleanup.")
+        return
+    end
+
     local isFishingSpell = spellID == ns.Fishing.const.fishingSpellID or spellID == 131476
 
     if isFishingSpell then
@@ -381,9 +392,7 @@ function Fishing:OnSpellcastChannelEnded(event, unit, ...)
                     self:CancelFishingSession("cast ended without a catch")
                 end
             end, 0.5)
-        elseif (self.state.current == ns.Fishing.states.WAITING_FOR_LOOT_WINDOW)
-            or (self.state.current == ns.Fishing.states.LOOTING)
-            or (self.state.current == ns.Fishing.states.LINGERING) then
+        elseif (self.state.current == ns.Fishing.states.WAITING_FOR_LOOT_WINDOW) then
             -- The strike landed; looting/linger owns the session end from here.
             self:Trace("EasyStrike", "cast ended with a catch")
         else
