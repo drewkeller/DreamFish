@@ -5,14 +5,12 @@ local AceGUI = LibStub("AceGUI-3.0")
 
 ns.LootTracker = LootTracker
 
-ns.moduleInitializers["LootTracker"] = {
-    initializerFuncs = {},
-    RegisterInitializer = function(func)
-        if type(func) == "function" then
-            table.insert(ns.moduleInitializers["LootTracker"].initializerFuncs, func)
-        end
-    end,
-}
+function LootTracker:RegisterInitializer(func)
+    if type(func) == "function" then
+        self.initializerFuncs = self.initializerFuncs or {}
+        table.insert(self.initializerFuncs, func)
+    end
+end
 
 local lootTrackerWindow
 local scrollContainer
@@ -27,8 +25,10 @@ function LootTracker:OnModuleInitialize()
     -- local defaults = ns.moduleDefaults["LootTracker"]
     -- self.db = ns.Addon.db:RegisterNamespace("LootTracker", defaults)
 
-    for _, initializerFunc in ipairs(ns.moduleInitializers["LootTracker"].initializerFuncs) do
-        initializerFunc(self)
+    if self.initializerFuncs then
+        for _, initializerFunc in ipairs(self.initializerFuncs) do
+            initializerFunc(self)
+        end
     end
 end
 

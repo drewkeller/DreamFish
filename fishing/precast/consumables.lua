@@ -8,7 +8,7 @@ state.buffItemLastUseAt = state.buffItemLastUseAt or {}
 state.buffItemTransientUntil = state.buffItemTransientUntil or {}
 
 local globalDB, profileDB, charDB
-ns.moduleInitializers["Fishing"].RegisterInitializer(function(self)
+Fishing:RegisterInitializer(function(self)
     globalDB = self.db.global
     profileDB = self.db.profile
     charDB = self.db.char

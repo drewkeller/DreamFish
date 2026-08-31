@@ -44,6 +44,13 @@ local FISHING_STATE_FLAGS = {
 Fishing.state.current = FISHING_STATES.IDLE
 ns.Fishing.states = FISHING_STATES
 
+Fishing:RegisterInitializer(function(self)
+    self.state.current = FISHING_STATES.IDLE
+    for key, value in pairs(FISHING_STATE_FLAGS[FISHING_STATES.IDLE]) do
+        self.state[key] = value
+    end
+end)
+
 Fishing:RegisterTraceSource("states")
 
 local function Trace(state, reason)

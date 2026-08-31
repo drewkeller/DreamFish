@@ -6,14 +6,12 @@ ns.precast = {}
 
 ns.Fishing.ConfigureFishingClickAction = ns.Fishing.ConfigureFishingClickAction or function(self) end
 
-ns.moduleInitializers["Fishing"] = {
-    initializerFuncs = {},
-    RegisterInitializer = function(func)
+function Fishing:RegisterInitializer(func)
         if type(func) == "function" then
-            table.insert(ns.moduleInitializers["Fishing"].initializerFuncs, func)
+        self.initializerFuncs = self.initializerFuncs or {}
+        table.insert(self.initializerFuncs, func)
+    end
         end
-    end,
-}
 
 local rightClickStrikeOwner
 
@@ -27,9 +25,7 @@ function Fishing:OnModuleInitialize()
     -- In local functions, use ns.FishingDB
     ns.FishingDB = self.db
 
-    self.state = {}
-
-    for _, initializerFunc in ipairs(ns.moduleInitializers["Fishing"].initializerFuncs) do
+    for _, initializerFunc in ipairs(self.initializerFuncs) do
         initializerFunc(self)
     end
 end

@@ -4,7 +4,6 @@ local Addon = ns.Addon
 ns.moduleDefaults = {}
 --ns.moduleOptions = {}
 ns.moduleConstants = {}
-ns.moduleInitializers = {}
 
 local function GetTraceOptions()
     local traceOptions = {}

@@ -7,7 +7,7 @@ ns.AddonInitializers = ns.AddonInitializers or {}
 function Addon:InitializeTraceSources()
     if self.pendingCoreTraces then
         for _, source in ipairs(self.pendingCoreTraces) do
-            ns.Utils.Print("Registering trace source: " .. tostring(source))
+            --ns.Utils.Print("Registering trace source: " .. tostring(source))
             self:RegisterTraceSource(source)
         end
         self.pendingCoreTraces = nil
@@ -26,7 +26,7 @@ function Addon:RegisterTraceSource(source)
     self.db.profile.traces = self.db.profile.traces or {}
 
     if self.db.profile.traces[source] == nil then
-        ns.Utils.Print("Initializing trace source: " .. tostring(source))
+        --ns.Utils.Print("Initializing trace source: " .. tostring(source))
         self.db.profile.traces[source] = false -- Disabled by default
     end
 end
