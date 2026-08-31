@@ -58,17 +58,15 @@ end
 
 local function FinalizeSecureFishingAction(fishingFrame, macroLines, raftExclusiveWhileSwimming, hasConsumableAction)
     if #macroLines > 0 then
-        local castArmed = (not raftExclusiveWhileSwimming) and (not hasConsumableAction)
-        if castArmed then
-            table.insert(macroLines, "/cast Fishing")
+        -- Use [nochanneling] to dynamically block the fishing cast if casting a buff item
+        if not raftExclusiveWhileSwimming then
+            table.insert(macroLines, "/cast [nochanneling] Fishing")
         end
         fishingFrame:SetAttribute("type", "macro")
         fishingFrame:SetAttribute("macrotext", table.concat(macroLines, "\n"))
         fishingFrame:SetAttribute("spell", nil)
         if raftExclusiveWhileSwimming then
             Trace("Configured as raft-only pre-cast")
-        elseif not castArmed then
-            Trace("Configured with pre-cast item usage; cast not armed yet")
         else
             Trace("Configured with pre-cast items on same-click cast")
         end
@@ -86,11 +84,6 @@ local function InsertUseItemMacroLine(macroLines, itemID)
     table.insert(macroLines, line)
 end
 
-local function InsertEquipItemMacroLine(macroLines, itemID)
-    local line = "/equip item:" .. tostring(itemID)
-    table.insert(macroLines, line)
-end
-
 local function ConfigureFishingClickAction(self)
     --local underlightDecision = ns.precast.GetUnderlightAnglerEquipDecision()
     local macroLines = {}
@@ -103,7 +96,7 @@ local function ConfigureFishingClickAction(self)
     if raftDecision.shouldApply then
         InsertUseItemMacroLine(macroLines, raftDecision.toyID)
         hasItemUseAction = true
-        Trace("Configured raft: "
+        Trace("Armed raft: "
             .. ns.Utils.GetDebugItemLabel(raftDecision.toyID) .. " " .. ns.Utils.GetDebugCooldownText(raftDecision.toyID))
         if raftDecision.swimming then
             raftExclusive = true
@@ -117,8 +110,7 @@ local function ConfigureFishingClickAction(self)
         if (not hasItemUseAction) and bobberDecision.shouldApply then
             InsertUseItemMacroLine(macroLines, bobberDecision.toyID)
             hasItemUseAction = true
-            Trace("Configured bobber: "
-                .. ns.Utils.GetDebugItemLabel(bobberDecision.toyID) .. " " .. ns.Utils.GetDebugCooldownText(bobberDecision.toyID))
+            Trace("Armed bobber: " .. ns.Utils.GetDebugItemLabel(bobberDecision.toyID))
         end
 
         -- Oversize bobber
@@ -126,36 +118,31 @@ local function ConfigureFishingClickAction(self)
         if (not hasItemUseAction) and oversizedDecision.shouldApply then
                 InsertUseItemMacroLine(macroLines, oversizedDecision.toyID)
                 hasItemUseAction = true
-                Trace("Configured oversized bobber: "
-                    .. ns.Utils.GetDebugItemLabel(oversizedDecision.toyID) .. " " .. ns.Utils.GetDebugCooldownText(oversizedDecision.toyID))
+                Trace("Armed oversized bobber: " .. ns.Utils.GetDebugItemLabel(oversizedDecision.toyID))
         end
 
         -- Buff item
+        -- If an instant background pole swap is actively loading, exit early and skip consumable queue loops!
+        if self.state.isEquippingPrimaryPole then
+            Trace("Pole swap in progress; skipping consumable pre-cast checks this click")
+            local configured = FinalizeSecureFishingAction(Fishing.clickFrame, macroLines, raftExclusive, hasItemUseAction)
+            return configured
+        end
+
         if not hasItemUseAction then
             local consumableDecision = ns.precast.GetConsumableUseDecision(self)
             if consumableDecision.shouldApply then
-                ns.Utils.Print("Applying due buff: " .. ns.Utils.GetDebugItemLabel(consumableDecision.itemID) .. " (" .. tostring(consumableDecision.category) .. ")")
+                ns.Utils.Print("Arming due buff: " .. ns.Utils.GetDebugItemLabel(consumableDecision.itemID) .. " (" .. tostring(consumableDecision.category) .. ")")
                 InsertUseItemMacroLine(macroLines, consumableDecision.itemID)
                 hasItemUseAction = true
                 if consumableDecision.category == "lure" then
-                    table.insert(macroLines, "/use 28") -- apply lure to fishing profession equipment slot
+                    table.insert(macroLines, "/use 28")
                 end
-                Trace("Configured due buff (" .. tostring(consumableDecision.category) .. "): "
-                    .. ns.Utils.GetDebugItemLabel(consumableDecision.itemID) .. " " .. ns.Utils.GetDebugCooldownText(consumableDecision.itemID))
             end
         else
             Fishing.clickFrame:SetAttribute("dreamfisher_duebuff", nil)
         end
 
-        -- Pole
-        if not hasItemUseAction then
-            local poleDecision = ns.precast.GetSelectedFishingPoleDecision()
-            if poleDecision.shouldApply then
-                InsertEquipItemMacroLine(macroLines, poleDecision.itemID)
-                Trace("Configured fishing pole: "
-                    .. ns.Utils.GetDebugItemLabel(poleDecision.itemID))
-            end
-        end
     end
 
     local configured = FinalizeSecureFishingAction(

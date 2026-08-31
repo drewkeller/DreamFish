@@ -89,14 +89,16 @@ function Fishing:UpdatePendingBuffObservation()
         return
     end
 
-    if GetTime() > self.state.pendingBuffObservation.expiresAt then
-        local unresolvedItemID = tonumber(self.state.pendingBuffObservation.itemID)
-        if unresolvedItemID and unresolvedItemID > 0 and self.state then
-            self.state.buffUnknownDurationSuppressed = self.state.buffUnknownDurationSuppressed or {}
-            self.state.buffUnknownDurationSuppressed[unresolvedItemID] = true
+    if self.state.pendingBuffObservation.expiresAt then
+        if GetTime() > self.state.pendingBuffObservation.expiresAt then
+            local unresolvedItemID = tonumber(self.state.pendingBuffObservation.itemID)
+            if unresolvedItemID and unresolvedItemID > 0 and self.state then
+                self.state.buffUnknownDurationSuppressed = self.state.buffUnknownDurationSuppressed or {}
+                self.state.buffUnknownDurationSuppressed[unresolvedItemID] = true
+            end
+            self.state.pendingBuffObservation = nil
+            return
         end
-        self.state.pendingBuffObservation = nil
-        return
     end
 
     local before = self.state.pendingBuffObservation.before or {}
@@ -142,6 +144,14 @@ function Fishing:UpdatePendingBuffObservation()
 
     if bestSpellID then
         local itemID = pendingItemID or 0
+
+        -- Completely refuse to write tracking rules if itemID has dropped into a nil/0 fallback state!
+        if not itemID or itemID <= 0 then
+            ns.Utils.Debug("Aborting aura database write: pendingItemID is invalid or zero.")
+            self.state.pendingBuffObservation = nil
+            return
+        end
+
         local key = tostring(itemID)
         local existingTracked = self.db.global.buffAuraByItem[key]
         local existingDuration = type(existingTracked) == "table" and tonumber(existingTracked.duration) or 0

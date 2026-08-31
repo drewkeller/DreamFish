@@ -41,7 +41,7 @@ local FISHING_STATE_FLAGS = {
     - FISHING_LOOT_CLOSED
 ]]
 
-Fishing.state.current = FISHING_STATES.IDLE
+Fishing.state = Fishing.state or {}
 ns.Fishing.states = FISHING_STATES
 
 Fishing:RegisterInitializer(function(self)

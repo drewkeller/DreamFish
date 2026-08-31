@@ -73,13 +73,13 @@ function Fishing:CheckAndEquipUnderlightAngler(reason)
         if ClearCursor then
             ClearCursor()
         end
-        Trace("Equipping Underlight Angler after fishing cancellation: " .. tostring(reason))
+        Trace("Equipping Underlight Angler: " .. tostring(reason))
         return true
     end
 
     if C_Item.EquipItemByName then
-        C_Item.EquipItemByName("item:" .. itemID, 28)
-        Trace("Equipping Underlight Angler after fishing cancellation: " .. tostring(reason))
+        C_Item.EquipItemByName("item:" .. tostring(itemID), 28)
+        Trace("Equipping Underlight Angler: " .. tostring(reason))
         return true
     end
 
@@ -87,11 +87,6 @@ function Fishing:CheckAndEquipUnderlightAngler(reason)
 end
 
 function Fishing:OnFishingCastEnded(event, oldState, newState)
-    ns.Utils.Print("Fishing cast ended message received; checking if Underlight Angler should be equipped.")
-    if self:CheckAndEquipUnderlightAngler("cast ended event: " .. tostring(newState)) then
-        ns.Utils.Print("Equipping Underlight Angler")
-        Trace("Equipped Underlight Angler after fishing cast ended")
-    end
 end
 
 ns.precast.GetUnderlightAnglerEquipDecision = GetUnderlightAnglerEquipDecision

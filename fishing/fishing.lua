@@ -7,16 +7,16 @@ ns.precast = {}
 ns.Fishing.ConfigureFishingClickAction = ns.Fishing.ConfigureFishingClickAction or function(self) end
 
 function Fishing:RegisterInitializer(func)
-        if type(func) == "function" then
+    if type(func) == "function" then
         self.initializerFuncs = self.initializerFuncs or {}
         table.insert(self.initializerFuncs, func)
     end
-        end
+end
 
 local rightClickStrikeOwner
 
 Fishing:RegisterTraceSource("EasyStrike")
-Fishing:RegisterTraceSource("aura")
+Fishing:RegisterTraceSource("auraevent")
 Fishing:RegisterTraceSource("hotkey")
 Fishing:RegisterTraceSource("loot")
 
@@ -24,6 +24,17 @@ function Fishing:OnModuleInitialize()
     -- access the database within "Fishing" functions using self.db
     -- In local functions, use ns.FishingDB
     ns.FishingDB = self.db
+
+    self.state = self.state or {}
+
+    -- FIX 1: FORCE-PURGE DATA CORRUPTION LOCKS FROM SAVEDVARIABLES
+    if self.db and self.db.global and type(self.db.global.buffAuraByItem) == "table" then
+        if self.db.global.buffAuraByItem["0"] or self.db.global.buffAuraByItem[0] then
+            ns.Utils.Debug("Purging corrupted item:0 database tracking lock record.")
+            self.db.global.buffAuraByItem["0"] = nil
+            self.db.global.buffAuraByItem[0] = nil
+        end
+    end
 
     for _, initializerFunc in ipairs(self.initializerFuncs) do
         initializerFunc(self)
@@ -33,6 +44,7 @@ end
 function Fishing:OnModuleEnable()
     ns.Utils.Debug("Fishing:OnModuleEnable()")
     self:CreateClickFrame()
+    self:RegisterEvent("ADDON_LOADED",                 "OnAddonLoaded")
     self:RegisterEvent("PLAYER_REGEN_ENABLED",         "OnCombatEnded")
     self:RegisterEvent("PLAYER_REGEN_DISABLED",        "OnCombatStarted")
     self:RegisterEvent("PLAYER_STARTED_MOVING",        "OnMovementStarted")
@@ -49,10 +61,10 @@ function Fishing:OnModuleEnable()
     self:RegisterMessage("FISHING_CAST_ENDED",         "OnFishingCastEnded")
 
     self:ApplyKeybinding()
-    self:PrepareFishingClickAction()
 end
 
 function Fishing:OnModuleDisable()
+    self:UnregisterEvent("ADDON_LOADED")
     self:UnregisterEvent("PLAYER_REGEN_ENABLED")
     self:UnregisterEvent("PLAYER_REGEN_DISABLED")
     self:UnregisterEvent("PLAYER_STARTED_MOVING")
@@ -72,6 +84,28 @@ function Fishing:OnModuleDisable()
 end
 
 function Fishing:OnBagUpdateDelayed()
+    -- Equipping profession tools trigger bag update, not equipment change
+    if self.state and self.state.isEquippingPrimaryPole then
+        local poleDecision = ns.precast.GetSelectedFishingPoleDecision()
+        if not poleDecision or not poleDecision.shouldApply then
+
+            -- If we are actively in the middle of a hotkey PRECASTING press frame,
+            -- do NOT clear the flag yet! Wait for the player's next standalone cast loop.
+            if self:IsFishingState(ns.Fishing.states.PRECASTING) then
+                return
+            end
+
+            self:Trace("pole", "Fishing pole change successfully detected and applied.")
+            self.state.isEquippingPrimaryPole = false
+
+            -- If a hotkey was JUST pressed and we are PRECASTING, rewrite the macro in mid-click.
+            -- Let the physical click release handle it naturally.
+            if not self:IsFishingState(ns.Fishing.states.PRECASTING) then
+                self:PrepareFishingClickAction()
+            end
+        end
+    end
+
     if type(self.ConfirmPendingBuffUse) == "function" then
         self:ConfirmPendingBuffUse()
     end
@@ -111,6 +145,13 @@ function Fishing:PrepareFishingClickAction()
     if not self.clickFrame or InCombatLockdown() then
         return
     end
+
+    -- Securely defend your JIT compilation states.
+    -- If a channel bar is actively running, never re-compile the macro text arrays mid-cast!
+    if self:IsFishingState(ns.Fishing.states.CASTING) or self:IsFishingState(ns.Fishing.states.WAITING_FOR_BITE) then
+        return
+    end
+
     ns.Fishing.ConfigureFishingClickAction(self)
 end
 
@@ -118,21 +159,18 @@ function Fishing:OnAurasChanged(event, unit, updateInfo)
     if type(unit) == "string" and unit ~= "player" then
         return
     end
-    -- if not self:IsInFishingSession() then
-    --     return
-    -- end
-    -- is this really needed? if outside of fishing session, it gets called constantly
-    if self:IsFishingState(ns.Fishing.states.IDLE)
-        or self:IsFishingState(ns.Fishing.states.PRECASTING)
+
+    if not self:IsInFishingSession() or self:IsFishingState(ns.Fishing.states.IDLE) then
+        return
+    end
+
+    if self:IsFishingState(ns.Fishing.states.PRECASTING)
         or self:IsFishingState(ns.Fishing.states.LINGERING) then
         self:PrepareFishingClickAction()
     end
-    if not updateInfo then
-        self:Trace("aura", "OnAurasChanged: no updateInfo provided")
-        return
-    end
+
     if updateInfo.isFullUpdate == true then
-        self:Trace("aura", "Full aura update detected")
+        self:Trace("auraevent", "Full aura update detected")
         return
     end
 
@@ -141,7 +179,7 @@ function Fishing:OnAurasChanged(event, unit, updateInfo)
     if updateInfo.addedAuras then
         for _, aura in ipairs(updateInfo.addedAuras) do
             hasAddedAuras = true
-            self:Trace("aura", "Added: " .. tostring(aura.spellId) .. " (" .. tostring(aura.name) .. ")")
+            self:Trace("auraevent", "Added: " .. tostring(aura.spellId) .. " (" .. tostring(aura.name) .. ")")
         end
     end
 
@@ -149,18 +187,24 @@ function Fishing:OnAurasChanged(event, unit, updateInfo)
         -- if a fishing aura was removed, the bobber may have been looted or despawned (cast finished)
         for _, aura in ipairs(updateInfo.removedAuras) do
             hasRemovedAuras = true
-            self:Trace("aura", "Removed: " .. tostring(aura.spellId) .. " (" .. tostring(aura.name) .. ")")
+            self:Trace("auraevent", "Removed: " .. tostring(aura.spellId) .. " (" .. tostring(aura.name) .. ")")
         end
     end
 
     if not hasAddedAuras and not hasRemovedAuras then
-        --self:Trace("aura", "No added or removed auras (existing updated?)")
+        --self:Trace("auraevent", "No added or removed auras (existing updated?)")
     end
 end
 
+function Fishing:OnAddonLoaded(event)
+    self:CheckAndEquipUnderlightAngler("addon loaded")
+end
+
+-- This function does NOT fire for profession slotted items
 function Fishing:OnEquipmentChanged(event, slotId)
     if slotId == FISHINGTOOLSLOT then
         self:Trace("pole", "Fishing pole changed")
+        self.state.isEquippingPrimaryPole = false
         -- if hotkey cast fishing pole, prepare it again
         if self:IsFishingState(ns.Fishing.states.IDLE)
             or self:IsFishingState(ns.Fishing.states.PRECASTING)
@@ -199,7 +243,6 @@ end
 function Fishing:StartLinger()
     -- Recasting is allowed while lingering, so hand the hotkey and the secure action back to casting.
     self:ClearBobberInteractOverride()
-    self:PrepareFishingClickAction()
     self:SetFishingState(ns.Fishing.states.LINGERING, "start linger")
     self:ScheduleTimer(function()
         if self:IsFishingState(ns.Fishing.states.LINGERING) then
@@ -349,7 +392,7 @@ function Fishing:OnSpellcastChannelStarted(event, unit, ...)
     end
 
     if spellID ~= ns.Fishing.const.fishingSpellID then
-        --Fishing:Trace("aura", "Spellcast channel started for non-fishing spellID=" .. tostring(spellID))
+        --Fishing:Trace("auraevent", "Spellcast channel started for non-fishing spellID=" .. tostring(spellID))
         return
     end
 
@@ -402,9 +445,17 @@ end
 function Fishing:OnCastStarted(reason)
     self:SetFishingState(ns.Fishing.states.PRECASTING, reason)
     self:SendMessage("FISHING_CAST_STARTED")
-    if type(self.CheckEnabledBuffItemsDepleted) == "function" then
-        self:CheckEnabledBuffItemsDepleted()
+
+    local poleDecision = ns.precast.GetSelectedFishingPoleDecision()
+    if poleDecision and poleDecision.shouldApply and poleDecision.itemID then
+        C_Item.EquipItemByName(poleDecision.itemID)
+        self.state.isEquippingPrimaryPole = true
+        self:Trace("pole", "Equipping primary fishing pole: " .. tostring(poleDecision.itemID))
+    else
+        self.state.isEquippingPrimaryPole = false
     end
+
+    self:CheckEnabledBuffItemsDepleted()
     self:PrepareFishingClickAction()
     self:StartMouseButtonWatch()
 

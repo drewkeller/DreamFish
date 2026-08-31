@@ -157,7 +157,7 @@ local function TryEquipItemToProfessionSlot(itemID)
         equipCursorFn = type(equipCursorFn) == "function" and equipCursorFn or EquipCursorItem
         if type(pickupFn) ~= "function" or type(equipCursorFn) ~= "function" then
             if type(C_Item.EquipItemByName) == "function" then
-                local okFallback = pcall(C_Item.EquipItemByName, itemRef, targetSlot)
+                local okFallback = pcall(C_Item.EquipItemByName, itemRef)
                 equipRequestDispatched = equipRequestDispatched or okFallback
                 if okFallback then
                     lastDispatchedMethod = "cursor-fallback:EquipItemByName:slot" .. tostring(targetSlot)

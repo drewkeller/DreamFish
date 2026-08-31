@@ -104,12 +104,15 @@ local function GetKnownSpellAndDuration(itemID)
 end
 
 local function IsFishingLureApplied()
+    Trace("Checking if fishing lure is applied...")
     if not C_TooltipInfo then
+        Trace("C_TooltipInfo API not available, cannot check for fishing lure")
         return false
     end
 
     local function TooltipHasLure(tooltipData)
         if type(tooltipData) ~= "table" or type(tooltipData.lines) ~= "table" then
+            Trace("Tooltip data is invalid, cannot check for fishing lure")
             return false
         end
         for _, line in ipairs(tooltipData.lines) do
@@ -127,19 +130,14 @@ local function IsFishingLureApplied()
         return false
     end
 
-    if type(C_TooltipInfo.GetInventoryItem) == "function" then
-        local ok, tooltipData = pcall(C_TooltipInfo.GetInventoryItem, "player", 28)
-        if ok and TooltipHasLure(tooltipData) then
-            return true
-        end
-    end
-
-    if type(GetInventoryItemLink) == "function"
-        and type(C_TooltipInfo.GetHyperlink) == "function" then
+    if type(GetInventoryItemLink) == "function" and type(C_TooltipInfo.GetHyperlink) == "function" then
         local itemLink = GetInventoryItemLink("player", 28)
+        Trace("Checking tooltip for fishing pole in profession slot..." .. tostring(itemLink))
         if itemLink then
             local ok, tooltipData = pcall(C_TooltipInfo.GetHyperlink, itemLink)
             if ok and TooltipHasLure(tooltipData) then
+                local itemID = ns.precast.GetEquippedProfessionItemID()
+                ns.Utils.Dump("Fishing lure is applied on " .. ns.Utils.GetDebugItemLabel(itemID) .. ": ", tooltipData)
                 return true
             end
         end
@@ -149,8 +147,15 @@ local function IsFishingLureApplied()
 end
 
 local function IsDue(itemID, category, now)
-    if category == "lure" and IsFishingLureApplied() then
-        return false, "fishing_lure_already_applied"
+    if category == "lure" then
+        -- Might have the wrong pole equipped in this state
+        if not Fishing:IsFishingState(ns.Fishing.states.PRECASTING) then
+            Trace("Skipping lure due check: fishing state may not have the correct pole equipped yet")
+            return false, "fishing_lure_pole_not_ready"
+        elseif IsFishingLureApplied() then
+            Trace("Lure is not due: lure is already applied")
+            return false, "fishing_lure_already_applied"
+        end
     end
 
     if category == "fooddrink" and (tonumber(state.buffItemTransientUntil[itemID]) or 0) > now then
@@ -391,8 +396,9 @@ local function GetConsumableUseDecision(self)
     for _, category in ipairs(categoryOrder) do
         local items = configured[category]
         if type(items) == "table" then
-            for _, entry in ipairs(items) do
-                if type(entry) == "table" and entry.enabled ~= false and not IsExcluded(tonumber(entry.itemID), entry) then
+            for _, entry in pairs(items) do
+
+                if type(entry) == "table" and entry.enabled == true and not IsExcluded(tonumber(entry.itemID), entry) then
                     local itemID = tonumber(entry.itemID)
                     --Trace("Checking due consumable: " .. Item(itemID) .. " (" .. tostring(category) .. ")")
                     if not itemID or itemID <= 0 then
