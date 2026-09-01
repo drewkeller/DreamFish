@@ -268,6 +268,36 @@ local function ApplySelectedFishingPole()
     end
 end
 
+function Fishing:CheckAndHandlePoleSwapReset()
+    -- Fetch the exact item ID currently sitting inside your actual live character profession journal
+    local currentJournalPoleID = C_ProfessionInfo and type(C_ProfessionInfo.GetProfessionEquipmentLink) == "function"
+        and C_ProfessionInfo.GetProfessionEquipmentLink(LE_PROFESSION_FISHING)
+        and tonumber(C_ProfessionInfo.GetProfessionEquipmentLink(LE_PROFESSION_FISHING):match("item:(%d+)")) or nil
+
+    -- If your live journal pole ID shifts compared to our last cached record, wipe your lure timers!
+    if currentJournalPoleID and self.state.lastKnownJournalPoleID and (currentJournalPoleID ~= self.state.lastKnownJournalPoleID) then
+        if type(self.state.buffItemLastUseAt) == "table" and self.db and self.db.char.buffs then
+            local configuredBuffs = self.db.char.buffs
+            if type(configuredBuffs.lure) == "table" then
+                for _, entry in pairs(configuredBuffs.lure) do
+                    if type(entry) == "table" and entry.itemID then
+                        local lureItemID = tonumber(entry.itemID)
+                        if lureItemID and self.state.buffItemLastUseAt[lureItemID] then
+                            self:Trace("underlight", "Pole swap detected in journal index! Clearing timer for item " .. lureItemID)
+                            self.state.buffItemLastUseAt[lureItemID] = nil
+                        end
+                    end
+                end
+            end
+        end
+    end
+
+    -- Keep our cached structural record updated for future comparisons
+    if currentJournalPoleID then
+        self.state.lastKnownJournalPoleID = currentJournalPoleID
+    end
+end
+
 ns.precast.GetSelectedFishingPoleDecision = GetSelectedFishingPoleDecision
 ns.precast.GetEquippedProfessionItemID = GetEquippedProfessionItemID
 ns.precast.GetConfiguredPoleSelections = GetConfiguredPoleSelections

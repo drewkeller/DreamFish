@@ -78,7 +78,7 @@ function Fishing:CheckAndEquipUnderlightAngler(reason)
     end
 
     if C_Item.EquipItemByName then
-        C_Item.EquipItemByName("item:" .. tostring(itemID), 28)
+        C_Item.EquipItemByName("item:" .. tostring(itemID))
         Trace("Equipping Underlight Angler: " .. tostring(reason))
         return true
     end

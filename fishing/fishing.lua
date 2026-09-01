@@ -84,31 +84,27 @@ function Fishing:OnModuleDisable()
 end
 
 function Fishing:OnBagUpdateDelayed()
-    -- Equipping profession tools trigger bag update, not equipment change
+    if type(self.CheckAndHandlePoleSwapReset) == "function" then
+        self:CheckAndHandlePoleSwapReset()
+    end
+
     if self.state and self.state.isEquippingPrimaryPole then
         local poleDecision = ns.precast.GetSelectedFishingPoleDecision()
         if not poleDecision or not poleDecision.shouldApply then
-
-            -- If we are actively in the middle of a hotkey PRECASTING press frame,
-            -- do NOT clear the flag yet! Wait for the player's next standalone cast loop.
             if self:IsFishingState(ns.Fishing.states.PRECASTING) then
                 return
             end
 
             self:Trace("pole", "Fishing pole change successfully detected and applied.")
             self.state.isEquippingPrimaryPole = false
-
-            -- If a hotkey was JUST pressed and we are PRECASTING, rewrite the macro in mid-click.
-            -- Let the physical click release handle it naturally.
-            if not self:IsFishingState(ns.Fishing.states.PRECASTING) then
-                self:PrepareFishingClickAction()
-            end
+            self:PrepareFishingClickAction()
         end
     end
 
     if type(self.ConfirmPendingBuffUse) == "function" then
         self:ConfirmPendingBuffUse()
     end
+
     if type(self.CheckEnabledBuffItemsDepleted) == "function" then
         self:CheckEnabledBuffItemsDepleted()
     end
