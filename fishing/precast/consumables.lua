@@ -5,7 +5,6 @@ local state = ns.Fishing.state
 
 Fishing:RegisterTraceSource("buffs")
 state.buffItemLastUseAt = state.buffItemLastUseAt or {}
-state.buffItemTransientUntil = state.buffItemTransientUntil or {}
 
 local globalDB, profileDB, charDB
 Fishing:RegisterInitializer(function(self)
@@ -166,9 +165,6 @@ local function IsDue(itemID, category, now)
         end
     end
 
-    if category == "fooddrink" and (tonumber(state.buffItemTransientUntil[itemID]) or 0) > now then
-        return false, "transient_buff_active"
-    end
     local lastUse = tonumber(state.buffItemLastUseAt[itemID])
     if lastUse and now - lastUse < 5 then
         return false, "recently_used" .. LastUseString(lastUse, nil)
@@ -185,8 +181,12 @@ local function IsDue(itemID, category, now)
         state.pendingBuffObservation = nil
     end
     local pendingUse = state.pendingBuffUse
-    if type(pendingUse) == "table" and tonumber(pendingUse.itemID) == itemID then
-        return false, "pending_use"
+    if type(pendingUse) == "table" and type(pendingUse.uses) == "table" then
+        for _, pending in ipairs(pendingUse.uses) do
+            if tonumber(pending.itemID) == itemID then
+                return false, "pending_use"
+            end
+        end
     end
     -- Update your suppression check loop so it cleanly handles temporary item blocks
     if state.buffUnknownDurationSuppressed and state.buffUnknownDurationSuppressed[itemID] then
@@ -243,7 +243,12 @@ local function QueueBuffUse(itemID, category)
     end
     local known = GetKnownBuff(itemID)
     local knownSpellID = type(known) == "table" and tonumber(known.spellID) or nil
-    state.pendingBuffUse = {
+    local pendingUse = state.pendingBuffUse
+    if type(pendingUse) ~= "table" or type(pendingUse.uses) ~= "table" then
+        pendingUse = { uses = {} }
+        state.pendingBuffUse = pendingUse
+    end
+    table.insert(pendingUse.uses, {
         itemID = itemID,
         category = category,
         itemSpellID = itemSpellID or knownSpellID,
@@ -253,28 +258,7 @@ local function QueueBuffUse(itemID, category)
             and Fishing:BuildHelpfulAuraSnapshot()
             or {},
         expiresAt = GetNow() + 5,
-    }
-end
-
-function Fishing:IsFoodDrinkTransientActive()
-    local transientUntil = type(state.buffItemTransientUntil) == "table"
-        and state.buffItemTransientUntil
-        or nil
-    if not transientUntil then
-        return false
-    end
-
-    local now = GetNow()
-    local activeUntil = nil
-    for itemID, expiresAt in pairs(transientUntil) do
-        if tonumber(expiresAt) and tonumber(expiresAt) > now then
-            local known = GetKnownBuff(itemID)
-            if type(known) == "table" and known.category == "fooddrink" then
-                activeUntil = math.max(activeUntil or 0, tonumber(expiresAt))
-            end
-        end
-    end
-    return activeUntil ~= nil, activeUntil
+    })
 end
 
 function Fishing:CheckEnabledBuffItemsDepleted()
@@ -306,31 +290,27 @@ end
 
 function Fishing:ConfirmPendingBuffUse(successSpellID)
     local pending = self.state.pendingBuffUse
-    if type(pending) ~= "table" then
+    if type(pending) ~= "table" or type(pending.uses) ~= "table" then
         return
     end
 
     local now = GetNow()
-    local itemID = tonumber(pending.itemID)
-    local countAfter = itemID and ns.Utils.CountItemInBags(itemID) or nil
-    local confirmedBySpell = tonumber(successSpellID)
-        and (tonumber(pending.itemSpellID) == tonumber(successSpellID)
-            or tonumber(pending.knownSpellID) == tonumber(successSpellID))
-    local confirmedByCount = countAfter and pending.countBefore and countAfter < pending.countBefore
-    if confirmedBySpell or confirmedByCount then
-        self.state.pendingBuffUse = nil
+    for index = #pending.uses, 1, -1 do
+        local use = pending.uses[index]
+        local itemID = tonumber(use.itemID)
+        local countAfter = itemID and ns.Utils.CountItemInBags(itemID) or nil
+        local confirmedBySpell = tonumber(successSpellID)
+            and (tonumber(use.itemSpellID) == tonumber(successSpellID)
+                or tonumber(use.knownSpellID) == tonumber(successSpellID))
+        local confirmedByCount = #pending.uses == 1
+            and countAfter and use.countBefore and countAfter < use.countBefore
+        if confirmedBySpell or confirmedByCount then
+            table.remove(pending.uses, index)
         local lastUses = type(self.state.buffItemLastUseAt) == "table" and self.state.buffItemLastUseAt or {}
         self.state.buffItemLastUseAt = lastUses
         rawset(lastUses, itemID, now)
         local known = GetKnownBuff(itemID)
         local spellID = type(known) == "table" and tonumber(known.spellID) or nil
-        if pending.category == "fooddrink" then
-            local transientUntil = type(self.state.buffItemTransientUntil) == "table"
-                and self.state.buffItemTransientUntil
-                or {}
-            self.state.buffItemTransientUntil = transientUntil
-            rawset(transientUntil, itemID, now + 10)
-        end
         local isKnownDuration = type(known) == "table"
             and tonumber(known.spellID)
             and tonumber(known.duration)
@@ -349,22 +329,25 @@ function Fishing:ConfirmPendingBuffUse(successSpellID)
         end
         self:CheckEnabledBuffItemsDepleted()
         Trace("Confirmed consumable use: " .. Item(itemID))
-    elseif now >= (tonumber(pending.expiresAt) or 0) then
-        self.state.pendingBuffUse = nil
+        elseif now >= (tonumber(use.expiresAt) or 0) then
+            table.remove(pending.uses, index)
 
-        -- If an item fails to apply (e.g. wrong zone), temporarily suppress it
-        -- for 10 seconds so the addon stops spamming it on consecutive click releases
-        local itemID = tonumber(pending.itemID)
-        if itemID then
-            self.state.buffUnknownDurationSuppressed = self.state.buffUnknownDurationSuppressed or {}
-            self.state.buffUnknownDurationSuppressed[itemID] = now + 10
-            Trace("Consumable use failed/timeout. Suppressing item for 10s: " .. Item(itemID))
-            ns.Utils.Alert("Consumable use failed: " .. Item(itemID) .. ". Suppressing for 10 seconds.")
+            -- If an item fails to apply (e.g. wrong zone), temporarily suppress it
+            -- for 10 seconds so the addon stops spamming it on consecutive click releases
+            if itemID then
+                self.state.buffUnknownDurationSuppressed = self.state.buffUnknownDurationSuppressed or {}
+                self.state.buffUnknownDurationSuppressed[itemID] = now + 10
+                Trace("Consumable use failed/timeout. Suppressing item for 10s: " .. Item(itemID))
+                ns.Utils.Alert("Consumable use failed: " .. Item(itemID) .. ". Suppressing for 10 seconds.")
+            end
         end
+    end
+    if #pending.uses == 0 then
+        self.state.pendingBuffUse = nil
     end
 end
 
-local function GetConsumableUseDecision(self)
+local function GetConsumableUseDecision(self, instantOnly)
     local decision = { shouldApply = false }
     if type(Fishing.ConfirmPendingBuffUse) == "function" then
         Fishing:ConfirmPendingBuffUse()
@@ -373,27 +356,9 @@ local function GetConsumableUseDecision(self)
     if type(Fishing.UpdatePendingBuffObservation) == "function" then
         Fishing:UpdatePendingBuffObservation()
     end
-    local foodDrinkTransientActive, transientUntil = Fishing:IsFoodDrinkTransientActive()
-    if foodDrinkTransientActive then
-        local warningUntil = tonumber(self.state.buffTransientWarningUntil) or 0
-        if warningUntil < transientUntil then
-            self.state.buffTransientWarningUntil = transientUntil
-            ns.Utils.Alert("A buff is still being applied. Wait before casting.")
-        end
-        Trace("Skipping consumable scan: food/drink transient block active")
-        return decision
-    end
-    if type(self.state.pendingBuffUse) == "table" then
-        Trace("Skipping consumable scan: use confirmation pending for "
-            .. Item(self.state.pendingBuffUse.itemID))
-        local pendingItemID = tonumber(self.state.pendingBuffUse.itemID)
-        local pendingKnown = GetKnownBuff(pendingItemID)
-        local pendingCategory = type(pendingKnown) == "table" and pendingKnown.category or "other_consumable"
-        return {
-            shouldApply = pendingItemID and pendingItemID > 0 or false,
-            itemID = pendingItemID,
-            category = pendingCategory,
-        }
+    if type(self.state.pendingBuffUse) == "table" and type(self.state.pendingBuffUse.uses) == "table" then
+        Trace("Skipping consumable scan: use confirmation pending")
+        return { shouldApply = #self.state.pendingBuffUse.uses > 0, items = self.state.pendingBuffUse.uses }
     end
     local configured = charDB and charDB.buffs
     if type(configured) ~= "table" then
@@ -401,6 +366,7 @@ local function GetConsumableUseDecision(self)
     end
 
     local categoryOrder = { "fooddrink", "lure", "bait", "bobber", "other_consumable" }
+    local itemsToApply = {}
     for _, category in ipairs(categoryOrder) do
         local items = configured[category]
         if type(items) == "table" then
@@ -408,9 +374,14 @@ local function GetConsumableUseDecision(self)
 
                 if type(entry) == "table" and entry.enabled == true and not IsExcluded(tonumber(entry.itemID), entry) then
                     local itemID = tonumber(entry.itemID)
+                    local known = GetKnownBuff(itemID)
+                    local isInstant = type(known) == "table" and tonumber(known.castTime) == 0
                     --Trace("Checking due consumable: " .. Item(itemID) .. " (" .. tostring(category) .. ")")
                     if not itemID or itemID <= 0 then
                         --Trace("Skipping due consumable: invalid itemID")
+                    elseif instantOnly and not isInstant then
+                        Trace("Skipping non-instant consumable while another pre-cast action is armed: "
+                            .. Item(itemID, category))
                     elseif not ns.Utils.IsCooldownReady(itemID) then
                         Trace("Skipping due consumable: cooldown not ready " .. Item(itemID) .. " " .. ns.Utils.GetDebugCooldownText(itemID))
                     else
@@ -425,20 +396,31 @@ local function GetConsumableUseDecision(self)
                                 or nil
                             if not poleID or poleID <= 0 then
                                 WarnMissingProfessionFishingPoleForLure()
+                            elseif #itemsToApply > 0 then
+                                return { shouldApply = true, items = itemsToApply }
                             else
                                 QueueBuffUse(itemID, category)
                                 Trace("Lure is queued: " .. Item(itemID))
-                                return { shouldApply = true, itemID = itemID, category = category }
+                                return { shouldApply = true, items = { { itemID = itemID, category = category } } }
                             end
                         else
+                            if not isInstant and #itemsToApply > 0 then
+                                return { shouldApply = true, items = itemsToApply }
+                            end
                             Trace("Consumable is queued: " .. Item(itemID, category))
                             QueueBuffUse(itemID, category)
-                            return { shouldApply = true, itemID = itemID, category = category }
+                            table.insert(itemsToApply, { itemID = itemID, category = category })
+                            if not isInstant then
+                                return { shouldApply = true, items = itemsToApply }
+                            end
                         end
                     end
                 end
             end
         end
+    end
+    if #itemsToApply > 0 then
+        return { shouldApply = true, items = itemsToApply }
     end
     return decision
 end

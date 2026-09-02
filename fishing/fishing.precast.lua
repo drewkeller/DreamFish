@@ -131,13 +131,13 @@ local function ConfigureFishingClickAction(self)
             return configured
         end
 
-        if not hasItemUseAction then
-            local consumableDecision = ns.precast.GetConsumableUseDecision(self)
-            if consumableDecision.shouldApply then
-                ns.Utils.Print("Arming due buff: " .. ns.Utils.GetDebugItemLabel(consumableDecision.itemID) .. " (" .. tostring(consumableDecision.category) .. ")")
-                InsertUseItemMacroLine(macroLines, consumableDecision.itemID)
+        local consumableDecision = ns.precast.GetConsumableUseDecision(self, hasItemUseAction)
+        if consumableDecision.shouldApply then
+            for _, consumable in ipairs(consumableDecision.items or {}) do
+                ns.Utils.Print("Arming due buff: " .. ns.Utils.GetDebugItemLabel(consumable.itemID) .. " (" .. tostring(consumable.category) .. ")")
+                InsertUseItemMacroLine(macroLines, consumable.itemID)
                 hasItemUseAction = true
-                if consumableDecision.category == "lure" then
+                if consumable.category == "lure" then
                     table.insert(macroLines, "/use 28")
                 end
             end
