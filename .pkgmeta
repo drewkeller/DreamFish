@@ -1,0 +1,12 @@
+externals:
+    Libs/LibStub: https://wowace.com
+    Libs/CallbackHandler-1.0: https://wowace.com
+    Libs/AceAddon-3.0: https://repos.wowace.com/wow/ace3/trunk/AceAddon-3.0
+    Libs/AceDB-3.0: https://wowace.com
+    Libs/AceConsole-3.0: https://wowace.com
+    Libs/AceGUI-3.0: https://wowace.com
+    Libs/AceConfig-3.0: https://wowace.com
+    Libs/AceEvent-3.0: https://wowace.com
+    Libs/AceDBOptions-3.0: https://wowace.com
+    Libs/AceHook-3.0: https://wowace.com
+    Libs/AceTimer-3.0: https://wowace.com
