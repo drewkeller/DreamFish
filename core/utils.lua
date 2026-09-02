@@ -63,7 +63,9 @@ function ns.Utils.Alert(msg, ...)
     if ns.Utils.IsCoreLoaded() and Addon then
         ns.Utils.PlayWarningCue()
     end
-    RaidWarningUtil.AddMessage(msg, ChatTypeInfo["SYSTEM"])
+    local systemColor = ChatTypeInfo["SYSTEM"] -- Yellow
+    --local systemColor = ChatTypeInfo["RAID_WARNING"] -- Red
+    RaidWarningUtil.AddMessage(msg, systemColor)
 end
 
 function ns.Utils.CoreTrace(source, msg, ...)

@@ -270,11 +270,9 @@ end
 
 function Fishing:CheckAndHandlePoleSwapReset()
     -- Fetch the exact item ID currently sitting inside your actual live character profession journal
-    local currentJournalPoleID = C_ProfessionInfo and type(C_ProfessionInfo.GetProfessionEquipmentLink) == "function"
-        and C_ProfessionInfo.GetProfessionEquipmentLink(LE_PROFESSION_FISHING)
-        and tonumber(C_ProfessionInfo.GetProfessionEquipmentLink(LE_PROFESSION_FISHING):match("item:(%d+)")) or nil
+    local currentJournalPoleID = type(GetEquippedProfessionItemID) == "function" and GetEquippedProfessionItemID() or nil
 
-    -- If your live journal pole ID shifts compared to our last cached record, wipe your lure timers!
+    -- If your live slot tool shifts compared to our last checked pass, clear your tracking states instantly
     if currentJournalPoleID and self.state.lastKnownJournalPoleID and (currentJournalPoleID ~= self.state.lastKnownJournalPoleID) then
         if type(self.state.buffItemLastUseAt) == "table" and self.db and self.db.char.buffs then
             local configuredBuffs = self.db.char.buffs

@@ -5,11 +5,14 @@ local AceGUI = LibStub("AceGUI-3.0")
 
 ns.LootTracker = LootTracker
 
+local globalDB, profileDB, charDB
 function LootTracker:RegisterInitializer(func)
     if type(func) == "function" then
         self.initializerFuncs = self.initializerFuncs or {}
         table.insert(self.initializerFuncs, func)
     end
+
+    profileDB = self.db.profile
 end
 
 local lootTrackerWindow
@@ -189,12 +192,15 @@ function LootTracker:CreateLootTrackerWindow()
         widget.frame:Hide()
     end)
 
+    ---@diagnostic disable-next-line: invisible
     local nativeFrame = lootTrackerWindow.frame
 
     scrollContainer = AceGUI:Create("ScrollFrame")
     scrollContainer:SetLayout("Flow")
-    scrollContainer.frame:SetParent(nativeFrame)
-    scrollContainer.frame:Show()
+    ---@diagnostic disable-next-line: invisible
+    local scrollFrame = scrollContainer.frame
+    scrollFrame:SetParent(nativeFrame)
+    scrollFrame:Show()
 
     local resetButton = AceGUI:Create("Button")
     resetButton:SetText("Reset LootTracker")
@@ -208,18 +214,20 @@ function LootTracker:CreateLootTrackerWindow()
     end)
 
     -- Strip the button from AceGUI flow and hard-anchor it to the window's bottom margin
-    resetButton.frame:SetParent(nativeFrame)
-    resetButton.frame:ClearAllPoints()
-    resetButton.frame:SetPoint("BOTTOMLEFT", nativeFrame, "BOTTOMLEFT", 15, 15)
-    resetButton.frame:SetPoint("BOTTOMRIGHT", nativeFrame, "BOTTOMRIGHT", -15, 15)
-    resetButton.frame:Show()
+    ---@diagnostic disable-next-line: invisible
+    local resetButtonFrame = resetButton.frame
+    resetButtonFrame:SetParent(nativeFrame)
+    resetButtonFrame:ClearAllPoints()
+    resetButtonFrame:SetPoint("BOTTOMLEFT", nativeFrame, "BOTTOMLEFT", 15, 15)
+    resetButtonFrame:SetPoint("BOTTOMRIGHT", nativeFrame, "BOTTOMRIGHT", -15, 15)
+    resetButtonFrame:Show()
 
     -- Anchor scroll region to the reset button so resize never lets content overlap it.
-    scrollContainer.frame:ClearAllPoints()
-    scrollContainer.frame:SetPoint("TOPLEFT", nativeFrame, "TOPLEFT", 15, -30)
-    scrollContainer.frame:SetPoint("TOPRIGHT", nativeFrame, "TOPRIGHT", -15, -30)
-    scrollContainer.frame:SetPoint("BOTTOMLEFT", resetButton.frame, "TOPLEFT", 0, 30)
-    scrollContainer.frame:SetPoint("BOTTOMRIGHT", resetButton.frame, "TOPRIGHT", 0, 30)
+    scrollFrame:ClearAllPoints()
+    scrollFrame:SetPoint("TOPLEFT", nativeFrame, "TOPLEFT", 15, -30)
+    scrollFrame:SetPoint("TOPRIGHT", nativeFrame, "TOPRIGHT", -15, -30)
+    scrollFrame:SetPoint("BOTTOMLEFT", resetButtonFrame, "TOPLEFT", 0, 30)
+    scrollFrame:SetPoint("BOTTOMRIGHT", resetButtonFrame, "TOPRIGHT", 0, 30)
 
     self.db.profile.windowVisible = true
     self:UpdateTrackerDisplay()

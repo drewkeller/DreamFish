@@ -6,6 +6,13 @@ local state = ns.Fishing.state
 state.buffItemLastUseAt = state.buffItemLastUseAt or {}
 state.buffItemTransientUntil = state.buffItemTransientUntil or {}
 
+local globalDB, profileDB, charDB
+Fishing:RegisterInitializer(function(self)
+    globalDB = self.db.global
+    profileDB = self.db.profile
+    charDB = self.db.char
+end)
+
 Fishing:RegisterTraceSource("auras")
 local function Trace(msg)
     Fishing:Trace("auras", msg)
@@ -152,6 +159,13 @@ function Fishing:UpdatePendingBuffObservation()
             return
         end
 
+        -- If the item under observation is the Underlight Angler or a primary pole,
+        -- clear the record and exit
+        if itemID == ns.Fishing.const.underlightAnglerItemID or (ns.precast.GetSelectedFishingPoleDecision and itemID == ns.precast.GetSelectedFishingPoleDecision().itemID) then
+            self.state.pendingBuffObservation = nil
+            return
+        end
+
         local key = tostring(itemID)
         local existingTracked = self.db.global.buffAuraByItem[key]
         local existingDuration = type(existingTracked) == "table" and tonumber(existingTracked.duration) or 0
@@ -209,7 +223,9 @@ function Fishing:UpdatePendingBuffObservation()
             return
         end
 
-        local auraName = (type(GetSpellInfo) == "function" and GetSpellInfo(bestSpellID)) or nil
+        local spellInfo = (C_Spell and C_Spell.GetSpellInfo) and C_Spell.GetSpellInfo(bestSpellID) or nil
+        local auraName = spellInfo and spellInfo.name or nil
+
         self.db.global.buffAuraByItem[key] = {
             spellID = bestSpellID,
             duration = bestDuration,
