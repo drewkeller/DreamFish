@@ -4,11 +4,12 @@
  During a pre-cast, the next buff item is chosen in this order:
 
 1. Higher-level pre-cast actions run first
-	* Raft
-	* Fishing pole equip
-	* Bobber (toy)
-	* Oversized bobber
-	If one of those uses an item, the consumable buff selector is skipped for that click. Swimming with a raft also makes the raft exclusive.
+	* Fishing pole equip (instant cast, but some delay before it becomes equipped)
+	* Raft (1.5s cast time)
+	* Bobber (toy) (1s cast time)
+	* Oversized bobber (1.5s cast time)
+	* Consumables (some are instant, some have cast times)
+	If one of the above non-zero cast time items is used, the consumable buff selector is skipped for that click because some consumables also have non-zero cast times which would interrupt any cast already in progress. Anything with a cast time makes it exclusive with anything else with a cast time.
 
 2. Consumable buff categories are checked in fixed priority order:
 	fooddrink -> lure -> bait -> bobber -> other consumable
@@ -20,8 +21,8 @@
 		* Is considered due
 		* Is not on cooldown
 		* Exists in the bags
-		* Lure ? Is fishing pole equipped
-		* Bait ? Is bait aura needed
+		* Lure, if fishing pole equipped
+		* Bait, if there is not already a bait
 
 # When a buff is "due"
 
@@ -66,3 +67,9 @@ The checks happen in this order.
 8. Visible aura with known duration
 	If an aura exists but no remaining-time tracking is available, the fallback is elapsed time since the item was last used:
 		`elapsedTime >= knownDuration`
+
+# Fishing pole selection
+
+1. If outside of a fishing context, the Underlight Angler is equipped, assuming it is available, etc.
+2. Within a fishing context, the primary fishing pole is equipped, assuming it is available, etc.
+3.
