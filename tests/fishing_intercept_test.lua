@@ -1,6 +1,7 @@
 local mouseDownCallback
 local preClickCallback
 local clickCallback
+local postClickCallback
 local messages = {}
 local bindingsCleared = false
 local clickEnabled = true
@@ -24,6 +25,7 @@ local mouseHooked = false
 local gameMouseActions = 0
 local castStartedCount = 0
 local secureAttributes = {}
+local scheduledCallbacks = {}
 local profile = {
     castByDoubleRightClick = true,
     castBySingleRightClickWhenFishing = false,
@@ -39,6 +41,8 @@ function Fishing.clickFrame:SetScript(script, callback)
         preClickCallback = callback
     elseif script == "OnClick" then
         clickCallback = callback
+    elseif script == "PostClick" then
+        postClickCallback = callback
     end
 end
 
@@ -85,6 +89,10 @@ function Fishing.clickFrame:SetAttribute(name, value)
     secureAttributes[name] = value
 end
 
+function Fishing.clickFrame:GetAttribute(name)
+    return secureAttributes[name]
+end
+
 function Fishing:IsEnabled()
     return true
 end
@@ -92,6 +100,9 @@ end
 function Fishing:IsHooked(frame, script)
     if frame == self.clickFrame and script == "PreClick" then
         return preClickCallback ~= nil
+    end
+    if frame == self.clickFrame and script == "PostClick" then
+        return postClickCallback ~= nil
     end
 
     assert(frame == WorldFrame)
@@ -130,11 +141,19 @@ end
 function Fishing:RegisterTraceSource()
 end
 
+function Fishing:RegisterInitializer(func)
+    self.initializerFuncs = self.initializerFuncs or {}
+    table.insert(self.initializerFuncs, func)
+end
+
 function Fishing:SendMessage(message)
     table.insert(messages, message)
 end
 
-function Fishing:ScheduleTimer()
+function Fishing:ScheduleTimer(callback, delay)
+    if type(callback) == "function" then
+        table.insert(scheduledCallbacks, callback)
+    end
     return {}
 end
 
@@ -213,6 +232,7 @@ function ClearOverrideBindings(frame)
 end
 
 local ns = {
+    Fishing = Fishing,
     FishingDB = {
         global = {},
         profile = profile,
@@ -220,10 +240,11 @@ local ns = {
     },
     precast = {},
 }
+Fishing.db = ns.FishingDB
 assert(loadfile("fishing/fishing.intercept.lua"))("DreamFish", ns)
 assert(loadfile("fishing/states.lua"))("DreamFish", ns)
-for _, initializer in ipairs(ns.FishingInitializers) do
-    initializer()
+for _, initializer in ipairs(Fishing.initializerFuncs) do
+    initializer(Fishing)
 end
 
 function Fishing:OnCastStarted()
@@ -234,8 +255,30 @@ function Fishing:PrepareFishingClickAction()
     secureAttributes.type = "spell"
 end
 
+function Fishing:AwaitFishingCastStart()
+    local castAttempt = self.state.castAttempt or 1
+    if self.state.castStartConfirmationAttempt == castAttempt then return end
+
+    self.state.castStartConfirmationAttempt = castAttempt
+    self:ScheduleTimer(function()
+        if self.state.castStartConfirmationAttempt ~= castAttempt then return end
+            self.state.castStartConfirmationAttempt = nil
+        if self:IsFishingState(ns.Fishing.states.PRECASTING)
+            and not self.state.pendingBuffUse
+            and not self.state.isEquippingPrimaryPole then
+            self:CancelFishingSession("fishing cast did not start")
+        end
+    end, 0.5)
+end
+
+function Fishing:CancelFishingSession(reason)
+    self:SetFishingState(ns.Fishing.states.IDLE)
+    self:ReleaseClickCapture()
+end
+
 Fishing:HookMouseDown()
 Fishing:HookPreClickWithHandler()
+Fishing:HookPostClickWithHandler()
 
 mouseDownCallback(WorldFrame, "LeftButton")
 assert(castStartedCount == 0, "non-right clicks must bypass Fishing")
@@ -249,13 +292,13 @@ mouseDownCallback(WorldFrame, "RightButton")
 assert(castStartedCount == 1, "disabled double-right-click must not call OnCastStarted")
 
 profile.castBySingleRightClickWhenFishing = true
-Fishing:SetFishingState(ns.fishing.states.PRECASTING)
+Fishing:SetFishingState(ns.Fishing.states.PRECASTING)
 secureAttributes.type = "spell"
 currentTime = 1
 mouseDownCallback(WorldFrame, "RightButton")
 assert(castStartedCount == 2, "first single click during fishing must start a cast")
 
-Fishing:SetFishingState(ns.fishing.states.IDLE)
+Fishing:SetFishingState(ns.Fishing.states.IDLE)
 currentTime = 1.1
 mouseDownCallback(WorldFrame, "RightButton")
 assert(castStartedCount == 2, "second click during single-click fishing must be suppressed")
@@ -269,6 +312,24 @@ preClickCallback(Fishing.clickFrame, "RightButton", true)
 assert(castStartedCount == 3, "hotkey button-down must start the fishing session")
 preClickCallback(Fishing.clickFrame, "RightButton", false)
 assert(castStartedCount == 3, "hotkey button-up must not restart the fishing session")
+
+Fishing:SetFishingState(ns.Fishing.states.PRECASTING)
+Fishing.state.castAttempt = 1
+Fishing.state.isEquippingPrimaryPole = false
+postClickCallback(Fishing.clickFrame, "RightButton", false)
+assert(Fishing:IsFishingState(ns.Fishing.states.PRECASTING),
+    "secure click release must wait for spellcast confirmation")
+assert(#scheduledCallbacks == 1, "failed cast recovery was not scheduled")
+scheduledCallbacks[1]()
+assert(Fishing:IsFishingState(ns.Fishing.states.IDLE),
+    "unconfirmed fishing cast must reset the session to IDLE")
+
+Fishing:SetFishingState(ns.Fishing.states.PRECASTING)
+secureAttributes.dreamfish_precast_action = true
+postClickCallback(Fishing.clickFrame, "RightButton", false)
+assert(#scheduledCallbacks == 1,
+    "pre-cast item actions must not schedule failed fishing-cast recovery")
+secureAttributes.dreamfish_precast_action = nil
 
 profile.castByHotkey = false
 local mouseActionsBeforeHotkey = gameMouseActions
@@ -298,7 +359,7 @@ assert(bindingsCleared, "double-click-only mode must clear the temporary right-c
 
 bindingsCleared = false
 profile.castBySingleRightClickWhenFishing = true
-Fishing:SetFishingState(ns.fishing.states.PRECASTING)
+Fishing:SetFishingState(ns.Fishing.states.PRECASTING)
 Fishing:HideClickFrame()
 assert(not bindingsCleared, "single-right-click mode must retain the temporary right-click override")
 

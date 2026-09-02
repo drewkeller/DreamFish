@@ -104,56 +104,64 @@ local function GetKnownSpellAndDuration(itemID)
 end
 
 local function IsFishingLureApplied()
-    Trace("Checking if fishing lure is applied...")
-    if not C_TooltipInfo then
-        Trace("C_TooltipInfo API not available, cannot check for fishing lure")
-        return false
+    Trace("Checking pole for lure...")
+    if not C_TooltipInfo or type(C_TooltipInfo.GetInventoryItem) ~= "function" then
+        Trace("C_TooltipInfo.GetInventoryItem API not available")
+        return true
+    end
+
+    -- Force the game client to refresh its internal server data cache instantly
+    local hiddenScanner = EnsureCategoryTooltipFrame and EnsureCategoryTooltipFrame()
+    if hiddenScanner and type(hiddenScanner.SetInventoryItem) == "function" then
+        pcall(hiddenScanner.SetInventoryItem, hiddenScanner, "player", 28)
     end
 
     local function TooltipHasLure(tooltipData)
         if type(tooltipData) ~= "table" or type(tooltipData.lines) ~= "table" then
-            Trace("Tooltip data is invalid, cannot check for fishing lure")
-            return false
+            Trace("Tooltip data block is incomplete or parsing failed")
+            return true
         end
+
+        -- Line-by-line text scan
         for _, line in ipairs(tooltipData.lines) do
             if type(line) == "table" then
-                local text = string.lower(table.concat({
-                    tostring(line.leftText or ""),
-                    tostring(line.rightText or ""),
-                    tostring(line.text or ""),
-                }, " "))
-                if text:find("fishing lure", 1, true) then
-                    return true
+                local leftText = line.leftText or line.text or ""
+                if type(leftText) == "string" and leftText ~= "" then
+                    local lowercaseText = string.lower(leftText)
+
+                    if lowercaseText:find("fishing lure", 1, true) then
+                        Trace("Detected lure: " .. leftText)
+                        return true
+                    end
                 end
             end
         end
+
+        Trace("Pole tooltip parsed successfully; no lure detected.")
         return false
     end
 
-    if type(GetInventoryItemLink) == "function" and type(C_TooltipInfo.GetHyperlink) == "function" then
-        local itemLink = GetInventoryItemLink("player", 28)
-        Trace("Checking tooltip for fishing pole in profession slot..." .. tostring(itemLink))
-        if itemLink then
-            local ok, tooltipData = pcall(C_TooltipInfo.GetHyperlink, itemLink)
-            if ok and TooltipHasLure(tooltipData) then
-                local itemID = ns.precast.GetEquippedProfessionItemID()
-                ns.Utils.Dump("Fishing lure is applied on " .. ns.Utils.GetDebugItemLabel(itemID) .. ": ", tooltipData)
-                return true
-            end
-        end
+    -- Query the live character journal profession tool slot directly
+    local ok, tooltipData = pcall(C_TooltipInfo.GetInventoryItem, "player", 28)
+    if ok and tooltipData then
+        return TooltipHasLure(tooltipData)
     end
 
-    return false
+    Trace("C_TooltipInfo lookup execution failed")
+    return true
 end
 
 local function IsDue(itemID, category, now)
     if category == "lure" then
-        -- Might have the wrong pole equipped in this state
-        if not Fishing:IsFishingState(ns.Fishing.states.PRECASTING) then
-            Trace("Skipping lure due check: fishing state may not have the correct pole equipped yet")
+        local poleID = type(ns.precast.GetEquippedProfessionItemID) == "function" and ns.precast.GetEquippedProfessionItemID() or "nil"
+        Trace(string.format("[PROBE: LURE_DUE_CHECK] itemID=%s | State=%s | EquippedPoleID=%s | isEquippingPrimaryPole=%s",
+            tostring(itemID), Fishing:CurrentStateName(), tostring(poleID), tostring(Fishing.state and Fishing.state.isEquippingPrimaryPole)))
+
+        if Fishing.state and Fishing.state.isEquippingPrimaryPole then
+            Trace("Skipping lure due check: fishing pole weapon swap is actively in progress.")
             return false, "fishing_lure_pole_not_ready"
         elseif IsFishingLureApplied() then
-            Trace("Lure is not due: lure is already applied")
+            Trace("Lure is not due: lure is already applied to the active pole.")
             return false, "fishing_lure_already_applied"
         end
     end

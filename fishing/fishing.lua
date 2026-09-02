@@ -88,17 +88,35 @@ function Fishing:OnBagUpdateDelayed()
         self:CheckAndHandlePoleSwapReset()
     end
 
+    local poleDecision = ns.precast.GetSelectedFishingPoleDecision and ns.precast.GetSelectedFishingPoleDecision()
+    local shouldApply = poleDecision and poleDecision.shouldApply
+    self:Trace("pole", string.format("[PROBE: BAG_DELAYED] State=%s | isEquippingPrimaryPole=%s | shouldApply=%s",
+        self:CurrentStateName(), tostring(self.state and self.state.isEquippingPrimaryPole), tostring(shouldApply)))
+
     if self.state and self.state.isEquippingPrimaryPole then
-        local poleDecision = ns.precast.GetSelectedFishingPoleDecision()
+        local poleDecision = ns.precast.GetSelectedFishingPoleDecision and ns.precast.GetSelectedFishingPoleDecision()
         if not poleDecision or not poleDecision.shouldApply then
-            if self:IsFishingState(ns.Fishing.states.PRECASTING) then
-                return
+            self:Trace("pole", "Fishing pole equipment change detected in player profession tool slot.")
+
+            -- Release our equipment execution locks smoothly
+            self.state.isEquippingPrimaryPole = false
+
+            -- Clear out the temporary stop macro string blocker cleanly
+            self.clickFrame:SetAttribute("macrotext", "")
+
+            -- FIX: If we are in the middle of an active hotkey pass (PRECASTING), do NOT move state back to IDLE!
+            -- Keep the state locked in PRECASTING so the upcoming up-click release can handle it naturally.
+            if not self:IsFishingState(ns.Fishing.states.PRECASTING) then
+                self:SetFishingState(ns.Fishing.states.IDLE, "standalone pole change verified")
             end
 
-            self:Trace("pole", "Fishing pole change successfully detected and applied.")
-            self.state.isEquippingPrimaryPole = false
+            -- Re-compile the macro text string arrays instantly with your live lure data lines
             self:PrepareFishingClickAction()
         end
+    end
+
+    if not self:IsInFishingSession() or self:IsFishingState(ns.Fishing.states.IDLE) then
+        return
     end
 
     if type(self.ConfirmPendingBuffUse) == "function" then
@@ -141,6 +159,8 @@ function Fishing:PrepareFishingClickAction()
     if not self.clickFrame or InCombatLockdown() then
         return
     end
+
+    self:Trace("precast", string.format("[PrepareClick Action] Live State=%s", Fishing:CurrentStateName()))
 
     -- Securely defend your JIT compilation states.
     -- If a channel bar is actively running, never re-compile the macro text arrays mid-cast!
@@ -193,7 +213,12 @@ function Fishing:OnAurasChanged(event, unit, updateInfo)
 end
 
 function Fishing:OnAddonLoaded(event)
-    self:CheckAndEquipUnderlightAngler("addon loaded")
+    -- Delay the initial login equipment check to allow the client to fully cache bag and inventory tracking
+    C_Timer.After(2.0, function()
+        if type(self.CheckAndEquipUnderlightAngler) == "function" then
+            self:CheckAndEquipUnderlightAngler("addon loaded (delayed packet safety pass)")
+        end
+    end)
 end
 
 -- This function does NOT fire for profession slotted items
@@ -261,7 +286,9 @@ function Fishing:EndFishingSession(reason)
     self:ClearBobberInteractOverride()
     self:ReleaseClickCapture()
     self:CheckAndEquipUnderlightAngler(reason)
+    self.state.pendingBuffUse = nil
     self.state.buffDepletionAlerted = nil
+    self.state.castStartConfirmationAttempt = nil
     self:SetFishingState(ns.Fishing.states.IDLE, reason)
 end
 
@@ -371,30 +398,37 @@ function Fishing:ClearBobberInteractOverride()
 end
 
 function Fishing:OnSpellCastStarted(event, unit, _, spellID, ...)
+    if unit ~= "player" then return end
+
+    -- DATA PROBE: Log every single spell cast initialization
+    local spellName = C_Spell and C_Spell.GetSpellName and C_Spell.GetSpellName(spellID) or tostring(spellID)
+    local liveMacroText = self.clickFrame and self.clickFrame:GetAttribute("macrotext") or "nil"
+
+    self:Trace("auraevent", string.format("[PROBE: CAST_START] Spell=%s | State=%s | len(macrotext)=%d",
+        spellName, self:CurrentStateName(), #liveMacroText))
 end
 
 function Fishing:OnSpellcastChannelStarted(event, unit, ...)
-    if unit ~= "player" then
-        return
-    end
-    -- Leave this commented so hotkey still works
-    --if not self:IsInFishingSession() then return end
+    if unit ~= "player" then return end
 
-    -- args are (castGUID, spellID, ...); some events add extra trailing numeric args, so don't scan for "any number"
     local _, spellID = ...
+    local spellName = C_Spell and C_Spell.GetSpellName and C_Spell.GetSpellName(spellID) or tostring(spellID)
+    local liveMacroText = self.clickFrame and self.clickFrame:GetAttribute("macrotext") or "nil"
+
+    -- DATA PROBE: Log channel succession confirmations
+    self:Trace("auraevent", string.format("[PROBE: CHANNEL_START] Spell=%s | State=%s | len(macrotext)=%d",
+        spellName, self:CurrentStateName(), #liveMacroText))
 
     if type(self.ConfirmPendingBuffUse) == "function" then
         self:ConfirmPendingBuffUse(spellID)
     end
 
     if spellID ~= ns.Fishing.const.fishingSpellID then
-        --Fishing:Trace("auraevent", "Spellcast channel started for non-fishing spellID=" .. tostring(spellID))
         return
     end
 
+    self.state.castStartConfirmationAttempt = nil
     self:SetFishingState(ns.Fishing.states.CASTING, "spellcast")
-    -- The bobber can splash at any point during the channel and there's no event for it;
-    -- the player has to watch for it, so the strike action must be ready for the whole cast.
     self:StartMouseButtonWatch()
     self:ConfigureBobberInteractAction()
     self:ArmBobberInteractOverride()
@@ -421,10 +455,10 @@ function Fishing:OnSpellcastChannelEnded(event, unit, ...)
         self:Trace("EasyStrike", "cast finished event=" .. tostring(event) .. " state=" .. self:CurrentStateName())
         -- Currently, looting happens in CASTING state and if we cancel fishing here, we don't get the loot.
         if (self.state.current == ns.Fishing.states.WAITING_FOR_BITE) then
-            -- A last-moment strike stops the channel before LOOT_READY arrives, so give the loot window a chance.
+            -- A right-click strike stops the channel before LOOT_READY arrives, so give the loot window a chance.
             self:ScheduleTimer(function()
                 if self:IsFishingState(ns.Fishing.states.WAITING_FOR_BITE) then
-                    self:CancelFishingSession("cast ended without a catch")
+                    self:StartLinger()
                 end
             end, 0.5)
         elseif (self.state.current == ns.Fishing.states.WAITING_FOR_LOOT_WINDOW) then
@@ -438,26 +472,66 @@ function Fishing:OnSpellcastChannelEnded(event, unit, ...)
     end
 end
 
+function Fishing:AwaitFishingCastStart()
+    local castAttempt = self.state.castAttempt
+    if self.state.castStartConfirmationAttempt == castAttempt then
+        return
+    end
+
+    self.state.castStartConfirmationAttempt = castAttempt
+    self:ScheduleTimer(function()
+        if self.state.castStartConfirmationAttempt ~= castAttempt then
+            return
+        end
+
+        self.state.castStartConfirmationAttempt = nil
+        if self:IsFishingState(ns.Fishing.states.PRECASTING)
+            and not self.state.pendingBuffUse
+            and not self.state.isEquippingPrimaryPole then
+            self:CancelFishingSession("fishing cast did not start")
+        end
+    end, 0.5)
+end
+
 function Fishing:OnCastStarted(reason)
     self:SetFishingState(ns.Fishing.states.PRECASTING, reason)
     self:SendMessage("FISHING_CAST_STARTED")
 
-    local poleDecision = ns.precast.GetSelectedFishingPoleDecision()
+    self.state.castAttempt = (self.state.castAttempt or 0) + 1
+    self.state.castStartConfirmationAttempt = nil
+    self.state.isEquippingPrimaryPole = false
+    local poleDecision = ns.precast.GetSelectedFishingPoleDecision and ns.precast.GetSelectedFishingPoleDecision()
+
+    -- INSTRUMENTATION: Log the starting state of the secure frame attributes
+    local initialMacro = self.clickFrame:GetAttribute("macrotext") or "nil"
+    self:Trace("pole", string.format("[OnCastStarted Start] Reason=%s | Initial macrotext length=%d",
+        tostring(reason), #initialMacro))
+
+    local isSwapping = false
     if poleDecision and poleDecision.shouldApply and poleDecision.itemID then
-        C_Item.EquipItemByName(poleDecision.itemID)
         self.state.isEquippingPrimaryPole = true
-        self:Trace("pole", "Equipping primary fishing pole: " .. tostring(poleDecision.itemID))
-    else
-        self.state.isEquippingPrimaryPole = false
+        isSwapping = true
+        self:Trace("pole", "Initiating primary fishing pole gear-swap: " .. tostring(poleDecision.itemID))
+
+        -- 1. Fire the instant hardware equipment swap command
+        C_Item.EquipItemByName(poleDecision.itemID)
+
+        -- 2. Lock attributes to stopmacro so this specific down-press safely halts casting
+        self.clickFrame:SetAttribute("type", "macro")
+        self.clickFrame:SetAttribute("macrotext", "/stopmacro")
+        self.clickFrame:SetAttribute("spell", nil)
     end
 
     self:CheckEnabledBuffItemsDepleted()
-    self:PrepareFishingClickAction()
+
+    -- Only run the central macro compiler if an active rod swap isn't forcing a stop block
+    if not isSwapping then
+        self:PrepareFishingClickAction()
+    end
+
     self:StartMouseButtonWatch()
 
-    -- Set the secure action to trigger on right-clicks of the secure frame.
-    -- The secure frame is shown when the player right-clicks, so the current click release will trigger the secure action.
+    -- FIX: Always cleanly anchor your secure hooks and show the window frame container!
     SetOverrideBindingClick(self.clickFrame, true, "BUTTON2", self.clickFrame:GetName(), "RightButton")
-    -- Show the secure frame so the current click release can trigger the secure action.
     self.clickFrame:Show()
 end

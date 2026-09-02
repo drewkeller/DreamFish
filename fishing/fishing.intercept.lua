@@ -195,38 +195,66 @@ end
 function Fishing:HookPostClickWithHandler()
     if not self:IsHooked(self.clickFrame, "PostClick") then
         self.clickFrame:SetScript("PostClick", function(frame, button, down)
+            print(string.format("[DATA PROBE] Physical Up-Release: button='%s' | down=%s | state=%s", tostring(button), tostring(down), tostring(Fishing:CurrentStateName())))
+
             if InCombatLockdown() or button ~= "RightButton" or down == true then
                 return
             end
 
-            -- The engine is actively waiting in the PRECASTING staging window
-            if Fishing:IsFishingState(ns.Fishing.states.PRECASTING) then
+            -- INSTRUMENTATION: Gather metrics on every single up-click release frame pass
+            local liveMacroText = frame:GetAttribute("macrotext") or "nil"
+            local liveType = frame:GetAttribute("type") or "nil"
+            local liveSpell = frame:GetAttribute("spell") or "nil"
+
+            self:Trace("mouse", string.format("[PostClick Trace] State=%s | type=%s | spell=%s | len(macrotext)=%d",
+                Fishing:CurrentStateName(), liveType, liveSpell, #liveMacroText))
+            if liveMacroText ~= "nil" then
+                self:Trace("mouse", "[PostClick Macro Dump]\n" .. liveMacroText)
+            end
+
+             if Fishing:IsFishingState(ns.Fishing.states.PRECASTING) then
                 local pending = Fishing.state.pendingBuffUse
 
-                -- If a consumable item was actively assigned to the secure macro on this click
-                if pending or (Fishing.state.buffItemLastUseAt and next(Fishing.state.buffItemLastUseAt)) then
-                    Fishing:Trace("mouse", "PostClick hardware release intercepted inside PRECASTING; forcing progression tick.")
+                -- FIX: Also fetch any active pending use changes if a background pass armed it intra-frame!
+                if not pending and self.state.pendingBuffUse then
+                    pending = self.state.pendingBuffUse
+                end
 
-                    -- Delay the attribute clear by 100ms so the game engine has time
-                    -- to process the item cast before the macro variables are wiped
+                if pending then
+                    self:Trace("mouse", "PostClick release: Consumable item application pending confirmation. Running delay buffers.")
+
                     C_Timer.After(0.10, function()
                         if Fishing.clickFrame then
-                            Fishing.clickFrame:SetAttribute("macrotext", nil)
+                            Fishing.clickFrame:SetAttribute("macrotext", "")
                         end
                     end)
 
-                    -- Force another compilation pass 150ms later to allow the game client
-                    -- and server to process the item drop before checking status arrays again.
                     C_Timer.After(0.15, function()
                         if Fishing:IsFishingState(ns.Fishing.states.PRECASTING) then
                             Fishing:PrepareFishingClickAction()
                         end
                     end)
 
-                elseif frame:IsMouseOver() then
-                    -- If no items are pending, the user's click successfully fired the pure
-                    -- /cast [nochanneling] Fishing line. Move the state engine forward cleanly.
-                    Fishing:SetFishingState(ns.Fishing.states.CASTING, "macro text fallthrough pass")
+                else
+                    -- If a tool swap is still active, suppress release
+                    if self.state and self.state.isEquippingPrimaryPole then
+                        self:Trace("mouse", "PostClick release suppressed: primary fishing pole gear-swap is actively processing.")
+                        return
+                    end
+
+                    -- If a tool swap was processed but the bag handler hasn't advanced the engine yet,
+                    -- skip manual state overrides to avoid race condition lockouts.
+                    if self.state and self.state.isEquippingPrimaryPole then
+                        return
+                    end
+
+                    if frame:GetAttribute("dreamfish_precast_action") then
+                        self:Trace("mouse", "PostClick release: Pre-cast item action awaiting completion.")
+                        return
+                    end
+
+                    self:Trace("mouse", "PostClick release: Waiting for fishing spellcast confirmation.")
+                    Fishing:AwaitFishingCastStart()
                 end
             end
         end)

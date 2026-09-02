@@ -65,6 +65,7 @@ local function FinalizeSecureFishingAction(fishingFrame, macroLines, raftExclusi
         fishingFrame:SetAttribute("type", "macro")
         fishingFrame:SetAttribute("macrotext", table.concat(macroLines, "\n"))
         fishingFrame:SetAttribute("spell", nil)
+        fishingFrame:SetAttribute("dreamfish_precast_action", true)
         if raftExclusiveWhileSwimming then
             Trace("Configured as raft-only pre-cast")
         else
@@ -76,6 +77,7 @@ local function FinalizeSecureFishingAction(fishingFrame, macroLines, raftExclusi
     fishingFrame:SetAttribute("type", "spell")
     fishingFrame:SetAttribute("spell", "Fishing")
     fishingFrame:SetAttribute("macrotext", nil)
+    fishingFrame:SetAttribute("dreamfish_precast_action", nil)
     return true
 end
 
@@ -140,7 +142,7 @@ local function ConfigureFishingClickAction(self)
                 end
             end
         else
-            Fishing.clickFrame:SetAttribute("dreamfisher_duebuff", nil)
+            Fishing.clickFrame:SetAttribute("dreamfisher_duebuff", "")
         end
 
     end
