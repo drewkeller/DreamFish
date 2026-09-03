@@ -332,12 +332,12 @@ function Fishing:ConfirmPendingBuffUse(successSpellID)
         elseif now >= (tonumber(use.expiresAt) or 0) then
             table.remove(pending.uses, index)
 
-            -- If an item fails to apply (e.g. wrong zone), temporarily suppress it
-            -- for 10 seconds so the addon stops spamming it on consecutive click releases
-            if itemID then
+            -- Only an executed macro can establish that an item was rejected.
+            if pending.executedAt and itemID then
                 self.state.buffUnknownDurationSuppressed = self.state.buffUnknownDurationSuppressed or {}
                 self.state.buffUnknownDurationSuppressed[itemID] = now + 10
                 Trace("Consumable use failed/timeout. Suppressing item for 10s: " .. Item(itemID))
+                ns.Utils.Print("Consumable use failed/timeout. Suppressing item for 10s: " .. Item(itemID))
                 ns.Utils.Alert("Consumable use failed: " .. Item(itemID) .. ". Suppressing for 10 seconds.")
             end
         end

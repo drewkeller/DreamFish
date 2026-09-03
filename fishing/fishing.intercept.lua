@@ -221,6 +221,12 @@ function Fishing:HookPostClickWithHandler()
                 end
 
                 if pending then
+                    if not pending.executedAt then
+                        pending.executedAt = GetTime()
+                        for _, use in ipairs(pending.uses or {}) do
+                            use.expiresAt = pending.executedAt + 5
+                        end
+                    end
                     self:Trace("mouse", "PostClick release: Consumable item application pending confirmation. Running delay buffers.")
 
                     C_Timer.After(0.10, function()
