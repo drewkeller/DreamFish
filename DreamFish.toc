@@ -52,6 +52,7 @@ looting/loottracker.lua
 ui/subButtonSlot.lua
 ui/buffItemDropBox.lua
 ui/equipmentDropBox.lua
+fishing/ui/castbar.lua
 
 fishing/fishing.intercept.lua
 fishing/auras.lua

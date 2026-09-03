@@ -80,6 +80,7 @@ function Fishing:OnModuleDisable()
     self:UnregisterEvent("LOOT_READY")
     self:UnregisterEvent("LOOT_CLOSED")
     self:UnregisterMessage("FISHING_CAST_ENDED")
+    self:RemoveCastBar()
     self:RemoveClickFrame()
 end
 
@@ -100,6 +101,9 @@ function Fishing:OnBagUpdateDelayed()
 
             -- Release our equipment execution locks smoothly
             self.state.isEquippingPrimaryPole = false
+            if ns.CastBar and type(ns.CastBar.HidePoleSwap) == "function" then
+                ns.CastBar.HidePoleSwap()
+            end
 
             -- Clear out the temporary stop macro string blocker cleanly
             self.clickFrame:SetAttribute("macrotext", "")
@@ -226,6 +230,9 @@ function Fishing:OnEquipmentChanged(event, slotId)
     if slotId == FISHINGTOOLSLOT then
         self:Trace("pole", "Fishing pole changed")
         self.state.isEquippingPrimaryPole = false
+        if ns.CastBar and type(ns.CastBar.HidePoleSwap) == "function" then
+            ns.CastBar.HidePoleSwap()
+        end
         -- if hotkey cast fishing pole, prepare it again
         if self:IsFishingState(ns.Fishing.states.IDLE)
             or self:IsFishingState(ns.Fishing.states.PRECASTING)
@@ -499,7 +506,6 @@ function Fishing:OnCastStarted(reason)
 
     self.state.castAttempt = (self.state.castAttempt or 0) + 1
     self.state.castStartConfirmationAttempt = nil
-    self.state.isEquippingPrimaryPole = false
     local poleDecision = ns.precast.GetSelectedFishingPoleDecision and ns.precast.GetSelectedFishingPoleDecision()
 
     -- INSTRUMENTATION: Log the starting state of the secure frame attributes
@@ -510,6 +516,9 @@ function Fishing:OnCastStarted(reason)
     local isSwapping = false
     if poleDecision and poleDecision.shouldApply and poleDecision.itemID then
         self.state.isEquippingPrimaryPole = true
+        if ns.CastBar and type(ns.CastBar.ShowPoleSwap) == "function" then
+            ns.CastBar.ShowPoleSwap()
+        end
         isSwapping = true
         self:Trace("pole", "Initiating primary fishing pole gear-swap: " .. tostring(poleDecision.itemID))
 
@@ -520,6 +529,11 @@ function Fishing:OnCastStarted(reason)
         self.clickFrame:SetAttribute("type", "macro")
         self.clickFrame:SetAttribute("macrotext", "/stopmacro")
         self.clickFrame:SetAttribute("spell", nil)
+    else
+        self.state.isEquippingPrimaryPole = false
+        if ns.CastBar and type(ns.CastBar.HidePoleSwap) == "function" then
+            ns.CastBar.HidePoleSwap()
+        end
     end
 
     self:CheckEnabledBuffItemsDepleted()
