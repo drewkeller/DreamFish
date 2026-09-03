@@ -56,6 +56,46 @@ local function ClearDialogStatusPosition(status)
     status.left = nil
 end
 
+local function AddMainConfigButton(windowName, dialogFrame)
+    if windowName ~= addonName .. "Dialog" or dialogFrame.DreamFishMainConfigButton then
+        return
+    end
+
+    dialogFrame.DreamFishMainConfigButton = true
+    local closeButton
+    for _, child in ipairs({ dialogFrame:GetChildren() }) do
+        if child.GetText and child:GetText() == CLOSE then
+            closeButton = child
+            break
+        end
+    end
+
+    local button = CreateFrame("Button", nil, dialogFrame, "UIPanelButtonTemplate")
+    local elvUI = _G.ElvUI
+    local elvUIEngine = elvUI and elvUI[1]
+    local skins = elvUIEngine and elvUIEngine.GetModule and elvUIEngine:GetModule("Skins", true)
+    if skins and skins.HandleButton then
+        skins:HandleButton(button)
+    end
+    button:ClearAllPoints()
+    button:SetPoint("BOTTOMLEFT", 27, 17)
+    button:SetSize(100, 20)
+    button:SetFrameLevel(dialogFrame:GetFrameLevel() + 10)
+    button:SetText("Main Config")
+    button:SetScript("OnClick", function()
+        Settings.OpenToCategory(Addon.optionsCategoryID or (Addon.optionsFrame and Addon.optionsFrame.name) or addonName)
+        C_Timer.After(0.01, function()
+            Addon:OpenDialogWindow(windowName)
+        end)
+    end)
+    dialogFrame.DreamFishMainConfigButton = button
+
+    if closeButton then
+        closeButton:ClearAllPoints()
+        closeButton:SetPoint("BOTTOMRIGHT", -27, 17)
+    end
+end
+
 function Addon:SaveDialogFrameCoordinates(windowName, dialogFrame)
     local globalDB = Addon and Addon.db and Addon.db.global
     if globalDB and dialogFrame then
@@ -160,6 +200,7 @@ function Addon:OpenDialogWindow(windowName, tabOrGroupName)
     if dialogFrame and dialog then
         -- 4. Restore again for old point-based saved positions and then persist AceGUI status on close.
         self:RestoreDialogPosition(dialogFrame, windowName)
+        AddMainConfigButton(windowName, dialogFrame)
 
         if dialogFrame.frame then
             dialogFrame.frame:SetFrameStrata("BACKGROUND")
@@ -181,6 +222,20 @@ function Addon:OpenDialogWindow(windowName, tabOrGroupName)
             -- Hook the standard close event
             dialogFrame:HookScript("OnHide", function()
                 Addon:SaveDialogFrameCoordinates(windowName, dialogFrame)
+            end)
+
+            -- Allow dragging from empty areas of the dialog, not only the title.
+            dialogFrame:HookScript("OnMouseDown", function(self, button)
+                if button == "LeftButton" then
+                    self:StartMoving()
+                end
+            end)
+
+            dialogFrame:HookScript("OnMouseUp", function(self, button)
+                if button == "LeftButton" then
+                    self:StopMovingOrSizing()
+                    Addon:SaveDialogFrameCoordinates(windowName, self)
+                end
             end)
 
             -- Monitor window movement and scaling
