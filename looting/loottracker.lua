@@ -6,10 +6,10 @@ local AceGUI = LibStub("AceGUI-3.0")
 ns.LootTracker = LootTracker
 
 local globalDB, profileDB, charDB
-function LootTracker:RegisterInitializer(func)
+function LootTracker:RegisterOnModuleInitialize(func)
     if type(func) == "function" then
-        self.initializerFuncs = self.initializerFuncs or {}
-        table.insert(self.initializerFuncs, func)
+        self.onInitializeFuncs = self.onInitializeFuncs or {}
+        table.insert(self.onInitializeFuncs, func)
     end
 
     profileDB = self.db.profile
@@ -28,8 +28,8 @@ function LootTracker:OnModuleInitialize()
     -- local defaults = ns.moduleDefaults["LootTracker"]
     -- self.db = ns.Addon.db:RegisterNamespace("LootTracker", defaults)
 
-    if self.initializerFuncs then
-        for _, initializerFunc in ipairs(self.initializerFuncs) do
+    if self.onInitializeFuncs then
+        for _, initializerFunc in ipairs(self.onInitializeFuncs) do
             initializerFunc(self)
         end
     end

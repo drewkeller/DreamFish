@@ -3,7 +3,7 @@ local Addon = ns.Addon
 local Fishing = ns.Fishing
 
 local globalDB, profileDB, charDB
-Fishing:RegisterInitializer(function(self)
+Fishing:RegisterOnModuleInitialize(function(self)
     globalDB = self.db.global
     profileDB = self.db.profile
     charDB = self.db.char

@@ -141,9 +141,9 @@ end
 function Fishing:RegisterTraceSource()
 end
 
-function Fishing:RegisterInitializer(func)
-    self.initializerFuncs = self.initializerFuncs or {}
-    table.insert(self.initializerFuncs, func)
+function Fishing:RegisterOnModuleInitialize(func)
+    self.onInitializeFuncs = self.onInitializeFuncs or {}
+    table.insert(self.onInitializeFuncs, func)
 end
 
 function Fishing:SendMessage(message)
@@ -243,7 +243,7 @@ local ns = {
 Fishing.db = ns.FishingDB
 assert(loadfile("fishing/fishing.intercept.lua"))("DreamFish", ns)
 assert(loadfile("fishing/states.lua"))("DreamFish", ns)
-for _, initializer in ipairs(Fishing.initializerFuncs) do
+for _, initializer in ipairs(Fishing.onInitializeFuncs) do
     initializer(Fishing)
 end
 

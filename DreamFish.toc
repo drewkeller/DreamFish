@@ -17,11 +17,12 @@ embeds.xml
 
 # Core modules (load first)
 core/_init.lua
-core/utils.lua
-core/utils.audio.lua
-core/utils.inventory.lua
-core/utils.toys.lua
-core/utils.ui.lua
+utility/utils.lua
+utility/math.lua
+utility/audio.lua
+utility/inventory.lua
+utility/toys.lua
+utility/ui.lua
 
 # Defaults must be defined first
 core/_defaults.lua

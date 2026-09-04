@@ -44,7 +44,7 @@ local FISHING_STATE_FLAGS = {
 Fishing.state = Fishing.state or {}
 ns.Fishing.states = FISHING_STATES
 
-Fishing:RegisterInitializer(function(self)
+Fishing:RegisterOnModuleInitialize(function(self)
     self.state.current = FISHING_STATES.IDLE
     for key, value in pairs(FISHING_STATE_FLAGS[FISHING_STATES.IDLE]) do
         self.state[key] = value

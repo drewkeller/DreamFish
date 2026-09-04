@@ -7,7 +7,7 @@ Fishing:RegisterTraceSource("buffs")
 state.buffItemLastUseAt = state.buffItemLastUseAt or {}
 
 local globalDB, profileDB, charDB
-Fishing:RegisterInitializer(function(self)
+Fishing:RegisterOnModuleInitialize(function(self)
     globalDB = self.db.global
     profileDB = self.db.profile
     charDB = self.db.char

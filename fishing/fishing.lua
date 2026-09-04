@@ -6,10 +6,31 @@ ns.precast = {}
 
 ns.Fishing.ConfigureFishingClickAction = ns.Fishing.ConfigureFishingClickAction or function(self) end
 
-function Fishing:RegisterInitializer(func)
+function Fishing:RegisterOnModuleInitialize(func)
     if type(func) == "function" then
-        self.initializerFuncs = self.initializerFuncs or {}
-        table.insert(self.initializerFuncs, func)
+        self.onInitializeFuncs = self.onInitializeFuncs or {}
+        table.insert(self.onInitializeFuncs, func)
+    end
+end
+local function CallRegisteredOnModuleInitialize(self)
+    if type(self.onInitializeFuncs) == "table" then
+        for _, func in ipairs(self.onInitializeFuncs) do
+            func(self)
+        end
+    end
+end
+
+function Fishing:RegisterOnModuleEnable(func)
+    if type(func) == "function" then
+        self.onEnableFuncs = self.onEnableFuncs or {}
+        table.insert(self.onEnableFuncs, func)
+    end
+end
+local function CallRegisteredOnModuleEnable(self)
+    if type(self.onEnableFuncs) == "table" then
+        for _, func in ipairs(self.onEnableFuncs) do
+            func(self)
+        end
     end
 end
 
@@ -36,9 +57,7 @@ function Fishing:OnModuleInitialize()
         end
     end
 
-    for _, initializerFunc in ipairs(self.initializerFuncs) do
-        initializerFunc(self)
-    end
+    CallRegisteredOnModuleInitialize(self)
 end
 
 function Fishing:OnModuleEnable()
@@ -61,6 +80,8 @@ function Fishing:OnModuleEnable()
     self:RegisterMessage("FISHING_CAST_ENDED",         "OnFishingCastEnded")
 
     self:ApplyKeybinding()
+
+    CallRegisteredOnModuleEnable(self)
 end
 
 function Fishing:OnModuleDisable()
