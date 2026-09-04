@@ -125,4 +125,3 @@ function ns.Utils.GetDebugCooldownText(itemID)
     local remaining = math.max(0, (start + duration) - GetTime())
     return "cooldownRemaining=" .. string.format("%.1fs", remaining)
 end
-

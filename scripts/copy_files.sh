@@ -28,4 +28,5 @@ cp -fa $ADDON_NAME.lua $ADDON_NAME.toc Bindings.lua Bindings.xml  \
 
 # Copy the addon subdirectories to the addon directory
 #cp -rf assets audio buff core fishing ui Libs "$ADDON_DIR"
-cp -rfa assets core Libs fishing looting ui "$ADDON_DIR"
+cp -rfa assets core Libs fishing looting ui utility \
+  "$ADDON_DIR"

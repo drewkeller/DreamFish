@@ -8,3 +8,15 @@ function ns.Utils.PlayWarningCue()
         end
     end
 end
+
+function ns.Utils.CloneAudioTriplet(values)
+    if type(values) ~= "table" then
+        return nil
+    end
+    return {
+        ambience = values.ambience,
+        music = values.music,
+        dialog = values.dialog,
+    }
+end
+
