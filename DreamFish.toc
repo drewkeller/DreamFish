@@ -33,6 +33,7 @@ module/callbacks.lua
 fishing/_constants.lua
 fishing/_defaults.lua
 fishing/_options.lua
+looting/_constants.lua
 looting/_defaults.lua
 looting/_options.lua
 

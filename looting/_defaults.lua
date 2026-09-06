@@ -1,13 +1,24 @@
 local addonName, ns = ...
 local Addon = ns.Addon
-local LootTracker = Addon:NewModule("LootTracker", "AceConsole-3.0", "AceEvent-3.0", "AceTimer-3.0", "AceHook-3.0")
-ns.LootTracker = LootTracker
+local LootTracker = ns.LootTracker
 
 ns.moduleDefaults["LootTracker"] = {
     profile = {
         moduleEnabled = true,
         debug = false,
-        -- start of non-prototype options
+        -- loot mode situations
+        lootModeWhenFishing = {
+            lootMode = "none",
+            ignoreJunk = false,
+            stayOpenForJunk = true,
+        },
+        lootModeWhenOther = {
+            lootMode = "none",
+            ignoreJunk = false,
+            stayOpenForJunk = true,
+        },
+        lootDelay = 150,
+        -- tracker
         minQualityFilter = 0,
         showWindowOnStartup = false,
         windowVisible = true,

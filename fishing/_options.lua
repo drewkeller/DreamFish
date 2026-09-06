@@ -18,6 +18,7 @@ local function AddTab(tab)
 
     tabOrder = (tabOrder or 0) + 1
     tab.order = tabOrder
+    optionOrder = 0
     return tab
 end
 
