@@ -244,6 +244,14 @@ function Fishing:OnAddonLoaded(event)
             self:CheckAndEquipUnderlightAngler("addon loaded (delayed packet safety pass)")
         end
     end)
+    self:Trace("states", "Module trace test")
+    self:Debug("Module debug test")
+    Addon:DumpToLog("Dump test", { key = "value" })
+    Addon:Trace("core", "Addon trace test")
+    Addon:Debug("Addon debug test")
+    Addon:Alert("Addon alert test")
+    Addon:Print("Addon print test")
+
 end
 
 -- This function does NOT fire for profession slotted items
@@ -428,11 +436,11 @@ end
 function Fishing:OnSpellCastStarted(event, unit, _, spellID, ...)
     if unit ~= "player" then return end
 
-    -- DATA PROBE: Log every single spell cast initialization
+    -- Log every single spell cast initialization
     local spellName = C_Spell and C_Spell.GetSpellName and C_Spell.GetSpellName(spellID) or tostring(spellID)
     local liveMacroText = self.clickFrame and self.clickFrame:GetAttribute("macrotext") or "nil"
 
-    self:Trace("auraevent", string.format("[PROBE: CAST_START] Spell=%s | State=%s | len(macrotext)=%d",
+    self:Trace("auraevent", string.format("OnSpellCastStarted: Spell=%s | State=%s | len(macrotext)=%d",
         spellName, self:CurrentStateName(), #liveMacroText))
 end
 
@@ -443,8 +451,8 @@ function Fishing:OnSpellcastChannelStarted(event, unit, ...)
     local spellName = C_Spell and C_Spell.GetSpellName and C_Spell.GetSpellName(spellID) or tostring(spellID)
     local liveMacroText = self.clickFrame and self.clickFrame:GetAttribute("macrotext") or "nil"
 
-    -- DATA PROBE: Log channel succession confirmations
-    self:Trace("auraevent", string.format("[PROBE: CHANNEL_START] Spell=%s | State=%s | len(macrotext)=%d",
+    -- Log channel succession confirmations
+    self:Trace("auraevent", string.format("OnSpellcastChannelStarted: Spell=%s | State=%s | len(macrotext)=%d",
         spellName, self:CurrentStateName(), #liveMacroText))
 
     if type(self.ConfirmPendingBuffUse) == "function" then

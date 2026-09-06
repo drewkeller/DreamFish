@@ -195,8 +195,6 @@ end
 function Fishing:HookPostClickWithHandler()
     if not self:IsHooked(self.clickFrame, "PostClick") then
         self.clickFrame:SetScript("PostClick", function(frame, button, down)
-            print(string.format("[DATA PROBE] Physical Up-Release: button='%s' | down=%s | state=%s", tostring(button), tostring(down), tostring(Fishing:CurrentStateName())))
-
             if InCombatLockdown() or button ~= "RightButton" or down == true then
                 return
             end
@@ -206,10 +204,10 @@ function Fishing:HookPostClickWithHandler()
             local liveType = frame:GetAttribute("type") or "nil"
             local liveSpell = frame:GetAttribute("spell") or "nil"
 
-            self:Trace("mouse", string.format("[PostClick Trace] State=%s | type=%s | spell=%s | len(macrotext)=%d",
+            self:Trace("mouse", string.format("PostClick: State=%s | type=%s | spell=%s | len(macrotext)=%d",
                 Fishing:CurrentStateName(), liveType, liveSpell, #liveMacroText))
             if liveMacroText ~= "nil" then
-                self:Trace("mouse", "[PostClick Macro DumpToLog]\n" .. liveMacroText)
+                self:Trace("mouse", "PostClick Macro: " .. liveMacroText)
             end
 
              if Fishing:IsFishingState(ns.Fishing.states.PRECASTING) then

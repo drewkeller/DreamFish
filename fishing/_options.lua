@@ -239,6 +239,19 @@ function Fishing:GetModuleOptions()
                 } -- Tackle manager button
             },
         }), -- Tackle tab
+        focusTab = AddTab({
+            type = "group",
+            name = "Focus",
+            args = {
+                audioFocusEnabled = {
+                    type = "toggle",
+                    name = "Enable Audio Focus",
+                    desc = "Reduces other sounds and focuses audio on fishing sounds, then restores when done fishing.",
+                    order = 1,
+                    width = "full",
+                }
+            }
+        })
     }
 
     return options

@@ -18,6 +18,21 @@ for _, info in pairs(ns.logLevelInfo) do
     ns.logLevel[info.name] = info.value -- flat: logLevel.TRACE
 end
 
+ns.state = {
+    audio ={
+        lastFishingDuckedAudioCVars = nil,
+        savedFishingAudioCVars = nil,
+        audioLingerGeneration = 0,
+        audioRestoreAt = nil,
+        fishingStartTime = nil,
+        fishingSessionState = nil,
+        fishingStartGraceUntil = nil,
+    }
+}
+
+ns.frames = {
+    audioRestore = nil,
+}
 
 function Addon:InitializeTraceSources()
     if self.pendingCoreTraces then
