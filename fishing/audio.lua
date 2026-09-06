@@ -30,17 +30,6 @@ local Clamp = ns.Utils.Clamp
 local NearlyEqual = ns.Utils.NearlyEqual
 local CloneAudioTriplet = ns.Utils.CloneAudioTriplet
 
--- local function GetFishingElapsedSeconds()
---     if type(GetTime) ~= "function" then
---         return 0
---     end
---     local startedAt = tonumber(ns.audio.state and ns.state.audio.fishingStartTime) or 0
---     if startedAt <= 0 then
---         return 0
---     end
---     return math.max(0, GetTime() - startedAt)
--- end
-
 local function PersistAudioDuckingRuntimeState()
     if not globalDB then
         return
@@ -167,10 +156,9 @@ function Fishing:RestoreFishingAudioFocus()
     if ns.state.audio.savedFishingAudioCVars == nil then
         return
     end
-    Trace("Audio restore now: " .. " sessionState=" .. tostring(ns.state.audio.fishingSessionState))
+    Trace("Audio restoring")
     if type(SetCVar) ~= "function" then
         ns.state.audio.savedFishingAudioCVars = nil
-        ns.state.audio.audioRestoreAt = nil
         if ns.frames.audioRestore then
             ns.frames.audioRestore:Hide()
         end
@@ -188,51 +176,16 @@ function Fishing:RestoreFishingAudioFocus()
     end
 
     ns.state.audio.savedFishingAudioCVars = nil
-    ns.state.audio.audioRestoreAt = nil
     PersistAudioDuckingRuntimeState()
     if ns.frames.audioRestore then
         ns.frames.audioRestore:Hide()
     end
 end
 
-function Fishing:ScheduleRestoreFishingAudioFocus()
-    local linger = profileDB and profileDB.focusedAudioLinger
-    if linger <= 0 then
-        Trace("Audio restore linger skipped (linger<=0)")
-        self:RestoreFishingAudioFocus()
-        return
-    end
-    ns.state.audio.audioLingerGeneration = ns.state.audio.audioLingerGeneration + 1
-    ns.state.audio.audioRestoreAt = GetTime() + linger
-    Trace("Audio restore scheduled: in=" .. string.format("%.3f", linger)
-        .. "s at=" .. string.format("%.3f", ns.state.audio.audioRestoreAt))
-    if not ns.frames.audioRestore then
-        ns.frames.audioRestore = CreateFrame("Frame")
-        ns.frames.audioRestore:Hide()
-        ns.frames.audioRestore:SetScript("OnUpdate", function(self)
-            if not ns.state.audio.audioRestoreAt then
-                self:Hide()
-                return
-            end
-            if GetTime() >= ns.state.audio.audioRestoreAt then
-                ns.state.audio.audioRestoreAt = nil
-                self:Hide()
-                self:RestoreFishingAudioFocus()
-            end
-        end)
-    end
-    ns.frames.audioRestore:Show()
-end
-
 function Fishing:StartFishingAudioFocus()
-    ns.state.audio.audioLingerGeneration = ns.state.audio.audioLingerGeneration + 1
-    ns.state.audio.fishingStartTime = GetTime()
-    ns.state.audio.fishingStartGraceUntil = ns.state.audio.fishingStartTime + 1.5
-    ns.state.audio.audioRestoreAt = nil
     if ns.frames.audioRestore then
         ns.frames.audioRestore:Hide()
     end
-    Trace("Audio focus start: start=" .. string.format("%.3f", ns.state.audio.fishingStartTime)
-        .. " graceUntil=" .. string.format("%.3f", ns.state.audio.fishingStartGraceUntil))
+    Trace("Audio focus start")
     self:EnableFishingAudioFocus()
 end

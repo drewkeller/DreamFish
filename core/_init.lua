@@ -22,11 +22,6 @@ ns.state = {
     audio ={
         lastFishingDuckedAudioCVars = nil,
         savedFishingAudioCVars = nil,
-        audioLingerGeneration = 0,
-        audioRestoreAt = nil,
-        fishingStartTime = nil,
-        fishingSessionState = nil,
-        fishingStartGraceUntil = nil,
     }
 }
 

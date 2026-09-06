@@ -244,14 +244,6 @@ function Fishing:OnAddonLoaded(event)
             self:CheckAndEquipUnderlightAngler("addon loaded (delayed packet safety pass)")
         end
     end)
-    self:Trace("states", "Module trace test")
-    self:Debug("Module debug test")
-    Addon:DumpToLog("Dump test", { key = "value" })
-    Addon:Trace("core", "Addon trace test")
-    Addon:Debug("Addon debug test")
-    Addon:Alert("Addon alert test")
-    Addon:Print("Addon print test")
-
 end
 
 -- This function does NOT fire for profession slotted items
