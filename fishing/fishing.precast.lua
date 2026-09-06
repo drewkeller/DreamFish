@@ -134,7 +134,7 @@ local function ConfigureFishingClickAction(self)
         local consumableDecision = ns.precast.GetConsumableUseDecision(self, hasItemUseAction)
         if consumableDecision.shouldApply then
             for _, consumable in ipairs(consumableDecision.items or {}) do
-                ns.Utils.Print("Arming due buff: " .. ns.Utils.GetDebugItemLabel(consumable.itemID) .. " (" .. tostring(consumable.category) .. ")")
+                Addon:Print("Arming due buff: " .. ns.Utils.GetDebugItemLabel(consumable.itemID) .. " (" .. tostring(consumable.category) .. ")")
                 InsertUseItemMacroLine(macroLines, consumable.itemID)
                 hasItemUseAction = true
                 if consumable.category == "lure" then

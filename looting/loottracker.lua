@@ -36,7 +36,7 @@ function LootTracker:OnModuleInitialize()
 end
 
 function LootTracker:OnModuleEnable()
-    ns.Utils.Debug("LootTracker:OnModuleEnable()")
+    self:Debug("LootTracker:OnModuleEnable()")
     if self.db.profile.windowVisible or self.db.profile.showWindowOnStartup then
         self:CreateLootTrackerWindow()
     end

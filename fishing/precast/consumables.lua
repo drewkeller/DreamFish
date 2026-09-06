@@ -46,8 +46,7 @@ local function WarnMissingProfessionFishingPoleForLure()
     state.lureMissingPoleWarningAt = now
 
     local warningText = "Cannot apply lure: no fishing pole equipped in profession slot."
-    ns.Utils.Alert(warningText)
-    ns.Utils.Print(warningText)
+    Addon:Alert(warningText)
 end
 
 local function GetNow()
@@ -280,7 +279,7 @@ function Fishing:CheckEnabledBuffItemsDepleted()
                     local itemName = (C_Item and type(C_Item.GetItemInfo) == "function" and C_Item.GetItemInfo(itemID))
                         or "Unknown buff item"
                     state.buffDepletionAlerted = true
-                    ns.Utils.Alert("Buff item depleted: " .. tostring(itemName) .. " (" .. tostring(itemID) .. ")")
+                    Addon:Alert("Buff item depleted: " .. tostring(itemName) .. " (" .. tostring(itemID) .. ")")
                     return
                 end
             end
@@ -323,7 +322,7 @@ function Fishing:ConfirmPendingBuffUse(successSpellID)
         else
             self.state.pendingBuffObservation = nil
         end
-        ns.Utils.Debug("Confirmed consumable use: " .. Item(itemID) .. " (spellID=" .. tostring(spellID) .. ")")
+        self:Debug("Confirmed consumable use: " .. Item(itemID) .. " (spellID=" .. tostring(spellID) .. ")")
         if type(Fishing.AnnounceBuffUse) == "function" then
             Fishing:AnnounceBuffUse(itemID, spellID)
         end
@@ -336,9 +335,7 @@ function Fishing:ConfirmPendingBuffUse(successSpellID)
             if pending.executedAt and itemID then
                 self.state.buffUnknownDurationSuppressed = self.state.buffUnknownDurationSuppressed or {}
                 self.state.buffUnknownDurationSuppressed[itemID] = now + 10
-                Trace("Consumable use failed/timeout. Suppressing item for 10s: " .. Item(itemID))
-                ns.Utils.Print("Consumable use failed/timeout. Suppressing item for 10s: " .. Item(itemID))
-                ns.Utils.Alert("Consumable use failed: " .. Item(itemID) .. ". Suppressing for 10 seconds.")
+                Addon:Alert("Consumable use failed: " .. Item(itemID) .. ". Suppressing for 10 seconds.")
             end
         end
     end

@@ -19,7 +19,7 @@ local function GetTraceOptions()
             set = function(_, value)
                 Addon.db.profile.traces[source] = value
                 local state = value and "|cFF00FF00ON|r" or "|cFFFF0000OFF|r"
-                ns.Utils.Print("Trace source '" .. source .. "' is now " .. state .. ".")
+                Addon:Print("Trace source '" .. source .. "' is now " .. state .. ".")
             end,
         }
     end
@@ -31,37 +31,8 @@ local function GetOptions()
     name = "General",
     type = "group",
     args = {
-        debugMode = {
-            type = "toggle",
-            name = "Enable Debug Mode",
-            desc = "Enables debug mode for the addon, providing additional output for troubleshooting.",
-            order = 1,
-            width = "full",
-            get = function(info) return Addon.db.profile.debugEnabled end,
-            set = function(info, value)
-                Addon.db.profile.debugEnabled = value
-                if value then
-                    ns.Utils.Print("Debug Mode is now |cFF00FF00ON|r.")
-                else
-                    ns.Utils.Print("Debug Mode is now |cFFFF0000OFF|r.")
-                end
-            end,
-        },
-        traceGroup ={
-            order = 2,
-            type = "group",
-            name = "Trace sources",
-            inline = true,
-            args = GetTraceOptions(),
-        },
-        spacer = {
-            order = 5,
-            type = "description",
-            name = " ",
-            fontSize = "small",
-        },
         modules = {
-            order = 10,
+            order = 1,
             type = "group",
             name = "Modules",
             handler = ns.Addon,
@@ -70,7 +41,7 @@ local function GetOptions()
             args = {
                 fishingEnabled = {
                     type = "toggle",
-                    name = "(deprecated) Enable Fishing",
+                    name = "Enable Fishing",
                     desc = "Enables the Fishing module.",
                     order = 2,
                     width = "full",
@@ -81,20 +52,69 @@ local function GetOptions()
                         ns.Fishing:SetModuleEnabled(value)
                     end,
                 },
-                -- lootTrackerEnabled = {
-                --     type = "toggle",
-                --     name = "(deprecated) Enable Loot Tracker",
-                --     desc = "Enables the Loot Tracker module.",
-                --     order = 3,
-                --     width = "full",
-                --     get = function()
-                --         return LootTracker:IsModuleEnabled()
-                --     end,
-                --     set = function(_, value)
-                --         LootTracker:SetModuleEnabled(value)
-                --     end,
-                -- },
-        --      }
+                lootTrackerEnabled = {
+                    type = "toggle",
+                    name = "Enable Loot Tracker",
+                    desc = "Enables the Loot Tracker module.",
+                    order = 3,
+                    width = "full",
+                    get = function()
+                        return ns.LootTracker:IsModuleEnabled()
+                    end,
+                    set = function(_, value)
+                        ns.LootTracker:SetModuleEnabled(value)
+                    end,
+                },
+            },
+        },
+        spacer = {
+            order = 5,
+            type = "description",
+            name = " ",
+            fontSize = "small",
+        },
+        debugMode = {
+            type = "toggle",
+            name = "Enable Debug Mode",
+            desc = "Enables debug mode for the addon, providing additional output for troubleshooting.",
+            order = 100,
+            width = "full",
+            get = function(info) return Addon.db.profile.debugEnabled end,
+            set = function(info, value)
+                Addon.db.profile.debugEnabled = value
+                if value then
+                    Addon:Print("Debug Mode is now |cFF00FF00ON|r.")
+                else
+                    Addon:Print("Debug Mode is now |cFFFF0000OFF|r.")
+                end
+            end,
+        },
+        traceGroup ={
+            order = 110,
+            type = "group",
+            name = "Trace sources",
+            inline = true,
+            args = GetTraceOptions(),
+        },
+        log = {
+            order = 120,
+            type = "group",
+            name = "Log Management",
+            desc = "Commands for managing the addon log",
+            inline = true,
+            cmdHidden = false, -- Makes it discoverable via /df help
+            args = {
+                clear = {
+                    type = "execute",
+                    name = "Clear Log",
+                    desc = "Clears all stored entries in the DreamFish log.",
+                    order = 1,
+                    func = function()
+                        local logDB = ns.Utils.GetLogDB()
+                        table.wipe(logDB)
+                        ns.Addon:Print("Log has been cleared.")
+                    end,
+                },
             },
         },
     }

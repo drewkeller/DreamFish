@@ -51,7 +51,7 @@ function Fishing:OnModuleInitialize()
     -- FIX 1: FORCE-PURGE DATA CORRUPTION LOCKS FROM SAVEDVARIABLES
     if self.db and self.db.global and type(self.db.global.buffAuraByItem) == "table" then
         if self.db.global.buffAuraByItem["0"] or self.db.global.buffAuraByItem[0] then
-            ns.Utils.Debug("Purging corrupted item:0 database tracking lock record.")
+            self:Debug("Purging corrupted item:0 database tracking lock record.")
             self.db.global.buffAuraByItem["0"] = nil
             self.db.global.buffAuraByItem[0] = nil
         end
@@ -61,7 +61,7 @@ function Fishing:OnModuleInitialize()
 end
 
 function Fishing:OnModuleEnable()
-    ns.Utils.Debug("Fishing:OnModuleEnable()")
+    self:Debug("Fishing:OnModuleEnable()")
     self:CreateClickFrame()
     self:RegisterEvent("ADDON_LOADED",                 "OnAddonLoaded")
     self:RegisterEvent("PLAYER_REGEN_ENABLED",         "OnCombatEnded")

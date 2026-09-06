@@ -2,4 +2,12 @@
 .vscode/
 .release/
 Libs/
+.env
+
+**/__pycache__/
+
+# Log files
+*.csv
+*.json
+*.jsonl
 *.log

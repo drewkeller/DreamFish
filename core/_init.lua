@@ -4,10 +4,25 @@ ns.Addon = Addon
 
 ns.AddonInitializers = ns.AddonInitializers or {}
 
+ns.logLevel = {}
+ns.logLevelInfo = {
+    { value = 1, name = "TRACE", color = "667788", },
+    { value = 2, name = "DEBUG", color = "336699", },
+    { value = 3, name = "INFO",  color = "60B6F6", },
+    { value = 4, name = "WARN",  color = "FFA500", },
+    { value = 5, name = "ERROR", color = "D83D65", },
+}
+for _, info in pairs(ns.logLevelInfo) do
+    ns.logLevelInfo[info.name] = info   -- info: logLevelInfo["TRACE"]
+    ns.logLevelInfo[info.value] = info  -- info: logLevelInfo[1]
+    ns.logLevel[info.name] = info.value -- flat: logLevel.TRACE
+end
+
+
 function Addon:InitializeTraceSources()
     if self.pendingCoreTraces then
         for _, source in ipairs(self.pendingCoreTraces) do
-            --ns.Utils.Print("Registering trace source: " .. tostring(source))
+            --Addon:Print("Registering trace source: " .. tostring(source))
             self:RegisterTraceSource(source)
         end
         self.pendingCoreTraces = nil
@@ -26,7 +41,7 @@ function Addon:RegisterTraceSource(source)
     self.db.profile.traces = self.db.profile.traces or {}
 
     if self.db.profile.traces[source] == nil then
-        --ns.Utils.Print("Initializing trace source: " .. tostring(source))
+        --Addon:Print("Initializing trace source: " .. tostring(source))
         self.db.profile.traces[source] = false -- Disabled by default
     end
 end

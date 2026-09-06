@@ -132,12 +132,6 @@ function Fishing:Unhook(frame, script)
     mouseDownCallback = nil
 end
 
-function Fishing:Debug()
-end
-
-function Fishing:Trace()
-end
-
 function Fishing:RegisterTraceSource()
 end
 

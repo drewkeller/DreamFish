@@ -16,7 +16,7 @@ Fishing.state.buffItemLastKnownCount = Fishing.state.buffItemLastKnownCount or {
 Fishing.state.buffItemLastUseAt = Fishing.state.buffItemLastUseAt or {}
 
 local function Trace(msg)
-    ns.Utils.CoreTrace("buffitemdropbox", msg)
+    Addon:Trace("buffitemdropbox", msg)
 end
 
 local function CreateBuffItemWidget()

@@ -209,7 +209,7 @@ function Fishing:HookPostClickWithHandler()
             self:Trace("mouse", string.format("[PostClick Trace] State=%s | type=%s | spell=%s | len(macrotext)=%d",
                 Fishing:CurrentStateName(), liveType, liveSpell, #liveMacroText))
             if liveMacroText ~= "nil" then
-                self:Trace("mouse", "[PostClick Macro Dump]\n" .. liveMacroText)
+                self:Trace("mouse", "[PostClick Macro DumpToLog]\n" .. liveMacroText)
             end
 
              if Fishing:IsFishingState(ns.Fishing.states.PRECASTING) then

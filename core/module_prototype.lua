@@ -17,7 +17,7 @@ function ModulePrototype:RegisterTraceSource(sourceName, description)
 end
 
 function ModulePrototype:Print(msg, ...)
-    ns.Utils.Print(msg, ...)
+    ns.Utils.DebugModuleSource(ns.logLevel.INFO, self, "", msg, ...)
 end
 
 function ModulePrototype:Trace(sourceName, msg, ...)
@@ -25,14 +25,19 @@ function ModulePrototype:Trace(sourceName, msg, ...)
         return
     end
     if self.db.profile.traces[sourceName] then
-        ns.Utils.Print("|cFF999999[" .. sourceName .. "]|r " .. tostring(msg), ...)
+        ns.Utils.DebugModuleSource(ns.logLevel.TRACE, self, sourceName, msg, ...)
     end
 end
 
 function ModulePrototype:Debug(message, ...)
     if self.db and self.db.profile and self.db.profile.debugEnabled then
-        ns.Utils.Print("|cFF9ACDFF[" .. self.config.displayName .. "]|r " .. tostring(message), ...)
+        --ns.Utils.DebugModuleSource(ns.logLevel.DEBUG, self, sourceName, msg, ...)
+        ns.Utils.DebugModuleSource(ns.logLevel.DEBUG, self, self.config.moduleName, message, ...)
     end
+end
+
+function ModulePrototype:Alert(message, ...)
+    ns.Utils.DebugModuleSource(ns.logLevel.ALERT, self, self.config.moduleName, message, ...)
 end
 
 function ModulePrototype:IsModuleEnabled()
@@ -169,7 +174,7 @@ function ModulePrototype:GetDebugGroup()
                     set = function(info, value)
                         targetModule.db.profile.traces[info[#info]] = value
                         local state = value and "|cFF00FF00ON|r" or "|cFFFF0000OFF|r"
-                        ns.Utils.Print("Trace source '" .. info[#info] .. "' is now " .. state .. ".")
+                        Addon:Print("Trace source '" .. info[#info] .. "' is now " .. state .. ".")
                     end,
                     args = traceArgs, -- Dynamically injected from the loop above
                 },

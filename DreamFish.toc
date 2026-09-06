@@ -5,7 +5,7 @@
 ## IconTexture: Interface\AddOns\DreamFish\assets\UnderlightAngler_32x32_light.tga
 ## Version: @project-version@
 ## Author: Drew Keller
-## SavedVariables: DreamFishDB
+## SavedVariables: DreamFishDB, DreamFishLog
 
 ## X-Website: https://github.com/drewkeller/DreamFish
 ## X-Repository: https://github.com/drewkeller/DreamFish
@@ -17,7 +17,7 @@ embeds.xml
 
 # Core modules (load first)
 core/_init.lua
-utility/utils.lua
+utility/debug.lua
 utility/math.lua
 utility/audio.lua
 utility/inventory.lua
@@ -58,6 +58,7 @@ fishing/ui/castbar.lua
 fishing/fishing.intercept.lua
 fishing/auras.lua
 fishing/states.lua
+fishing/audio.lua
 fishing/precast/bobber.lua
 fishing/precast/consumables.lua
 fishing/precast/oversizebobber.lua

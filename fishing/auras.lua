@@ -154,7 +154,7 @@ function Fishing:UpdatePendingBuffObservation()
 
         -- Completely refuse to write tracking rules if itemID has dropped into a nil/0 fallback state!
         if not itemID or itemID <= 0 then
-            ns.Utils.Debug("Aborting aura database write: pendingItemID is invalid or zero.")
+            self:Debug("Aborting aura database write: pendingItemID is invalid or zero.")
             self.state.pendingBuffObservation = nil
             return
         end

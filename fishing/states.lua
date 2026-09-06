@@ -55,7 +55,7 @@ Fishing:RegisterTraceSource("states")
 
 local function Trace(state, reason)
     if Fishing.db and Fishing.db.profile and Fishing.db.profile.traces and Fishing.db.profile.traces["states"] then
-        ns.Utils.Print("|cFF999999[" .. (FISHING_STATE_NAMES[state] or tostring(state)) .. "]|r ", reason)
+        Addon:Print("|cFF999999[" .. (FISHING_STATE_NAMES[state] or tostring(state)) .. "]|r ", reason)
     end
 end
 
@@ -80,7 +80,7 @@ function Fishing:SetFishingState(state, reason)
         local wasCastActive = currentFlags.isCastActive
         local isCastActive = FISHING_STATE_FLAGS[state].isCastActive
         if wasCastActive and not isCastActive then
-            ns.Utils.Print("Fishing cast ended: " .. (reason or "unknown reason"))
+            Addon:Print("Fishing cast ended: " .. (reason or "unknown reason"))
             self:SendMessage("FISHING_CAST_ENDED", oldState, state)
         end
     end

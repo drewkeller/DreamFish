@@ -20,8 +20,37 @@ local function MergeOptionsTables(self)
     end
 end
 
+function Addon:Print(msg, ...)
+    ns.Utils.DebugModuleSource(ns.logLevel.INFO, self, addonName, msg, ...)
+end
+
+function Addon:Info(msg, ...)
+    ns.Utils.DebugModuleSource(ns.logLevel.INFO, self, addonName, msg, ...)
+end
+
+function Addon:Trace(sourceName, msg, ...)
+    if not (self.db and self.db.profile and self.db.profile.traces) then
+        return
+    end
+    if self.db.profile.traces[sourceName] then
+        ns.Utils.DebugModuleSource(ns.logLevel.TRACE, self, sourceName, msg, ...)
+    end
+end
+
+function Addon:Debug(message, ...)
+    if self.db and self.db.profile and self.db.profile.debugEnabled then
+        --ns.Utils.DebugModuleSource(ns.logLevel.DEBUG, self, sourceName, msg, ...)
+        ns.Utils.DebugModuleSource(ns.logLevel.DEBUG, self, addonName, message, ...)
+    end
+end
+
 function Addon:OnInitialize()
     self.db = LibStub("AceDB-3.0"):New(addonName .. "DB", ns.DatabaseDefaults, true)
+
+    -- Set up logging in second SavedVariables table
+    self.logDB = self:GetLogDB()
+    Addon.logDB = self.logDB
+    self:Info("Log database initialized") -- with " .. tostring(#self.logDB) .. " entries.")
 
     --MergeOptionsTables(self)
     self:InitializeTraceSources()

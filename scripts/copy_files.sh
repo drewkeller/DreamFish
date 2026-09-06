@@ -1,6 +1,6 @@
 #!/bin/bash
 
-ADDON_NAME="DreamFish"
+export ADDON_NAME="DreamFish"
 
 if [[ $WOW_DIR == "" ]]; then
   echo "Please set the WOW_DIR environment variable."
@@ -8,7 +8,7 @@ if [[ $WOW_DIR == "" ]]; then
 fi
 
 if [[ -d $WOW_DIR ]]; then
-  ADDONS_DIR="$WOW_DIR/_retail_/Interface/AddOns"
+  ADDONS_DIR="$WOW_DIR/Interface/AddOns"
   ADDON_DIR="$ADDONS_DIR/$ADDON_NAME"
 else
   echo "The directory specified in WOW_DIR does not exist."

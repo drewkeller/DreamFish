@@ -4,7 +4,7 @@ local Fishing = ns.Fishing
 
 Addon:RegisterTraceSource("ui.dreamfishdialog")
 local function Trace(msg)
-    ns.Utils.CoreTrace("ui.dreamfishdialog", msg)
+    Addon:Trace("ui.dreamfishdialog", msg)
 end
 
 local function GetFishingCharDB()

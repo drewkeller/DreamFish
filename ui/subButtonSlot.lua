@@ -5,7 +5,7 @@ local Fishing = ns.Fishing
 Addon:RegisterTraceSource("subbuttonslot")
 
 local function Trace(msg)
-    ns.Utils.CoreTrace("subbuttonslot", msg)
+    Addon:Trace("subbuttonslot", msg)
 end
 
 local BOX_SIZE = 48
