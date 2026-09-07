@@ -90,6 +90,22 @@ local function AddMainConfigButton(windowName, dialogFrame)
     end)
     dialogFrame.DreamFishMainConfigButton = button
 
+    -- For development
+    if Addon.db.profile.debugEnabled then
+        local reloadButton = CreateFrame("Button", nil, dialogFrame, "UIPanelButtonTemplate")
+        if skins and skins.HandleButton then
+            skins:HandleButton(reloadButton)
+        end
+        reloadButton:ClearAllPoints()
+        reloadButton:SetPoint("BOTTOMLEFT", 140, 17)
+        reloadButton:SetSize(100, 20)
+        reloadButton:SetFrameLevel(dialogFrame:GetFrameLevel() + 10)
+        reloadButton:SetText("Reload UI")
+        reloadButton:SetScript("OnClick", function()
+            ReloadUI()
+        end)
+    end
+
     if closeButton then
         closeButton:ClearAllPoints()
         closeButton:SetPoint("BOTTOMRIGHT", -27, 17)

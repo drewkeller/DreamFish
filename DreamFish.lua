@@ -98,6 +98,13 @@ end
 function Addon:OnEnable()
     self:RegisterChatCommands()
     self:RegisterEvent("PLAYER_ENTERING_WORLD")
+
+    -- for development
+    if self.db.profile.debugEnabled then
+        C_Timer.After(1, function()
+            Addon:OpenDialogWindow("DreamFishDialog")
+        end)
+    end
 end
 
 function Addon:PLAYER_ENTERING_WORLD(event, isLogin, isReload)

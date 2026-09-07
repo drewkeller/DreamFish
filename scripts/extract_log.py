@@ -1,3 +1,4 @@
+from dotenv import load_dotenv
 import json
 import os
 import re
@@ -5,6 +6,8 @@ import sys
 from datetime import date
 from pathlib import Path
 import pandas as pd
+
+load_dotenv()
 
 '''
 Options for output format:
