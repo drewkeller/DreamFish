@@ -20,6 +20,18 @@ local function MergeOptionsTables(self)
     end
 end
 
+function Addon:Error(sourceName, msg, ...)
+    assert(msg, "Error message cannot be nil")
+    if not sourceName then sourceName = addonName end
+    ns.Utils.DebugModuleSource(ns.logLevel.ERROR, self, sourceName, msg, ...)
+end
+
+function Addon:Warning(sourceName, msg, ...)
+    assert(msg, "Warning message cannot be nil")
+    if not sourceName then sourceName = addonName end
+    ns.Utils.DebugModuleSource(ns.logLevel.WARNING, self, sourceName, msg, ...)
+end
+
 function Addon:Print(msg, ...)
     ns.Utils.DebugModuleSource(ns.logLevel.INFO, self, addonName, msg, ...)
 end
@@ -28,7 +40,7 @@ function Addon:Info(msg, ...)
     ns.Utils.DebugModuleSource(ns.logLevel.INFO, self, addonName, msg, ...)
 end
 
-function Addon:Trace(sourceName, msg, ...)
+function Addon:TraceCore(sourceName, msg, ...)
     if not (self.db and self.db.profile and self.db.profile.traces) then
         return
     end

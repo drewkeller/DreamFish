@@ -6,11 +6,11 @@ ns.AddonInitializers = ns.AddonInitializers or {}
 
 ns.logLevel = {}
 ns.logLevelInfo = {
-    { value = 1, name = "TRACE", color = "667788", },
-    { value = 2, name = "DEBUG", color = "336699", },
-    { value = 3, name = "INFO",  color = "60B6F6", },
-    { value = 4, name = "WARN",  color = "FFA500", },
-    { value = 5, name = "ERROR", color = "D83D65", },
+    { value = 1, name = "TRACE",   color = "667788", },
+    { value = 2, name = "DEBUG",   color = "336699", },
+    { value = 3, name = "INFO",    color = "60B6F6", },
+    { value = 4, name = "WARNING", color = "FFA500", },
+    { value = 5, name = "ERROR",   color = "D83D65", },
 }
 for _, info in pairs(ns.logLevelInfo) do
     ns.logLevelInfo[info.name] = info   -- info: logLevelInfo["TRACE"]

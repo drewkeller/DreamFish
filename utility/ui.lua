@@ -5,7 +5,7 @@ local Utils = ns.Utils
 Addon:RegisterTraceSource("utils.ui")
 
 local function Trace(windowName, msg)
-    Addon:Trace("utils.ui", tostring(windowName) .. ": " .. tostring(msg))
+    Addon:TraceCore("utils.ui", tostring(windowName) .. ": " .. tostring(msg))
 end
 
 local function GetDialogFrame(dialog)

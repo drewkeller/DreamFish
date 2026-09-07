@@ -170,15 +170,15 @@ function Addon:Alert(msg, ...)
 end
 
 function ns.Utils.DebugModuleSourceWithStack(level, module, source, stackTrace, msg, ...)
-    if not (module and source and msg) then
+    if not (module and msg) then
         return
     end
     if module.db and module.db.profile then
         local logLevelInfo = ns.logLevelInfo[level]
-        local color = logLevelInfo.color
+        local colorHex = logLevelInfo.color
 
-        local prefix = source and string.format("|cFF%s[%s]|r", ns.logLevelInfo[level].color, source) or ""
-        if module.db.profile.traces and module.db.profile.traces[source] and level <= ns.logLevel.TRACE then
+        local prefix = source and string.format("|cFF%s[%s]|r", colorHex, source) or ""
+        if source and module.db.profile.traces and module.db.profile.traces[source] and level <= ns.logLevel.TRACE then
             LogSource(level, source, msg, ...)
             PrintNoLog(prefix, "999999", msg, ...)
         elseif module.db.profile.debugEnabled and level <= ns.logLevel.DEBUG then
@@ -189,10 +189,10 @@ function ns.Utils.DebugModuleSourceWithStack(level, module, source, stackTrace, 
             PrintNoLog(prefix, nil, msg, ...)
         elseif level <= ns.logLevel.WARNING then
             LogSource(level, source, msg, ...)
-            PrintNoLog(prefix, nil, msg, ...)
+            PrintNoLog(prefix, colorHex, msg, ...)
         elseif level <= ns.logLevel.ERROR then
             LogSourceWithStack(level, source, stackTrace, msg, ...)
-            PrintNoLog(prefix, ns.logLevelInfo[level].color, msg, ...)
+            PrintNoLog(prefix, colorHex, msg, ...)
         end
     end
 end
