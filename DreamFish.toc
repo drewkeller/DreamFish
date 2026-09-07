@@ -51,6 +51,7 @@ core/commands.lua
 fishing/fishing.lua
 
 looting/loottracker.lua
+looting/lootmode.lua
 
 # UI widgets and components
 ui/subButtonSlot.lua

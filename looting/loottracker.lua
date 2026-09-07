@@ -6,14 +6,6 @@ local AceGUI = LibStub("AceGUI-3.0")
 ns.LootTracker = LootTracker
 
 local globalDB, profileDB, charDB
-function LootTracker:RegisterOnModuleInitialize(func)
-    if type(func) == "function" then
-        self.onInitializeFuncs = self.onInitializeFuncs or {}
-        table.insert(self.onInitializeFuncs, func)
-    end
-
-    profileDB = self.db.profile
-end
 
 local lootTrackerWindow
 local scrollContainer
@@ -24,19 +16,19 @@ local currencyCache = {}
 local skipNextBagUpdate = false
 local skipNextCurrencyUpdate = false
 
-function LootTracker:OnModuleInitialize()
-    -- local defaults = ns.moduleDefaults["LootTracker"]
-    -- self.db = ns.Addon.db:RegisterNamespace("LootTracker", defaults)
+local function Trace(msg, ...)
+    LootTracker:Trace("LootTracker", msg, ...)
+end
 
-    if self.onInitializeFuncs then
-        for _, initializerFunc in ipairs(self.onInitializeFuncs) do
-            initializerFunc(self)
-        end
-    end
+function LootTracker:OnModuleInitialize()
+    globalDB = self.db.global
+    profileDB = self.db.profile
+    charDB = self.db.char
 end
 
 function LootTracker:OnModuleEnable()
     self:Debug("LootTracker:OnModuleEnable()")
+    Trace("OnModuleInitialize called")
     if self.db.profile.windowVisible or self.db.profile.showWindowOnStartup then
         self:CreateLootTrackerWindow()
     end
