@@ -135,6 +135,9 @@ end
 function Fishing:RegisterTraceSource()
 end
 
+function Fishing:Trace()
+end
+
 function Fishing:RegisterOnModuleInitialize(func)
     self.onInitializeFuncs = self.onInitializeFuncs or {}
     table.insert(self.onInitializeFuncs, func)
@@ -159,6 +162,9 @@ local DreamFish = {}
 function DreamFish:GetModule(name)
     assert(name == "Fishing")
     return Fishing
+end
+
+function DreamFish:Print()
 end
 
 function LibStub(name)
@@ -226,6 +232,7 @@ function ClearOverrideBindings(frame)
 end
 
 local ns = {
+    Addon = DreamFish,
     Fishing = Fishing,
     FishingDB = {
         global = {},
@@ -292,7 +299,6 @@ currentTime = 1
 mouseDownCallback(WorldFrame, "RightButton")
 assert(castStartedCount == 2, "first single click during fishing must start a cast")
 
-Fishing:SetFishingState(ns.Fishing.states.IDLE)
 currentTime = 1.1
 mouseDownCallback(WorldFrame, "RightButton")
 assert(castStartedCount == 2, "second click during single-click fishing must be suppressed")
@@ -301,6 +307,7 @@ assert(not clicksPropagated, "suppressed click must not propagate to the game")
 Fishing:HideClickFrame()
 assert(clicksPropagated, "suppressed click cleanup must restore mouse propagation")
 profile.castBySingleRightClickWhenFishing = false
+Fishing:SetFishingState(ns.Fishing.states.IDLE)
 
 preClickCallback(Fishing.clickFrame, "RightButton", true)
 assert(castStartedCount == 3, "hotkey button-down must start the fishing session")

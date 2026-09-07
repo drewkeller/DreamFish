@@ -6,11 +6,16 @@ local function readFile(path)
 end
 
 local toc = readFile("DreamFish.toc")
+local embedsXml = readFile("embeds.xml")
 local aceGuiXml = readFile("Libs/AceGUI-3.0/AceGUI-3.0.xml")
 
 assert(
-    toc:find("\nLibs/AceGUI%-3%.0/AceGUI%-3%.0%.xml\n"),
-    "DreamFish.toc must load the embedded AceGUI XML"
+    toc:find("\nembeds%.xml\n"),
+    "DreamFish.toc must load embeds.xml"
+)
+assert(
+    embedsXml:find("<Include file=\"Libs\\AceGUI%-3%.0\\AceGUI%-3%.0%.xml\"/>") ,
+    "embeds.xml must load the embedded AceGUI XML"
 )
 
 local requiredWidgets = {

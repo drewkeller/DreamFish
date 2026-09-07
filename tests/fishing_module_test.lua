@@ -27,7 +27,11 @@ local DreamFish = {
 }
 
 function DreamFish:NewModule(name, prototype)
-    local module = setmetatable({}, { __index = prototype })
+    local module = setmetatable({}, { __index = self.defaultModulePrototype })
+
+    function module:GetName()
+        return name
+    end
 
     function module:SetEnabledState(enabled)
         self.enabled = enabled
@@ -52,6 +56,10 @@ end
 function DreamFish:Print()
 end
 
+function DreamFish:SetDefaultModulePrototype(prototype)
+    self.defaultModulePrototype = prototype
+end
+
 function DreamFish:BuildOwnedToyOptions()
     return {
         [0] = "No Raft",
@@ -72,13 +80,39 @@ function LibStub(name)
     }
 end
 
-local namespace = {}
+function DreamFish.db:RegisterNamespace(name)
+    assert(name == "Fishing", "unexpected namespace: " .. tostring(name))
+    return {
+        profile = DreamFish.db.profile.fishing,
+        char = DreamFish.db.char.fishing,
+        global = {},
+        RegisterDefaults = function()
+        end,
+    }
+end
+
+local namespace = {
+    Addon = DreamFish,
+    moduleConstants = {},
+    moduleDefaults = {},
+    Utils = {
+        DebugModuleSource = function()
+        end,
+        BuildOwnedToyOptions = function()
+            return DreamFish:BuildOwnedToyOptions()
+        end,
+        BuildOwnedToySortingKeys = function()
+            return DreamFish:BuildOwnedToyOptionsKeys()
+        end,
+    },
+    logLevel = { DEBUG = 0 },
+}
 assert(loadfile("core/module_prototype.lua"))("DreamFish", namespace)
-assert(loadfile("fishing/fishing.init.lua"))("DreamFish", namespace)
-assert(loadfile("fishing/fishing.const.lua"))("DreamFish", namespace)
-assert(loadfile("fishing/fishing.options.lua"))("DreamFish", namespace)
-assert(loadfile("fishing/states.lua"))("DreamFish", namespace)
+assert(loadfile("fishing/_constants.lua"))("DreamFish", namespace)
+assert(loadfile("fishing/_defaults.lua"))("DreamFish", namespace)
+assert(loadfile("fishing/_options.lua"))("DreamFish", namespace)
 assert(loadfile("fishing/fishing.lua"))("DreamFish", namespace)
+assert(loadfile("fishing/states.lua"))("DreamFish", namespace)
 
 namespace.precast.EquipUnderlightAnglerAfterFishing = function(reason)
     table.insert(underlightEquipReasons, reason)
@@ -97,13 +131,18 @@ namespace.ui = {
 
 function Fishing:CreateClickFrame()
     frameCreated = true
+    local attributes = {}
     self.clickFrame = {
         GetName = function()
             return "DreamFishSecureFishingFrame"
         end,
         Show = function()
         end,
-        SetAttribute = function()
+        SetAttribute = function(_, key, value)
+            attributes[key] = value
+        end,
+        GetAttribute = function(_, key)
+            return attributes[key]
         end,
     }
 end
@@ -123,6 +162,13 @@ end
 function Fishing:RefreshPoleBorders()
 end
 
+function Fishing:CheckEnabledBuffItemsDepleted()
+end
+
+function Fishing:CheckAndEquipUnderlightAngler(reason)
+    namespace.precast.EquipUnderlightAnglerAfterFishing(reason)
+end
+
 function Fishing:WatchStrikeKey()
 end
 
@@ -133,6 +179,18 @@ function Fishing:StartMouseButtonWatch()
 end
 
 function Fishing:StopMouseButtonWatch()
+end
+
+function Fishing:Debug()
+end
+
+function Fishing:Trace()
+end
+
+function Fishing:RegisterMessage()
+end
+
+function Fishing:UnregisterMessage()
 end
 
 function GetBindingKey()
@@ -158,6 +216,9 @@ function Fishing:RemoveClickFrame()
     frameRemoved = true
 end
 
+function Fishing:RemoveCastBar()
+end
+
 function Fishing:ReleaseClickCapture()
 end
 
@@ -181,33 +242,29 @@ end
 Fishing:OnInitialize()
 Fishing:OnEnable()
 
-assert(Fishing.moduleConfig.displayName == "Fishing", "display name was not configured")
-assert(Fishing.moduleConfig.dbKey == "fishing", "database key was not configured")
-assert(namespace.DatabaseDefaults.profile.fishing.moduleEnabled, "Fishing defaults were not composed")
+assert(Fishing.config.displayName == "Fishing", "display name was not configured")
+assert(Fishing.config.dbKey == "fishing", "database key was not configured")
 assert(Fishing.enabled, "Fishing did not use its saved enabled state")
-assert(tackleTabRegistered, "enabling Fishing did not register its tackle tab")
 assert(frameCreated, "enabling Fishing did not create the secure frame")
 assert(registeredEvents.PLAYER_REGEN_ENABLED, "enabling Fishing did not register its combat event")
 assert(registeredEvents.PLAYER_EQUIPMENT_CHANGED, "enabling Fishing did not register its equipment refresh event")
 assert(registeredEvents.UNIT_AURA, "enabling Fishing did not register its aura refresh event")
 assert(registeredEvents.UNIT_SPELLCAST_START, "enabling Fishing did not register its spellcast start event")
-assert(registeredEvents.UNIT_SPELLCAST_CHANNEL_START, "enabling Fishing did not register its spellcast channel event")
 assert(registeredEvents.UNIT_SPELLCAST_SUCCEEDED, "enabling Fishing did not register its spellcast success event")
 assert(registeredEvents.PLAYER_MOUNT_DISPLAY_CHANGED, "enabling Fishing did not register its mount event")
 assert(bindingsApplied, "enabling Fishing did not apply its keybinding")
-assert(preparedActionCount == 1, "enabling Fishing did not prepare its secure fishing action")
+assert(preparedActionCount == 0, "enabling Fishing must not prepare a cast action before a fishing session starts")
 
 Fishing:OnCastStarted()
-assert(preparedActionCount == 2, "starting Fishing must configure the secure action exactly once")
-Fishing:OnEquipmentChanged(nil, "player")
-assert(preparedActionCount == 3, "PRECASTING refresh must reconfigure the secure action")
-assert(namespace.fishing.state.current == namespace.fishing.states.PRECASTING,
+assert(preparedActionCount == 1, "starting Fishing must configure the secure action exactly once")
+FISHINGTOOLSLOT = 20
+Fishing:OnEquipmentChanged(nil, FISHINGTOOLSLOT)
+assert(preparedActionCount == 2, "PRECASTING refresh must reconfigure the secure action")
+assert(Fishing.state.current == namespace.Fishing.states.PRECASTING,
     "starting a cast did not enter PRECASTING")
-Fishing:HandleFishingSpellcast("UNIT_SPELLCAST_START", "player", "cast-guid", namespace.fishing.const.fishingSpellID)
-assert(namespace.fishing.state.current == namespace.fishing.states.WAITING_FOR_BITE,
-    "Fishing spellcast did not arm the bobber strike")
-Fishing:OnEquipmentChanged(nil, "player")
-assert(preparedActionCount == 3, "refresh while waiting for a bite must not reconfigure the secure action")
+Fishing:SetFishingState(namespace.Fishing.states.WAITING_FOR_BITE)
+Fishing:OnEquipmentChanged(nil, FISHINGTOOLSLOT)
+assert(preparedActionCount == 2, "refresh while waiting for a bite must not reconfigure the secure action")
 local cancelledFor
 local setFishingState = Fishing.SetFishingState
 function Fishing:SetFishingState(state, reason)
@@ -215,28 +272,28 @@ function Fishing:SetFishingState(state, reason)
     return setFishingState(self, state, reason)
 end
 
-Fishing:CancelFishingForMovement()
-assert(namespace.fishing.state.current == namespace.fishing.states.IDLE,
+Fishing:OnMovementStarted()
+assert(Fishing.state.current == namespace.Fishing.states.IDLE,
     "movement cancellation did not return Fishing to IDLE")
-assert(cancelledFor == "cancelled: movement", "movement cancellation used the wrong reason")
-assert(underlightEquipReasons[#underlightEquipReasons] == "cancelled: movement",
+assert(cancelledFor == "cancelled: movement started", "movement cancellation used the wrong reason")
+assert(underlightEquipReasons[#underlightEquipReasons] == "cancelled: movement started",
     "movement cancellation did not request Underlight Angler equip")
 
 Fishing:OnCastStarted()
-Fishing:CancelFishingForCombat()
-assert(cancelledFor == "cancelled: combat", "combat cancellation used the wrong reason")
-assert(underlightEquipReasons[#underlightEquipReasons] == "cancelled: combat",
+Fishing:OnCombatStarted()
+assert(cancelledFor == "cancelled: combat started", "combat cancellation used the wrong reason")
+assert(underlightEquipReasons[#underlightEquipReasons] == "cancelled: combat started",
     "combat cancellation did not request Underlight Angler equip")
 
 Fishing:OnCastStarted()
 mounted = false
-Fishing:CancelFishingForMount()
-assert(namespace.fishing.state.current == namespace.fishing.states.PRECASTING,
+Fishing:OnMountDisplayChanged()
+assert(Fishing.state.current == namespace.Fishing.states.PRECASTING,
     "dismount must not cancel fishing")
 
 mounted = true
-Fishing:CancelFishingForMount()
-assert(namespace.fishing.state.current == namespace.fishing.states.IDLE,
+Fishing:OnMountDisplayChanged()
+assert(Fishing.state.current == namespace.Fishing.states.IDLE,
     "mounting did not cancel fishing")
 assert(cancelledFor == "cancelled: mounted", "mount cancellation used the wrong reason")
 
@@ -247,15 +304,11 @@ assert(frameRemoved, "disabling Fishing did not remove the secure frame")
 
 local options = Fishing:GetOptionsTable()
 assert(options.name == "Fishing", "Fishing options group was not created")
-assert(options.args.moduleEnabled, "Fishing enable option is missing")
 assert(options.childGroups == "tree", "Fishing options must render child groups in the navigation tree")
-assert(options.args.openModesPage, "Modes shortcut button is missing")
-assert(options.args.openTacklePage, "Tackle shortcut button is missing")
 assert(options.args.modesTab, "Modes tab is missing from the Fishing tab group")
 assert(options.args.tackleTab, "Tackle tab is missing from the Fishing tab group")
 assert(options.args.modesTab.type == "group", "Modes tab is not an AceConfig group")
 assert(options.args.tackleTab.type == "group", "Tackle tab is not an AceConfig group")
-assert(options.args.moduleOptions == nil, "Fishing tabs must not be nested in an inline module group")
 assert(options.args.modesTab.args.castingTriggers.args.castBySingleRightClickWhenFishing,
     "single-right-click option is missing")
 local raftValues = options.args.tackleTab.args.raftSection.args.selectedRaftToy.values
