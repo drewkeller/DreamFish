@@ -66,6 +66,14 @@ function Fishing:CheckAndEquipUnderlightAngler(reason)
         return true
     end
 
+    -- Equipping an item interrupts an active channel, so never equip while the fishing channel
+    -- is running. The delayed post-login safety pass can otherwise land mid-cast and cancel it.
+    -- The pole is equipped later by the session-end call when the channel has finished.
+    if type(UnitChannelInfo) == "function" and UnitChannelInfo("player") then
+        Trace("Skipping Underlight Angler equip; a channel is active: " .. tostring(reason))
+        return false
+    end
+
     local bag, slot = ns.Utils.FindItemInBags(itemID)
     if bag and slot and C_Container and C_Container.PickupContainerItem and EquipCursorItem then
         C_Container.PickupContainerItem(bag, slot)
