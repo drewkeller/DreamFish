@@ -80,6 +80,10 @@ function Fishing:SetFishingState(state, reason)
 
         local wasCastActive = currentFlags.isCastActive
         local isCastActive = FISHING_STATE_FLAGS[state].isCastActive
+        if not wasCastActive and isCastActive then
+            Addon:Print("Fishing cast started: " .. (reason or "unknown reason"))
+            self:SendMessage("FISHING_CAST_STARTED", oldState, state)
+        end
         if wasCastActive and not isCastActive then
             Addon:Print("Fishing cast ended: " .. (reason or "unknown reason"))
             self:SendMessage("FISHING_CAST_ENDED", oldState, state)

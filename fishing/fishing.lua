@@ -117,7 +117,15 @@ function Fishing:OnBagUpdateDelayed()
 
     if self.state and self.state.isEquippingPrimaryPole then
         local poleDecision = ns.precast.GetSelectedFishingPoleDecision and ns.precast.GetSelectedFishingPoleDecision()
-        if not poleDecision or not poleDecision.shouldApply then
+        -- Release the swap lock when the swap is finished. shouldApply can still read true
+        -- for a frame or two while the equip registers on the profession slot, which would
+        -- otherwise skip this clear and leave isEquippingPrimaryPole stuck until the cast
+        -- guard cancels the session ("fishing cast did not start"). Treating "the configured
+        -- pole is now equipped" as the source of truth avoids that race.
+        local equippedID = ns.precast.GetEquippedProfessionItemID and ns.precast.GetEquippedProfessionItemID() or nil
+        local swapSettled = (not poleDecision or not poleDecision.shouldApply)
+            or (poleDecision and poleDecision.itemID and equippedID == poleDecision.itemID)
+        if swapSettled then
             self:Trace("pole", "Fishing pole equipment change detected in player profession tool slot.")
 
             -- Release our equipment execution locks smoothly
@@ -135,7 +143,9 @@ function Fishing:OnBagUpdateDelayed()
                 self:SetFishingState(ns.Fishing.states.IDLE, "standalone pole change verified")
             end
 
-            -- Re-compile the macro text string arrays instantly with your live lure data lines
+            -- Re-compile the macro text string arrays instantly with your live lure data lines.
+            -- The PreClick release-edge no longer disarms the frame mid-PRECASTING, so a plain
+            -- re-arm here is sufficient for the upcoming release to cast.
             self:PrepareFishingClickAction()
         end
     end
@@ -289,11 +299,21 @@ function Fishing:OnLootClosed(event)
     end
 end
 
+function Fishing:CancelLingerTimer()
+    if self.state.lingerTimer then
+        self:CancelTimer(self.state.lingerTimer)
+        self.state.lingerTimer = nil
+    end
+end
+
 function Fishing:StartLinger()
     -- Recasting is allowed while lingering, so hand the hotkey and the secure action back to casting.
     self:ClearBobberInteractOverride()
     self:SetFishingState(ns.Fishing.states.LINGERING, "start linger")
-    self:ScheduleTimer(function()
+    -- Drop any stale linger timer from a previous cast so it can't end this linger early.
+    self:CancelLingerTimer()
+    self.state.lingerTimer = self:ScheduleTimer(function()
+        self.state.lingerTimer = nil
         if self:IsFishingState(ns.Fishing.states.LINGERING) then
             self:EndLinger()
         end
@@ -308,6 +328,7 @@ end
 
 -- End the fishing session normally, after linger period
 function Fishing:EndFishingSession(reason)
+    self:CancelLingerTimer()
     self:SendMessage("FISHING_SESSION_ENDED")
     self:StopWatchingStrikeKey()
     self:StopMouseButtonWatch()
@@ -317,6 +338,18 @@ function Fishing:EndFishingSession(reason)
     self.state.pendingBuffUse = nil
     self.state.buffDepletionAlerted = nil
     self.state.castStartConfirmationAttempt = nil
+    self.state.poleSwapInitiatedAt = nil
+    -- Clear any pole-swap lock left over from an interrupted/cancelled cast so the
+    -- next cast isn't suppressed into "fishing cast did not start".
+    self.state.isEquippingPrimaryPole = false
+    -- Restore the click frame to the same baseline a fresh IDLE has, so the next cast
+    -- starts from clean conditions rather than whatever transient state a cancel left behind.
+    if self.clickFrame and not InCombatLockdown() then
+        self.clickFrame:SetAttribute("type", "spell")
+        self.clickFrame:SetAttribute("spell", "Fishing")
+        self.clickFrame:SetAttribute("macrotext", nil)
+        self.clickFrame:SetAttribute("dreamfish_precast_action", nil)
+    end
     self:SetFishingState(ns.Fishing.states.IDLE, reason)
 end
 
@@ -507,6 +540,11 @@ function Fishing:AwaitFishingCastStart()
     end
 
     self.state.castStartConfirmationAttempt = castAttempt
+    -- When this cast just performed a pole swap, the fishing channel can't start until the
+    -- equipment-swap GCD clears (~1.5s), which can exceed the normal 0.5s confirmation window
+    -- and produce a spurious "fishing cast did not start" cancel. Give swap casts a longer window.
+    local swappedThisCast = self.state.poleSwapInitiatedAt and (GetTime() - self.state.poleSwapInitiatedAt) < 2
+    local confirmDelay = swappedThisCast and 1.6 or 0.5
     self:ScheduleTimer(function()
         if self.state.castStartConfirmationAttempt ~= castAttempt then
             return
@@ -518,12 +556,13 @@ function Fishing:AwaitFishingCastStart()
             and not self.state.isEquippingPrimaryPole then
             self:CancelFishingSession("fishing cast did not start")
         end
-    end, 0.5)
+    end, confirmDelay)
 end
 
 function Fishing:OnCastStarted(reason)
     self:SetFishingState(ns.Fishing.states.PRECASTING, reason)
-    self:SendMessage("FISHING_CAST_STARTED")
+    -- A new cast supersedes any pending linger from the previous catch.
+    self:CancelLingerTimer()
 
     self.state.castAttempt = (self.state.castAttempt or 0) + 1
     self.state.castStartConfirmationAttempt = nil
@@ -541,6 +580,7 @@ function Fishing:OnCastStarted(reason)
             ns.CastBar.ShowPoleSwap()
         end
         isSwapping = true
+        self.state.poleSwapInitiatedAt = GetTime()
         self:Trace("pole", "Initiating primary fishing pole gear-swap: " .. tostring(poleDecision.itemID))
 
         -- 1. Fire the instant hardware equipment swap command
@@ -550,6 +590,24 @@ function Fishing:OnCastStarted(reason)
         self.clickFrame:SetAttribute("type", "macro")
         self.clickFrame:SetAttribute("macrotext", "/stopmacro")
         self.clickFrame:SetAttribute("spell", nil)
+
+        -- 3. The swap clears via BAG_UPDATE_DELAYED, but that event does not always arrive
+        -- (profession-slot swaps don't reliably fire PLAYER_EQUIPMENT_CHANGED, and a fresh
+        -- IDLE cast can outpace the bag packet). Add a settling pass so a settled swap still
+        -- releases the lock before the 0.5s cast-confirmation guard cancels the session.
+        local expectedPoleID = poleDecision.itemID
+        self:ScheduleTimer(function()
+            if self.state.isEquippingPrimaryPole
+                and ns.precast.GetEquippedProfessionItemID
+                and ns.precast.GetEquippedProfessionItemID() == expectedPoleID then
+                self.state.isEquippingPrimaryPole = false
+                if ns.CastBar and type(ns.CastBar.HidePoleSwap) == "function" then
+                    ns.CastBar.HidePoleSwap()
+                end
+                self.clickFrame:SetAttribute("macrotext", "")
+                self:PrepareFishingClickAction()
+            end
+        end, 0.3)
     else
         self.state.isEquippingPrimaryPole = false
         if ns.CastBar and type(ns.CastBar.HidePoleSwap) == "function" then

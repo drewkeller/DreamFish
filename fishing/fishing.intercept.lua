@@ -164,6 +164,14 @@ function Fishing:HookPreClickWithHandler()
         self.clickFrame:SetScript("PreClick", function(_, button, down)
             if InCombatLockdown() then return end
             if button ~= "RightButton" or not down or not self:IsSoloPhysicalRightClick() then
+                -- A release edge (down=false) during an active PRECASTING pass must not disarm the
+                -- frame: a settling pole swap may have just re-armed it, and clearing here would
+                -- leave the frame empty so the release casts nothing and the confirmation guard
+                -- cancels with "fishing cast did not start". Modified/mixed PRESSES (down=true)
+                -- must still clear the captured action so we don't hijack a modified click.
+                if not down and button == "RightButton" and Fishing:IsFishingState(ns.Fishing.states.PRECASTING) then
+                    return
+                end
                 self.clickFrame:SetAttribute("type", nil)
                 self.clickFrame:SetAttribute("spell", nil)
                 self.clickFrame:SetAttribute("macrotext", nil)
