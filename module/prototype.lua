@@ -47,7 +47,7 @@ function ModulePrototype:OnInitialize()
     if self.OnModuleInitialize then
         self:OnModuleInitialize()
     end
-    self:Debug("Firing " .. moduleName:upper() .. " OnModuleInitialize message for " .. tostring(self.config.moduleName))
+    --self:Debug("Firing " .. moduleName:upper() .. " OnModuleInitialize message for " .. tostring(self.config.moduleName))
     ns.ModulePrototype.FireRegisteredCallbacks(self, "OnModuleInitialize")
 
     self:SetEnabledState(self:IsModuleEnabled())

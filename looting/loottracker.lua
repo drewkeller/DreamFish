@@ -27,8 +27,6 @@ function LootTracker:OnModuleInitialize()
 end
 
 function LootTracker:OnModuleEnable()
-    self:Debug("LootTracker:OnModuleEnable()")
-    Trace("OnModuleInitialize called")
     if self.db.profile.windowVisible or self.db.profile.showWindowOnStartup then
         self:CreateLootTrackerWindow()
     end

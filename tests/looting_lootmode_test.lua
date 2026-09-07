@@ -6,11 +6,14 @@ local lootedNames = {}
 local closeLootCalls = 0
 local warnings = {}
 local registeredEvents = {}
+local unregisteredEvents = {}
 local frameEventHandler
 local messageHandlers = {}
 local unregisteredMessages = {}
 local initializeCallback
 local enableCallback
+local registerEventsCallback
+local unregisterEventsCallback
 local disableCallback
 
 local function setLootSlots(items)
@@ -63,8 +66,24 @@ function LootTracker:RegisterOnModuleEnable(callback)
     enableCallback = callback
 end
 
+function LootTracker:RegisterOnModuleRegisterEvents(callback)
+    registerEventsCallback = callback
+end
+
+function LootTracker:RegisterOnModuleUnregisterEvents(callback)
+    unregisterEventsCallback = callback
+end
+
 function LootTracker:RegisterOnModuleDisable(callback)
     disableCallback = callback
+end
+
+function LootTracker:RegisterEvent(event)
+    registeredEvents[event] = true
+end
+
+function LootTracker:UnregisterEvent(event)
+    unregisteredEvents[event] = true
 end
 
 local Addon = {}
@@ -175,14 +194,17 @@ namespace.LootTracker.const = {
 assert(loadfile("looting/lootmode.lua"))("DreamFish", namespace)
 assert(initializeCallback, "loot mode initializer was not registered")
 assert(enableCallback, "loot mode enable callback was not registered")
+assert(registerEventsCallback, "loot mode register-events callback was not registered")
+assert(unregisterEventsCallback, "loot mode unregister-events callback was not registered")
 assert(disableCallback, "loot mode disable callback was not registered")
 
 initializeCallback(LootTracker)
 enableCallback(LootTracker)
+registerEventsCallback(LootTracker)
 
 assert(registeredEvents.LOOT_READY, "LOOT_READY was not registered")
 assert(registeredEvents.LOOT_CLOSED, "LOOT_CLOSED was not registered")
-assert(frameEventHandler, "loot frame event handler was not registered")
+assert(registeredEvents.CVAR_UPDATE, "CVAR_UPDATE was not registered")
 
 local function sendFishingMessage(message)
     local handler = assert(messageHandlers[message], "missing message handler for " .. message)
@@ -190,11 +212,11 @@ local function sendFishingMessage(message)
 end
 
 local function fireLootReady()
-    frameEventHandler(nil, "LOOT_READY")
+    LootTracker:LOOT_READY()
 end
 
 local function fireLootClosed()
-    frameEventHandler(nil, "LOOT_CLOSED")
+    LootTracker:LOOT_CLOSED()
 end
 
 local function runScheduledCallback(index)
@@ -222,12 +244,16 @@ LootTracker.db.profile.lootModeWhenFishing.lootMode = "native"
 sendFishingMessage("FISHING_SESSION_STARTED")
 assertEquals(autoLootDefault, "1", "native fishing mode must enable native auto-loot")
 sendFishingMessage("FISHING_SESSION_ENDED")
+sendFishingMessage("FISHING_SESSION_STARTED")
+sendFishingMessage("FISHING_SESSION_ENDED")
 
 LootTracker.db.profile.lootModeWhenFishing.lootMode = "managed"
 sendFishingMessage("FISHING_SESSION_STARTED")
 assertEquals(autoLootDefault, "0", "managed fishing mode must disable native auto-loot")
 sendFishingMessage("FISHING_SESSION_ENDED")
 assertEquals(autoLootDefault, "1", "exiting managed mode must restore the saved native setting")
+sendFishingMessage("FISHING_SESSION_STARTED")
+sendFishingMessage("FISHING_SESSION_ENDED")
 
 LootTracker.db.profile.lootModeWhenOther.lootMode = "managed"
 LootTracker.db.profile.lootModeWhenOther.ignoreJunk = false
@@ -305,8 +331,11 @@ assertEquals(#lootedNames, 0, "non-managed modes must not handle loot")
 assertEquals(#scheduledCallbacks, scheduledCount, "non-managed modes must not schedule loot")
 
 disableCallback(LootTracker)
+unregisterEventsCallback(LootTracker)
 assert(unregisteredMessages.FISHING_SESSION_STARTED, "disable must unregister the fishing-start message")
 assert(unregisteredMessages.FISHING_SESSION_ENDED, "disable must unregister the fishing-end message")
+assert(unregisteredEvents.LOOT_READY, "disable must unregister LOOT_READY")
+assert(unregisteredEvents.LOOT_CLOSED, "disable must unregister LOOT_CLOSED")
 assertEquals(autoLootDefault, "1", "disable must restore the saved native auto-loot setting")
 
 print("looting_lootmode_test: passed")

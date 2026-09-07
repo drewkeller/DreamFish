@@ -61,7 +61,6 @@ function Fishing:OnModuleInitialize()
 end
 
 function Fishing:OnModuleEnable()
-    self:Debug("Fishing:OnModuleEnable()")
     self:CreateClickFrame()
     self:RegisterEvent("ADDON_LOADED",                 "OnAddonLoaded")
     self:RegisterEvent("PLAYER_REGEN_ENABLED",         "OnCombatEnded")
@@ -329,7 +328,6 @@ end
 -- End the fishing session normally, after linger period
 function Fishing:EndFishingSession(reason)
     self:CancelLingerTimer()
-    self:SendMessage("FISHING_SESSION_ENDED")
     self:StopWatchingStrikeKey()
     self:StopMouseButtonWatch()
     self:ClearBobberInteractOverride()
