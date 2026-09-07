@@ -50,6 +50,7 @@ function Addon:OnInitialize()
     -- Set up logging in second SavedVariables table
     self.logDB = self:GetLogDB()
     Addon.logDB = self.logDB
+    table.wipe(self.logDB)
     self:Info("Log database initialized") -- with " .. tostring(#self.logDB) .. " entries.")
 
     --MergeOptionsTables(self)

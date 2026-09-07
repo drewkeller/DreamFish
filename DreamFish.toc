@@ -27,7 +27,9 @@ utility/ui.lua
 # Defaults must be defined first
 core/_defaults.lua
 core/_options.lua
-core/module_prototype.lua
+module/prototype.lua
+module/debug.lua
+module/callbacks.lua
 fishing/_constants.lua
 fishing/_defaults.lua
 fishing/_options.lua

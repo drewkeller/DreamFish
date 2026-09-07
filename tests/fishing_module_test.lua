@@ -107,7 +107,9 @@ local namespace = {
     },
     logLevel = { DEBUG = 0 },
 }
-assert(loadfile("core/module_prototype.lua"))("DreamFish", namespace)
+assert(loadfile("module/prototype.lua"))("DreamFish", namespace)
+assert(loadfile("module/debug.lua"))("DreamFish", namespace)
+assert(loadfile("module/callbacks.lua"))("DreamFish", namespace)
 assert(loadfile("fishing/_constants.lua"))("DreamFish", namespace)
 assert(loadfile("fishing/_defaults.lua"))("DreamFish", namespace)
 assert(loadfile("fishing/_options.lua"))("DreamFish", namespace)

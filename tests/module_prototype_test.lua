@@ -57,7 +57,9 @@ local namespace = {
     end },
     logLevel = { INFO = 1, TRACE = 2, DEBUG = 3, ALERT = 4 },
 }
-assert(loadfile("core/module_prototype.lua"))("DreamFish", namespace)
+assert(loadfile("module/prototype.lua"))("DreamFish", namespace)
+assert(loadfile("module/debug.lua"))("DreamFish", namespace)
+assert(loadfile("module/callbacks.lua"))("DreamFish", namespace)
 
 namespace.moduleDefaults.sample = {
     profile = {
