@@ -430,4 +430,10 @@ for _, config in ipairs(gridMatrix) do
     }
 end
 
+local buffArgs = options.args.buffsTab.args
+buffArgs.fooddrinkHeaderToggle.desc = "Toggle the display of food and drink buffs."
+buffArgs.lureHeaderToggle.desc = "Toggle the display of lure buffs. Lures are applied to the primary fishing pole. Only one lure can be active on the pole at a time."
+buffArgs.baitHeaderToggle.desc = "Toggle the display of bait buffs. Only one bait aura can be active at a time. Many are zone-specific."
+buffArgs.other_consumableHeaderToggle.desc = "Toggle the display of other consumables."
+
 ns.DialogOptions = options

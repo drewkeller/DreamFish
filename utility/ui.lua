@@ -57,11 +57,18 @@ local function ClearDialogStatusPosition(status)
 end
 
 local function AddMainConfigButton(windowName, dialogFrame)
-    if windowName ~= addonName .. "Dialog" or dialogFrame.DreamFishMainConfigButton then
+    if windowName ~= "DreamFishDialog" then
         return
     end
 
-    dialogFrame.DreamFishMainConfigButton = true
+    if dialogFrame.DreamFishMainConfigButton then
+        dialogFrame.DreamFishMainConfigButton:Show()
+        if dialogFrame.DreamFishReloadUIButton then
+            dialogFrame.DreamFishReloadUIButton:Show()
+        end
+        return
+    end
+
     local closeButton
     for _, child in ipairs({ dialogFrame:GetChildren() }) do
         if child.GetText and child:GetText() == CLOSE then
@@ -104,6 +111,7 @@ local function AddMainConfigButton(windowName, dialogFrame)
         reloadButton:SetScript("OnClick", function()
             ReloadUI()
         end)
+        dialogFrame.DreamFishReloadUIButton = reloadButton
     end
 
     if closeButton then
@@ -237,6 +245,12 @@ function Addon:OpenDialogWindow(windowName, tabOrGroupName)
 
             -- Hook the standard close event
             dialogFrame:HookScript("OnHide", function()
+                if dialogFrame.DreamFishMainConfigButton then
+                    dialogFrame.DreamFishMainConfigButton:Hide()
+                end
+                if dialogFrame.DreamFishReloadUIButton then
+                    dialogFrame.DreamFishReloadUIButton:Hide()
+                end
                 Addon:SaveDialogFrameCoordinates(windowName, dialogFrame)
             end)
 

@@ -168,19 +168,21 @@ function LootTracker:GetModuleOptions()
                 indentLootModeNote = AddOption({
                     type = "description",
                     name = " ",
-                    width = 0.15, -- Tweak this decimal to adjust how far right the box shifts
+                    width = "relative",
+                    relWidth = 0.05,
                 }),
                 lootModeNote = AddOption({
                     type = "description",
                     name = "WARNING:\n"
                         .. "|cFF999999In some cases (like fishing) when the window closes, the loot is GONE FOREVER.|r\n"
                         .. "|cFF999999In other cases, you might still be able to loot it from the body, chest, etc.|r",
-                    width = 1.5,
+                    width = "relative",
+                    relWidth = 0.9,
                 }),
                 spacerLootDelay = AddOption({
                     type = "description",
                     name = " ",
-                    fontSize = "medium",
+                    fontSize = "large",
                 }),
                 lootDelay = AddOption({
                     type = "range",
@@ -189,7 +191,7 @@ function LootTracker:GetModuleOptions()
                     min = 0,
                     max = 5000,
                     step = 50,
-                    width = 2,
+                    width = "full",
                 }),
             }
         }),
