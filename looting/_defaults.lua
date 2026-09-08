@@ -19,6 +19,7 @@ ns.moduleDefaults["LootTracker"] = {
         },
         lootDelay = 150,
         -- tracker
+        showTrackerAs = "window",
         minQualityFilter = 0,
         showWindowOnStartup = false,
         windowVisible = true,

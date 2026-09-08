@@ -9,6 +9,8 @@ local globalDB, profileDB, charDB
 
 local lootTrackerWindow
 local scrollContainer
+local resetButton
+local panelScrollContainer
 
 -- these are non-prototype variables
 local itemCache = {}
@@ -27,7 +29,7 @@ function LootTracker:OnModuleInitialize()
 end
 
 function LootTracker:OnModuleEnable()
-    if self.db.profile.windowVisible or self.db.profile.showWindowOnStartup then
+    if self:GetTrackerDisplayMode() ~= "tab" and (self.db.profile.windowVisible or self.db.profile.showWindowOnStartup) then
         self:CreateLootTrackerWindow()
     end
 
@@ -192,7 +194,7 @@ function LootTracker:CreateLootTrackerWindow()
     scrollFrame:SetParent(nativeFrame)
     scrollFrame:Show()
 
-    local resetButton = AceGUI:Create("Button")
+    resetButton = AceGUI:Create("Button")
     resetButton:SetText("Reset LootTracker")
     resetButton:SetWidth(240)
     resetButton:SetCallback("OnClick", function()
@@ -223,6 +225,57 @@ function LootTracker:CreateLootTrackerWindow()
     self:UpdateTrackerDisplay()
 end
 
+-- Explicit release needed: scrollContainer/resetButton are reparented via raw SetParent,
+-- so they are not tracked as the window's AceGUI children and won't cascade-release with it.
+function LootTracker:DestroyLootTrackerWindow()
+    if resetButton then
+        AceGUI:Release(resetButton)
+        resetButton = nil
+    end
+    if scrollContainer then
+        AceGUI:Release(scrollContainer)
+        scrollContainer = nil
+    end
+    if lootTrackerWindow then
+        AceGUI:Release(lootTrackerWindow)
+        lootTrackerWindow = nil
+    end
+end
+
+function LootTracker:GetTrackerDisplayMode()
+    return self.db.profile.showTrackerAs or "window"
+end
+
+function LootTracker:ApplyTrackerDisplayMode()
+    if self:GetTrackerDisplayMode() == "tab" then
+        self:DestroyLootTrackerWindow()
+    elseif self.db.profile.windowVisible or self.db.profile.showWindowOnStartup then
+        self:CreateLootTrackerWindow()
+    end
+
+    LibStub("AceConfigRegistry-3.0"):NotifyChange(addonName .. "Dialog")
+    self:UpdateTrackerDisplay()
+end
+
+function LootTracker:ShowTracker()
+    if self:GetTrackerDisplayMode() == "tab" then
+        Addon:OpenDialogToTab(addonName .. "Dialog", "lootTrackerTab")
+    else
+        self:ShowTrackerDisplay()
+    end
+end
+
+function LootTracker:RegisterPanelScrollContainer(container)
+    panelScrollContainer = container
+    self:UpdateTrackerDisplay()
+end
+
+function LootTracker:UnregisterPanelScrollContainer(container)
+    if panelScrollContainer == container then
+        panelScrollContainer = nil
+    end
+end
+
 function CreateItemRow(itemLink, count)
     local itemRow = AceGUI:Create("InteractiveLabel")
     itemRow:SetText(itemLink .. " x" .. count)
@@ -242,24 +295,23 @@ function CreateItemRow(itemLink, count)
     return itemRow
 end
 
-function LootTracker:UpdateTrackerDisplay()
-    -- Guard condition against unexpected data calls prior to full load sequences
-    if not lootTrackerWindow or not scrollContainer then return end
-
+-- Shared by the standalone window and the dialog-tab panel widget so both stay in sync.
+function LootTracker:PopulateScrollContainer(container)
+    if not container then return end
 
     -- COMPLETELY CLEAR SCROLL SUB-WIDGETS
-    scrollContainer:ReleaseChildren()
+    container:ReleaseChildren()
 
     local grandTotal = self.db.char.itemsLooted or 0
     local totalLabel = AceGUI:Create("Label")
     totalLabel:SetText("Total Looted: |cFF00FF00" .. grandTotal .. "|r")
     totalLabel:SetFontObject(GameFontNormalLarge)
     totalLabel:SetFullWidth(true)
-    scrollContainer:AddChild(totalLabel)
+    container:AddChild(totalLabel)
 
     local separator = AceGUI:Create("Heading")
     separator:SetFullWidth(true)
-    scrollContainer:AddChild(separator)
+    container:AddChild(separator)
 
     if not self.db.char.lootedItems then self.db.char.lootedItems = {} end
     if not self.db.char.lootedCurrencies then self.db.char.lootedCurrencies = {} end
@@ -328,7 +380,7 @@ function LootTracker:UpdateTrackerDisplay()
 
     for _, entry in ipairs(displayEntries) do
         local itemRow = CreateItemRow(entry.itemLink, entry.count)
-        scrollContainer:AddChild(itemRow)
+        container:AddChild(itemRow)
     end
 
     -- 5. FALLBACK EMPTY TRACKER ITEM NOTICE
@@ -337,16 +389,34 @@ function LootTracker:UpdateTrackerDisplay()
         emptyLabel:SetText("No items or currencies tracked yet.")
         emptyLabel:SetFontObject(GameFontHighlight)
         emptyLabel:SetFullWidth(true)
-        scrollContainer:AddChild(emptyLabel)
+        container:AddChild(emptyLabel)
     end
 
     -- Forces the scroll layout framework to calculate boundaries
-    scrollContainer:DoLayout()
+    container:DoLayout()
+end
+
+function LootTracker:UpdateTrackerDisplay()
+    if lootTrackerWindow and scrollContainer then
+        self:PopulateScrollContainer(scrollContainer)
+    end
+    if panelScrollContainer then
+        self:PopulateScrollContainer(panelScrollContainer)
+    end
 end
 
 function LootTracker:UpdateDisplayIfVisible()
     if lootTrackerWindow and lootTrackerWindow.frame:IsShown() then
         self:UpdateTrackerDisplay()
+    end
+end
+
+function LootTracker:ShowTrackerDisplay()
+    if lootTrackerWindow then
+        lootTrackerWindow:Show()
+        profileDB.windowVisible = true
+    else
+        self:CreateLootTrackerWindow()
     end
 end
 

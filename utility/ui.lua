@@ -302,3 +302,13 @@ function Addon:OpenDialogWindow(windowName, tabOrGroupName)
 
     return dialog
 end
+
+function Addon:OpenDialogToTab(windowName, tabName)
+    local ACD = LibStub("AceConfigDialog-3.0")
+    local statusTable = ACD:GetStatusTable(windowName)
+    if statusTable then
+        statusTable.groups = statusTable.groups or {}
+        statusTable.groups.selected = tabName
+    end
+    ACD:Open(windowName)
+end

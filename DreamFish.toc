@@ -57,6 +57,7 @@ looting/lootmode.lua
 ui/subButtonSlot.lua
 ui/buffItemDropBox.lua
 ui/equipmentDropBox.lua
+ui/loottrackerpanel.lua
 fishing/ui/castbar.lua
 
 fishing/fishing.intercept.lua

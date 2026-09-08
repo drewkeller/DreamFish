@@ -1,6 +1,7 @@
 local addonName, ns = ...
 local Addon = ns.Addon
 local Fishing = ns.Fishing
+local LootTracker = ns.LootTracker
 
 Addon:RegisterTraceSource("ui.dreamfishdialog")
 local function Trace(msg)
@@ -311,6 +312,27 @@ local options = {
                     order = 902,
                     fontSize = "medium",
                     hidden = function() return ns.DialogOptions.args.buffsTab.args.notesDescription.hidden == true end,
+                },
+            },
+        },
+        lootTrackerTab = {
+            type = "group",
+            name = "Loot Tracker",
+            order = 3,
+            -- Only shown when the LootTracker "Show Tracker As" option is set to "tab".
+            -- Guard every link in the chain: an error here would abort the whole tab bar's render.
+            hidden = function()
+                return not (LootTracker and LootTracker.db and LootTracker.db.profile
+                    and LootTracker.db.profile.showTrackerAs == "tab")
+            end,
+            args = {
+                panel = {
+                    type = "execute",
+                    name = " ",
+                    dialogControl = "DreamFishLootTrackerPanel",
+                    width = "full",
+                    order = 1,
+                    func = function() end,
                 },
             },
         },

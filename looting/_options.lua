@@ -199,6 +199,22 @@ function LootTracker:GetModuleOptions()
             type = "group",
             name = "Window",
             args = {
+                showTrackerAs = AddOption({
+                    type = "select",
+                    name = "Show Tracker As",
+                    desc = "Choose how the loot tracker is displayed.",
+                    style = "radio",
+                    width = "full",
+                    values = {
+                        ["window"] = "Standalone window",
+                        ["tab"] = "Tab on dialog",
+                    },
+                    get = function() return LootTracker.db.profile.showTrackerAs end,
+                    set = function(_, value)
+                        LootTracker.db.profile.showTrackerAs = value
+                        LootTracker:ApplyTrackerDisplayMode()
+                    end,
+                }),
                 showWindowOnStartup = AddOption({
                     type = "toggle",
                     name = "Show loot tracker on login",
@@ -220,10 +236,10 @@ function LootTracker:GetModuleOptions()
                 }),
                 toggleUiButton = AddOption({
                     type = "execute",
-                    name = "Toggle Tracker Window",
+                    name = "Show Tracker",
                     width = 2,
                     func = function()
-                        ns.Addon:GetModule("LootTracker"):ToggleTrackerWindow()
+                        ns.Addon:GetModule("LootTracker"):ShowTracker()
                     end,
                 }),
             }
