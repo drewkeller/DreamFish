@@ -61,8 +61,135 @@ local function SetSituationValues(situationKey)
     end
 end
 
+local function HasBagAlertEnabled()
+    return LootTracker.db.profile.normalBagAlertEnabled or LootTracker.db.profile.reagentBagAlertEnabled
+end
+
 function LootTracker:GetModuleOptions()
+
+    local function GetProfileValue(info)
+        local value = LootTracker.db.profile[info[#info]]
+        if info.type == "input" then
+            return tostring(value or "")
+        end
+        return value -- toggle
+    end
+
+    local function SetProfileValue(info, value)
+        if info.type == "input" then
+            LootTracker.db.profile[info[#info]] = tonumber(value) or value
+        else
+            LootTracker.db.profile[info[#info]] = value -- toggle
+        end
+    end
+
     local options = {
+        alertsTab = AddTab({
+            type = "group",
+            name = "Alerts",
+            get = GetProfileValue,
+            set = SetProfileValue,
+            args = {
+                fishingAlertGroup = AddOption({
+                    type = "group",
+                    name = "Fishing Alerts",
+                    inline = true,
+                    args = {
+                        patientTreasureAlert = AddOption({
+                            type = "toggle",
+                            name = "Patient Treasure alert",
+                            desc = "Enable or disable notifications for the Patient Treasure when fishing.",
+                            width = "full",
+                        }),
+                    },
+                }),
+                bagAlertsSpacer = AddOption({
+                    type = "description",
+                    name = " ",
+                    width = "full",
+                    fontSize = "large",
+                }),
+                bagAlerts = AddOption({
+                    type = "group",
+                    name = "Bag Alerts",
+                    inline = true,
+                    args = {
+                        normalBagAlertEnabled = AddOption({
+                            type = "toggle",
+                            name = "Bag monitor",
+                            desc = "Monitors your bag space and alerts you when it is low (non-reagent slots).",
+                            width = "normal",
+                        }),
+                        normalBagAlertThreshold = AddOption({
+                            type = "input",
+                            dialogControl = "EditBox",
+                            name = "Threshold",
+                            desc = "Minimum number of free bag slots before an alert is triggered (non-reagent slots).",
+                            width = "half",
+                            disabled = function() return not LootTracker.db.profile.normalBagAlertEnabled end
+                        }),
+                        reagentBagMonitorSpacer = AddOption({
+                            type = "description",
+                            name = " ",
+                            width = "full",
+                            fontSize = "small",
+                        }),
+                        reagentBagAlertEnabled = AddOption({
+                            type = "toggle",
+                            name = "Reagent monitor",
+                            desc = "Monitors your reagent bag space and alerts you when it is low.",
+                            width = "normal",
+                        }),
+                        reagentBagAlertThreshold = AddOption({
+                            type = "input",
+                            name = "Threshold",
+                            desc = "Minimum number of free slots (reagent bags) before an alert is triggered.",
+                            width = "half",
+                            disabled = function() return not LootTracker.db.profile.reagentBagAlertEnabled end
+                        }),
+                        endSpacer = AddOption({
+                            type = "description",
+                            name = " ",
+                            width = "full",
+                            fontSize = "medium",
+                        }),
+                    },
+                }),
+                bagAlertOptions = AddOption({
+                    type = "group",
+                    name = "Bag Alert Options",
+                    width = "full",
+                    inline = true,
+                    disabled = function() return not HasBagAlertEnabled() end,
+                    args = {
+                        bagAlertOnlyWhenFishing = AddOption({
+                            type = "toggle",
+                            name = "Only when fishing",
+                            desc = "Only triggers bag alerts when you are fishing.",
+                            width = "full",
+                        }),
+                        bagAlertPlaySound = AddOption({
+                            type = "toggle",
+                            name = "Play sound",
+                            desc = "Plays a sound when a bag alert is triggered.",
+                            width = "full",
+                        }),
+                        bagAlertShowFullScreen = AddOption({
+                            type = "toggle",
+                            name = "Show full-screen",
+                            desc = "Displays a full-screen alert when a bag alert is triggered.",
+                            width = "full",
+                        }),
+                        bagAlertThrottle = AddOption({
+                            type = "input",
+                            name = "Throttle",
+                            desc = "Minimum number of seconds between bag alerts.",
+                            width = "half",
+                        }),
+                    },
+                }),
+            },
+        }),
         lootModeTab = AddTab({
             type = "group",
             name = "Loot Modes",

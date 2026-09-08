@@ -127,3 +127,45 @@ function ns.Utils.IsItemAvailableForEquip(itemID)
 
     return false
 end
+
+function ns.Utils.ContainerItemID(bag, slot)
+    if C_Container and C_Container.GetContainerItemID then
+        return C_Container.GetContainerItemID(bag, slot)
+    end
+    if GetContainerItemID then
+        return GetContainerItemID(bag, slot)
+    end
+    return nil
+end
+
+function ns.Utils.GetFreeReagentBagSlots()
+    local free = 0
+    local reagentSlots = ns.Utils.ContainerNumSlots(5)
+    if reagentSlots and reagentSlots > 0 then
+        for slot = 1, reagentSlots do
+            if not ns.Utils.ContainerItemID(5, slot) then
+                free = free + 1
+            end
+        end
+    end
+    return free
+end
+
+function ns.Utils.GetFreeBagSlots(includeReagentBag)
+    local free = 0
+    local bagCount = NUM_BAG_SLOTS or 4
+    for bag = 0, bagCount do
+        local slots = ns.Utils.ContainerNumSlots(bag)
+        if slots and slots > 0 then
+            for slot = 1, slots do
+                if not ns.Utils.ContainerItemID(bag, slot) then
+                    free = free + 1
+                end
+            end
+        end
+    end
+    if includeReagentBag then
+        free = free + ns.Utils.GetFreeReagentBagSlots()
+    end
+    return free
+end

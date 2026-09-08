@@ -37,20 +37,16 @@ looting/_constants.lua
 looting/_defaults.lua
 looting/_options.lua
 
-# Module configs
-
 # Core initializers
 DreamFish.lua
-
-# core/module_api.lua
-# core/api_resolver.lua
 core/commands.lua
 
 # Initialization
-#fishing/fishing.init.lua
 fishing/fishing.lua
-
 looting/loottracker.lua
+
+# LootTracker
+looting/alerts.lua
 looting/lootmode.lua
 
 # UI widgets and components
@@ -72,28 +68,8 @@ fishing/precast/raft.lua
 fishing/precast/underlightangler.lua
 fishing/fishing.precast.lua
 
-# Buff system (tracking, timing, management)
-# buff/tracking.lua
-# buff/timing.lua
-# buff/management.lua
-
-# Fishing features (helpers, casting, state machine)
-# fishing/helpers.lua
-# fishing/casting.lua
-# fishing/interactloot.lua
-# fishing/state.lua
-
-# Audio system (ducking, alerts)
-# audio/ducking.lua
-# audio/alerts.lua
-
 # UI system (commands, config)
 ui/dreamfishdialog.lua
-# ui/commands.lua
-# ui/ace_widget_factory.lua
-# ui/buff_item_drop_box.lua
-# ui/focus_fade.lua
-# ui/config.lua
 
 # Main coordinator (runs after all modules load)
 Bindings.lua

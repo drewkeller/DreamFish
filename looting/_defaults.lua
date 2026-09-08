@@ -18,6 +18,16 @@ ns.moduleDefaults["LootTracker"] = {
             stayOpenForJunk = true,
         },
         lootDelay = 150,
+        -- alerts
+        patientTreasureAlert = true,
+        normalBagAlertEnabled = true,
+        reagentBagAlertEnabled = true,
+        normalBagAlertThreshold = 2,
+        reagentBagAlertThreshold = 2,
+        bagAlertOnlyWhenFishing = true,
+        bagAlertPlaySound = true,
+        bagAlertShowFullScreen = false,
+        bagAlertThrottle = 60,
         -- tracker
         showTrackerAs = "window",
         minQualityFilter = 0,
