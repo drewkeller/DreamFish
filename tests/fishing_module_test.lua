@@ -112,6 +112,7 @@ assert(loadfile("module/debug.lua"))("DreamFish", namespace)
 assert(loadfile("module/callbacks.lua"))("DreamFish", namespace)
 assert(loadfile("fishing/_constants.lua"))("DreamFish", namespace)
 assert(loadfile("fishing/_defaults.lua"))("DreamFish", namespace)
+assert(loadfile("fishing/_defaults_framefade.lua"))("DreamFish", namespace)
 assert(loadfile("fishing/_options.lua"))("DreamFish", namespace)
 assert(loadfile("fishing/fishing.lua"))("DreamFish", namespace)
 assert(loadfile("fishing/states.lua"))("DreamFish", namespace)
@@ -121,6 +122,17 @@ namespace.precast.EquipUnderlightAnglerAfterFishing = function(reason)
 end
 
 local Fishing = DreamFish:GetModule("Fishing")
+
+-- Mimic AceDB's defaults merge for the fadeFrames tree (not modeled by the RegisterNamespace stub above).
+local function DeepCopy(source)
+    local copy = {}
+    for key, value in pairs(source) do
+        copy[key] = type(value) == "table" and DeepCopy(value) or value
+    end
+    return copy
+end
+DreamFish.db.profile.fishing.fadeFrames = DeepCopy(namespace.moduleDefaults.Fishing.profile.fadeFrames)
+
 
 namespace.ui = {
     TackleWindow = {

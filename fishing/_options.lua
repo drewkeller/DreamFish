@@ -2,32 +2,51 @@ local addonName, ns = ...
 local Addon = ns.Addon
 local Fishing = ns.Fishing
 
--- Fishing:CreateModuleOptions({
--- 	displayName = "Fishing",
--- 	dbKey = "fishing",
--- 	defaults = ns.Fishing.Defaults,
--- 	childGroups = "tree",
---     showEnableOption = false,
--- })
-
-local tabOrder = 0
-local optionOrder = 0
-
-local function AddTab(tab)
-    assert(type(tab) == "table", "Module tab must be a table")
-
-    tabOrder = (tabOrder or 0) + 1
-    tab.order = tabOrder
-    optionOrder = 0
-    return tab
+local layoutCounter = 0
+local function AutoOrder(nodeTable)
+    layoutCounter = layoutCounter + 1
+    nodeTable.order = layoutCounter
+    return nodeTable
 end
 
-local function AddOption(option)
-    assert(type(option) == "table", "Module option must be a table")
+-- Registered once so Escape (CloseSpecialWindows) also turns off the frame stack tool.
+local frameStackEscapeHooked = false
+local function EnsureFrameStackClosesOnEscape()
+    if frameStackEscapeHooked then return end
+    frameStackEscapeHooked = true
+    hooksecurefunc("CloseSpecialWindows", function()
+        if FrameStackTooltip and FrameStackTooltip:IsShown() and SlashCmdList["FRAMESTACK"] then
+            SlashCmdList["FRAMESTACK"]("")
+        end
+    end)
+end
 
-    optionOrder = (optionOrder or 0) + 1
-    option.order = optionOrder
-    return option
+-- These are the exact CVars /fstack itself reads as defaults when toggled.
+local function ApplyFrameStackFilters()
+    SetCVar("fstack_showhidden", not Fishing.db.profile.frameStackExcludeHidden)
+    SetCVar("fstack_showregions", not Fishing.db.profile.frameStackExcludeRegionsAndTextures)
+    SetCVar("fstack_showanchors", not Fishing.db.profile.frameStackExcludeAnchors)
+end
+
+-- FrameStackTooltip_Toggle only reads the CVars above when going hidden->shown, so a checkbox
+-- change while the tool is already open needs an off/on cycle to actually take effect.
+local function RefreshFrameStackIfShown()
+    if FrameStackTooltip and FrameStackTooltip:IsShown() and SlashCmdList["FRAMESTACK"] then
+        SlashCmdList["FRAMESTACK"]("")
+        SlashCmdList["FRAMESTACK"]("")
+    end
+end
+
+-- Holds the name grabbed from the fstack tool until the user commits it via customFrameInput.
+local pendingCustomFrameName = ""
+local function GrabSelectedFrameStackName()
+    -- FrameStackTooltip_OnUpdate sets this global itself whenever ALT/RALT changes its highlight.
+    local highlighted = _G.fsobj
+    pendingCustomFrameName = (highlighted and highlighted.GetName and highlighted:GetName()) or ""
+    local AceConfigRegistry = LibStub("AceConfigRegistry-3.0", true)
+    if AceConfigRegistry then
+        AceConfigRegistry:NotifyChange(addonName .. "_Fishing")
+    end
 end
 
 function Fishing:GetModuleConfig()
@@ -41,226 +60,511 @@ function Fishing:GetModuleConfig()
     }
 end
 
+local function BuildModesTab(order)
+    layoutCounter = 0
+    return {
+        type = "group",
+        name = "Modes",
+        order = order,
+        args = {
+            castingTriggers = AutoOrder({
+                type = "group",
+                name = "Casting triggers",
+                inline = true,
+                args = {
+                    castByDoubleRightClick = AutoOrder({
+                        type = "toggle",
+                        name = "Double right click",
+                        desc = "Double right click to begin fishing.",
+                        width = "full",
+                    }),
+                    castBySingleRightClickWhenFishing = AutoOrder({
+                        type = "toggle",
+                        name = "Single right click (while fishing)",
+                        desc = "Single right click to cast when already in fishing session.",
+                        width = "full",
+                        set = function(_, value)
+                            Fishing.db.profile.castBySingleRightClickWhenFishing = value
+                            if not value and Fishing.clickFrame and not InCombatLockdown() then
+                                ClearOverrideBindings(Fishing.clickFrame)
+                            end
+                        end,
+                    }),
+                    castByHotkey = AutoOrder({
+                        type = "toggle",
+                        name = "Hotkey",
+                        desc = "Use a hotkey to begin fishing.",
+                        width = "full",
+                    }),
+                    castHotkeyKeybind1 = AutoOrder({
+                        type = "keybinding",
+                        name = "",
+                        desc = "Set the keybinding for the hotkey casting mode.",
+                        width = 1.0,
+                        get = function()
+                            return Fishing:GetKeybindings()[1]
+                        end,
+                        set = function(_, value)
+                            Fishing:SetKeybindings(value, nil)
+                        end,
+                    }),
+                    castHotkeyKeybind2 = AutoOrder({
+                        type = "keybinding",
+                        name = "",
+                        desc = "Set the keybinding for the hotkey casting mode.",
+                        width = 1.0,
+                        get = function()
+                            return Fishing:GetKeybindings()[2]
+                        end,
+                        set = function(_, value)
+                            Fishing:SetKeybindings(nil, value)
+                        end,
+                    }),
+                },
+            }),
+            reelingTriggers = AutoOrder({
+                type = "group",
+                name = "Reel/bobber triggers",
+                inline = true,
+                args = {
+                    modeEasyStrikeNote = AutoOrder({
+                        type = "description",
+                        name = "|c80999999  Requirements for either EasyStrike:|r\n"
+                            .. "|c80999999  1. Turn on \"Enable Interact Key\" (Game Options > Controls).|r\n"
+                            .. "|c80999999  2. Set the \"Hotkey\" keybinding above.|r\n"
+                            .. "|c80999999  3. Ensure another addon does not interfere while fishing.|r",
+                        width = "full",
+                    }),
+                    strikeByRightClick = AutoOrder({
+                        type = "toggle",
+                        name = "EasyStrike (right click)",
+                        desc = "When the bobber indicates a bite, right click anywhere or use the hotkey to hook, play, and land the fish.",
+                        width = "full",
+                    }),
+                    strikeByRightClickNote = AutoOrder({
+                        type = "description",
+                        name = "      |c80999999Since this replaces the normal \"turn or action\" action|r\n"
+                            .. "      |c80999999on the right mouse button, it may be a bit awkward if you|r\n"
+                            .. "      |c80999999are used to using RMB to turn or start movement by|r\n"
+                            .. "      |c80999999pressing RMB first.|r\n"
+                            .. "      |c80999999However, you can still mouse-look using LMB and initiate|r\n"
+                            .. "      |c80999999movement by holding down LMB first and then RMB.|r",
+                    }),
+                    strikeByHotkey = AutoOrder({
+                        type = "toggle",
+                        name = "EasyStrike (hotkey)",
+                        desc = "Use a hotkey to hook, play, and land the fish when the bobber indicates a bite.",
+                        width = "full",
+                    }),
+                },
+            }),
+            spacer = AutoOrder({
+                type = "description",
+                name = " ",
+                fontSize = "small",
+            }),
+            lingerDuration = AutoOrder({
+                type = "range",
+                name = "Linger duration",
+                desc = "The number of seconds after a cast for the fishing session to expire, unless another cast is initiated.",
+                min = 0,
+                max = 60,
+                step = 1,
+                bigStep = 5,
+            }),
+        },
+    }
+end
+
+local function BuildTackleTab(order)
+    layoutCounter = 0
+    return {
+        type = "group",
+        name = "Tackle",
+        order = order,
+        args = {
+            raftSection = AutoOrder({
+                type = "group",
+                name = "  ",
+                desc = "Settings for auto-casting a raft when fishing.",
+                inline = true,
+                args = {
+                    selectedRaftToy = AutoOrder({
+                        type = "select",
+                        name = "Raft",
+                        desc = "Choose the raft to be used when fishing. Applied automatically when casting the fishing line.",
+                        values = function()
+                            return ns.Utils.BuildOwnedToyOptions(ns.Fishing.const.raftToyItemIDs, "No Raft")
+                        end,
+                        sorting = function()
+                            return ns.Utils.BuildOwnedToySortingKeys(ns.Fishing.const.raftToyItemIDs, "No Raft")
+                        end,
+                        width = 1.5,
+                    }),
+                    applyRaft = AutoOrder({
+                        type = "execute",
+                        name = "Apply",
+                        desc = "Manually apply the selected raft now.",
+                        func = "ApplyRaft",
+                        width = 0.85,
+                    }),
+                },
+            }),
+            bobberSection = AutoOrder({
+                type = "group",
+                name = "  ",
+                desc = "Settings for auto-casting a bobber when fishing.",
+                inline = true,
+                args = {
+                    -- divider = {
+                    --     type = "header",
+                    --     name = "-----",
+                    --     order = 0,
+                    -- },
+                    selectedBobberToy = AutoOrder({
+                        type = "select",
+                        name = "Bobber",
+                        desc = "Choose the bobber to be used when fishing. Applied automatically when casting the fishing line.",
+                        values = function()
+                            return ns.Utils.BuildOwnedToyOptions(ns.Fishing.const.bobberToyItemIDs, "Standard Bobber")
+                        end,
+                        sorting = function()
+                            return ns.Utils.BuildOwnedToySortingKeys(ns.Fishing.const.bobberToyItemIDs, "Standard Bobber")
+                        end,
+                        width = 1.5,
+                    }),
+                    applyBobber = AutoOrder({
+                        type = "execute",
+                        name = "Apply",
+                        desc = "Manually apply the selected bobber now.",
+                        func = "ApplyBobber",
+                        width = 0.85,
+                    }),
+                    useOversizedBobber = AutoOrder({
+                        type = "toggle",
+                        name = "Use Oversized Bobber",
+                        desc = "Also apply the oversized bobber to your selected bobber (adds another click to apply it)",
+                        width = "full",
+                    }),
+                } -- Bobber section
+            }),
+            openTackleWindow = {
+                type = "execute",
+                name = "Open Tackle Box",
+                desc = "Open a window to manage fishing tackle (poles, rafts, bobbers).",
+                func = function(info) Addon:OpenDialogWindow("DreamFishDialog") end,
+                width = "full",
+            } -- Tackle manager button
+        },
+    }
+end
+
+local function BuildAudioFocusTab(order)
+    return {
+        type = "group",
+        name = "Audio Focus",
+        order = order,
+        args = {
+            audioFocusEnabled = {
+                type = "toggle",
+                name = "Audio focus",
+                desc = "Reduces other sounds and focuses audio on fishing sounds, then restores when done fishing.",
+                width = "full",
+            },
+        },
+    }
+end
+
+local function BuildFrameToggleArgs(frameEntries)
+    local args = {}
+    for _, frameEntry in ipairs(frameEntries) do
+        args[frameEntry.name] = AutoOrder({
+            type = "toggle",
+            name = frameEntry.name,
+            width = "full",
+            get = function() return frameEntry.enabled end,
+            set = function(_, value)
+                frameEntry.enabled = value
+                Fishing:SetFrameFadeState(frameEntry.name, value)
+            end,
+        })
+    end
+    return args
+end
+
+local function BuildFrameFadeSections()
+    layoutCounter = 0
+    local sections = {}
+    for _, categoryEntry in ipairs(Fishing.db.profile.fadeFrames) do
+        if categoryEntry.name ~= "Custom" then
+            local categoryArgs
+            if categoryEntry.sections then
+                categoryArgs = {}
+                for _, sectionEntry in ipairs(categoryEntry.sections) do
+                    categoryArgs[sectionEntry.name] = AutoOrder({
+                        type = "group",
+                        name = sectionEntry.name,
+                        inline = true,
+                        args = BuildFrameToggleArgs(sectionEntry.frames),
+                    })
+                end
+            else
+                categoryArgs = BuildFrameToggleArgs(categoryEntry.frames)
+            end
+            sections[categoryEntry.name] = AutoOrder({
+                type = "group",
+                name = categoryEntry.name,
+                inline = false,
+                args = categoryArgs,
+            })
+        end
+    end
+    return sections
+end
+
+local function FindFadeCategory(categoryName)
+    for _, categoryEntry in ipairs(Fishing.db.profile.fadeFrames) do
+        if categoryEntry.name == categoryName then
+            return categoryEntry
+        end
+    end
+end
+
+local function ToggleFrameStackMode()
+    -- 1. Force load the background debug files using the correct current API
+    if not C_AddOns.IsAddOnLoaded("Blizzard_DebugTools") then
+        C_AddOns.LoadAddOn("Blizzard_DebugTools")
+    end
+    EnsureFrameStackClosesOnEscape()
+    ApplyFrameStackFilters()
+
+    -- 2. Launch the inspector window safely via the official system command route
+    if SlashCmdList["FRAMESTACK"] then
+        SlashCmdList["FRAMESTACK"]("")
+    else
+        print("|cFFFF0000[DreamFish]|r Error: FrameStack command registry is missing.")
+    end
+end
+
+local function BuildCustomFrameFadeSection()
+    local customCategory = FindFadeCategory("Custom")
+
+    local childOrder = 1
+    local function AddChild(item)
+        childOrder = childOrder + 1
+        item.order = childOrder
+        return item
+    end
+
+    local function AddCustomFrame(name)
+        pendingCustomFrameName = "" -- Always clear the line input text box after saving
+        if name and name ~= "" then
+            for _, frameEntry in ipairs(customCategory.frames) do
+                if frameEntry.name == name then
+                    return -- already tracked
+                end
+            end
+            table.insert(customCategory.frames, { name = name, enabled = true })
+            Fishing:SetFrameFadeState(name, true)
+        end
+    end
+
+    local customFrameSection = AutoOrder({
+        type = "group",
+        name = "Custom",
+        inline = false,
+        args = {
+            frameStackToggle = AddChild({
+                type = "execute",
+                name = "1. Toggle Frame Stack Tool",
+                desc = "Turn on the frame stack tool and hover over the frame/area you want to identify.",
+                width = "full",
+                func = function()
+                    ToggleFrameStackMode()
+                end
+            }),
+            grabSelectedFrameStack = AddChild({
+                type = "execute",
+                name = "2. Use Selected Frame",
+                desc = "Grab the frame currently highlighted in the frame stack tool (Alt/Right Alt to cycle its highlight) and load its name below.",
+                width = "full",
+                func = GrabSelectedFrameStackName,
+            }),
+            customFrameInput = AddChild({
+                type = "input",
+                name = "Add Custom Frame Name",
+                desc = "You can use the Frame Stack Tool to find a frame's name (Alt/Right Alt to cycle its highlight) and click the button above to grab the name into this box.",
+                width = "relative",
+                relWidth = 0.75,
+                get = function() return pendingCustomFrameName end,
+                set = function(_, value) AddCustomFrame(value) end,
+            }),
+            addCustomFrame = AddChild({
+                type = "execute",
+                name = "3. Add",
+                desc = "Add the frame name typed above to the custom fade list.",
+                width = "relative",
+                relWidth = 0.24,
+                func = function() AddCustomFrame(pendingCustomFrameName) end,
+            }),
+            -- A simple button loop list to allow deleting custom frames easily
+            removeCustomDesc = AddChild({
+                type = "description",
+                name = " ",
+                width = "full",
+                fontSize = "medium"
+            }),
+        },
+    })
+
+    -- Explicit order keeps each toggle paired with its Remove button on the same row;
+    -- without it, AceConfig falls back to alphabetical-by-name and splits the pairs apart.
+    for _, frameEntry in ipairs(customCategory.frames) do
+        customFrameSection.args[frameEntry.name] = AddChild({
+            type = "toggle",
+            name = frameEntry.name,
+            width = "relative",
+            relWidth = 0.75,
+            get = function() return frameEntry.enabled end,
+            set = function(_, value)
+                frameEntry.enabled = value
+                Fishing:SetFrameFadeState(frameEntry.name, value)
+            end,
+        })
+        customFrameSection.args[frameEntry.name .. "_Remove"] = AddChild({
+            type = "execute",
+            name = "X",
+            desc = "Remove " .. frameEntry.name .. " from the custom fade list.",
+            width = "relative",
+            relWidth = 0.24,
+            func = function()
+                Fishing:SetFrameFadeState(frameEntry.name, false)
+                for idx, entry in ipairs(customCategory.frames) do
+                    if entry.name == frameEntry.name then
+                        table.remove(customCategory.frames, idx)
+                        break
+                    end
+                end
+            end
+        })
+    end
+
+    return customFrameSection
+end
+
+local function BuildFrameFadeTab(order)
+    local frameFadeTab = {
+        type = "group",
+        name = "Frame Fade",
+        order = order,
+        args = {}
+    }
+    frameFadeTab.args = BuildFrameFadeSections()
+    frameFadeTab.args.customSection = BuildCustomFrameFadeSection()
+    frameFadeTab.args.frameToolsSection = {
+        type = "group",
+        name = "Frame Tools",
+        inline = false,
+        order = 10000, -- after everything else
+        args = {
+            frameStackTool = AutoOrder({
+                type = "group",
+                name = "Frame Stack Tool Options",
+                inline = true,
+                args = {
+                    frameStackToggle = AutoOrder({
+                        type = "execute",
+                        name = "Toggle Frame Stack Tool",
+                        desc = "Turn on the frame stack tool and hover over the frame/area you want to identify.",
+                        width = "full",
+                        func = function()
+                            ToggleFrameStackMode()
+                        end
+                    }),
+                    frameStackExcludeHidden = AutoOrder({
+                        type = "toggle",
+                        name = "Exclude hidden frames",
+                        desc = "Exclude hidden frames from the frame stack tool.",
+                        width = "full",
+                        set = function(_, value)
+                            Fishing.db.profile.frameStackExcludeHidden = value
+                            ApplyFrameStackFilters()
+                            RefreshFrameStackIfShown()
+                        end,
+                    }),
+                    frameStackExcludeRegionsAndTextures = AutoOrder({
+                        type = "toggle",
+                        name = "Exclude regions and textures",
+                        desc = "Exclude regions and textures from the frame stack tool.",
+                        width = "full",
+                        set = function(_, value)
+                            Fishing.db.profile.frameStackExcludeRegionsAndTextures = value
+                            ApplyFrameStackFilters()
+                            RefreshFrameStackIfShown()
+                        end,
+                    }),
+                    frameStackExcludeAnchors = AutoOrder({
+                        type = "toggle",
+                        name = "Exclude anchors",
+                        desc = "Exclude anchor points from the frame stack tool.",
+                        width = "full",
+                        set = function(_, value)
+                            Fishing.db.profile.frameStackExcludeAnchors = value
+                            ApplyFrameStackFilters()
+                            RefreshFrameStackIfShown()
+                        end,
+                    }),
+                },
+            }),
+            frameSpacer = AutoOrder({
+                type = "description",
+                name = " ",
+            }),
+            frameControls = AutoOrder({
+                type = "group",
+                name = "Frame Controls",
+                inline = true,
+                args = {
+                    forceHide = AutoOrder({
+                        type = "execute",
+                        name = "Start Faded Mode",
+                        desc = "Hide frames according to frame selections.",
+                        width = "relative",
+                        relWidth = 0.49,
+                        func = function()
+                            Fishing:ForceHidden()
+                        end
+                    }),
+                    forceShow = AutoOrder({
+                        type = "execute",
+                        name = "Show Frames",
+                        desc = "Show all frames.",
+                        width = "relative",
+                        relWidth = 0.49,
+                        func = function()
+                            Fishing:ForceVisible()
+                        end
+                    }),
+                    windowCommands = AutoOrder({
+                        type = "description",
+                        name = "\n"
+                            .. "|cFF999999Slash Commands|r\n"
+                            .. "   /df show |cFF999999(to show frames)|r\n"
+                            .. "   /df fade |cFF999999(to hide frames)|r",
+                    })
+                }
+            })
+        }
+    }
+    return frameFadeTab
+end
+
 function Fishing:GetModuleOptions()
     local options = {
-        modesTab = AddTab({
-            type = "group",
-            name = "Modes",
-            args = {
-                castingTriggers = AddOption({
-                    type = "group",
-                    name = "Casting triggers",
-                    inline = true,
-                    args = {
-                        castByDoubleRightClick = AddOption({
-                            type = "toggle",
-                            name = "Double right click",
-                            desc = "Double right click to begin fishing.",
-                            width = "full",
-                        }),
-                        castBySingleRightClickWhenFishing = AddOption({
-                            type = "toggle",
-                            name = "Single right click (while fishing)",
-                            desc = "Single right click to cast when already in fishing session.",
-                            width = "full",
-                            set = function(_, value)
-                                Fishing.db.profile.castBySingleRightClickWhenFishing = value
-                                if not value and Fishing.clickFrame and not InCombatLockdown() then
-                                    ClearOverrideBindings(Fishing.clickFrame)
-                                end
-                            end,
-                        }),
-                        castByHotkey = AddOption({
-                            type = "toggle",
-                            name = "Hotkey",
-                            desc = "Use a hotkey to begin fishing.",
-                            width = "full",
-                        }),
-                        castHotkeyKeybind1 = AddOption({
-                            type = "keybinding",
-                            name = "",
-                            desc = "Set the keybinding for the hotkey casting mode.",
-                            width = 1.0,
-                            get = function()
-                                return Fishing:GetKeybindings()[1]
-                            end,
-                            set = function(_, value)
-                                Fishing:SetKeybindings(value, nil)
-                            end,
-                        }),
-                        castHotkeyKeybind2 = AddOption({
-                            type = "keybinding",
-                            name = "",
-                            desc = "Set the keybinding for the hotkey casting mode.",
-                            width = 1.0,
-                            get = function()
-                                return Fishing:GetKeybindings()[2]
-                            end,
-                            set = function(_, value)
-                                Fishing:SetKeybindings(nil, value)
-                            end,
-                        }),
-                    },
-                }),
-                reelingTriggers = AddOption({
-                    type = "group",
-                    name = "Reel/bobber triggers",
-                    inline = true,
-                    args = {
-                        modeEasyStrikeNote = AddOption({
-                            type = "description",
-                            name = "|c80999999  Requirements for either EasyStrike:|r\n"
-                                .. "|c80999999  1. Turn on \"Enable Interact Key\" (Game Options > Controls).|r\n"
-                                .. "|c80999999  2. Set the \"Hotkey\" keybinding above.|r\n"
-                                .. "|c80999999  3. Ensure another addon does not interfere while fishing.|r",
-                            width = "full",
-                        }),
-                        strikeByRightClick = AddOption({
-                            type = "toggle",
-                            name = "EasyStrike (right click)",
-                            desc = "When the bobber indicates a bite, right click anywhere or use the hotkey to hook, play, and land the fish.",
-                            width = "full",
-                        }),
-                        strikeByRightClickNote = AddOption({
-                            type = "description",
-                            name = "      |c80999999Since this replaces the normal \"turn or action\" action|r\n"
-                                .. "      |c80999999on the right mouse button, it may be a bit awkward if you|r\n"
-                                .. "      |c80999999are used to using RMB to turn or start movement by|r\n"
-                                .. "      |c80999999pressing RMB first.|r\n"
-                                .. "      |c80999999However, you can still mouse-look using LMB and initiate|r\n"
-                                .. "      |c80999999movement by holding down LMB first and then RMB.|r",
-                        }),
-                        strikeByHotkey = AddOption({
-                            type = "toggle",
-                            name = "EasyStrike (hotkey)",
-                            desc = "Use a hotkey to hook, play, and land the fish when the bobber indicates a bite.",
-                            width = "full",
-                        }),
-                    },
-                }),
-                spacer = AddOption({
-                    type = "description",
-                    name = " ",
-                    fontSize = "small",
-                }),
-                lingerDuration = AddOption({
-                    type = "range",
-                    name = "Linger duration",
-                    desc = "The number of seconds after a cast for the fishing session to expire, unless another cast is initiated.",
-                    min = 0,
-                    max = 60,
-                    step = 1,
-                    bigStep = 5,
-                }),
-            },
-        }), -- Modes tab
-        tackleTab = AddTab({
-            type = "group",
-            name = "Tackle",
-            args = {
-                raftSection = {
-                    type = "group",
-                    name = "  ",
-                    desc = "Settings for auto-casting a raft when fishing.",
-                    inline = true,
-                    order = 1,
-                    args = {
-                        selectedRaftToy = {
-                            type = "select",
-                            name = "Raft",
-                            desc = "Choose the raft to be used when fishing. Applied automatically when casting the fishing line.",
-                            order = 1,
-                            values = function()
-                                return ns.Utils.BuildOwnedToyOptions(ns.Fishing.const.raftToyItemIDs, "No Raft")
-                            end,
-                            sorting = function()
-                                return ns.Utils.BuildOwnedToySortingKeys(ns.Fishing.const.raftToyItemIDs, "No Raft")
-                            end,
-                            width = 1.5,
-                        },
-                        applyRaft = {
-                            type = "execute",
-                            name = "Apply",
-                            desc = "Manually apply the selected raft now.",
-                            order = 2,
-                            func = "ApplyRaft",
-                            width = 0.85,
-                        },
-                    },
-                },
-                bobberSection = {
-                    type = "group",
-                    name = "  ",
-                    desc = "Settings for auto-casting a bobber when fishing.",
-                    inline = true,
-                    order = 2,
-                    args = {
-                        -- divider = {
-                        --     type = "header",
-                        --     name = "-----",
-                        --     order = 0,
-                        -- },
-                        selectedBobberToy = {
-                            type = "select",
-                            name = "Bobber",
-                            desc = "Choose the bobber to be used when fishing. Applied automatically when casting the fishing line.",
-                            order = 1,
-                            values = function()
-                                return ns.Utils.BuildOwnedToyOptions(ns.Fishing.const.bobberToyItemIDs, "Standard Bobber")
-                            end,
-                            sorting = function()
-                                return ns.Utils.BuildOwnedToySortingKeys(ns.Fishing.const.bobberToyItemIDs, "Standard Bobber")
-                            end,
-                            width = 1.5,
-                        },
-                        applyBobber = {
-                            type = "execute",
-                            name = "Apply",
-                            desc = "Manually apply the selected bobber now.",
-                            order = 2,
-                            func = "ApplyBobber",
-                            width = 0.85,
-                        },
-                        useOversizedBobber = {
-                            type = "toggle",
-                            name = "Use Oversized Bobber",
-                            desc = "Also apply the oversized bobber to your selected bobber (adds another click to apply it)",
-                            order = 3,
-                            width = "full",
-                        }
-                    } -- Bobber section
-                },
-                openTackleWindow = {
-                    type = "execute",
-                    name = "Open Tackle Box",
-                    desc = "Open a window to manage fishing tackle (poles, rafts, bobbers).",
-                    order = 3,
-                    func = function(info) Addon:OpenDialogWindow("DreamFishDialog") end,
-                    width = "full",
-                } -- Tackle manager button
-            },
-        }), -- Tackle tab
-        focusTab = AddTab({
-            type = "group",
-            name = "Focus",
-            args = {
-                audioFocusEnabled = {
-                    type = "toggle",
-                    name = "Audio focus",
-                    desc = "Reduces other sounds and focuses audio on fishing sounds, then restores when done fishing.",
-                    order = 1,
-                    width = "full",
-                },
-                frameFocusEnabled = {
-                    type = "toggle",
-                    name = "Auto fade frames",
-                    desc = "Fade out visuals while fishing and fade them back in afterwards.",
-                    order = 2,
-                    width = "full",
-                }
-
-            }
-        })
+        modesTab = BuildModesTab(1),
+        tackleTab = BuildTackleTab(2),
+        focusTab = BuildAudioFocusTab(3),
+        frameFadeTab = BuildFrameFadeTab(4),
     }
 
     return options
