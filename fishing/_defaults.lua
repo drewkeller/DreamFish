@@ -31,6 +31,7 @@ ns.moduleDefaults["Fishing"] = {
         closeWindowOnEscape = true,
         lingerDuration = 10,
         audioFocusEnabled = true,
+        frameFocusEnabled = true,
 	},
 	char = {
         -- Tackle

@@ -40,6 +40,12 @@ function ModulePrototype:Trace(sourceName, msg, ...)
     end
 end
 
+function ModulePrototype:DebugSource(sourceName, msg, ...)
+    if self.db and self.db.profile and self.db.profile.debugEnabled then
+        ns.Utils.DebugModuleSource(ns.logLevel.DEBUG, self, sourceName, msg, ...)
+    end
+end
+
 function ModulePrototype:Debug(msg, ...)
     if self.db and self.db.profile and self.db.profile.debugEnabled then
         --ns.Utils.DebugModuleSource(ns.logLevel.DEBUG, self, sourceName, msg, ...)

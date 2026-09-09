@@ -60,6 +60,7 @@ fishing/fishing.intercept.lua
 fishing/auras.lua
 fishing/states.lua
 fishing/audio.lua
+fishing/framefade.lua
 fishing/precast/bobber.lua
 fishing/precast/consumables.lua
 fishing/precast/oversizebobber.lua
