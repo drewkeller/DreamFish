@@ -1,10 +1,16 @@
 local calls = {
     forceHidden = 0,
     forceVisible = 0,
+    openMainConfig = 0,
 }
 
-string.trim = function(value)
+getmetatable("").__index.trim = function(value)
     return value:match("^%s*(.-)%s*$")
+end
+
+function LibStub(name)
+    assert(name == "AceConfigDialog-3.0", "unexpected library: " .. tostring(name))
+    return { OpenFrames = {} }
 end
 
 local Fishing = {
@@ -18,12 +24,19 @@ local Fishing = {
 
 local Addon = {}
 
+function Addon:OpenMainConfig()
+    calls.openMainConfig = calls.openMainConfig + 1
+end
+
 function Addon:GetModule(name)
     assert(name == "Fishing", "unexpected module: " .. tostring(name))
     return Fishing
 end
 
 assert(loadfile("core/commands.lua"))("DreamFish", { Addon = Addon })
+
+Addon:SlashCommand("")
+assert(calls.openMainConfig == 1, "/df should open the main configuration")
 
 Addon:SlashCommand("show")
 assert(calls.forceVisible == 1, "/df show should force frames visible")

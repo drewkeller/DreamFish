@@ -21,6 +21,59 @@ local function GetDialogStatusTable(windowName)
     return AceConfigDialog:GetStatusTable(windowName)
 end
 
+local function CopyTable(source)
+    if type(source) ~= "table" then
+        return source
+    end
+
+    local copy = {}
+    for key, value in pairs(source) do
+        copy[key] = CopyTable(value)
+    end
+    return copy
+end
+
+function Addon:SaveConfigSelection(windowName)
+    local globalDB = self.db and self.db.global
+    local status = GetDialogStatusTable(windowName)
+    if not (globalDB and status and status.groups) then
+        return
+    end
+
+    globalDB.configSelections = globalDB.configSelections or {}
+    globalDB.configSelections[windowName] = CopyTable(status.groups)
+end
+
+function Addon:RestoreConfigSelection(windowName)
+    local globalDB = self.db and self.db.global
+    local savedGroups = globalDB and globalDB.configSelections and globalDB.configSelections[windowName]
+    local status = GetDialogStatusTable(windowName)
+    if savedGroups and status then
+        status.groups = CopyTable(savedGroups)
+    end
+end
+
+function Addon:RememberMainConfigCategory(appName)
+    local globalDB = self.db and self.db.global
+    if globalDB then
+        globalDB.lastMainConfigCategory = appName
+    end
+    self:SaveConfigSelection(appName)
+end
+
+function Addon:OpenMainConfig()
+    local categoryMap = self.mainConfigCategoryIDs or {}
+    for appName in pairs(categoryMap) do
+        self:RestoreConfigSelection(appName)
+    end
+
+    local globalDB = self.db and self.db.global
+    local lastCategory = globalDB and globalDB.lastMainConfigCategory
+    local categoryID = categoryMap[lastCategory] or self.optionsCategoryID
+        or (self.optionsFrame and self.optionsFrame.name) or addonName
+    Settings.OpenToCategory(categoryID)
+end
+
 local function IsDialogPositionVisible(top, left, width, height)
     top = tonumber(top)
     left = tonumber(left)
@@ -90,7 +143,7 @@ local function AddMainConfigButton(windowName, dialogFrame)
     button:SetFrameLevel(dialogFrame:GetFrameLevel() + 10)
     button:SetText("Main Config")
     button:SetScript("OnClick", function()
-        Settings.OpenToCategory(Addon.optionsCategoryID or (Addon.optionsFrame and Addon.optionsFrame.name) or addonName)
+        Addon:OpenMainConfig()
         C_Timer.After(0.01, function()
             Addon:OpenDialogWindow(windowName)
         end)
@@ -214,12 +267,17 @@ function Addon:OpenDialogWindow(windowName, tabOrGroupName)
 
     -- 2. Prime AceGUI's status table before opening so it does not center the frame.
     self:RestoreDialogPosition(nil, windowName)
+    self:RestoreConfigSelection(windowName)
 
     -- 3. Open the window frame and capture its AceGUI widget from AceConfigDialog's registry.
     AceConfigDialog:Open(windowName, tabOrGroupName)
     local dialog = AceConfigDialog.OpenFrames and AceConfigDialog.OpenFrames[windowName]
     local dialogFrame = GetDialogFrame(dialog)
     Trace(windowName, "OpenDialogWindow")
+
+    if windowName == "DreamFishDialog" and ns.Fishing and ns.Fishing.RefreshDreamFishDialogFade then
+        ns.Fishing:RefreshDreamFishDialogFade()
+    end
 
     if dialogFrame and dialog then
         -- 4. Restore again for old point-based saved positions and then persist AceGUI status on close.
@@ -252,6 +310,7 @@ function Addon:OpenDialogWindow(windowName, tabOrGroupName)
                     dialogFrame.DreamFishReloadUIButton:Hide()
                 end
                 Addon:SaveDialogFrameCoordinates(windowName, dialogFrame)
+                Addon:SaveConfigSelection(windowName)
             end)
 
             -- Allow dragging from empty areas of the dialog, not only the title.

@@ -37,7 +37,7 @@ function Addon:SlashCommand(input)
 
     if cleanInput == "" then
         -- Open graphical option frame if typed completely bare
-        Settings.OpenToCategory(self.optionsCategoryID or (self.optionsFrame and self.optionsFrame.name) or "Addon")
+        self:OpenMainConfig()
         -- keep/reopen tackle box window, but only if it was already open
         local AceConfigDialog = LibStub("AceConfigDialog-3.0")
         if AceConfigDialog.OpenFrames and AceConfigDialog.OpenFrames[DialogName] then
