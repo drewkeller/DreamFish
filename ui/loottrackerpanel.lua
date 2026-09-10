@@ -109,6 +109,7 @@ local function CreateLootTrackerPanelWidget()
 
     frame.obj = widget
     AceGUI:RegisterAsWidget(widget)
+    widget.height = "fill" -- lets AceGUI's Flow layout stretch this control to the bottom of its tab
     return widget
 end
 

@@ -174,6 +174,21 @@ local function GetEquipmentAvailableForSlot(slotID, validatorFunc)
     return items
 end
 
+-- Fills the primary pole box with the best available pole (unchecked) when it has no selection yet.
+local function AutoSelectPrimaryPole()
+    if GetItemID("primaryPole") then
+        return false
+    end
+
+    local topPole = GetEquipmentAvailableForSlot(28, IsFishingPoleItemIDAndNotUnderlightAngler)[1]
+    if not topPole then
+        return false
+    end
+
+    SetItemID("primaryPole", topPole.itemID)
+    return true
+end
+
 local function GetPoleSelectorOptionsForDropDown()
     local availablePoles = GetEquipmentAvailableForSlot(28, IsFishingPoleItemIDAndNotUnderlightAngler)
     local listData = {}
@@ -218,6 +233,7 @@ local options = {
                     type = "description",
                     name = function()
                         local updated = AutoDetectUnderlightAngler()
+                        updated = AutoSelectPrimaryPole() or updated
                         if updated then
                             LibStub("AceConfigRegistry-3.0"):NotifyChange(addonName)
                         end
