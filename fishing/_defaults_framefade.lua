@@ -186,6 +186,12 @@ ns.moduleDefaults["Fishing"].profile.fadeFrames = {
             { name = "FTA_GuideArrow", enabled = true },
         },
     },
+    {
+        name = "Tackle Box",
+        dreamfishDialogWhenFishing = true,
+        dreamFishDialogAlphaWhenFishing = 1,
+        dreamFishDialogAlphaWhenOther = 1,
+    },
     -- For adding custom frames
     {
         name = "Custom",

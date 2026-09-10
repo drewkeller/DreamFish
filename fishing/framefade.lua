@@ -117,6 +117,8 @@ local frameFader = {
     cacheSuppressUntil = nil,
     wasShownByName = {},
     originalAlphaByName = {},
+    dreamFishDialogWasShown = nil,
+    dreamFishDialogOriginalAlpha = nil,
     restoreAt = nil,
 }
 
@@ -201,6 +203,75 @@ local function ResolveNamedFrame(name)
         return nil
     end
     return _G[name]
+end
+
+local function GetDreamFishDialogSettings()
+    for _, categoryEntry in ipairs(profileDB and profileDB.fadeFrames or {}) do
+        if categoryEntry.name == "Tackle Box" then
+            return categoryEntry
+        end
+    end
+end
+
+local function GetDreamFishDialogFrame()
+    local AceConfigDialog = LibStub("AceConfigDialog-3.0", true)
+    local dialog = AceConfigDialog and AceConfigDialog.OpenFrames and AceConfigDialog.OpenFrames["DreamFishDialog"]
+    return dialog and (dialog.frame or dialog) or nil
+end
+
+local function SetDreamFishDialogAlpha(frame, targetAlpha, duration)
+    if not frame or not frame.IsShown or not frame:IsShown() then
+        return
+    end
+
+    if type(UIFrameFadeRemoveFrame) == "function" then
+        UIFrameFadeRemoveFrame(frame)
+    end
+    if duration and duration > 0 and type(UIFrameFadeIn) == "function" and frame.GetAlpha then
+        UIFrameFadeIn(frame, duration, frame:GetAlpha() or VISIBLE_ALPHA, targetAlpha)
+    elseif frame.SetAlpha then
+        frame:SetAlpha(targetAlpha)
+    end
+end
+
+local function RefreshDreamFishDialogFade(duration)
+    local settings = GetDreamFishDialogSettings()
+    if not settings then
+        return
+    end
+
+    local frame = GetDreamFishDialogFrame()
+    if not frame and state.isFishing and settings.dreamfishDialogWhenFishing then
+        -- Not currently open (e.g. never opened this session) — open it so "Show when fishing" actually shows it.
+        ns.Addon:OpenDialogWindow("DreamFishDialog")
+        return
+    end
+    if not frame then
+        return
+    end
+
+    if state.isFishing then
+        if settings.dreamfishDialogWhenFishing then
+            if frameFader.dreamFishDialogWasShown == nil then
+                frameFader.dreamFishDialogWasShown = frame.IsShown and frame:IsShown() or false
+                frameFader.dreamFishDialogOriginalAlpha = frame.GetAlpha and frame:GetAlpha() or VISIBLE_ALPHA
+            end
+            SetDreamFishDialogAlpha(frame, tonumber(settings.dreamFishDialogAlphaWhenFishing) or VISIBLE_ALPHA, duration)
+        else
+            SetDreamFishDialogAlpha(frame, HIDDEN_ALPHA, duration)
+        end
+    elseif frameFader.dreamFishDialogWasShown ~= nil then
+        if frameFader.dreamFishDialogWasShown and frame.Show then
+            frame:Show()
+            SetDreamFishDialogAlpha(frame, frameFader.dreamFishDialogOriginalAlpha or VISIBLE_ALPHA, duration)
+        elseif not frameFader.dreamFishDialogWasShown and frame.Hide then
+            frame:Hide()
+        end
+        frameFader.dreamFishDialogWasShown = nil
+        frameFader.dreamFishDialogOriginalAlpha = nil
+    else
+        SetDreamFishDialogAlpha(frame, tonumber(settings.dreamFishDialogAlphaWhenOther) or VISIBLE_ALPHA, duration)
+    end
 end
 
 local function ClearSetAlphaOverride(frame)
@@ -510,6 +581,10 @@ local function HideAllFrames(hide)
     HideGatherMateMinimap(hide)
 end
 
+function Fishing:RefreshDreamFishDialogFade()
+    RefreshDreamFishDialogFade(0.0)
+end
+
 local function FadeFrameOut(name, duration)
     local frame = ResolveNamedFrame(name)
 
@@ -571,6 +646,8 @@ local function FadeOutUI()
         FadeFrameOut(name, FADE_OUT_DURATION)
     end
 
+    RefreshDreamFishDialogFade(FADE_OUT_DURATION)
+
     HideAllFrames(true)
 
     frameFader.isFaded = true
@@ -595,6 +672,8 @@ local function FadeInUI()
         FadeFrameIn(name, FADE_IN_DURATION)
     end
 
+    RefreshDreamFishDialogFade(FADE_IN_DURATION)
+
     HideAllFrames(false)
 
     frameFader.wasShownByName = {}
@@ -612,6 +691,8 @@ function Fishing:ForceHidden()
         FadeFrameOut(name, 0.0) -- immediate
     end
 
+    RefreshDreamFishDialogFade(0.0)
+
     HideAllFrames(true)
 
     frameFader.isFaded = true
@@ -625,6 +706,8 @@ function Fishing:ForceVisible()
     for _, name in ipairs(BuildPanelNamesToFade()) do
         FadeFrameIn(name, 0.0) -- immediate
     end
+
+    RefreshDreamFishDialogFade(0.0)
 
     HideAllFrames(false)
 

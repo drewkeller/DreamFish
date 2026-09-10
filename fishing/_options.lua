@@ -292,11 +292,71 @@ local function BuildFrameToggleArgs(frameEntries)
     return args
 end
 
+local FindFadeCategory
+
 local function BuildFrameFadeSections()
     layoutCounter = 0
-    local sections = {}
+    local sections = {
+        tackleBoxSection = AutoOrder({
+            type = "group",
+            name = "Tackle Box",
+            inline = false,
+            args = {
+                dreamfishDialogWhenFishing = AutoOrder({
+                    type = "group",
+                    name = "When Fishing",
+                    inline = true,
+                    args = {
+                        showWhenFishing = AutoOrder({
+                            type = "toggle",
+                            name = "Show when fishing",
+                            width = "full",
+                            get = function() return FindFadeCategory("Tackle Box").dreamfishDialogWhenFishing end,
+                            set = function(_, value)
+                                FindFadeCategory("Tackle Box").dreamfishDialogWhenFishing = value
+                                Fishing:RefreshDreamFishDialogFade()
+                            end,
+                        }),
+                        alphaWhenFishing = AutoOrder({
+                            type = "range",
+                            name = "Alpha",
+                            width = "full",
+                            min = 0,
+                            max = 1,
+                            step = 0.01,
+                            get = function() return FindFadeCategory("Tackle Box").dreamFishDialogAlphaWhenFishing end,
+                            set = function(_, value)
+                                FindFadeCategory("Tackle Box").dreamFishDialogAlphaWhenFishing = value
+                                Fishing:RefreshDreamFishDialogFade()
+                            end,
+                        }),
+                    },
+                }),
+                dreamfishDialogWhenOther = AutoOrder({
+                    type = "group",
+                    name = "Other Times",
+                    inline = true,
+                    args = {
+                        alphaWhenOther = AutoOrder({
+                            type = "range",
+                            name = "Alpha",
+                            width = "full",
+                            min = 0,
+                            max = 1,
+                            step = 0.01,
+                            get = function() return FindFadeCategory("Tackle Box").dreamFishDialogAlphaWhenOther end,
+                            set = function(_, value)
+                                FindFadeCategory("Tackle Box").dreamFishDialogAlphaWhenOther = value
+                                Fishing:RefreshDreamFishDialogFade()
+                            end,
+                        }),
+                    },
+                }),
+            }
+        }),
+    }
     for _, categoryEntry in ipairs(Fishing.db.profile.fadeFrames) do
-        if categoryEntry.name ~= "Custom" then
+        if categoryEntry.name ~= "Custom" and categoryEntry.name ~= "Tackle Box" then
             local categoryArgs
             if categoryEntry.sections then
                 categoryArgs = {}
@@ -322,7 +382,7 @@ local function BuildFrameFadeSections()
     return sections
 end
 
-local function FindFadeCategory(categoryName)
+FindFadeCategory = function(categoryName)
     for _, categoryEntry in ipairs(Fishing.db.profile.fadeFrames) do
         if categoryEntry.name == categoryName then
             return categoryEntry
@@ -460,6 +520,18 @@ local function BuildFrameFadeTab(order)
         args = {}
     }
     frameFadeTab.args = BuildFrameFadeSections()
+    frameFadeTab.args.frameFocusEnabled = {
+        type = "toggle",
+        name = "Enable frame fade",
+        desc = "Automatically fade out configured frames while fishing.",
+        width = "full",
+        order = 0,
+        get = function() return Fishing.db.profile.frameFocusEnabled end,
+        set = function(_, value)
+            Fishing.db.profile.frameFocusEnabled = value
+            Fishing:RefreshFade()
+        end,
+    }
     frameFadeTab.args.customSection = BuildCustomFrameFadeSection()
     frameFadeTab.args.frameToolsSection = {
         type = "group",
