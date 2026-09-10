@@ -18,6 +18,8 @@ local currencyCache = {}
 local skipNextBagUpdate = false
 local skipNextCurrencyUpdate = false
 
+LootTracker:RegisterTraceSource("LootTracker")
+
 local function Trace(msg, ...)
     LootTracker:Trace("LootTracker", msg, ...)
 end
@@ -38,9 +40,11 @@ function LootTracker:OnModuleEnable()
     skipNextBagUpdate = true
     skipNextCurrencyUpdate = true
     self:UpdateTrackerDisplay()
+end
 
-    self:RegisterEvent("BAG_UPDATE_DELAYED")
-    self:RegisterEvent("CURRENCY_DISPLAY_UPDATE")
+function LootTracker:OnModuleRegisterEvents()
+    self:RegisterEvent("BAG_UPDATE_DELAYED", "BAG_UPDATE_DELAYED")
+    self:RegisterEvent("CURRENCY_DISPLAY_UPDATE", "CURRENCY_DISPLAY_UPDATE")
 end
 
 function LootTracker:OnModuleDisable()
@@ -54,7 +58,9 @@ end
 
 -- the rest of this file is non-prototype code
 
-function LootTracker:BAG_UPDATE_DELAYED()
+function LootTracker:BAG_UPDATE_DELAYED(...)
+    self:Alerts_BAG_UPDATE_DELAYED(...)
+
     if skipNextBagUpdate then
         skipNextBagUpdate = false
         self:ScanAndCacheInventory()
@@ -71,8 +77,8 @@ function LootTracker:BAG_UPDATE_DELAYED()
                 if slotInfo then
                     local currentQuantity = slotInfo.stackCount
                     local itemKey = slotID .. "_" .. slotIndex
-
                     local lastQuantity = itemCache[itemKey] or 0
+
                     if currentQuantity > lastQuantity then
                         local amountGained = currentQuantity - lastQuantity
 

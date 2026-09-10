@@ -27,6 +27,7 @@ ns.moduleDefaults["Fishing"] = {
         selectedRaftToy = 0,
         selectedBobberToy = 0,
         useOversizedBobber = false,
+        showBuffNotes = true,
         -- other
         closeWindowOnEscape = true,
         lingerDuration = 10,

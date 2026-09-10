@@ -24,24 +24,22 @@ end)
 
 LootTracker:RegisterOnModuleRegisterEvents(function(self)
     self:RegisterEvent("UNIT_AURA", "UNIT_AURA")
-    self:RegisterEvent("BAG_UPDATE_DELAYED", "BAG_UPDATE_DELAYED")
-    Addon:RegisterMessage("FISHING_SESSION_STARTED", function(...) LootTracker:FISHING_SESSION_STARTED(...) end)
-    Addon:RegisterMessage("FISHING_SESSION_ENDED",   function(...) LootTracker:FISHING_SESSION_ENDED(...) end)
+    Addon:RegisterMessage("FISHING_SESSION_STARTED", function(...) self:Alerts_FISHING_SESSION_STARTED(...) end)
+    Addon:RegisterMessage("FISHING_SESSION_ENDED",   function(...) self:Alerts_FISHING_SESSION_ENDED(...) end)
 end)
 
 LootTracker:RegisterOnModuleUnregisterEvents(function(self)
     self:UnregisterEvent("UNIT_AURA")
-    self:UnregisterEvent("BAG_UPDATE_DELAYED")
     Addon:UnregisterMessage("FISHING_SESSION_STARTED")
     Addon:UnregisterMessage("FISHING_SESSION_ENDED")
 end)
 
-function LootTracker:FISHING_SESSION_STARTED(...)
+function LootTracker:Alerts_FISHING_SESSION_STARTED(...)
     Trace("Fishing session started.")
     state.isFishing = true
 end
 
-function LootTracker:FISHING_SESSION_ENDED(...)
+function LootTracker:Alerts_FISHING_SESSION_ENDED(...)
     Trace("Fishing session ended.")
     state.isFishing = false
 end
@@ -258,9 +256,10 @@ local function CheckBagSpace()
     end
 end
 
-function LootTracker:BAG_UPDATE_DELAYED(_, event, ...)
+function LootTracker:Alerts_BAG_UPDATE_DELAYED(...)
     if profileDB.bagAlertOnlyWhenFishing and not state.isFishing then
         return
     end
+    Trace("Alerts_BAG_UPDATE_DELAYED called")
     CheckBagSpace()
 end
