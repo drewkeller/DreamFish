@@ -12,6 +12,12 @@ local function GetFishingCharDB()
     return Fishing.db and Fishing.db.char or {}
 end
 
+local layoutCounter = 0
+local function AutoOrder(nodeTable)
+    layoutCounter = layoutCounter + 1
+    nodeTable.order = layoutCounter
+    return nodeTable
+end
 local function GetItemID(dbKey)
     local entry = GetFishingCharDB()[dbKey]
     return type(entry) == "table" and entry.itemID or nil
@@ -208,7 +214,7 @@ local options = {
             name = "Poles & Rods",
             order = 1,
             args = {
-                onPolesShownTrigger = {
+                onPolesShownTrigger = AutoOrder({
                     type = "description",
                     name = function()
                         local updated = AutoDetectUnderlightAngler()
@@ -217,28 +223,24 @@ local options = {
                         end
                         return ""
                     end,
-                    order = 0,
-                },
-                polesNotes = {
+                }),
+                polesNotes = AutoOrder({
                     type = "description",
                     name = "Modes:\n"
                         .. "• Auto-swap: |cFF999999Check both boxes|r\n"
                         .. "   |cFF999999(swap occurs when starting/stopping fishing)|r\n"
                         .. "• Single-pole: |cFF999999Only check one box.|r\n"
                         .. "• Manual: |cFF999999Leave both boxes unchecked.|r",
-                    order = 1,
                     fontSize = "medium"
-                },
-                spacer = {
+                }),
+                spacer = AutoOrder({
                     type = "description",
                     name = " ",
-                    order = 1.5,
                     fontSize = "small"
-                },
-                primaryPole = {
+                }),
+                primaryPole = AutoOrder({
                     type = "select",
                     name = "Fishing Pole",
-                    order = 2,
                     width = "normal",
                     dialogControl = "DreamFishEquipmentPreview",
                     get = function()
@@ -258,11 +260,10 @@ local options = {
                         getIsChecked = function() return GetIsChecked("primaryPole") end,
                         setIsChecked = function(value) SetIsChecked("primaryPole", value) end,
                     },
-                },
-                underlightAngler = {
+                }),
+                underlightAngler = AutoOrder({
                     type = "input",
                     name = "Underlight Angler",
-                    order = 3,
                     width = "normal",
                     dialogControl = "DreamFishEquipmentPreview",
                     get = function() return tostring(GetItemID("underlightAngler") or "") end,
@@ -275,7 +276,97 @@ local options = {
                         getIsChecked = function() return GetIsChecked("underlightAngler") end,
                         setIsChecked = function(value) SetIsChecked("underlightAngler", value) end,
                     },
-                }
+                }),
+                divider = AutoOrder({
+                    type = "header",
+                    name = "-----",
+                }),
+                raftSection = AutoOrder({
+                    type = "group",
+                    name = "  ",
+                    desc = "Settings for auto-casting a raft when fishing.",
+                    inline = true,
+                    args = {
+                        selectedRaftToy = AutoOrder({
+                            type = "select",
+                            name = "Raft",
+                            desc = "Choose the raft to be used when fishing. Applied automatically when casting the fishing line.",
+                            values = function()
+                                return ns.Utils.BuildOwnedToyOptions(ns.Fishing.const.raftToyItemIDs, "No Raft")
+                            end,
+                            sorting = function()
+                                return ns.Utils.BuildOwnedToySortingKeys(ns.Fishing.const.raftToyItemIDs, "No Raft")
+                            end,
+                            get = function()
+                                return Fishing.db.profile.selectedRaftToy
+                            end,
+                            set = function(_, value)
+                                Fishing.db.profile.selectedRaftToy = value
+                            end,
+                            width = "relative",
+                            relWidth = 0.75,
+                        }),
+                        applyRaft = AutoOrder({
+                            type = "execute",
+                            name = "Apply",
+                            desc = "Manually apply the selected raft now.",
+                            func = function()
+                                Fishing:ApplyRaft()
+                            end,
+                            width = "relative",
+                            relWidth = 0.24,
+                        }),
+                    },
+                }),
+                bobberSection = AutoOrder({
+                    type = "group",
+                    name = "  ",
+                    desc = "Settings for auto-casting a bobber when fishing.",
+                    inline = true,
+                    args = {
+                        selectedBobberToy = AutoOrder({
+                            type = "select",
+                            name = "Bobber",
+                            desc = "Choose the bobber to be used when fishing. Applied automatically when casting the fishing line.",
+                            values = function()
+                                return ns.Utils.BuildOwnedToyOptions(ns.Fishing.const.bobberToyItemIDs, "Standard Bobber")
+                            end,
+                            sorting = function()
+                                return ns.Utils.BuildOwnedToySortingKeys(ns.Fishing.const.bobberToyItemIDs, "Standard Bobber")
+                            end,
+                            get = function()
+                                return Fishing.db.profile.selectedBobberToy
+                            end,
+                            set = function(_, value)
+                                Fishing.db.profile.selectedBobberToy = value
+                            end,
+                            width = "relative",
+                            relWidth = 0.75,
+                        }),
+                        applyBobber = AutoOrder({
+                            type = "execute",
+                            name = "Apply",
+                            desc = "Manually apply the selected bobber now.",
+                            func = function()
+                                Fishing:ApplyBobber()
+                            end,
+                            width = "relative",
+                            relWidth = 0.24,
+                        }),
+                        useOversizedBobber = AutoOrder({
+                            type = "toggle",
+                            name = "Use Oversized Bobber",
+                            desc = "Also apply the oversized bobber to your selected bobber (adds another click to apply it)",
+                            get = function()
+                                return Fishing.db.profile.useOversizedBobber
+                            end,
+                            set = function(_, value)
+                                Fishing.db.profile.useOversizedBobber = value
+                            end,
+                            width = "full",
+                        }),
+                    } -- Bobber section
+                }),
             },
         },
         buffsTab = {
@@ -295,11 +386,11 @@ local options = {
                     order = 901,
                     width = "full",
                     get = function()
-                        return ns.DialogOptions.args.buffsTab.args.notesDescription.hidden ~= true
+                        return Fishing.db.profile.showBuffNotes ~= false
                     end,
                     set = function(_, value)
-                        ns.DialogOptions.args.buffsTab.args.notesDescription.hidden = not value
-                        LibStub("AceConfigRegistry-3.0"):NotifyChange(addonName)
+                        Fishing.db.profile.showBuffNotes = value
+                        --LibStub("AceConfigRegistry-3.0"):NotifyChange(addonName)
                     end,
                 },
                 notesDescription = {
@@ -311,7 +402,7 @@ local options = {
                         .. "|cFF999999  * Items are applied left to right within each category.|r",
                     order = 902,
                     fontSize = "medium",
-                    hidden = function() return ns.DialogOptions.args.buffsTab.args.notesDescription.hidden == true end,
+                    hidden = function() return Fishing.db.profile.showBuffNotes == false end,
                 },
             },
         },
@@ -331,7 +422,6 @@ local options = {
                     name = " ",
                     dialogControl = "DreamFishLootTrackerPanel",
                     width = "full",
-                    order = 1,
                     func = function() end,
                 },
             },
@@ -384,7 +474,7 @@ for _, config in ipairs(gridMatrix) do
     -- Inject the flat Interactive "Header"
     options.args.buffsTab.args[headerKey] = {
         type = "toggle",
-        name = function() return config.groupName end,
+        name = function() return config.groupName .. "|c66999999 (show/hide)|r" end,
         desc = "Click to toggle display visibility of the " .. config.groupName .. " items.",
         order = config.order * 2,
         width = "full",

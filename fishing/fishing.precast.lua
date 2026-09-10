@@ -15,6 +15,20 @@ local function Trace(msg)
     Fishing:Trace("precast", msg)
 end
 
+function Fishing:ApplyRaft()
+    local toyID = tonumber(profileDB.selectedRaftToy)
+    if toyID and toyID > 0 and ns.Utils.IsToyOwned(toyID) then
+        C_ToyBox.UseToy(toyID)
+    end
+end
+
+function Fishing:ApplyBobber()
+    local toyID = tonumber(profileDB.selectedBobberToy)
+    if toyID and toyID > 0 and ns.Utils.IsToyOwned(toyID) then
+        C_ToyBox.UseToy(toyID)
+    end
+end
+
 local DUE_BUFF_CATEGORY_ORDER = { "fooddrink", "lure", "bait", "bobber", "other_consumable" }
 
 function Fishing:ResolveBobberApplyAction()

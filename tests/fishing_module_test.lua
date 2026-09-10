@@ -325,12 +325,9 @@ assert(options.args.modesTab.type == "group", "Modes tab is not an AceConfig gro
 assert(options.args.tackleTab.type == "group", "Tackle tab is not an AceConfig group")
 assert(options.args.modesTab.args.castingTriggers.args.castBySingleRightClickWhenFishing,
     "single-right-click option is missing")
-local raftValues = options.args.tackleTab.args.raftSection.args.selectedRaftToy.values
-if type(raftValues) == "function" then
-    raftValues = raftValues()
-end
-assert(type(raftValues) == "table", "Raft select values should resolve to a table")
-assert(raftValues[0] == "No Raft", "Raft select is missing its default label")
-assert(raftValues[85500] == "Angler's Fishing Raft", "Raft select values must be label strings")
+assert(options.args.tackleTab.args.raftSection == nil,
+    "Raft controls should be configured from the DreamFish dialog, not the Fishing options tab")
+assert(options.args.tackleTab.args.bobberSection == nil,
+    "Bobber controls should be configured from the DreamFish dialog, not the Fishing options tab")
 
 print("fishing_module_test: passed")
