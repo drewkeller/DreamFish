@@ -173,27 +173,31 @@ function ns.Utils.DebugModuleSourceWithStack(level, module, source, stackTrace, 
     if not (module and msg) then
         return
     end
-    if module.db and module.db.profile then
-        local logLevelInfo = ns.logLevelInfo[level]
-        local colorHex = logLevelInfo.color
 
-        local prefix = source and string.format("|cFF%s[%s]|r", colorHex, source) or ""
-        if source and module.db.profile.traces and module.db.profile.traces[source] and level <= ns.logLevel.TRACE then
-            LogSource(level, source, msg, ...)
+    local logLevelInfo = ns.logLevelInfo[level]
+    local colorHex = logLevelInfo.color
+    local prefix = source and string.format("|cFF%s[%s]|r", colorHex, source) or ""
+    local hasProfile = module and module.db and module.db.profile
+
+    if source and level <= ns.logLevel.TRACE then
+        LogSource(level, source, msg, ...)
+        if hasProfile and module.db.profile.traces and module.db.profile.traces[source] then
             PrintNoLog(prefix, "999999", msg, ...)
-        elseif module.db.profile.debugEnabled and level <= ns.logLevel.DEBUG then
-            LogSource(level, source, msg, ...)
-            PrintNoLog(prefix, nil, msg, ...)
-        elseif level <= ns.logLevel.INFO then
-            LogSource(level, source, msg, ...)
-            PrintNoLog(prefix, nil, msg, ...)
-        elseif level <= ns.logLevel.WARNING then
-            LogSource(level, source, msg, ...)
-            PrintNoLog(prefix, colorHex, msg, ...)
-        elseif level <= ns.logLevel.ERROR then
-            LogSourceWithStack(level, source, stackTrace, msg, ...)
-            PrintNoLog(prefix, colorHex, msg, ...)
         end
+    elseif level <= ns.logLevel.DEBUG then
+        LogSource(level, source, msg, ...)
+        if hasProfile and module.db.profile.debugEnabled then
+            PrintNoLog(prefix, nil, msg, ...)
+        end
+    elseif level <= ns.logLevel.INFO then
+        LogSource(level, source, msg, ...)
+        PrintNoLog(prefix, nil, msg, ...)
+    elseif level <= ns.logLevel.WARNING then
+        LogSource(level, source, msg, ...)
+        PrintNoLog(prefix, colorHex, msg, ...)
+    elseif level <= ns.logLevel.ERROR then
+        LogSourceWithStack(level, source, stackTrace, msg, ...)
+        PrintNoLog(prefix, colorHex, msg, ...)
     end
 end
 

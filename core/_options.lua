@@ -110,9 +110,9 @@ local function GetOptions()
                     desc = "Clears all stored entries in the DreamFish log.",
                     order = 1,
                     func = function()
-                        local logDB = ns.Utils.GetLogDB()
+                        local logDB = Addon:GetLogDB()
                         table.wipe(logDB)
-                        ns.Addon:Print("Log has been cleared.")
+                        Addon:Print("Log has been cleared.")
                     end,
                 },
             },

@@ -41,19 +41,11 @@ function Addon:Info(msg, ...)
 end
 
 function Addon:TraceCore(sourceName, msg, ...)
-    if not (self.db and self.db.profile and self.db.profile.traces) then
-        return
-    end
-    if self.db.profile.traces[sourceName] then
-        ns.Utils.DebugModuleSource(ns.logLevel.TRACE, self, sourceName, msg, ...)
-    end
+    ns.Utils.DebugModuleSource(ns.logLevel.TRACE, self, sourceName, msg, ...)
 end
 
 function Addon:Debug(message, ...)
-    if self.db and self.db.profile and self.db.profile.debugEnabled then
-        --ns.Utils.DebugModuleSource(ns.logLevel.DEBUG, self, sourceName, msg, ...)
-        ns.Utils.DebugModuleSource(ns.logLevel.DEBUG, self, addonName, message, ...)
-    end
+    ns.Utils.DebugModuleSource(ns.logLevel.DEBUG, self, addonName, message, ...)
 end
 
 function Addon:OnInitialize()
@@ -99,9 +91,31 @@ function Addon:OnInitialize()
     Addon:SetDefaultPosition(DialogName, 50, 1080)
 
     -- Nest these items as subcategories below the addon's main menu item
-    AceConfigDialog:AddToBlizOptions(addonName .. "_Fishing", "Fishing", addonName)
-    AceConfigDialog:AddToBlizOptions(addonName .. "_LootTracker", "Loot Tracker", addonName)
-    AceConfigDialog:AddToBlizOptions(addonName .. "_Profile", "Profiles", addonName)
+    local fishingOptionsFrame, fishingOptionsCategoryID = AceConfigDialog:AddToBlizOptions(addonName .. "_Fishing", "Fishing", addonName)
+    local lootTrackerOptionsFrame, lootTrackerOptionsCategoryID = AceConfigDialog:AddToBlizOptions(addonName .. "_LootTracker", "Loot Tracker", addonName)
+    local profileOptionsFrame, profileOptionsCategoryID = AceConfigDialog:AddToBlizOptions(addonName .. "_Profile", "Profiles", addonName)
+
+    self.mainConfigCategoryIDs = {
+        [addonName] = self.optionsCategoryID,
+        [addonName .. "_Fishing"] = fishingOptionsCategoryID,
+        [addonName .. "_LootTracker"] = lootTrackerOptionsCategoryID,
+        [addonName .. "_Profile"] = profileOptionsCategoryID,
+    }
+
+    local categoryFrames = {
+        [addonName] = self.optionsFrame,
+        [addonName .. "_Fishing"] = fishingOptionsFrame,
+        [addonName .. "_LootTracker"] = lootTrackerOptionsFrame,
+        [addonName .. "_Profile"] = profileOptionsFrame,
+    }
+    for appName, frame in pairs(categoryFrames) do
+        frame:HookScript("OnShow", function()
+            Addon:RememberMainConfigCategory(appName)
+        end)
+        frame:HookScript("OnHide", function()
+            Addon:SaveConfigSelection(appName)
+        end)
+    end
 
     self.db.RegisterCallback(self, "OnProfileChanged", RefreshConfigUI)
     self.db.RegisterCallback(self, "OnProfileCopied", RefreshConfigUI)

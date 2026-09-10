@@ -32,12 +32,7 @@ function ModulePrototype:Print(msg, ...)
 end
 
 function ModulePrototype:Trace(sourceName, msg, ...)
-    if not (self.db and self.db.profile and self.db.profile.traces) then
-        return
-    end
-    if self.db.profile.traces[sourceName] then
-        ns.Utils.DebugModuleSource(ns.logLevel.TRACE, self, sourceName, msg, ...)
-    end
+    ns.Utils.DebugModuleSource(ns.logLevel.TRACE, self, sourceName, msg, ...)
 end
 
 function ModulePrototype:DebugSource(sourceName, msg, ...)
@@ -47,10 +42,7 @@ function ModulePrototype:DebugSource(sourceName, msg, ...)
 end
 
 function ModulePrototype:Debug(msg, ...)
-    if self.db and self.db.profile and self.db.profile.debugEnabled then
-        --ns.Utils.DebugModuleSource(ns.logLevel.DEBUG, self, sourceName, msg, ...)
-        ns.Utils.DebugModuleSource(ns.logLevel.DEBUG, self, self.config.moduleName, msg, ...)
-    end
+    ns.Utils.DebugModuleSource(ns.logLevel.DEBUG, self, self.config.moduleName, msg, ...)
 end
 
 function ModulePrototype:Alert(msg, ...)
