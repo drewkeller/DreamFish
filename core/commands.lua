@@ -49,6 +49,10 @@ function Addon:SlashCommand(input)
     elseif cleanInput == "tackle" then
         --Addon:OpenDialogWindow(DialogName, "buffsTab")
         Addon:OpenDialogWindow(DialogName)
+    elseif cleanInput == "show" then
+        self:GetModule("Fishing"):ForceVisible()
+    elseif cleanInput == "fade" then
+        self:GetModule("Fishing"):ForceHidden()
     else
         -- Pass all other sub-arguments straight to the AceConfig command interpreter engine
         -- Note: We pass the original 'input' string here to preserve case sensitivity for other commands

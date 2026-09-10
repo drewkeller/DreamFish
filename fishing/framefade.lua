@@ -55,112 +55,60 @@ Fishing:RegisterOnModuleDisable(function(self)
     self:FadeinUI()
 end)
 
--- Finding frame names can be done by using /fstack in the game.
--- 1. Turn on frame stack tool by typing /fstack in the game.
--- 2. Hover over the frame you want to identify.
--- 3. Note the frame name displayed by the frame stack tool (in the lighter colored text).
--- 4. Turn off frame stack tool by typing /fstack again in the game.
-local panelNamesToFade = {
-    -- Minimap
-    "Minimap",
-    "MinimapCluster",
-    "ObjectiveTrackerFrame",
-    "GameTimeFrame",             -- Calendar button
-    "MiniMapMailFrame",          -- Mail icon
-    "MiniMapTracking",           -- Tracking magnifying glass
-    "QueueStatusButton",         -- LFG queue eye icon
-    "QueueStatusMinimapButton",  -- Classic LFG queue icon
-    "GarrisonLandingPageMinimapButton", -- Expansion/Mission tracking button
-    "ExpansionLandingPageMinimapButton", -- Dragonflight/TWW expansion button
-    -- Unit frames
-    "PlayerFrame",
-    "CompactPlayerFrame",
-    "TargetFrame",
-    "MainMenuBar",
-    "MultiBarBottomLeft",
-    "MultiBarBottomRight",
-    "MultiBarLeft",
-    "MultiBarRight",
-    "MicroButtonAndBagsBar",
-    "ObjectiveTrackerFrame",
-    -- Status bar frames (more?)
-    "StatusTrackingBarManager",
-    -- Buff/debuff frames
-    "BuffFrame",
-    "DebuffFrame",
-    "DeadlyDebuffFrame",
-    "UIWidgetTopCenterContainerFrame",
-    -- Stance bar frames
-    "StanceBar",
-    "StanceBarFrame",
-    --Other frames
-    "DamageMeter",
-    "DamageMeterSessionWindow1",
-    "ElvUI_Bar1",
-    "ElvUI_Bar2",
-    "ElvUI_Bar3",
-    "ElvUI_Bar4",
-    "ElvUI_Bar5",
-    "ElvUI_Bar6",
-    "ElvUI_Bar7",
-    "ElvUI_Bar8",
-    "ElvUI_Bar9",
-    "ElvUI_Bar10",
-    "ElvUI_Bar13",
-    "ElvUI_Bar14",
-    "ElvUI_Bar15",
-    "ElvUI_StanceBar",
-    "ElvUI_PetBar",
-    "ElvUI_MicroBar", -- maybe we don't want to hide this one?
-    "ElvUF_Player_Castbar", -- We want to make sure this is shown
-    -- Core unit frames
-    --"ElvUF_Player", -- Need to handle specially, in order to keep fishing castbar visible
-    "ElvUF_Target",
-    "ElvUF_Pet",
-    "ElvUF_Focus",
-    "ElvUF_TargetTarget",
-    -- Group/Boss frames
-    "ElvUF_Party",
-    "ElvUF_Raid",
-    "ElvUF_Boss",
-    "ElvUF_Arena",
-    -- Chat/Info panels
-    --"ChatFrame1",    -- Chat frame text
-    --"LeftChatPanel", -- Chat frame background
-    "ChatFrame2",
-    "ChatFrame3",
-    --"ChatFrame4",      -- Loot frame text
-    --"RightChatPanel",  -- Loot frame background
-    "LeftChatToggleButton",
-    "RightChatToggleButton",
-    "ElvUI_BottomPanel",
-    "ElvUI_TopPanel",
-    -- Buffs/Minimap/Data
-    "ElvUI_PlayerBuffs",
-    "ElvUI_PlayerDebuffs",
-    "ElvUI_Minimap",
-    --"ElvUI_LootFrame", --keep this for fishing
-    -- Data bars (these are not official names, I'm just using them to normalize processing)
-    "ElvDB_Experience",
-    "ElvDB_Reputation",
-    "ElvDB_Honor",
-    "ElvDB_Azerite",
-    "ElvDB_Threat",
-    -- Data text panels
-    "ElvUI_DataTextPanel_LeftChatDataPanelSlot1",
-    "ElvUI_DataTextPanel_LeftChatDataPanelSlot2",
-    "ElvUI_DataTextPanel_LeftChatDataPanelSlot3",
-    "ElvUI_DataTextPanel_RightChatDataPanelSlot1",
-    "ElvUI_DataTextPanel_RightChatDataPanelSlot2",
-    "ElvUI_DataTextPanel_RightChatDataPanelSlot3",
-    "ElvUI_DataTextPanel_MiniMapDataPanelSlot1",
-    "ElvUI_DataTextPanel_MiniMapDataPanelSlot2",
-    "ElvUI_DataTextPanel_MiniMapDataPanelSlot3",
-    "AddonCompartmentFrame",
-    -- Common third-party addons
-    "TomTomCrazyArrow",
-    "FTA_GuideArrow",
-}
+-- Frame names to fade come from Fishing.db.profile.fadeFrames (the same data the Frame Fade
+-- options tab edits) instead of a hardcoded list, so user-configured Custom entries and
+-- checkbox toggles are respected. ElvUF_Player and ElvDB_* bars are excluded from the generic
+-- list below since they're handled by their own dedicated code paths (see HideElvUIPlayerFrame
+-- and HideElvUIDataBars).
+local function GetAllFadeFrameEntries()
+    local entries = {}
+    if not (profileDB and profileDB.fadeFrames) then
+        return entries
+    end
+    for _, categoryEntry in ipairs(profileDB.fadeFrames) do
+        if categoryEntry.sections then
+            for _, sectionEntry in ipairs(categoryEntry.sections) do
+                for _, frameEntry in ipairs(sectionEntry.frames) do
+                    table.insert(entries, frameEntry)
+                end
+            end
+        elseif categoryEntry.frames then
+            for _, frameEntry in ipairs(categoryEntry.frames) do
+                table.insert(entries, frameEntry)
+            end
+        end
+    end
+    return entries
+end
+
+local function IsFadeFrameEnabled(frameName)
+    for _, frameEntry in ipairs(GetAllFadeFrameEntries()) do
+        if frameEntry.name == frameName then
+            return frameEntry.enabled and true or false
+        end
+    end
+    return false
+end
+
+local function BuildPanelNamesToFade()
+    local names = {}
+    for _, frameEntry in ipairs(GetAllFadeFrameEntries()) do
+        if frameEntry.enabled and frameEntry.name ~= "ElvUF_Player" and not frameEntry.name:find("^ElvDB_") then
+            table.insert(names, frameEntry.name)
+        end
+    end
+    return names
+end
+
+local function BuildElvDataBarNames()
+    local names = {}
+    for _, frameEntry in ipairs(GetAllFadeFrameEntries()) do
+        if frameEntry.enabled and frameEntry.name:find("^ElvDB_") then
+            table.insert(names, frameEntry.name)
+        end
+    end
+    return names
+end
 
 local frameFader = {
     frame = nil,
@@ -240,12 +188,10 @@ local function HideElvUIDataBars(hideBars)
         return
     end
 
-    for _, frameName in ipairs(panelNamesToFade) do
-        if string.find(frameName, "ElvDB_") then
-            local isEnabled = IsElvUIFrameModuleEnabled(E, frameName)
-            if isEnabled ~= nil then
-                HideElvUIDataBar(E, frameName, hideBars)
-            end
+    for _, frameName in ipairs(BuildElvDataBarNames()) do
+        local isEnabled = IsElvUIFrameModuleEnabled(E, frameName)
+        if isEnabled ~= nil then
+            HideElvUIDataBar(E, frameName, hideBars)
         end
     end
 end
@@ -350,6 +296,9 @@ end
 -- Also, don't hide the loot window, which is an oUF tag like the health and power texts we need to hide.
 local function HideElvUIPlayerFrame(hideFrame)
     if not state.isElvUIActive then return end
+    if hideFrame and not IsFadeFrameEnabled("ElvUF_Player") then
+        return -- user disabled fading this frame in the Frame Fade options
+    end
 
     -- Dynamically fetch the frame from the global environment
     local elvPlayer = _G["ElvUF_Player"]
@@ -550,6 +499,65 @@ local function FadeFrameIn(name, duration)
     end
 end
 
+local function HideAllFrames(hide)
+    HideElvUIDataBars(hide)
+    HideElvUIPlayerFrame(hide)
+    HideBlizzardPlayerFrame(hide)
+    HideBlizzardMicroMenu(hide)
+    HideMinimapButtons(hide)
+    HideMinimapCluster(hide)
+    HideHandyNotesMapPins(hide)
+    HideGatherMateMinimap(hide)
+end
+
+local function FadeFrameOut(name, duration)
+    local frame = ResolveNamedFrame(name)
+
+    local isShown = frame and frame.IsShown and frame:IsShown()
+    local alpha = frame and frame.GetAlpha and frame:GetAlpha()
+
+    -- cache current visibility states for restoral
+    if (not frameFader.isFaded) and (not IsFrameFading(frame)) and (not IsBaselineCaptureSuppressed()) then
+        frameFader.wasShownByName[name] = isShown
+        frameFader.originalAlphaByName[name] = alpha
+    end
+
+    -- cancel previous fade-out / fade-in timers before restoring
+    if type(UIFrameFadeRemoveFrame) == "function" then
+        UIFrameFadeRemoveFrame(frame)
+    end
+
+    if frame and isShown == true and alpha > 0.001 then
+        SetFrameClickEnabled(frame, false)
+        if type(UIFrameFadeOut) == "function" and frame.GetAlpha then
+            UIFrameFadeOut(frame, FADE_OUT_DURATION, frame:GetAlpha() or VISIBLE_ALPHA, HIDDEN_ALPHA)
+        elseif frame.SetAlpha then
+            frame:SetAlpha(HIDDEN_ALPHA)
+        elseif frame.Hide then
+            frame:Hide()
+        end
+    end
+end
+
+-- Instantly hides/shows a single named frame, same as ForceHidden/ForceVisible but scoped to one
+-- frame, so toggling a checkbox in the Frame Fade options gives immediate visual feedback.
+function Fishing:SetFrameFadeState(name, hide)
+    if name == "ElvUF_Player" then
+        HideElvUIPlayerFrame(hide)
+    elseif name:find("^ElvDB_") then
+        if not (state.isElvUIActive and _G["ElvUI"]) then return end
+        local E = _G["ElvUI"][1]
+        if not (E and E.db) then return end
+        if IsElvUIFrameModuleEnabled(E, name) ~= nil then
+            HideElvUIDataBar(E, name, hide)
+        end
+    elseif hide then
+        FadeFrameOut(name, 0.0)
+    else
+        FadeFrameIn(name, 0.0)
+    end
+end
+
 local function FadeOutUI()
     if frameFader.isFading then
         return
@@ -558,44 +566,12 @@ local function FadeOutUI()
     frameFader.restoreAt = nil
     Trace("Fading out")
 
-    -- Blizzard UI elements
-    for _, name in ipairs(panelNamesToFade) do
-        local frame = ResolveNamedFrame(name)
-
-        local isShown = frame and frame.IsShown and frame:IsShown()
-        local alpha = frame and frame.GetAlpha and frame:GetAlpha()
-
-        -- cache current visibility states for restoral
-        if (not frameFader.isFaded) and (not IsFrameFading(frame)) and (not IsBaselineCaptureSuppressed()) then
-            frameFader.wasShownByName[name] = isShown
-            frameFader.originalAlphaByName[name] = alpha
-        end
-
-        -- cancel previous fade-out / fade-in timers before restoring
-        if type(UIFrameFadeRemoveFrame) == "function" then
-            UIFrameFadeRemoveFrame(frame)
-        end
-
-        if frame and isShown == true and alpha > 0.001 then
-            SetFrameClickEnabled(frame, false)
-            if type(UIFrameFadeOut) == "function" and frame.GetAlpha then
-                UIFrameFadeOut(frame, FADE_OUT_DURATION, frame:GetAlpha() or VISIBLE_ALPHA, HIDDEN_ALPHA)
-            elseif frame.SetAlpha then
-                frame:SetAlpha(HIDDEN_ALPHA)
-            elseif frame.Hide then
-                frame:Hide()
-            end
-        end
+    -- Standard fadeable frames
+    for _, name in ipairs(BuildPanelNamesToFade()) do
+        FadeFrameOut(name, FADE_OUT_DURATION)
     end
 
-    HideElvUIDataBars(true)
-    HideElvUIPlayerFrame(true)
-    HideBlizzardPlayerFrame(true)
-    HideBlizzardMicroMenu(true)
-    HideMinimapButtons(true)
-    HideMinimapCluster(true)
-    HideHandyNotesMapPins(true)
-    HideGatherMateMinimap(true)
+    HideAllFrames(true)
 
     frameFader.isFaded = true
     frameFader.isFading = false
@@ -614,17 +590,12 @@ local function FadeInUI()
         frameFader.cacheSuppressUntil = nil
     end
 
-    for _, name in ipairs(panelNamesToFade) do
+    -- Standard fadeable frames
+    for _, name in ipairs(BuildPanelNamesToFade()) do
         FadeFrameIn(name, FADE_IN_DURATION)
     end
 
-    HideElvUIDataBars(false)
-    HideElvUIPlayerFrame(false)
-    HideBlizzardMicroMenu(false)
-    HideMinimapButtons(false)
-    HideMinimapCluster(false)
-    HideHandyNotesMapPins(false)
-    HideGatherMateMinimap(false)
+    HideAllFrames(false)
 
     frameFader.wasShownByName = {}
     frameFader.originalAlphaByName = {}
@@ -633,22 +604,29 @@ local function FadeInUI()
     frameFader.isFading = false
 end
 
+function Fishing:ForceHidden()
+    frameFader.isFading = true
+    frameFader.cacheSuppressUntil = nil
+
+    for _, name in ipairs(BuildPanelNamesToFade()) do
+        FadeFrameOut(name, 0.0) -- immediate
+    end
+
+    HideAllFrames(true)
+
+    frameFader.isFaded = true
+    frameFader.isFading = false
+end
+
 function Fishing:ForceVisible()
     frameFader.isFading = true
     frameFader.cacheSuppressUntil = nil
 
-    for _, name in ipairs(panelNamesToFade) do
+    for _, name in ipairs(BuildPanelNamesToFade()) do
         FadeFrameIn(name, 0.0) -- immediate
     end
 
-    HideElvUIDataBars(false)
-    HideBlizzardPlayerFrame(false)
-    HideElvUIPlayerFrame(false)
-    HideBlizzardMicroMenu(false)
-    HideMinimapButtons(false)
-    HideMinimapCluster(false)
-    HideHandyNotesMapPins(false)
-    HideGatherMateMinimap(false)
+    HideAllFrames(false)
 
     frameFader.isFaded = false
     frameFader.isFading = false
