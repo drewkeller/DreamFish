@@ -160,6 +160,26 @@ function Addon:DumpToLog(msg, item, ...)
     Log("[DumpToLog]", FormatLogValue(msg), FormatLogValue(item), ...)
 end
 
+function Addon:PrintLootMessage(msg)
+    for index = 1, NUM_CHAT_WINDOWS do
+        local frame = _G["ChatFrame"..index]
+
+        if frame then
+            -- Get the chat message types received by this specific window
+            local messageTypes = { GetChatWindowMessages(index) }
+
+            -- Check if this window is configured to display "LOOT" messages
+            for _, msgType in ipairs(messageTypes) do
+                if msgType == "LOOT" then
+                    -- Print the message locally to this specific window
+                    frame:AddMessage("|cFF9ACDFFDreamFish|r " .. tostring(msg))
+                    break
+                end
+            end
+        end
+    end
+end
+
 function Addon:Alert(msg, ...)
     if ns.Utils.IsCoreLoaded() and Addon then
         ns.Utils.PlayWarningCue()

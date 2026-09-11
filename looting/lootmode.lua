@@ -287,6 +287,7 @@ local function HandleLootWindow(situation)
             shouldCloseLootWindow = false
         else
             Trace("Ignoring " .. (lootItemInfo.itemLink or lootItemInfo.name) .. " in loot slot " .. tostring(slot) .. " with quality " .. tostring(lootItemInfo.quality))
+            Addon:PrintLootMessage("ignoring " .. (lootItemInfo.itemLink or lootItemInfo.name))
         end
     end
 

@@ -100,6 +100,10 @@ function Addon:Warning(_, message)
     table.insert(warnings, message)
 end
 
+function Addon:PrintLootMessage(message)
+    table.insert(warnings, message)
+end
+
 function Addon:RegisterMessage(message, handler)
     messageHandlers[message] = handler
 end
