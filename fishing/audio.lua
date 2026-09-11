@@ -1,7 +1,22 @@
 local addonName, ns = ...
 local Fishing = ns.Fishing or LibStub("AceAddon-3.0"):GetAddon("DreamFish"):GetModule("Fishing")
+local AudioMessageSink = {}
+
+function AudioMessageSink:StartFishingAudioFocus(...)
+    Fishing:StartFishingAudioFocus(...)
+end
+
+function AudioMessageSink:RestoreFishingAudioFocus(...)
+    Fishing:RestoreFishingAudioFocus(...)
+end
 
 local globalDB, profileDB, charDB
+
+Fishing:RegisterTraceSource("audio")
+local function Trace(msg, ...)
+    Fishing:Trace("audio", msg, ...)
+end
+
 Fishing:RegisterOnModuleInitialize(function(self)
     globalDB = self.db.global
     profileDB = self.db.profile
@@ -10,21 +25,23 @@ end)
 
 Fishing:RegisterOnModuleEnable(function(self)
     profileDB = self.db.profile
-    self:RegisterMessage("FISHING_SESSION_STARTED", "StartFishingAudioFocus")
-    self:RegisterMessage("FISHING_SESSION_ENDED", "RestoreFishingAudioFocus")
+end)
+
+Fishing:RegisterOnModuleRegisterEvents(function(self)
+    Trace("Registering events")
+    self.RegisterMessage(AudioMessageSink, "FISHING_SESSION_STARTED", "StartFishingAudioFocus")
+    self.RegisterMessage(AudioMessageSink, "FISHING_SESSION_ENDED",   "RestoreFishingAudioFocus")
     self:ResumePersistedAudioDuckingState()
 end)
 
-function Fishing:OnModuleDisable()
-    self:UnregisterMessage("FISHING_SESSION_STARTED")
-    self:UnregisterMessage("FISHING_SESSION_ENDED")
-end
+Fishing:RegisterOnModuleUnregisterEvents(function(self)
+    self.UnregisterMessage(AudioMessageSink, "FISHING_SESSION_STARTED")
+    self.UnregisterMessage(AudioMessageSink, "FISHING_SESSION_ENDED")
+end)
 
-Fishing:RegisterTraceSource("audio")
-
-local function Trace(msg, ...)
-    Fishing:Trace("audio", msg, ...)
-end
+Fishing:RegisterOnModuleDisable(function(self)
+    self:RestoreFishingAudioFocus()
+end)
 
 local Clamp = ns.Utils.Clamp
 local NearlyEqual = ns.Utils.NearlyEqual
@@ -127,18 +144,21 @@ function Fishing:EnableFishingAudioFocus(force)
     }
 
     local ambienceVolume = tonumber(ns.state.audio.savedFishingAudioCVars.ambience)
+    local ambienceFactor = tonumber(profileDB.ambienceDuckingLevel) / 100
     if ambienceVolume then
-        SetCVar("Sound_AmbienceVolume", tostring(Clamp(ambienceVolume * 0.35, 0, 1)))
+        SetCVar("Sound_AmbienceVolume", tostring(Clamp(ambienceVolume * ambienceFactor, 0, 1)))
     end
 
     local musicVolume = tonumber(ns.state.audio.savedFishingAudioCVars.music)
+    local musicFactor = tonumber(profileDB.musicDuckingLevel) / 100
     if musicVolume then
-        SetCVar("Sound_MusicVolume", tostring(Clamp(musicVolume * 0.2, 0, 1)))
+        SetCVar("Sound_MusicVolume", tostring(Clamp(musicVolume * musicFactor, 0, 1)))
     end
 
     local dialogVolume = tonumber(ns.state.audio.savedFishingAudioCVars.dialog)
+    local dialogFactor = tonumber(profileDB.dialogDuckingLevel) / 100
     if dialogVolume then
-        SetCVar("Sound_DialogVolume", tostring(Clamp(dialogVolume * 0.5, 0, 1)))
+        SetCVar("Sound_DialogVolume", tostring(Clamp(dialogVolume * dialogFactor, 0, 1)))
     end
 
     ns.state.audio.lastFishingDuckedAudioCVars = {
