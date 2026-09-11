@@ -301,126 +301,156 @@ local function BuildFrameToggleArgs(frameEntries)
     return args
 end
 
+local function IsFadeSectionVisible(sectionEntry)
+    if not sectionEntry.validator then
+        return true
+    end
+    local validator = Fishing[sectionEntry.validator]
+    return type(validator) ~= "function" or validator(Fishing)
+end
+
+local function GetFadeSectionFrames(sectionEntry)
+    if sectionEntry.generator then
+        local generator = Fishing[sectionEntry.generator]
+        if type(generator) ~= "function" then
+            return {}
+        end
+        sectionEntry.generatedEnabled = sectionEntry.generatedEnabled or {}
+        local frameEntries = {}
+        for _, frameName in ipairs(generator(Fishing) or {}) do
+            local name = type(frameName) == "table" and frameName.name or frameName
+            if name and name ~= "" then
+                frameEntries[#frameEntries + 1] = {
+                    name = name,
+                    enabled = sectionEntry.generatedEnabled[name] ~= false,
+                }
+            end
+        end
+        return frameEntries
+    end
+    return sectionEntry.frames or {}
+end
+
 local FindFadeCategory
 
-local function BuildFrameFadeSections()
-    layoutCounter = 0
-    local sections = {
-        tackleBoxSection = AutoOrder({
-            type = "group",
-            name = "Tackle Box",
-            inline = false,
-            args = {
-                dreamfishDialogWhenFishing = AutoOrder({
-                    type = "group",
-                    name = "When Fishing",
-                    inline = true,
-                    args = {
-                        showWhenFishing = {
-                            type = "toggle",
-                            name = "Show tackle box when fishing",
-                            width = "full",
-                            order = 1,
-                            get = function() return FindFadeCategory("Tackle Box").dreamfishDialogWhenFishing end,
-                            set = function(_, value)
-                                FindFadeCategory("Tackle Box").dreamfishDialogWhenFishing = value
-                                Fishing:RefreshDreamFishDialogFade()
-                            end,
-                        },
-                        alphaWhenFishingLeft = {
-                            type = "description", name = " ", desc = "", width = "relative", relWidth = 0.24,
-                            order = 2,
-                        },
-                        alphaWhenFishing = {
-                            type = "range",
-                            name = "Alpha",
-                            desc = "",
-                            width = "relative",
-                            relWidth = 0.50,
-                            min = 0,
-                            max = 1,
-                            step = 0.01,
-                            order = 3,
-                            get = function() return FindFadeCategory("Tackle Box").dreamFishDialogAlphaWhenFishing end,
-                            set = function(_, value)
-                                FindFadeCategory("Tackle Box").dreamFishDialogAlphaWhenFishing = value
-                                Fishing:RefreshDreamFishDialogFade()
-                            end,
-                        },
-                        alphaWhenFishingRight = {
-                            type = "description", name = " ", desc = "", width = "relative", relWidth = 0.24,
-                            order = 4,
-                        },
-                        opacityWithMouseover = {
-                            type = "toggle",
-                            name = "Apply full opacity when mouse is over",
-                            width = "full",
-                            order = 5,
-                            get = function() return FindFadeCategory("Tackle Box").opacityWithMouseover end,
-                            set = function(_, value)
-                                FindFadeCategory("Tackle Box").opacityWithMouseover = value
-                                Fishing:RefreshDreamFishDialogFade()
-                            end,
-                        }
+local function BuildFrameFadeSections(parentArgs)
+    parentArgs.tackleBoxSection = AutoOrder({
+        type = "group",
+        name = "Tackle Box",
+        inline = false,
+        args = {
+            dreamfishDialogWhenFishing = AutoOrder({
+                type = "group",
+                name = " ",
+                inline = true,
+                args = {
+                    showWhenFishing = {
+                        type = "toggle",
+                        name = "Show tackle box when fishing",
+                        width = "full",
+                        order = 1,
+                        get = function() return FindFadeCategory("Tackle Box").dreamfishDialogWhenFishing end,
+                        set = function(_, value)
+                            FindFadeCategory("Tackle Box").dreamfishDialogWhenFishing = value
+                            Fishing:RefreshDreamFishDialogFade()
+                        end,
                     },
-                }),
-                spacer1 = AutoOrder({
-                    type = "description", name = " ", desc = "", width = "full", fontSize = "large",
-                }),
-                spacer2 = AutoOrder({
-                    type = "description", name = " ", desc = "", width = "full", fontSize = "large",
-                }),
-                dreamfishDialogWhenOther = AutoOrder({
-                    type = "group",
-                    name = "Other Times",
-                    inline = true,
-                    args = {
-                        alphaLeft = {
-                            type = "description", name = " ", desc = "", width = "relative", relWidth = 0.24,
-                            order = 1,
-                        },
-                        alphaWhenOther = {
-                            type = "range",
-                            name = "Alpha",
-                            desc = "",
-                            order = 2,
-                            width = "relative",
-                            relWidth = 0.50,
-                            min = 0,
-                            max = 1,
-                            step = 0.01,
-                            get = function() return FindFadeCategory("Tackle Box").dreamFishDialogAlphaWhenOther end,
-                            set = function(_, value)
-                                FindFadeCategory("Tackle Box").dreamFishDialogAlphaWhenOther = value
-                                Fishing:RefreshDreamFishDialogFade()
-                            end,
-                        },
-                        alphaRight = {
-                            type = "description", name = " ", desc = "", width = "relative", relWidth = 0.24,
-                            order = 3,
-                        },
+                    alphaWhenFishingLeft = {
+                        type = "description", name = " ", desc = "", width = "relative", relWidth = 0.24,
+                        order = 2,
                     },
-                }),
-            }
-        }),
-    }
+                    alphaWhenFishing = {
+                        type = "range",
+                        name = "Alpha",
+                        desc = "",
+                        width = "relative",
+                        relWidth = 0.50,
+                        min = 0,
+                        max = 1,
+                        step = 0.01,
+                        order = 3,
+                        get = function() return FindFadeCategory("Tackle Box").dreamFishDialogAlphaWhenFishing end,
+                        set = function(_, value)
+                            FindFadeCategory("Tackle Box").dreamFishDialogAlphaWhenFishing = value
+                            Fishing:RefreshDreamFishDialogFade()
+                        end,
+                    },
+                    alphaWhenFishingRight = {
+                        type = "description", name = " ", desc = "", width = "relative", relWidth = 0.24,
+                        order = 4,
+                    },
+                    opacityWithMouseover = {
+                        type = "toggle",
+                        name = "Apply full opacity when mouse is over",
+                        width = "full",
+                        order = 5,
+                        get = function() return FindFadeCategory("Tackle Box").opacityWithMouseover end,
+                        set = function(_, value)
+                            FindFadeCategory("Tackle Box").opacityWithMouseover = value
+                            Fishing:RefreshDreamFishDialogFade()
+                        end,
+                    }
+                },
+            }),
+            spacer1 = AutoOrder({
+                type = "description", name = " ", desc = "", width = "full", fontSize = "large",
+            }),
+            spacer2 = AutoOrder({
+                type = "description", name = " ", desc = "", width = "full", fontSize = "large",
+            }),
+            dreamfishDialogWhenOther = AutoOrder({
+                type = "group",
+                name = " ",
+                inline = true,
+                args = {
+                    alphaLeft = {
+                        type = "description", name = " ", desc = "", width = "relative", relWidth = 0.24,
+                        order = 1,
+                    },
+                    alphaWhenOther = {
+                        type = "range",
+                        name = "Alpha |c66999999(not fishing)|r",
+                        desc = "",
+                        order = 2,
+                        width = "relative",
+                        relWidth = 0.50,
+                        min = 0,
+                        max = 1,
+                        step = 0.01,
+                        get = function() return FindFadeCategory("Tackle Box").dreamFishDialogAlphaWhenOther end,
+                        set = function(_, value)
+                            FindFadeCategory("Tackle Box").dreamFishDialogAlphaWhenOther = value
+                            Fishing:RefreshDreamFishDialogFade()
+                        end,
+                    },
+                    alphaRight = {
+                        type = "description", name = " ", desc = "", width = "relative", relWidth = 0.24,
+                        order = 3,
+                    },
+                },
+            }),
+        }
+    })
+
     for _, categoryEntry in ipairs(Fishing.db.profile.fadeFrames) do
         if categoryEntry.name ~= "Custom" and categoryEntry.name ~= "Tackle Box" then
             local categoryArgs
             if categoryEntry.sections then
                 categoryArgs = {}
                 for _, sectionEntry in ipairs(categoryEntry.sections) do
-                    categoryArgs[sectionEntry.name] = AutoOrder({
-                        type = "group",
-                        name = sectionEntry.name,
-                        inline = true,
-                        args = BuildFrameToggleArgs(sectionEntry.frames),
-                    })
+                    if IsFadeSectionVisible(sectionEntry) then
+                        categoryArgs[sectionEntry.name] = AutoOrder({
+                            type = "group",
+                            name = sectionEntry.name,
+                            inline = true,
+                            args = BuildFrameToggleArgs(GetFadeSectionFrames(sectionEntry)),
+                        })
+                    end
                 end
             else
-                categoryArgs = BuildFrameToggleArgs(categoryEntry.frames)
+                categoryArgs = BuildFrameToggleArgs(GetFadeSectionFrames(categoryEntry))
             end
-            sections[categoryEntry.name] = AutoOrder({
+            parentArgs[categoryEntry.name] = AutoOrder({
                 type = "group",
                 name = categoryEntry.name,
                 inline = false,
@@ -428,7 +458,6 @@ local function BuildFrameFadeSections()
             })
         end
     end
-    return sections
 end
 
 FindFadeCategory = function(categoryName)
@@ -455,7 +484,7 @@ local function ToggleFrameStackMode()
     end
 end
 
-local function BuildCustomFrameFadeSection()
+local function BuildCustomFrameFadeSection(parentArgs)
     local customCategory = FindFadeCategory("Custom")
 
     local childOrder = 1
@@ -483,6 +512,11 @@ local function BuildCustomFrameFadeSection()
         name = "Custom",
         inline = false,
         args = {
+            notes = AddChild({
+                type = "description",
+                name = "|c99CCCCCCSee frame controls and tools on main Frame Fade page.|r\n ",
+                width = "full",
+            }),
             frameStackToggle = AddChild({
                 type = "execute",
                 name = "1. Toggle Frame Stack Tool",
@@ -558,125 +592,130 @@ local function BuildCustomFrameFadeSection()
         })
     end
 
-    return customFrameSection
+    parentArgs.customFrameSection = customFrameSection
 end
 
 local function BuildFrameFadeTab(order)
+    layoutCounter = 0
     local frameFadeTab = {
         type = "group",
         name = "Frame Fade",
         order = order,
-        args = {}
-    }
-    frameFadeTab.args = BuildFrameFadeSections()
-    frameFadeTab.args.frameFocusEnabled = {
-        type = "toggle",
-        name = "Enable frame fade",
-        desc = "Automatically fade out configured frames while fishing.",
-        width = "full",
-        order = 0,
-        get = function() return Fishing.db.profile.frameFocusEnabled end,
-        set = function(_, value)
-            Fishing.db.profile.frameFocusEnabled = value
-            Fishing:RefreshFade()
-        end,
-    }
-    frameFadeTab.args.customSection = BuildCustomFrameFadeSection()
-    frameFadeTab.args.frameToolsSection = {
-        type = "group",
-        name = "Frame Tools",
-        inline = false,
-        order = 10000, -- after everything else
         args = {
-            frameStackTool = AutoOrder({
-                type = "group",
-                name = "Frame Stack Tool Options",
-                inline = true,
-                args = {
-                    frameStackToggle = AutoOrder({
-                        type = "execute",
-                        name = "Toggle Frame Stack Tool",
-                        desc = "Turn on the frame stack tool and hover over the frame/area you want to identify.",
-                        width = "full",
-                        func = function()
-                            ToggleFrameStackMode()
-                        end
-                    }),
-                    frameStackExcludeHidden = AutoOrder({
-                        type = "toggle",
-                        name = "Exclude hidden frames",
-                        desc = "Exclude hidden frames from the frame stack tool.",
-                        width = "full",
-                        set = function(_, value)
-                            Fishing.db.profile.frameStackExcludeHidden = value
-                            ApplyFrameStackFilters()
-                            RefreshFrameStackIfShown()
-                        end,
-                    }),
-                    frameStackExcludeRegionsAndTextures = AutoOrder({
-                        type = "toggle",
-                        name = "Exclude regions and textures",
-                        desc = "Exclude regions and textures from the frame stack tool.",
-                        width = "full",
-                        set = function(_, value)
-                            Fishing.db.profile.frameStackExcludeRegionsAndTextures = value
-                            ApplyFrameStackFilters()
-                            RefreshFrameStackIfShown()
-                        end,
-                    }),
-                    frameStackExcludeAnchors = AutoOrder({
-                        type = "toggle",
-                        name = "Exclude anchors",
-                        desc = "Exclude anchor points from the frame stack tool.",
-                        width = "full",
-                        set = function(_, value)
-                            Fishing.db.profile.frameStackExcludeAnchors = value
-                            ApplyFrameStackFilters()
-                            RefreshFrameStackIfShown()
-                        end,
-                    }),
-                },
+            frameFocusEnabled = {
+                type = "toggle",
+                name = "Enable frame fade",
+                desc = "Automatically fade out configured frames while fishing.",
+                width = "full",
+                order = 0,
+                get = function() return Fishing.db.profile.frameFocusEnabled end,
+                set = function(_, value)
+                    Fishing.db.profile.frameFocusEnabled = value
+                    Fishing:RefreshFade()
+                end,
+            },
+            frameToolsSpacer = AutoOrder({
+                type = "description", name = " ", fontSize = "large",
             }),
-            frameSpacer = AutoOrder({
-                type = "description",
-                name = " ",
-            }),
-            frameControls = AutoOrder({
+            frameToolsSection = {
                 type = "group",
-                name = "Frame Controls",
+                name = "Frame Tools",
                 inline = true,
+                order = 2, -- after everything else
                 args = {
-                    forceHide = AutoOrder({
-                        type = "execute",
-                        name = "Start Faded Mode",
-                        desc = "Hide frames according to frame selections.",
-                        width = "relative",
-                        relWidth = 0.49,
-                        func = function()
-                            Fishing:ForceHidden()
-                        end
+                    frameControls = AutoOrder({
+                        type = "group",
+                        name = "Frame Controls",
+                        inline = true,
+                        args = {
+                            forceHide = AutoOrder({
+                                type = "execute",
+                                name = "Start Faded Mode",
+                                desc = "Hide frames according to frame selections.",
+                                width = "relative",
+                                relWidth = 0.49,
+                                func = function()
+                                    Fishing:ForceHidden()
+                                end
+                            }),
+                            forceShow = AutoOrder({
+                                type = "execute",
+                                name = "Show Frames",
+                                desc = "Show all frames.",
+                                width = "relative",
+                                relWidth = 0.49,
+                                func = function()
+                                    Fishing:ForceVisible()
+                                end
+                            }),
+                            windowCommands = AutoOrder({
+                                type = "description",
+                                name = "\n"
+                                    .. "|cFF999999Slash Commands|r\n"
+                                    .. "   /df show |cFF999999(to show frames)|r\n"
+                                    .. "   /df fade |cFF999999(to hide frames)|r",
+                            })
+                        }
                     }),
-                    forceShow = AutoOrder({
-                        type = "execute",
-                        name = "Show Frames",
-                        desc = "Show all frames.",
-                        width = "relative",
-                        relWidth = 0.49,
-                        func = function()
-                            Fishing:ForceVisible()
-                        end
-                    }),
-                    windowCommands = AutoOrder({
+                    frameSpacer = AutoOrder({
                         type = "description",
-                        name = "\n"
-                            .. "|cFF999999Slash Commands|r\n"
-                            .. "   /df show |cFF999999(to show frames)|r\n"
-                            .. "   /df fade |cFF999999(to hide frames)|r",
-                    })
+                        name = " ",
+                    }),
+                    frameStackTool = AutoOrder({
+                        type = "group",
+                        name = "Frame Stack Tool Options",
+                        inline = true,
+                        args = {
+                            frameStackToggle = AutoOrder({
+                                type = "execute",
+                                name = "Toggle Frame Stack Tool",
+                                desc = "Turn on the frame stack tool and hover over the frame/area you want to identify.",
+                                width = "full",
+                                func = function()
+                                    ToggleFrameStackMode()
+                                end
+                            }),
+                            frameStackExcludeHidden = AutoOrder({
+                                type = "toggle",
+                                name = "Exclude hidden frames",
+                                desc = "Exclude hidden frames from the frame stack tool.",
+                                width = "full",
+                                set = function(_, value)
+                                    Fishing.db.profile.frameStackExcludeHidden = value
+                                    ApplyFrameStackFilters()
+                                    RefreshFrameStackIfShown()
+                                end,
+                            }),
+                            frameStackExcludeRegionsAndTextures = AutoOrder({
+                                type = "toggle",
+                                name = "Exclude regions and textures",
+                                desc = "Exclude regions and textures from the frame stack tool.",
+                                width = "full",
+                                set = function(_, value)
+                                    Fishing.db.profile.frameStackExcludeRegionsAndTextures = value
+                                    ApplyFrameStackFilters()
+                                    RefreshFrameStackIfShown()
+                                end,
+                            }),
+                            frameStackExcludeAnchors = AutoOrder({
+                                type = "toggle",
+                                name = "Exclude anchors",
+                                desc = "Exclude anchor points from the frame stack tool.",
+                                width = "full",
+                                set = function(_, value)
+                                    Fishing.db.profile.frameStackExcludeAnchors = value
+                                    ApplyFrameStackFilters()
+                                    RefreshFrameStackIfShown()
+                                end,
+                            }),
+                        },
+                    }),
                 }
-            })
+            }
         }
     }
+    BuildFrameFadeSections(frameFadeTab.args)
+    BuildCustomFrameFadeSection(frameFadeTab.args)
     return frameFadeTab
 end
 

@@ -5,90 +5,26 @@ local Addon = ns.Addon
 -- A category either has `sections` (nested inline groups) or `frames` directly (flat category).
 ns.moduleDefaults["Fishing"].profile.fadeFrames = {
     {
-        name = "Blizzard",
-        sections = {
-            {
-                name = "Minimap",
-                frames = {
-                    { name = "Minimap", enabled = true },
-                    { name = "MinimapCluster", enabled = true },
-                    { name = "GameTimeFrame", enabled = true },
-                    { name = "MiniMapMailFrame", enabled = true },
-                    { name = "MiniMapTracking", enabled = true },
-                    { name = "QueueStatusButton", enabled = true },
-                    { name = "QueueStatusMinimapButton", enabled = true },
-                    { name = "GarrisonLandingPageMinimapButton", enabled = true },
-                    { name = "ExpansionLandingPageMinimapButton", enabled = true },
-                },
-            },
-            {
-                name = "Unit Frames",
-                frames = {
-                    { name = "PlayerFrame", enabled = true },
-                    { name = "CompactPlayerFrame", enabled = true },
-                    { name = "TargetFrame", enabled = true },
-                    { name = "FocusFrame", enabled = true },
-                    { name = "PetFrame", enabled = true },
-                    { name = "StanceBar", enabled = true },
-                    { name = "StanceBarFrame", enabled = true },
-                },
-            },
-            {
-                name = "Buffs & Debuffs",
-                frames = {
-                    { name = "BuffFrame", enabled = true },
-                    { name = "DebuffFrame", enabled = true },
-                    { name = "DeadlyDebuffFrame", enabled = true },
-                },
-            },
-            {
-                name = "Bars & Manus",
-                frames = {
-                    { name = "MainMenuBar", enabled = true },
-                    { name = "MultiBarBottomLeft", enabled = true },
-                    { name = "MultiBarBottomRight", enabled = true },
-                    { name = "MultiBarLeft", enabled = true },
-                    { name = "MultiBarRight", enabled = true },
-                    { name = "MicroButtonAndBagsBar", enabled = true },
-                },
-            },
-            {
-                name = "Chat & Info",
-                frames = {
-                    { name = "ChatFrame1", enabled = false },
-                    { name = "ChatFrame2", enabled = true },
-                    { name = "ChatFrame3", enabled = true },
-                    { name = "ChatFrame4", enabled = true },
-                    { name = "LeftChatPanel", enabled = false },
-                    { name = "RightChatPanel", enabled = false },
-                    { name = "LeftChatToggleButton", enabled = true },
-                    { name = "RightChatToggleButton", enabled = true },
-                },
-            },
-            {
-                name = "Other",
-                frames = {
-                    { name = "StatusTrackingBarManager", enabled = true },
-                    { name = "ObjectiveTrackerFrame", enabled = true },
-                    { name = "UIWidgetTopCenterContainerFrame", enabled = true },
-                    { name = "DamageMeter", enabled = true },
-                    { name = "DamageMeterSessionWindow1", enabled = true },
-                },
-            },
-        },
+        name = "Tackle Box",
+        dreamfishDialogWhenFishing = true,
+        dreamFishDialogAlphaWhenFishing = 1,
+        dreamFishDialogAlphaWhenOther = 1,
     },
-    {
-        name = "ElvUI",
+    { name = "Beware",
         sections = {
-            {
-                name = "Beware",
+            { name = "ElvUI",
+                validator = "IsElvUIActive",
                 frames = {
                     { name = "ElvUF_Player_Castbar", enabled = false }, -- We want to make sure this is shown
                     { name = "ElvUI_LootFrame", enabled = false }, --keep this for fishing
                 },
             },
-            {
-                name = "Action Bars",
+        },
+    },
+    { name = "Action Bars",
+        sections = {
+            { name = "ElvUI",
+                validator = "IsElvUIActive",
                 frames = {
                     { name = "ElvUI_Bar1", enabled = true },
                     { name = "ElvUI_Bar2", enabled = true },
@@ -107,50 +43,24 @@ ns.moduleDefaults["Fishing"].profile.fadeFrames = {
                     { name = "ElvUI_PetBar", enabled = true },
                 },
             },
-            {
-                name = "Unit Frames",
+        },
+    },
+    { name = "Chat & Text",
+        sections = {
+            { name = "Blizzard",
                 frames = {
-                    { name = "ElvUF_Player", enabled = true }, -- needs special handling to keep fishing castbar visible
-                    { name = "ElvUF_Target", enabled = true },
-                    { name = "ElvUF_Pet", enabled = true },
-                    { name = "ElvUF_Focus", enabled = true },
-                    { name = "ElvUF_TargetTarget", enabled = true },
+                    { name = "ChatFrame1", enabled = false },
+                    { name = "ChatFrame2", enabled = true },
+                    { name = "ChatFrame3", enabled = true },
+                    { name = "ChatFrame4", enabled = true },
+                    { name = "LeftChatPanel", enabled = false },
+                    { name = "RightChatPanel", enabled = false },
+                    { name = "LeftChatToggleButton", enabled = true },
+                    { name = "RightChatToggleButton", enabled = true },
                 },
             },
-            {
-                name = "Buffs & Debuffs",
-                frames = {
-                    { name = "ElvUI_PlayerBuffs", enabled = true },
-                    { name = "ElvUI_PlayerDebuffs", enabled = true },
-                },
-            },
-            {
-                name = "Group/Boss Frames",
-                frames = {
-                    { name = "ElvUF_Party", enabled = true },
-                    { name = "ElvUF_Raid", enabled = true },
-                    { name = "ElvUF_Boss", enabled = true },
-                    { name = "ElvUF_Arena", enabled = true },
-                },
-            },
-            {
-                name = "Bars & Manus",
-                frames = {
-                    { name = "ElvUI_MicroBar", enabled = true }, -- maybe we don't want to hide this one?
-                },
-            },
-            {
-                name = "Data Bars", -- Data bars (these are not official names, I'm just using them to normalize processing)
-                frames = {
-                    { name = "ElvDB_Experience", enabled = true },
-                    { name = "ElvDB_Reputation", enabled = true },
-                    { name = "ElvDB_Honor", enabled = true },
-                    { name = "ElvDB_Azerite", enabled = true },
-                    { name = "ElvDB_Threat", enabled = true },
-                },
-            },
-            {
-                name = "Chat & Info",
+            { name = "ElvUI",
+                validator = "IsElvUIActive",
                 frames = {
                     { name = "ElvUI_BottomPanel", enabled = true },
                     { name = "ElvUI_TopPanel", enabled = true },
@@ -162,8 +72,25 @@ ns.moduleDefaults["Fishing"].profile.fadeFrames = {
                     { name = "ElvUI_DataTextPanel_RightChatDataPanelSlot3", enabled = true },
                 },
             },
-            {
-                name = "Minimap",
+        },
+    },
+    { name = "Minimap",
+        sections = {
+            { name = "Blizzard",
+                frames = {
+                    { name = "Minimap", enabled = true },
+                    { name = "MinimapCluster", enabled = true },
+                    { name = "GameTimeFrame", enabled = true },
+                    { name = "MiniMapMailFrame", enabled = true },
+                    { name = "MiniMapTracking", enabled = true },
+                    { name = "QueueStatusButton", enabled = true },
+                    { name = "QueueStatusMinimapButton", enabled = true },
+                    { name = "GarrisonLandingPageMinimapButton", enabled = true },
+                    { name = "ExpansionLandingPageMinimapButton", enabled = true },
+                },
+            },
+            { name = "ElvUI",
+                validator = "IsElvUIActive",
                 frames = {
                     { name = "ElvUI_MinimapHolder", enabled = true },
                     { name = "ElvUI_DataTextPanel_MiniMapDataPanelSlot1", enabled = true },
@@ -172,25 +99,109 @@ ns.moduleDefaults["Fishing"].profile.fadeFrames = {
                     { name = "AddonCompartmentFrame", enabled = true },
                 },
             },
-            {
-                name = "Other",
-                frames = {},
+            { name = "Addon Buttons",
+                generator = "GetMinimapButtonNames",
+            }
+        },
+    },
+    { name = "Unit Frames",
+        sections = {
+            { name = "Blizzard",
+                frames = {
+                    { name = "PlayerFrame", enabled = true },
+                    { name = "CompactPlayerFrame", enabled = true },
+                    { name = "TargetFrame", enabled = true },
+                    { name = "FocusFrame", enabled = true },
+                    { name = "PetFrame", enabled = true },
+                    { name = "StanceBar", enabled = true },
+                    { name = "StanceBarFrame", enabled = true },
+                },
+            },
+            { name = "ElvUI",
+                validator = "IsElvUIActive",
+                frames = {
+                    { name = "ElvUF_Player", enabled = true }, -- needs special handling to keep fishing castbar visible
+                    { name = "ElvUF_Target", enabled = true },
+                    { name = "ElvUF_Pet", enabled = true },
+                    { name = "ElvUF_Focus", enabled = true },
+                    { name = "ElvUF_TargetTarget", enabled = true },
+                    { name = "ElvUF_Party", enabled = true },
+                    { name = "ElvUF_Raid", enabled = true },
+                    { name = "ElvUF_Boss", enabled = true },
+                    { name = "ElvUF_Arena", enabled = true },
+                },
             },
         },
     },
-    -- Common 3rd party addons
-    {
-        name = "Other",
-        frames = {
-            { name = "TomTomCrazyArrow", enabled = true },
-            { name = "FTA_GuideArrow", enabled = true },
+    { name = "HUD & Status",
+        sections = {
+            { name = "Blizzard",
+                frames = {
+                    { name = "BuffFrame", enabled = true },
+                    { name = "DebuffFrame", enabled = true },
+                    { name = "DeadlyDebuffFrame", enabled = true },
+                },
+            },
+            { name = "ElvUI",
+                validator = "IsElvUIActive",
+                frames = {
+                    { name = "ElvUI_PlayerBuffs", enabled = true },
+                    { name = "ElvUI_PlayerDebuffs", enabled = true },
+                },
+            },
+            {
+                name = "Other",
+                frames = {
+                    { name = "TomTomCrazyArrow", enabled = true },
+                    { name = "FTA_GuideArrow", enabled = true },
+                },
+            },
         },
     },
-    {
-        name = "Tackle Box",
-        dreamfishDialogWhenFishing = true,
-        dreamFishDialogAlphaWhenFishing = 1,
-        dreamFishDialogAlphaWhenOther = 1,
+    { name = "Menus",
+        sections = {
+            { name = "Blizzard",
+                frames = {
+                    { name = "MainMenuBar", enabled = true },
+                    { name = "MultiBarBottomLeft", enabled = true },
+                    { name = "MultiBarBottomRight", enabled = true },
+                    { name = "MultiBarLeft", enabled = true },
+                    { name = "MultiBarRight", enabled = true },
+                    { name = "MicroButtonAndBagsBar", enabled = true },
+                    { name = "MicroMenuContainer", enabled = true },
+                },
+            },
+            { name = "ElvUI",
+                validator = "IsElvUIActive",
+                frames = {
+                    { name = "ElvUI_MicroBar", enabled = true },
+                },
+            },
+        },
+    },
+    { name = "Data Panels",
+        sections = {
+            { name = "Blizzard",
+                frames = {
+                    { name = "StatusTrackingBarManager", enabled = true },
+                    { name = "ObjectiveTrackerFrame", enabled = true },
+                    { name = "UIWidgetTopCenterContainerFrame", enabled = true },
+                    { name = "DamageMeter", enabled = true },
+                    { name = "DamageMeterSessionWindow1", enabled = true },
+                },
+            },
+            { name = "ElvUI", -- Data bars (these are not official names, I'm just using them to normalize processing)
+                validator = "IsElvUIActive",
+                frames = {
+                    { name = "ElvDB_Experience", enabled = true },
+                    { name = "ElvDB_Reputation", enabled = true },
+                    { name = "ElvDB_Honor", enabled = true },
+                    { name = "ElvDB_Azerite", enabled = true },
+                    { name = "ElvDB_Threat", enabled = true },
+                },
+            },
+
+        },
     },
     -- For adding custom frames
     {

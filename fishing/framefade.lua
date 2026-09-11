@@ -13,7 +13,7 @@ local FADE_OUT_DURATION = 3.0
 
 local state = {
     isFishing = false,
-    isElvuiActive = false,
+    isElvUIActive = false,
 }
 
 Fishing:RegisterTraceSource("fade")
@@ -55,6 +55,11 @@ Fishing:RegisterOnModuleDisable(function(self)
     self:FadeinUI()
 end)
 
+-- Validator for ElvUI frames
+function Fishing:IsElvUIActive()
+    return state.isElvUIActive
+end
+
 -- Frame names to fade come from Fishing.db.profile.fadeFrames (the same data the Frame Fade
 -- options tab edits) instead of a hardcoded list, so user-configured Custom entries and
 -- checkbox toggles are respected. ElvUF_Player and ElvDB_* bars are excluded from the generic
@@ -65,11 +70,44 @@ local function GetAllFadeFrameEntries()
     if not (profileDB and profileDB.fadeFrames) then
         return entries
     end
+
+    local function IsSectionVisible(sectionEntry)
+        if not sectionEntry.validator then
+            return true
+        end
+        local validator = Fishing[sectionEntry.validator]
+        return type(validator) ~= "function" or validator(Fishing)
+    end
+
+    local function GetSectionFrames(sectionEntry)
+        if sectionEntry.generator then
+            local generator = Fishing[sectionEntry.generator]
+            if type(generator) ~= "function" then
+                return {}
+            end
+            sectionEntry.generatedEnabled = sectionEntry.generatedEnabled or {}
+            local frameEntries = {}
+            for _, frameName in ipairs(generator(Fishing) or {}) do
+                local name = type(frameName) == "table" and frameName.name or frameName
+                if name and name ~= "" then
+                    frameEntries[#frameEntries + 1] = {
+                        name = name,
+                        enabled = sectionEntry.generatedEnabled[name] ~= false,
+                    }
+                end
+            end
+            return frameEntries
+        end
+        return sectionEntry.frames or {}
+    end
+
     for _, categoryEntry in ipairs(profileDB.fadeFrames) do
         if categoryEntry.sections then
             for _, sectionEntry in ipairs(categoryEntry.sections) do
-                for _, frameEntry in ipairs(sectionEntry.frames) do
-                    table.insert(entries, frameEntry)
+                if IsSectionVisible(sectionEntry) then
+                    for _, frameEntry in ipairs(GetSectionFrames(sectionEntry)) do
+                        table.insert(entries, frameEntry)
+                    end
                 end
             end
         elseif categoryEntry.frames then
@@ -281,6 +319,18 @@ local function ClearSetAlphaOverride(frame)
     end
 end
 
+-- Generator for frame names
+function Fishing:GetMinimapButtonNames()
+    local buttonNames = {}
+    local LibDBIcon = LibStub("LibDBIcon-1.0", true)
+    if LibDBIcon and LibDBIcon.GetButtonList then
+        for _, iconName in ipairs(LibDBIcon:GetButtonList()) do
+            table.insert(buttonNames, iconName)
+        end
+    end
+    return buttonNames
+end
+
 local function HideMinimapButtons(hideButtons)
     local targetAlpha = hideButtons and HIDDEN_ALPHA or VISIBLE_ALPHA
 
@@ -436,6 +486,10 @@ end
 
 -- Helper function to control visibility states
 local function HideBlizzardMicroMenu(hideMenu)
+    if hideMenu and not IsFadeFrameEnabled("MicroMenuContainer") then
+        return -- user disabled fading this frame in the Frame Fade options
+    end
+
     -- 1. Handle Micro Menu Container (and Bag Bar if attached)
     local targetContainer = MicroMenuContainer or MicroButtonAndBagsBar
     if targetContainer then
