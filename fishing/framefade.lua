@@ -332,31 +332,36 @@ function Fishing:GetMinimapButtonNames()
 end
 
 local function HideMinimapButtons(hideButtons)
-    local targetAlpha = hideButtons and HIDDEN_ALPHA or VISIBLE_ALPHA
-
     -- HIDE THIRD-PARTY ADDON ICONS (LibDBIcon)
     -- Almost every addon (Details, WeakAuras, etc.) uses LibDBIcon-1.0 to attach buttons.
     local LibDBIcon = LibStub("LibDBIcon-1.0", true)
     if LibDBIcon and LibDBIcon.GetButtonList then
         for _, iconName in ipairs(LibDBIcon:GetButtonList()) do
-            local buttonFrame = LibDBIcon:GetMinimapButton(iconName)
-            if buttonFrame then
-                buttonFrame:SetAlpha(targetAlpha)
-
-                if hideButtons then
-                    if not buttonFrame.SetAlpha_Old then
-                        buttonFrame.SetAlpha_Old = buttonFrame.SetAlpha
-                        buttonFrame.SetAlpha = function() end
-                    end
-                else
-                    if buttonFrame.SetAlpha_Old then
-                        buttonFrame.SetAlpha = buttonFrame.SetAlpha_Old
-                        buttonFrame.SetAlpha_Old = nil
-                    end
-                    buttonFrame:SetAlpha(VISIBLE_ALPHA)
+            if not hideButtons or IsFadeFrameEnabled(iconName) then
+                local buttonFrame = LibDBIcon:GetMinimapButton(iconName)
+                if buttonFrame then
+                    Fishing:SetMinimapButtonFadeState(buttonFrame, hideButtons)
                 end
             end
         end
+    end
+end
+
+function Fishing:SetMinimapButtonFadeState(buttonFrame, hideButton)
+    if not buttonFrame then
+        return
+    end
+
+    buttonFrame:SetAlpha(hideButton and HIDDEN_ALPHA or VISIBLE_ALPHA)
+    if hideButton then
+        if not buttonFrame.SetAlpha_Old then
+            buttonFrame.SetAlpha_Old = buttonFrame.SetAlpha
+            buttonFrame.SetAlpha = function() end
+        end
+    elseif buttonFrame.SetAlpha_Old then
+        buttonFrame.SetAlpha = buttonFrame.SetAlpha_Old
+        buttonFrame.SetAlpha_Old = nil
+        buttonFrame:SetAlpha(VISIBLE_ALPHA)
     end
 end
 
@@ -584,14 +589,36 @@ local function FadeFrameIn(name, duration)
     end
 end
 
+
+local function HideMinimapCluster(hideMiniMap)
+    local minimapCluster = _G["MinimapCluster"]
+    local shouldHide = IsFadeFrameEnabled("MinimapCluster")
+
+    if hideMiniMap then
+        if shouldHide and minimapCluster and minimapCluster.Hide then
+            minimapCluster:Hide()
+        end
+        return
+    end
+
+    if minimapCluster and minimapCluster.Show then
+        ClearSetAlphaOverride(minimapCluster)
+        minimapCluster:Show()
+        if minimapCluster.SetAlpha then
+            minimapCluster:SetAlpha(tonumber(frameFader.originalAlphaByName["MinimapCluster"]) or 1)
+        end
+    end
+end
+
 local function HideAllFrames(hide)
     HideElvUIDataBars(hide)
     HideElvUIPlayerFrame(hide)
     -- we don't have a way to make these optional yet
+    HideMinimapCluster(hide)
     HideBlizzardMicroMenu(hide)
     HideMinimapButtons(hide)
-    HideHandyNotesMapPins(hide)
-    HideGatherMateMinimap(hide)
+    -- HideHandyNotesMapPins(hide)
+    -- HideGatherMateMinimap(hide)
 end
 
 function Fishing:RefreshDreamFishDialogFade()
@@ -639,6 +666,11 @@ function Fishing:SetFrameFadeState(name, hide)
         if IsElvUIFrameModuleEnabled(E, name) ~= nil then
             HideElvUIDataBar(E, name, hide)
         end
+    elseif LibStub("LibDBIcon-1.0", true) and LibStub("LibDBIcon-1.0", true):GetMinimapButton(name) then
+        local LibDBIcon = LibStub("LibDBIcon-1.0", true)
+        self:SetMinimapButtonFadeState(LibDBIcon:GetMinimapButton(name), hide)
+    elseif name == "MinimapCluster" then
+        HideMinimapCluster(hide)
     elseif hide then
         FadeFrameOut(name, 0.0)
     else

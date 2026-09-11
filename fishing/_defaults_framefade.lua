@@ -23,24 +23,42 @@ ns.moduleDefaults["Fishing"].profile.fadeFrames = {
     },
     { name = "Action Bars",
         sections = {
+            { name = "Blizzard",
+                frames = {
+                    { name = "MainActionBar",        enabled = true },
+                    { name = "MainMenuBar",          enabled = true }, -- Action Bar 1: Primary sliding/pageable action bar
+                    { name = "MultiBarBottomLeft",   enabled = true }, -- Action Bar 2
+                    { name = "MultiBarBottomRight",  enabled = true }, -- Action Bar 3
+                    { name = "MultiBarRight",        enabled = true }, -- Action Bar 4
+                    { name = "MultiBarLeft",         enabled = true }, -- Action Bar 5
+                    { name = "MultiBar5",            enabled = true }, -- Action Bar 6
+                    { name = "MultiBar6",            enabled = true }, -- Action Bar 7
+                    { name = "MultiBar7",            enabled = true }, -- Action Bar 8
+                    { name = "PetActionBar",         enabled = true },
+                    { name = "StanceBar",            enabled = true },
+                    { name = "PossessBar",           enabled = true },
+                    { name = "ZoneAbilityFrame",     enabled = true },
+                    { name = "ExtraActionButton1",   enabled = true },
+                }
+            },
             { name = "ElvUI",
                 validator = "IsElvUIActive",
                 frames = {
-                    { name = "ElvUI_Bar1", enabled = true },
-                    { name = "ElvUI_Bar2", enabled = true },
-                    { name = "ElvUI_Bar3", enabled = true },
-                    { name = "ElvUI_Bar4", enabled = true },
-                    { name = "ElvUI_Bar5", enabled = true },
-                    { name = "ElvUI_Bar6", enabled = true },
-                    { name = "ElvUI_Bar7", enabled = true },
-                    { name = "ElvUI_Bar8", enabled = true },
-                    { name = "ElvUI_Bar9", enabled = true },
-                    { name = "ElvUI_Bar10", enabled = true },
-                    { name = "ElvUI_Bar13", enabled = true },
-                    { name = "ElvUI_Bar14", enabled = true },
-                    { name = "ElvUI_Bar15", enabled = true },
+                    { name = "ElvUI_Bar1",      enabled = true },
+                    { name = "ElvUI_Bar2",      enabled = true },
+                    { name = "ElvUI_Bar3",      enabled = true },
+                    { name = "ElvUI_Bar4",      enabled = true },
+                    { name = "ElvUI_Bar5",      enabled = true },
+                    { name = "ElvUI_Bar6",      enabled = true },
+                    { name = "ElvUI_Bar7",      enabled = true },
+                    { name = "ElvUI_Bar8",      enabled = true },
+                    { name = "ElvUI_Bar9",      enabled = true },
+                    { name = "ElvUI_Bar10",     enabled = true },
+                    { name = "ElvUI_Bar13",     enabled = true },
+                    { name = "ElvUI_Bar14",     enabled = true },
+                    { name = "ElvUI_Bar15",     enabled = true },
                     { name = "ElvUI_StanceBar", enabled = true },
-                    { name = "ElvUI_PetBar", enabled = true },
+                    { name = "ElvUI_PetBar",    enabled = true },
                 },
             },
         },
@@ -49,21 +67,31 @@ ns.moduleDefaults["Fishing"].profile.fadeFrames = {
         sections = {
             { name = "Blizzard",
                 frames = {
-                    { name = "ChatFrame1", enabled = false },
-                    { name = "ChatFrame2", enabled = true },
-                    { name = "ChatFrame3", enabled = true },
-                    { name = "ChatFrame4", enabled = true },
-                    { name = "LeftChatPanel", enabled = false },
-                    { name = "RightChatPanel", enabled = false },
-                    { name = "LeftChatToggleButton", enabled = true },
+                    { name = "ChatFrame1",     enabled = false }, -- General
+                    { name = "ChatFrame2",     enabled = true },
+                    { name = "ChatFrame3",     enabled = true },
+                    { name = "ChatFrame4",     enabled = false }, -- Loot
+                    { name = "ChatFrame1Tab",  enabled = true },
+                    { name = "ChatFrame2Tab",  enabled = true },
+                    { name = "ChatFrame3Tab",  enabled = true },
+                    { name = "ChatFrame4Tab",  enabled = true },
+                    { name = "LeftChatToggleButton",  enabled = true },
                     { name = "RightChatToggleButton", enabled = true },
+                    { name = "GeneralDockManager",    enabled = true },
+                    { name = "QuickJoinToastButton",  enabled = true },
+                    { name = "ChatFrame1ButtonFrame", enabled = true },
+                    { name = "ChatFrameMenuButton",   enabled = true },
+                    { name = "ChatButtonFrame",       enabled = true },
+                    { name = "ChatChannelDropdown",   enabled = true },
                 },
             },
             { name = "ElvUI",
                 validator = "IsElvUIActive",
                 frames = {
+                    { name = "LeftChatPanel",     enabled = false },
+                    { name = "RightChatPanel",    enabled = false },
                     { name = "ElvUI_BottomPanel", enabled = true },
-                    { name = "ElvUI_TopPanel", enabled = true },
+                    { name = "ElvUI_TopPanel",    enabled = true },
                     { name = "ElvUI_DataTextPanel_LeftChatDataPanelSlot1", enabled = true }, -- Data text panels
                     { name = "ElvUI_DataTextPanel_LeftChatDataPanelSlot2", enabled = true },
                     { name = "ElvUI_DataTextPanel_LeftChatDataPanelSlot3", enabled = true },
@@ -79,7 +107,7 @@ ns.moduleDefaults["Fishing"].profile.fadeFrames = {
             { name = "Blizzard",
                 frames = {
                     { name = "Minimap", enabled = true },
-                    { name = "MinimapCluster", enabled = true },
+                    { name = "MinimapCluster", enabled = false }, -- Disabled to show fishing pools on minimap
                     { name = "GameTimeFrame", enabled = true },
                     { name = "MiniMapMailFrame", enabled = true },
                     { name = "MiniMapTracking", enabled = true },
@@ -113,7 +141,6 @@ ns.moduleDefaults["Fishing"].profile.fadeFrames = {
                     { name = "TargetFrame", enabled = true },
                     { name = "FocusFrame", enabled = true },
                     { name = "PetFrame", enabled = true },
-                    { name = "StanceBar", enabled = true },
                     { name = "StanceBarFrame", enabled = true },
                 },
             },
@@ -162,11 +189,7 @@ ns.moduleDefaults["Fishing"].profile.fadeFrames = {
         sections = {
             { name = "Blizzard",
                 frames = {
-                    { name = "MainMenuBar", enabled = true },
-                    { name = "MultiBarBottomLeft", enabled = true },
-                    { name = "MultiBarBottomRight", enabled = true },
-                    { name = "MultiBarLeft", enabled = true },
-                    { name = "MultiBarRight", enabled = true },
+                    { name = "BagsBar", enabled = true },
                     { name = "MicroButtonAndBagsBar", enabled = true },
                     { name = "MicroMenuContainer", enabled = true },
                 },

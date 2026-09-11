@@ -294,6 +294,9 @@ local function BuildFrameToggleArgs(frameEntries)
             get = function() return frameEntry.enabled end,
             set = function(_, value)
                 frameEntry.enabled = value
+                if frameEntry.enabledStore then
+                    frameEntry.enabledStore[frameEntry.name] = value
+                end
                 Fishing:SetFrameFadeState(frameEntry.name, value)
             end,
         })
@@ -323,6 +326,7 @@ local function GetFadeSectionFrames(sectionEntry)
                 frameEntries[#frameEntries + 1] = {
                     name = name,
                     enabled = sectionEntry.generatedEnabled[name] ~= false,
+                    enabledStore = sectionEntry.generatedEnabled,
                 }
             end
         end
