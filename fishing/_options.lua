@@ -9,6 +9,51 @@ local function AutoOrder(nodeTable)
     return nodeTable
 end
 
+local function CreateCenteredSlider(parentGroup, key, displayName, defaultText, orderStart)
+    parentGroup.args[key .. "spacer"] = {
+        type = "description",
+        name = " ",
+        width = "full",
+        order = orderStart,
+    }
+    -- 1. Left Spacing Gutter
+    parentGroup.args[key .. "Left"] = {
+        type = "description",
+        name = " ",
+        width = "relative",
+        relWidth = 0.24,
+        order = orderStart + 1,
+    }
+
+    -- 2. Centered Range Slider
+    parentGroup.args[key] = {
+        type = "range",
+        name = string.format("%s |c66999999(Default: %s)|r", displayName, defaultText),
+        desc = nil,
+        min = 0,
+        max = 100,
+        step = 1,
+        width = "relative",
+        relWidth = 0.50,
+        order = orderStart + 2,
+        get = function()
+            return Fishing.db.profile[key] or 50
+        end,
+        set = function(_, value)
+            Fishing.db.profile[key] = value
+        end,
+    }
+
+    -- 3. Right Spacing Gutter
+    parentGroup.args[key .. "Right"] = {
+        type = "description",
+        name = " ",
+        width = "relative",
+        relWidth = 0.25,
+        order = orderStart + 3,
+    }
+end
+
 -- Registered once so Escape (CloseSpecialWindows) also turns off the frame stack tool.
 local frameStackEscapeHooked = false
 local function EnsureFrameStackClosesOnEscape()
@@ -195,7 +240,7 @@ local function BuildTackleTab(order)
 end
 
 local function BuildAudioFocusTab(order)
-    return {
+    local tab = {
         type = "group",
         name = "Audio Focus",
         order = order,
@@ -205,9 +250,38 @@ local function BuildAudioFocusTab(order)
                 name = "Audio focus",
                 desc = "Reduces other sounds and focuses audio on fishing sounds, then restores when done fishing.",
                 width = "full",
+                order = 1,
+            },
+            spacer = {
+                type = "description",
+                name = " ",
+                fontSize = "medium",
+                order = 2,
+            },
+            audioDuckingLevels = {
+                type = "group",
+                name = "Volume",
+                inline = true,
+                order = 3,
+                args = {
+                    description = {
+                        type = "description",
+                        name = "\n"
+                            .. "|c66999999A value of 0 means completely muted, 100% means no reduction from the original volume.|r",
+                        fontSize = "medium",
+                        order = 1,
+                    },
+                    -- Sliders (below) are inserted here
+                },
             },
         },
     }
+    local group = tab.args.audioDuckingLevels
+    CreateCenteredSlider(group, "ambienceDuckingLevel", "Ambience", "35%", 10)
+    CreateCenteredSlider(group, "musicDuckingLevel",    "Music",    "20%", 20)
+    CreateCenteredSlider(group, "dialogDuckingLevel",   "Dialog",   "50%", 30)
+
+    return tab
 end
 
 local function BuildFrameToggleArgs(frameEntries)
@@ -242,40 +316,76 @@ local function BuildFrameFadeSections()
                     name = "When Fishing",
                     inline = true,
                     args = {
-                        showWhenFishing = AutoOrder({
+                        showWhenFishing = {
                             type = "toggle",
-                            name = "Show when fishing",
+                            name = "Show tackle box when fishing",
                             width = "full",
+                            order = 1,
                             get = function() return FindFadeCategory("Tackle Box").dreamfishDialogWhenFishing end,
                             set = function(_, value)
                                 FindFadeCategory("Tackle Box").dreamfishDialogWhenFishing = value
                                 Fishing:RefreshDreamFishDialogFade()
                             end,
-                        }),
-                        alphaWhenFishing = AutoOrder({
+                        },
+                        alphaWhenFishingLeft = {
+                            type = "description", name = " ", desc = "", width = "relative", relWidth = 0.24,
+                            order = 2,
+                        },
+                        alphaWhenFishing = {
                             type = "range",
                             name = "Alpha",
-                            width = "full",
+                            desc = "",
+                            width = "relative",
+                            relWidth = 0.50,
                             min = 0,
                             max = 1,
                             step = 0.01,
+                            order = 3,
                             get = function() return FindFadeCategory("Tackle Box").dreamFishDialogAlphaWhenFishing end,
                             set = function(_, value)
                                 FindFadeCategory("Tackle Box").dreamFishDialogAlphaWhenFishing = value
                                 Fishing:RefreshDreamFishDialogFade()
                             end,
-                        }),
+                        },
+                        alphaWhenFishingRight = {
+                            type = "description", name = " ", desc = "", width = "relative", relWidth = 0.24,
+                            order = 4,
+                        },
+                        opacityWithMouseover = {
+                            type = "toggle",
+                            name = "Apply full opacity when mouse is over",
+                            width = "full",
+                            order = 5,
+                            get = function() return FindFadeCategory("Tackle Box").opacityWithMouseover end,
+                            set = function(_, value)
+                                FindFadeCategory("Tackle Box").opacityWithMouseover = value
+                                Fishing:RefreshDreamFishDialogFade()
+                            end,
+                        }
                     },
+                }),
+                spacer1 = AutoOrder({
+                    type = "description", name = " ", desc = "", width = "full", fontSize = "large",
+                }),
+                spacer2 = AutoOrder({
+                    type = "description", name = " ", desc = "", width = "full", fontSize = "large",
                 }),
                 dreamfishDialogWhenOther = AutoOrder({
                     type = "group",
                     name = "Other Times",
                     inline = true,
                     args = {
-                        alphaWhenOther = AutoOrder({
+                        alphaLeft = {
+                            type = "description", name = " ", desc = "", width = "relative", relWidth = 0.24,
+                            order = 1,
+                        },
+                        alphaWhenOther = {
                             type = "range",
                             name = "Alpha",
-                            width = "full",
+                            desc = "",
+                            order = 2,
+                            width = "relative",
+                            relWidth = 0.50,
                             min = 0,
                             max = 1,
                             step = 0.01,
@@ -284,7 +394,11 @@ local function BuildFrameFadeSections()
                                 FindFadeCategory("Tackle Box").dreamFishDialogAlphaWhenOther = value
                                 Fishing:RefreshDreamFishDialogFade()
                             end,
-                        }),
+                        },
+                        alphaRight = {
+                            type = "description", name = " ", desc = "", width = "relative", relWidth = 0.24,
+                            order = 3,
+                        },
                     },
                 }),
             }

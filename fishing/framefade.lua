@@ -332,37 +332,6 @@ local function HideGatherMateMinimap(hidePins)
     end
 end
 
-local function HideMinimapCluster(hideMiniMap)
-    local minimapCluster = _G["MinimapCluster"]
-    local minimap = _G["Minimap"]
-
-    if hideMiniMap then
-        if minimapCluster and minimapCluster.Hide then
-            minimapCluster:Hide()
-        end
-        return
-    end
-
-    if minimapCluster and minimapCluster.Show then
-        ClearSetAlphaOverride(minimapCluster)
-        minimapCluster:Show()
-        if minimapCluster.SetAlpha then
-            minimapCluster:SetAlpha(tonumber(frameFader.originalAlphaByName["MinimapCluster"]) or 1)
-        end
-    end
-
-    -- Some UIs leave Minimap itself hidden/locked even after the cluster is shown.
-    if minimap then
-        ClearSetAlphaOverride(minimap)
-        if minimap.Show then
-            minimap:Show()
-        end
-        if minimap.SetAlpha then
-            minimap:SetAlpha(tonumber(frameFader.originalAlphaByName["Minimap"]) or 1)
-        end
-    end
-end
-
 -- Hide the player unit frame without hiding the castbar, which is a child of the player frame
 -- Also, don't hide the loot window, which is an oUF tag like the health and power texts we need to hide.
 local function HideElvUIPlayerFrame(hideFrame)
@@ -465,15 +434,6 @@ local function HideElvUIPlayerFrame(hideFrame)
     end
 end
 
-local function HideBlizzardPlayerFrame(hideFrame)
-    -- DEFAULT BLIZZARD UI ROUTINE
-    local targetAlpha = hideFrame and HIDDEN_ALPHA or VISIBLE_ALPHA
-    local blizzPlayer = _G["PlayerFrame"] or _G["CompactPlayerFrame"]
-    if blizzPlayer then
-        blizzPlayer:SetAlpha(targetAlpha)
-    end
-end
-
 -- Helper function to control visibility states
 local function HideBlizzardMicroMenu(hideMenu)
     -- 1. Handle Micro Menu Container (and Bag Bar if attached)
@@ -573,10 +533,9 @@ end
 local function HideAllFrames(hide)
     HideElvUIDataBars(hide)
     HideElvUIPlayerFrame(hide)
-    HideBlizzardPlayerFrame(hide)
+    -- we don't have a way to make these optional yet
     HideBlizzardMicroMenu(hide)
     HideMinimapButtons(hide)
-    HideMinimapCluster(hide)
     HideHandyNotesMapPins(hide)
     HideGatherMateMinimap(hide)
 end

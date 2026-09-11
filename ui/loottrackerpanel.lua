@@ -49,14 +49,29 @@ local function CreateLootTrackerPanelWidget()
     scrollFrame:SetPoint("BOTTOMLEFT", resetButtonFrame, "TOPLEFT", 0, 8)
     scrollFrame:SetPoint("BOTTOMRIGHT", resetButtonFrame, "TOPRIGHT", 0, 8)
 
+    -- AceConfigDialog wraps a tab with no nested sub-groups (ours) in its own fixed-height
+    -- ScrollFrame, so setting widget.height="fill" never gets a real viewport to anchor to.
+    -- Instead, poll the ScrollFrame viewport (frame -> content(scrollchild) -> scrollframe)
+    -- and stretch to match it directly.
+    local function SyncHeightToViewport(self) -- OnUpdate passes the frame itself as the first arg, not the widget
+        local scrollchild = self:GetParent()
+        local viewport = scrollchild and scrollchild:GetParent()
+        local viewportHeight = viewport and viewport:GetHeight()
+        if viewportHeight and viewportHeight > 0 and math.abs(self:GetHeight() - viewportHeight) > 10 then
+            self:SetHeight(viewportHeight - 10)
+        end
+    end
+
     -- ACEGUI LIFECYCLE INTERFACE REQUIRED IMPLEMENTATIONS
     widget.OnRelease = function(self)
         self.frame:Hide()
+        self.frame:SetScript("OnUpdate", nil)
         ns.LootTracker:UnregisterPanelScrollContainer(scrollContainer)
     end
 
     widget.OnAcquire = function(self)
         self.frame:Show()
+        self.frame:SetScript("OnUpdate", SyncHeightToViewport)
         ns.LootTracker:RegisterPanelScrollContainer(scrollContainer)
     end
 
@@ -109,7 +124,6 @@ local function CreateLootTrackerPanelWidget()
 
     frame.obj = widget
     AceGUI:RegisterAsWidget(widget)
-    widget.height = "fill" -- lets AceGUI's Flow layout stretch this control to the bottom of its tab
     return widget
 end
 

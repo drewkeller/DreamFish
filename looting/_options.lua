@@ -311,14 +311,21 @@ function LootTracker:GetModuleOptions()
                     name = " ",
                     fontSize = "large",
                 }),
+                lootDelayRight = AddOption({
+                    type = "description", name = " ", width = "relative", relWidth = 0.24,
+                }),
                 lootDelay = AddOption({
                     type = "range",
-                    name = "Managed Loot Delay (milliseconds)",
-                    desc = "Delay before looting so the window is visible. Yes, you can set this to 0 for \"instant\" looting.",
+                    name = "Managed Loot Delay",
+                    desc = "Delay in milliseconds before looting so the window is visible. Yes, you can set this to 0 for \"instant\" looting.",
                     min = 0,
                     max = 5000,
                     step = 50,
-                    width = "full",
+                    width = "relative",
+                    relWidth = 0.50,
+                }),
+                lootDelayLeft = AddOption({
+                    type = "description", name = " ", width = "relative", relWidth = 0.24,
                 }),
             }
         }),

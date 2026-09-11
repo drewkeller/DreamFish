@@ -31,7 +31,12 @@ ns.moduleDefaults["Fishing"] = {
         -- other
         closeWindowOnEscape = true,
         lingerDuration = 10,
+        -- audio
         audioFocusEnabled = true,
+        ambienceDuckingLevel = 35,
+        musicDuckingLevel = 20,
+        dialogDuckingLevel = 50,
+        -- frame
         frameFocusEnabled = true,
 	},
 	char = {
