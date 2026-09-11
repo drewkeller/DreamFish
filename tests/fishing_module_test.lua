@@ -7,6 +7,7 @@ local frameRemoved = false
 local tackleTabRegistered = false
 local mounted = false
 local underlightEquipReasons = {}
+local releaseClickCaptureCount = 0
 
 local DreamFish = {
     db = {
@@ -234,6 +235,7 @@ function Fishing:RemoveCastBar()
 end
 
 function Fishing:ReleaseClickCapture()
+    releaseClickCaptureCount = releaseClickCaptureCount + 1
 end
 
 function Fishing:SendMessage()
@@ -276,7 +278,14 @@ Fishing:OnEquipmentChanged(nil, FISHINGTOOLSLOT)
 assert(preparedActionCount == 2, "PRECASTING refresh must reconfigure the secure action")
 assert(Fishing.state.current == namespace.Fishing.states.PRECASTING,
     "starting a cast did not enter PRECASTING")
-Fishing:SetFishingState(namespace.Fishing.states.WAITING_FOR_BITE)
+Fishing:OnSpellcastChannelEnded(nil, "player", "stale-cast-guid", namespace.Fishing.const.fishingSpellID)
+assert(Fishing.state.current == namespace.Fishing.states.PRECASTING,
+    "a delayed channel stop must not cancel an unconfirmed cast")
+Fishing:OnSpellcastChannelStarted(nil, "player", "cast-guid", namespace.Fishing.const.fishingSpellID)
+assert(releaseClickCaptureCount == 1,
+    "confirming a fishing cast must close the temporary full-screen click capture")
+assert(Fishing.state.current == namespace.Fishing.states.WAITING_FOR_BITE,
+    "confirming a fishing cast must arm bobber interaction")
 Fishing:OnEquipmentChanged(nil, FISHINGTOOLSLOT)
 assert(preparedActionCount == 2, "refresh while waiting for a bite must not reconfigure the secure action")
 local cancelledFor

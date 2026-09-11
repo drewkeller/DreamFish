@@ -489,6 +489,7 @@ function Fishing:OnSpellcastChannelStarted(event, unit, ...)
     self.state.castStartConfirmationAttempt = nil
     self:SetFishingState(ns.Fishing.states.CASTING, "spellcast")
     self:StartMouseButtonWatch()
+    self:ReleaseClickCapture()
     self:ConfigureBobberInteractAction()
     self:ArmBobberInteractOverride()
 end
@@ -511,6 +512,11 @@ function Fishing:OnSpellcastChannelEnded(event, unit, ...)
     local isFishingSpell = spellID == ns.Fishing.const.fishingSpellID or spellID == 131476
 
     if isFishingSpell then
+        if current == ns.Fishing.states.PRECASTING then
+            self:Trace("EasyStrike", "Channel stop event ignored; cast start is not confirmed yet.")
+            return
+        end
+
         self:Trace("EasyStrike", "cast finished event=" .. tostring(event) .. " state=" .. self:CurrentStateName())
         -- Currently, looting happens in CASTING state and if we cancel fishing here, we don't get the loot.
         if (self.state.current == ns.Fishing.states.WAITING_FOR_BITE) then

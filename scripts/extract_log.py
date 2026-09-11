@@ -115,6 +115,7 @@ def extract_wow_log_to_csv():
 
     df = pd.DataFrame(parsed_rows)
     output_file = get_output_file()
+    Path(output_file).write_text("", encoding="utf-8")
     if OUTPUT_FORMAT == "logfmt":
         today_str = date.today().isoformat()
         with open(output_file, "w", encoding="utf-8") as f:

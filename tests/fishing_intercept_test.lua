@@ -314,6 +314,13 @@ assert(castStartedCount == 3, "hotkey button-down must start the fishing session
 preClickCallback(Fishing.clickFrame, "RightButton", false)
 assert(castStartedCount == 3, "hotkey button-up must not restart the fishing session")
 
+Fishing:SetFishingState(ns.Fishing.states.WAITING_FOR_BITE)
+secureAttributes.type = "macro"
+secureAttributes.macrotext = "/interact"
+preClickCallback(Fishing.clickFrame, "RightButton", false)
+assert(secureAttributes.type == nil and secureAttributes.macrotext == nil,
+    "a stray bobber interaction frame release must clear the captured action")
+
 Fishing:SetFishingState(ns.Fishing.states.PRECASTING)
 Fishing.state.castAttempt = 1
 Fishing.state.isEquippingPrimaryPole = false
