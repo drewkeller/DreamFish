@@ -121,6 +121,13 @@ assertEquals(Fishing:CheckAndEquipUnderlightAngler("normally after linger"), tru
 assertEquals(#equipCalls, 1, "equip must be dispatched once the channel has finished")
 assertEquals(equipCalls[1], "item:" .. tostring(UNDERLIGHT_ITEM_ID), "equip must target the underlight item")
 
+-- Session end bypasses the channel gate: a cancelled cast can still report a stale channel.
+resetState()
+channeling = true
+assertEquals(Fishing:CheckAndEquipUnderlightAngler("cancelled: movement started", true), true,
+    "session end must equip even while channel info is stale")
+assertEquals(#equipCalls, 1, "session end must dispatch the equip despite a reported channel")
+
 -- Combat still blocks the equip regardless of channel state.
 resetState()
 inCombat = true

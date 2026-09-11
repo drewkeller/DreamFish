@@ -332,7 +332,7 @@ function Fishing:EndFishingSession(reason)
     self:StopMouseButtonWatch()
     self:ClearBobberInteractOverride()
     self:ReleaseClickCapture()
-    self:CheckAndEquipUnderlightAngler(reason)
+    self:CheckAndEquipUnderlightAngler(reason, true)
     self.state.pendingBuffUse = nil
     self.state.buffDepletionAlerted = nil
     self.state.castStartConfirmationAttempt = nil

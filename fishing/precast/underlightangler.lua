@@ -55,7 +55,7 @@ local function GetUnderlightAnglerEquipDecision()
     }
 end
 
-function Fishing:CheckAndEquipUnderlightAngler(reason)
+function Fishing:CheckAndEquipUnderlightAngler(reason, ignoreActiveChannel)
     local selection = ns.precast.GetConfiguredPoleSelections().underlight
     local itemID = tonumber(ns.Fishing.const.underlightAnglerItemID)
     if not selection.isChecked or not itemID or itemID <= 0 or InCombatLockdown() or IsMounted() then
@@ -69,7 +69,9 @@ function Fishing:CheckAndEquipUnderlightAngler(reason)
     -- Equipping an item interrupts an active channel, so never equip while the fishing channel
     -- is running. The delayed post-login safety pass can otherwise land mid-cast and cancel it.
     -- The pole is equipped later by the session-end call when the channel has finished.
-    if type(UnitChannelInfo) == "function" and UnitChannelInfo("player") then
+    -- Session end is exempt: the cast is already over or being cancelled, and the channel info
+    -- can still report stale for a moment (e.g. movement cancels).
+    if not ignoreActiveChannel and type(UnitChannelInfo) == "function" and UnitChannelInfo("player") then
         Trace("Skipping Underlight Angler equip; a channel is active: " .. tostring(reason))
         return false
     end
