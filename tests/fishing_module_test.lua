@@ -339,4 +339,14 @@ assert(options.args.tackleTab.args.raftSection == nil,
 assert(options.args.tackleTab.args.bobberSection == nil,
     "Bobber controls should be configured from the DreamFish dialog, not the Fishing options tab")
 
+local tackleFadeArgs = options.args.frameFadeTab.args.tackleBoxSection.args.dreamfishDialogWhenFishing.args
+assert(tackleFadeArgs.opacityWithMouseover, "opacityWithMouseover option is missing from tackleBoxSection")
+assert(tackleFadeArgs.opacityWithMouseover.get() == false, "opacityWithMouseover default value should be false")
+tackleFadeArgs.opacityWithMouseover.set(nil, true)
+assert(tackleFadeArgs.opacityWithMouseover.get() == true, "opacityWithMouseover should be true after set")
+tackleFadeArgs.opacityWithMouseover.set(nil, false)
+assert(tackleFadeArgs.opacityWithMouseover.get() == false, "opacityWithMouseover should be false after set")
+tackleFadeArgs.opacityWithMouseover.set(nil, true)
+assert(tackleFadeArgs.opacityWithMouseover.get() == true, "opacityWithMouseover should be true after set")
+
 print("fishing_module_test: passed")

@@ -265,14 +265,65 @@ local function SetDreamFishDialogAlpha(frame, targetAlpha, duration)
     if type(UIFrameFadeRemoveFrame) == "function" then
         UIFrameFadeRemoveFrame(frame)
     end
-    if duration and duration > 0 and type(UIFrameFadeIn) == "function" and frame.GetAlpha then
-        UIFrameFadeIn(frame, duration, frame:GetAlpha() or VISIBLE_ALPHA, targetAlpha)
+
+    local currentAlpha = frame.GetAlpha and frame:GetAlpha() or VISIBLE_ALPHA
+    if duration and duration > 0 and frame.GetAlpha then
+        if currentAlpha < targetAlpha and type(UIFrameFadeIn) == "function" then
+            UIFrameFadeIn(frame, duration, currentAlpha, targetAlpha)
+        elseif currentAlpha > targetAlpha and type(UIFrameFadeOut) == "function" then
+            UIFrameFadeOut(frame, duration, currentAlpha, targetAlpha)
+        elseif frame.SetAlpha then
+            frame:SetAlpha(targetAlpha)
+        end
     elseif frame.SetAlpha then
         frame:SetAlpha(targetAlpha)
     end
 end
 
-local function RefreshDreamFishDialogFade(duration)
+local function IsFrameMouseOver(frame)
+    if not frame then
+        return false
+    end
+    if type(MouseIsOver) == "function" then
+        return MouseIsOver(frame) and true or false
+    end
+    if type(frame.IsMouseOver) == "function" then
+        return frame:IsMouseOver() and true or false
+    end
+    return false
+end
+
+local RefreshDreamFishDialogFade
+
+local function HookDreamFishDialogMouseover(frame)
+    if not frame or frame.DreamFishMouseoverHooked or type(frame.HookScript) ~= "function" then
+        return
+    end
+    frame.DreamFishMouseoverHooked = true
+
+    local mouseOverThrottle = 0
+    frame:HookScript("OnUpdate", function(self, elapsed)
+        mouseOverThrottle = mouseOverThrottle + (elapsed or 0.016)
+        if mouseOverThrottle < 0.08 then
+            return
+        end
+        mouseOverThrottle = 0
+
+        local settings = GetDreamFishDialogSettings()
+        if not settings or not settings.opacityWithMouseover then
+            self.dreamFishIsMouseOver = nil
+            return
+        end
+
+        local isOver = IsFrameMouseOver(self)
+        if self.dreamFishIsMouseOver ~= isOver then
+            self.dreamFishIsMouseOver = isOver
+            RefreshDreamFishDialogFade(0.15)
+        end
+    end)
+end
+
+RefreshDreamFishDialogFade = function(duration)
     local settings = GetDreamFishDialogSettings()
     if not settings then
         return
@@ -288,27 +339,35 @@ local function RefreshDreamFishDialogFade(duration)
         return
     end
 
+    HookDreamFishDialogMouseover(frame)
+
+    local isMouseOver = (settings.opacityWithMouseover and IsFrameMouseOver(frame)) and true or false
+    frame.dreamFishIsMouseOver = isMouseOver
+
     if state.isFishing then
         if settings.dreamfishDialogWhenFishing then
             if frameFader.dreamFishDialogWasShown == nil then
                 frameFader.dreamFishDialogWasShown = frame.IsShown and frame:IsShown() or false
                 frameFader.dreamFishDialogOriginalAlpha = frame.GetAlpha and frame:GetAlpha() or VISIBLE_ALPHA
             end
-            SetDreamFishDialogAlpha(frame, tonumber(settings.dreamFishDialogAlphaWhenFishing) or VISIBLE_ALPHA, duration)
+            local targetAlpha = isMouseOver and VISIBLE_ALPHA or (tonumber(settings.dreamFishDialogAlphaWhenFishing) or VISIBLE_ALPHA)
+            SetDreamFishDialogAlpha(frame, targetAlpha, duration)
         else
             SetDreamFishDialogAlpha(frame, HIDDEN_ALPHA, duration)
         end
     elseif frameFader.dreamFishDialogWasShown ~= nil then
         if frameFader.dreamFishDialogWasShown and frame.Show then
             frame:Show()
-            SetDreamFishDialogAlpha(frame, frameFader.dreamFishDialogOriginalAlpha or VISIBLE_ALPHA, duration)
+            local targetAlpha = isMouseOver and VISIBLE_ALPHA or (frameFader.dreamFishDialogOriginalAlpha or VISIBLE_ALPHA)
+            SetDreamFishDialogAlpha(frame, targetAlpha, duration)
         elseif not frameFader.dreamFishDialogWasShown and frame.Hide then
             frame:Hide()
         end
         frameFader.dreamFishDialogWasShown = nil
         frameFader.dreamFishDialogOriginalAlpha = nil
     else
-        SetDreamFishDialogAlpha(frame, tonumber(settings.dreamFishDialogAlphaWhenOther) or VISIBLE_ALPHA, duration)
+        local targetAlpha = isMouseOver and VISIBLE_ALPHA or (tonumber(settings.dreamFishDialogAlphaWhenOther) or VISIBLE_ALPHA)
+        SetDreamFishDialogAlpha(frame, targetAlpha, duration)
     end
 end
 
@@ -621,8 +680,8 @@ local function HideAllFrames(hide)
     -- HideGatherMateMinimap(hide)
 end
 
-function Fishing:RefreshDreamFishDialogFade()
-    RefreshDreamFishDialogFade(0.0)
+function Fishing:RefreshDreamFishDialogFade(duration)
+    RefreshDreamFishDialogFade(duration or 0.0)
 end
 
 local function FadeFrameOut(name, duration)

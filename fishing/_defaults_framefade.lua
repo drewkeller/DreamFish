@@ -9,6 +9,7 @@ ns.moduleDefaults["Fishing"].profile.fadeFrames = {
         dreamfishDialogWhenFishing = true,
         dreamFishDialogAlphaWhenFishing = 1,
         dreamFishDialogAlphaWhenOther = 1,
+        opacityWithMouseover = true,
     },
     { name = "Beware",
         sections = {
