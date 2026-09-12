@@ -108,6 +108,13 @@ function Fishing:SetFishingState(state, reason)
     if state == FISHING_STATES.IDLE then
         assert(not self.state.isFishing, "Fishing state IDLE should not be isFishing")
     end
+
+    if currentFlags and currentFlags ~= FISHING_STATE_FLAGS[state] then
+        local AceConfigRegistry = LibStub("AceConfigRegistry-3.0", true)
+        if AceConfigRegistry then
+            AceConfigRegistry:NotifyChange(addonName .. "Dialog")
+        end
+    end
 end
 
 function Fishing:IsInFishingSession()

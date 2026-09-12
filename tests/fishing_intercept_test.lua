@@ -167,13 +167,18 @@ end
 function DreamFish:Print()
 end
 
-function LibStub(name)
-    assert(name == "AceAddon-3.0")
+function LibStub(name, silent)
+    if name == "AceAddon-3.0" then
     return {
         GetAddon = function()
             return DreamFish
         end,
     }
+    end
+    if silent then
+        return nil
+    end
+    assert(name == "AceAddon-3.0")
 end
 
 UIParent = {}

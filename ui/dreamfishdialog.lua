@@ -383,6 +383,21 @@ local options = {
                         }),
                     } -- Bobber section
                 }),
+                spacerFishingState = AutoOrder({
+                    type = "description",
+                    name = "\n\n",
+                    order = 903,
+                    fontSize = "medium",
+                }),
+                fishingState = AutoOrder({
+                    type = "description",
+                    name = function()
+                        local stateName = Fishing and Fishing.CurrentStateName and Fishing:CurrentStateName() or "IDLE"
+                        return "Fishing State: |cFFFFD100" .. stateName .. "|r"
+                    end,
+                    order = 904,
+                    fontSize = "medium",
+                }),
             },
         },
         buffsTab = {
