@@ -169,11 +169,11 @@ end
 
 function LibStub(name, silent)
     if name == "AceAddon-3.0" then
-    return {
-        GetAddon = function()
-            return DreamFish
-        end,
-    }
+        return {
+            GetAddon = function()
+                return DreamFish
+            end,
+        }
     end
     if silent then
         return nil

@@ -208,14 +208,53 @@ local function BuildModesTab(order)
                 name = " ",
                 fontSize = "small",
             }),
+            lingerExpirationEnabled = AutoOrder({
+                type = "toggle",
+                name = "Exit fishing if idle",
+                desc = "Enable the fishing session to expire after a period of idle time.",
+                width = "full",
+                get = function()
+                    return Fishing.db.profile.lingerExpirationEnabled or false
+                end,
+                set = function(_, value)
+                    Fishing.db.profile.lingerExpirationEnabled = value
+                    if not value then
+                        if type(Fishing.CancelLingerTimer) == "function" then
+                            Fishing:CancelLingerTimer()
+                        end
+                    elseif Fishing.IsFishingState and ns.Fishing and ns.Fishing.states then
+                        if Fishing:IsFishingState(ns.Fishing.states.LINGERING) and type(Fishing.StartLinger) == "function" then
+                            Fishing:StartLinger()
+                        elseif Fishing:IsFishingState(ns.Fishing.states.PRECASTING) and type(Fishing.StartPrecastLingerTimer) == "function" then
+                            Fishing:StartPrecastLingerTimer()
+                        end
+                    end
+                end,
+            }),
             lingerDuration = AutoOrder({
                 type = "range",
                 name = "Linger duration",
-                desc = "The number of seconds after a cast for the fishing session to expire, unless another cast is initiated.",
+                desc = "The number of seconds of idle time for the fishing session to expire.",
                 min = 0,
                 max = 60,
                 step = 1,
                 bigStep = 5,
+                disabled = function()
+                    return Fishing.db.profile.lingerExpirationEnabled == false
+                end,
+                get = function()
+                    return Fishing.db.profile.lingerDuration or 10
+                end,
+                set = function(_, value)
+                    Fishing.db.profile.lingerDuration = value
+                    if Fishing.db.profile.lingerExpirationEnabled and Fishing.IsFishingState and ns.Fishing and ns.Fishing.states then
+                        if Fishing:IsFishingState(ns.Fishing.states.LINGERING) and type(Fishing.StartLinger) == "function" then
+                            Fishing:StartLinger()
+                        elseif Fishing:IsFishingState(ns.Fishing.states.PRECASTING) and type(Fishing.StartPrecastLingerTimer) == "function" then
+                            Fishing:StartPrecastLingerTimer()
+                        end
+                    end
+                end,
             }),
         },
     }

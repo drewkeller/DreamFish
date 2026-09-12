@@ -19,6 +19,8 @@ local DreamFish = {
                 castBySingleRightClickWhenFishing = false,
                 strikeByRightClick = true,
                 strikeByHotkey = true,
+                lingerExpirationEnabled = true,
+                lingerDuration = 10,
             },
         },
         char = {
@@ -74,11 +76,11 @@ end
 
 function LibStub(name, silent)
     if name == "AceAddon-3.0" then
-    return {
-        GetAddon = function()
-            return DreamFish
-        end,
-    }
+        return {
+            GetAddon = function()
+                return DreamFish
+            end,
+        }
     end
     if silent then
         return nil
@@ -346,12 +348,60 @@ assert(options.args.tackleTab.args.bobberSection == nil,
 
 local tackleFadeArgs = options.args.frameFadeTab.args.tackleBoxSection.args.dreamfishDialogWhenFishing.args
 assert(tackleFadeArgs.opacityWithMouseover, "opacityWithMouseover option is missing from tackleBoxSection")
-assert(tackleFadeArgs.opacityWithMouseover.get() == false, "opacityWithMouseover default value should be false")
-tackleFadeArgs.opacityWithMouseover.set(nil, true)
-assert(tackleFadeArgs.opacityWithMouseover.get() == true, "opacityWithMouseover should be true after set")
+assert(tackleFadeArgs.opacityWithMouseover.get() == true, "opacityWithMouseover default value should be true")
 tackleFadeArgs.opacityWithMouseover.set(nil, false)
 assert(tackleFadeArgs.opacityWithMouseover.get() == false, "opacityWithMouseover should be false after set")
 tackleFadeArgs.opacityWithMouseover.set(nil, true)
 assert(tackleFadeArgs.opacityWithMouseover.get() == true, "opacityWithMouseover should be true after set")
+
+local lingerExpirationOption = options.args.modesTab.args.lingerExpirationEnabled
+local lingerDurationOption = options.args.modesTab.args.lingerDuration
+assert(lingerExpirationOption, "lingerExpirationEnabled option is missing from modesTab")
+assert(lingerDurationOption, "lingerDuration option is missing from modesTab")
+assert(lingerExpirationOption.get() == true, "lingerExpirationEnabled default value should be true")
+assert(lingerDurationOption.get() == 10, "lingerDuration default value should be 10")
+assert(lingerDurationOption.disabled() == false, "lingerDuration should not be disabled when lingerExpirationEnabled is true")
+
+lingerExpirationOption.set(nil, false)
+assert(lingerExpirationOption.get() == false, "lingerExpirationEnabled should be false after set")
+assert(lingerDurationOption.disabled() == true, "lingerDuration should be disabled when lingerExpirationEnabled is false")
+
+lingerExpirationOption.set(nil, true)
+assert(lingerExpirationOption.get() == true, "lingerExpirationEnabled should be true after set")
+assert(lingerDurationOption.disabled() == false, "lingerDuration should not be disabled when lingerExpirationEnabled is true")
+
+-- Test precast linger timer execution
+local scheduledTimerCallback = nil
+local scheduledTimerDelay = nil
+local cancelledTimers = 0
+function Fishing:ScheduleTimer(callback, delay)
+    scheduledTimerCallback = callback
+    scheduledTimerDelay = delay
+    return { id = "testTimer" }
+end
+function Fishing:CancelTimer(timer)
+    cancelledTimers = cancelledTimers + 1
+end
+
+Fishing.enabled = true
+Fishing.db.profile.lingerDuration = 15
+Fishing.db.profile.lingerExpirationEnabled = true
+
+Fishing:SetFishingState(namespace.Fishing.states.PRECASTING)
+Fishing:StartPrecastLingerTimer()
+assert(scheduledTimerDelay == 15, "precast linger timer should use lingerDuration")
+assert(type(scheduledTimerCallback) == "function", "precast linger timer callback should be scheduled")
+
+-- Firing callback while in PRECASTING should end fishing session normally
+scheduledTimerCallback()
+assert(Fishing.state.current == namespace.Fishing.states.IDLE, "precast linger expiration must transition to IDLE")
+
+-- When lingerExpirationEnabled is false, StartPrecastLingerTimer should cancel and not schedule
+scheduledTimerCallback = nil
+scheduledTimerDelay = nil
+Fishing.db.profile.lingerExpirationEnabled = false
+Fishing:SetFishingState(namespace.Fishing.states.PRECASTING)
+Fishing:StartPrecastLingerTimer()
+assert(scheduledTimerCallback == nil, "StartPrecastLingerTimer must not schedule when lingerExpirationEnabled is false")
 
 print("fishing_module_test: passed")

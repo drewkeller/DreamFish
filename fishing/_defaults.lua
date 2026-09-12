@@ -30,6 +30,7 @@ ns.moduleDefaults["Fishing"] = {
         showBuffNotes = true,
         -- other
         closeWindowOnEscape = true,
+        lingerExpirationEnabled = true,
         lingerDuration = 10,
         -- audio
         audioFocusEnabled = true,

@@ -203,6 +203,10 @@ function Fishing:PrepareFishingClickAction()
     end
 
     ns.Fishing.ConfigureFishingClickAction(self)
+
+    if self:IsFishingState(ns.Fishing.states.PRECASTING) then
+        self:StartPrecastLingerTimer()
+    end
 end
 
 function Fishing:OnAurasChanged(event, unit, updateInfo)
@@ -305,18 +309,43 @@ function Fishing:CancelLingerTimer()
     end
 end
 
+function Fishing:StartPrecastLingerTimer()
+    self:CancelLingerTimer()
+    if not (self.db and self.db.profile and self.db.profile.lingerExpirationEnabled) then
+        return
+    end
+    local duration = tonumber(self.db and self.db.profile and self.db.profile.lingerDuration) or 10
+    if duration <= 0 then
+        return
+    end
+    self.state.lingerTimer = self:ScheduleTimer(function()
+        self.state.lingerTimer = nil
+        if self:IsFishingState(ns.Fishing.states.PRECASTING) then
+            self:Trace("precast", "Precasting linger duration expired while waiting for action")
+            self:EndFishingSession("normally after linger")
+        end
+    end, duration)
+end
+
 function Fishing:StartLinger()
     -- Recasting is allowed while lingering, so hand the hotkey and the secure action back to casting.
     self:ClearBobberInteractOverride()
     self:SetFishingState(ns.Fishing.states.LINGERING, "start linger")
     -- Drop any stale linger timer from a previous cast so it can't end this linger early.
     self:CancelLingerTimer()
+    if not (self.db and self.db.profile and self.db.profile.lingerExpirationEnabled) then
+        return
+    end
+    local duration = tonumber(self.db and self.db.profile and self.db.profile.lingerDuration) or 10
+    if duration <= 0 then
+        return
+    end
     self.state.lingerTimer = self:ScheduleTimer(function()
         self.state.lingerTimer = nil
         if self:IsFishingState(ns.Fishing.states.LINGERING) then
             self:EndLinger()
         end
-    end, self.db.profile.lingerDuration)
+    end, duration)
 end
 
 function Fishing:EndLinger()
