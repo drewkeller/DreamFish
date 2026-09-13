@@ -162,6 +162,14 @@ local function IsDue(itemID, category, now)
             Trace("Lure is not due: lure is already applied to the active pole.")
             return false, "fishing_lure_already_applied"
         end
+
+        local known = GetKnownBuff(itemID)
+        local lastUse = tonumber(state.buffItemLastUseAt[itemID])
+        local duration = type(known) == "table" and tonumber(known.duration) or nil
+        if lastUse and duration and duration > 0 and now - lastUse < duration then
+            Trace("Lure is not due: confirmed application remains within its known duration.")
+            return false, "confirmed_lure_duration" .. LastUseString(lastUse, duration)
+        end
     end
 
     local lastUse = tonumber(state.buffItemLastUseAt[itemID])
@@ -326,8 +334,16 @@ function Fishing:ConfirmPendingBuffUse(successSpellID)
         if type(Fishing.AnnounceBuffUse) == "function" then
             Fishing:AnnounceBuffUse(itemID, spellID)
         end
-        self:CheckEnabledBuffItemsDepleted()
+
         Trace("Confirmed consumable use: " .. Item(itemID))
+        --self:CheckEnabledBuffItemsDepleted()
+        if ns.Utils.CountItemInBags(itemID) == 0 then
+            Addon:Alert(ns.SystemColor.YELLOW, ns.Addon.GetDebugItemLabel(itemID) .. " has been depleted.")
+        end
+
+        if type(self.PrepareFishingClickAction) == "function" then
+            self:PrepareFishingClickAction()
+        end
         elseif now >= (tonumber(use.expiresAt) or 0) then
             table.remove(pending.uses, index)
 
@@ -349,7 +365,7 @@ local function GetConsumableUseDecision(self, instantOnly)
     if type(Fishing.ConfirmPendingBuffUse) == "function" then
         Fishing:ConfirmPendingBuffUse()
     end
-    Fishing:CheckEnabledBuffItemsDepleted()
+    --Fishing:CheckEnabledBuffItemsDepleted()
     if type(Fishing.UpdatePendingBuffObservation) == "function" then
         Fishing:UpdatePendingBuffObservation()
     end

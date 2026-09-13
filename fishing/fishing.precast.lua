@@ -97,7 +97,14 @@ end
 
 local function InsertUseItemMacroLine(macroLines, itemID)
     local line = "/use item:" .. tostring(itemID)
+    -- Guard against the same item being queued twice in one macro (e.g. misconfigured across categories)
+    for _, existing in ipairs(macroLines) do
+        if existing == line then
+            return false
+        end
+    end
     table.insert(macroLines, line)
+    return true
 end
 
 local function ConfigureFishingClickAction(self)
@@ -148,8 +155,9 @@ local function ConfigureFishingClickAction(self)
         local consumableDecision = ns.precast.GetConsumableUseDecision(self, hasItemUseAction)
         if consumableDecision.shouldApply then
             for _, consumable in ipairs(consumableDecision.items or {}) do
-                Addon:Print("Arming due buff: " .. ns.Utils.GetDebugItemLabel(consumable.itemID) .. " (" .. tostring(consumable.category) .. ")")
-                InsertUseItemMacroLine(macroLines, consumable.itemID)
+                if (InsertUseItemMacroLine(macroLines, consumable.itemID)) then
+                    Addon:Print("Armed due buff: " .. ns.Utils.GetDebugItemLabel(consumable.itemID) .. " (" .. tostring(consumable.category) .. ")")
+                end
                 hasItemUseAction = true
                 if consumable.category == "lure" then
                     table.insert(macroLines, "/use 28")
