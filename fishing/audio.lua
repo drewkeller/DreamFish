@@ -1,14 +1,6 @@
 local addonName, ns = ...
 local Fishing = ns.Fishing or LibStub("AceAddon-3.0"):GetAddon("DreamFish"):GetModule("Fishing")
-local AudioMessageSink = {}
-
-function AudioMessageSink:StartFishingAudioFocus(...)
-    Fishing:StartFishingAudioFocus(...)
-end
-
-function AudioMessageSink:RestoreFishingAudioFocus(...)
-    Fishing:RestoreFishingAudioFocus(...)
-end
+local MessageSink = {}
 
 local globalDB, profileDB, charDB
 
@@ -29,14 +21,14 @@ end)
 
 Fishing:RegisterOnModuleRegisterEvents(function(self)
     Trace("Registering events")
-    self.RegisterMessage(AudioMessageSink, "FISHING_SESSION_STARTED", "StartFishingAudioFocus")
-    self.RegisterMessage(AudioMessageSink, "FISHING_SESSION_ENDED",   "RestoreFishingAudioFocus")
+    self.RegisterMessage(MessageSink, "FISHING_SESSION_STARTED", "FISHING_SESSION_STARTED")
+    self.RegisterMessage(MessageSink, "FISHING_SESSION_ENDED",   "FISHING_SESSION_ENDED")
     self:ResumePersistedAudioDuckingState()
 end)
 
 Fishing:RegisterOnModuleUnregisterEvents(function(self)
-    self.UnregisterMessage(AudioMessageSink, "FISHING_SESSION_STARTED")
-    self.UnregisterMessage(AudioMessageSink, "FISHING_SESSION_ENDED")
+    self.UnregisterMessage(MessageSink, "FISHING_SESSION_STARTED")
+    self.UnregisterMessage(MessageSink, "FISHING_SESSION_ENDED")
 end)
 
 Fishing:RegisterOnModuleDisable(function(self)
@@ -170,6 +162,16 @@ function Fishing:EnableFishingAudioFocus(force)
     Trace("Audio duck apply: new={amb=" .. tostring(ns.state.audio.lastFishingDuckedAudioCVars.ambience)
         .. ", mus=" .. tostring(ns.state.audio.lastFishingDuckedAudioCVars.music)
         .. ", dlg=" .. tostring(ns.state.audio.lastFishingDuckedAudioCVars.dialog) .. "}")
+end
+
+function MessageSink:FISHING_SESSION_STARTED(...)
+    Trace("Fishing session started.")
+    Fishing:StartFishingAudioFocus()
+end
+
+function MessageSink:FISHING_SESSION_ENDED(...)
+    Trace("Fishing session ended.")
+    Fishing:RestoreFishingAudioFocus()
 end
 
 function Fishing:RestoreFishingAudioFocus()

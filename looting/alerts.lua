@@ -1,6 +1,7 @@
 local addonName, ns = ...
 local Addon = ns.Addon
 local LootTracker = ns.LootTracker
+local MessageSink = {}
 
 local profileDB
 local state = {
@@ -10,7 +11,7 @@ local state = {
     lastBagWarning = 0,
 }
 
-local patientlyRewardedSpellID = 1235378
+local patientlyRewardedSpellIDs = { 1235378, 1269521 }
 
 LootTracker:RegisterTraceSource("alerts")
 
@@ -23,23 +24,24 @@ LootTracker:RegisterOnModuleInitialize(function(self)
 end)
 
 LootTracker:RegisterOnModuleRegisterEvents(function(self)
+    Trace("Registering events")
     self:RegisterEvent("UNIT_AURA", "UNIT_AURA")
-    Addon:RegisterMessage("FISHING_SESSION_STARTED", function(...) self:Alerts_FISHING_SESSION_STARTED(...) end)
-    Addon:RegisterMessage("FISHING_SESSION_ENDED",   function(...) self:Alerts_FISHING_SESSION_ENDED(...) end)
+    self.RegisterMessage(MessageSink, "FISHING_SESSION_STARTED", "FISHING_SESSION_STARTED")
+    self.RegisterMessage(MessageSink, "FISHING_SESSION_ENDED", "FISHING_SESSION_ENDED")
 end)
 
 LootTracker:RegisterOnModuleUnregisterEvents(function(self)
     self:UnregisterEvent("UNIT_AURA")
-    Addon:UnregisterMessage("FISHING_SESSION_STARTED")
-    Addon:UnregisterMessage("FISHING_SESSION_ENDED")
+    self.UnregisterMessage(MessageSink, "FISHING_SESSION_STARTED")
+    self.UnregisterMessage(MessageSink, "FISHING_SESSION_ENDED")
 end)
 
-function LootTracker:Alerts_FISHING_SESSION_STARTED(...)
+function MessageSink:FISHING_SESSION_STARTED(...)
     Trace("Fishing session started.")
     state.isFishing = true
 end
 
-function LootTracker:Alerts_FISHING_SESSION_ENDED(...)
+function MessageSink:FISHING_SESSION_ENDED(...)
     Trace("Fishing session ended.")
     state.isFishing = false
 end
@@ -97,7 +99,7 @@ local function ShowPatientTreasureAlert(subtext, force)
     state.lastAlertTime = now
 
     local alert = CreateTreasureAlertFrame()
-    local icon = GetSpellTexture and GetSpellTexture(patientlyRewardedSpellID)
+    local icon = GetSpellTexture and GetSpellTexture(patientlyRewardedSpellIDs[1])
     if icon then
         alert.icon:SetTexture(icon)
     else
@@ -144,18 +146,19 @@ local function ShowPatientTreasureAlert(subtext, force)
 end
 
 local function HasPatientlyRewardedAura()
-    if C_UnitAuras and C_UnitAuras.GetPlayerAuraBySpellID then
-        return C_UnitAuras.GetPlayerAuraBySpellID(patientlyRewardedSpellID) ~= nil
-    end
-    if AuraUtil and AuraUtil.FindAuraBySpellID then
-        return AuraUtil.FindAuraBySpellID(patientlyRewardedSpellID, "player", "HELPFUL") ~= nil
+    for _, spellID in ipairs(patientlyRewardedSpellIDs) do
+        if C_UnitAuras and C_UnitAuras.GetPlayerAuraBySpellID then
+            if C_UnitAuras.GetPlayerAuraBySpellID(spellID) then return true end
+        elseif AuraUtil and AuraUtil.FindAuraBySpellID then
+            if AuraUtil.FindAuraBySpellID(spellID, "player", "HELPFUL") then return true end
+        end
     end
     return false
 end
 
-function LootTracker:UNIT_AURA(_, event, ...)
-    local arg1, arg2 = ...
-    if type(arg1) ~= "string" or arg1 ~= "player" then return end
+-- AceEvent dispatches as self:UNIT_AURA(eventName, unit, updateInfo)
+function LootTracker:UNIT_AURA(event, unit, updateInfo)
+    if type(unit) ~= "string" or unit ~= "player" then return end
 
     local hasAura = HasPatientlyRewardedAura()
     if hasAura and not state.patientAuraActive then
@@ -258,6 +261,6 @@ function LootTracker:Alerts_BAG_UPDATE_DELAYED(...)
     if profileDB.bagAlertOnlyWhenFishing and not state.isFishing then
         return
     end
-    Trace("Alerts_BAG_UPDATE_DELAYED called")
+    Trace("BAG_UPDATE_DELAYED called")
     CheckBagSpace()
 end
