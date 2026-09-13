@@ -46,7 +46,7 @@ local function WarnMissingProfessionFishingPoleForLure()
     state.lureMissingPoleWarningAt = now
 
     local warningText = "Cannot apply lure: no fishing pole equipped in profession slot."
-    Addon:Alert(warningText)
+    Addon:Alert(ns.SystemColor.YELLOW, warningText)
 end
 
 local function GetNow()
@@ -279,7 +279,7 @@ function Fishing:CheckEnabledBuffItemsDepleted()
                     local itemName = (C_Item and type(C_Item.GetItemInfo) == "function" and C_Item.GetItemInfo(itemID))
                         or "Unknown buff item"
                     state.buffDepletionAlerted = true
-                    Addon:Alert("Buff item depleted: " .. tostring(itemName) .. " (" .. tostring(itemID) .. ")")
+                    Addon:Alert(ns.SystemColor.YELLOW, "Buff item depleted: " .. tostring(itemName) .. " (" .. tostring(itemID) .. ")")
                     return
                 end
             end
@@ -335,7 +335,7 @@ function Fishing:ConfirmPendingBuffUse(successSpellID)
             if pending.executedAt and itemID then
                 self.state.buffUnknownDurationSuppressed = self.state.buffUnknownDurationSuppressed or {}
                 self.state.buffUnknownDurationSuppressed[itemID] = now + 10
-                Addon:Alert("Consumable use failed: " .. Item(itemID) .. ". Suppressing for 10 seconds.")
+                Addon:Alert(ns.SystemColor.YELLOW, "Consumable use failed: " .. Item(itemID) .. ". Suppressing for 10 seconds.")
             end
         end
     end

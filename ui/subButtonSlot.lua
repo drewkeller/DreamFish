@@ -96,7 +96,7 @@ local function CreateSubButtonSlot(parentCanvas, slotIndex)
 
     local function SyncVisuals()
         if slot.itemID and slot.itemID > 0 then
-            Trace("SyncVisuals: updating slot " .. tostring(slot.index) .. " with itemID " .. tostring(slot.itemID) .. " and checked state " .. tostring(slot.isChecked))
+            --Trace("SyncVisuals: updating slot " .. tostring(slot.index) .. " with itemID " .. tostring(slot.itemID) .. " and checked state " .. tostring(slot.isChecked))
             box.icon:SetTexture(C_Item.GetItemIconByID(slot.itemID) or "Interface\\Icons\\INV_Misc_QuestionMark")
 
             -- Locate item location in player inventories

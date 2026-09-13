@@ -18,6 +18,20 @@ for _, info in pairs(ns.logLevelInfo) do
     ns.logLevel[info.name] = info.value -- flat: logLevel.TRACE
 end
 
+ns.SystemColor = {
+    { name = "WHITE",     blizzName = "SAY",          color = "FFFFFF" },
+    { name = "GREEN",     blizzName = "GUILD",        color = "00FF00" },
+    { name = "DARKGREEN", blizzName = "OFFICER",      color = "006400" },
+    { name = "BLUE",      blizzName = "PARTY",        color = "0000FF" },
+    { name = "YELLOW",    blizzName = "SYSTEM",       color = "FFFF00" }, -- ACHIEVEMENT
+    { name = "ORANGE",    blizzName = "RAID",         color = "FFA500" },
+    { name = "RED",       blizzName = "RAID_WARNING", color = "FF0000" }, -- YELL
+    { name = "PURPLE",    blizzName = "WHISPER",      color = "006400" },
+}
+for _, info in pairs(ns.SystemColor) do
+    ns.SystemColor[info.name] = info
+end
+
 ns.state = {
     audio ={
         lastFishingDuckedAudioCVars = nil,

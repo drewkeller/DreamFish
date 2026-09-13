@@ -236,11 +236,9 @@ local function CheckBagSpace()
         if now - state.lastBagWarning >= tonumber(profileDB.bagAlertThrottle) then
             state.lastBagWarning = now
 
-            Addon:Info("alerts",
-                "Low bag space! Bags: " .. tostring(regularFree or "n/a")
-                .. ", Reagent: " .. tostring(reagentFree or "n/a")
-                .. " slot(s) remaining (thresholds: bags=" .. tostring(threshold)
-                .. ", reagent=" .. tostring(reagentThreshold) .. ")."
+            Addon:Alert(ns.SystemColor.YELLOW,
+            string.format("Low bag space! Bags: %s free, Reagent: %s free",
+                tostring(regularFree or "n/a"), tostring(reagentFree or "n/a"))
             )
 
             if profileDB.bagAlertPlaySound then

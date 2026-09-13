@@ -160,6 +160,11 @@ function Addon:DumpToLog(msg, item, ...)
     Log("[DumpToLog]", FormatLogValue(msg), FormatLogValue(item), ...)
 end
 
+function Addon:Dump(msg, item)
+    local prefix = "|cFF9ACDFF[" .. addonName .. "]|r"
+    PrintNoLog(prefix, nil, FormatLogValue(msg), FormatLogValue(item))
+end
+
 function Addon:PrintLootMessage(msg)
     for index = 1, NUM_CHAT_WINDOWS do
         local frame = _G["ChatFrame"..index]
@@ -180,13 +185,16 @@ function Addon:PrintLootMessage(msg)
     end
 end
 
-function Addon:Alert(msg, ...)
+function Addon:Alert(systemColor, msg, ...)
     if ns.Utils.IsCoreLoaded() and Addon then
         ns.Utils.PlayWarningCue()
     end
-    local systemColor = ChatTypeInfo["SYSTEM"] -- Yellow
-    --local systemColor = ChatTypeInfo["RAID_WARNING"] -- Red
-    RaidWarningUtil.AddMessage(msg, systemColor)
+    local prefix = "|cFF9ACDFF[" .. addonName .. "]|r"
+    local blizzName = type(systemColor) == "table" and systemColor.blizzName or nil
+    -- RaidWarningUtil.AddMessage indexes colorInfo without a nil check
+    local colorInfo = (blizzName and ChatTypeInfo[blizzName]) or ChatTypeInfo["RAID_WARNING"]
+    RaidWarningUtil.AddMessage(msg, colorInfo)
+    PrintNoLog(prefix, nil, msg, ...)
 end
 
 function ns.Utils.DebugModuleSourceWithStack(level, module, source, stackTrace, msg, ...)
