@@ -140,7 +140,7 @@ local function CreateSubButtonSlot(parentCanvas, slotIndex)
         end
     end)
 
-    local function CommitChanges(newItemID, newChecked)
+    local function CommitChanges(newItemID, newChecked, skipPersist)
         local previousItemID = slot.itemID
         slot.itemID = newItemID or nil
         if not slot.itemID or slot.itemID <= 0 then
@@ -151,7 +151,9 @@ local function CreateSubButtonSlot(parentCanvas, slotIndex)
             slot.isChecked = newChecked and true or false
         end
 
-        if parentCanvas.arg then
+        -- skipPersist is used for the transient "lifted onto cursor" state so a mid-drag
+        -- AceConfigRegistry notify doesn't rebuild the dialog and destroy the drop target.
+        if not skipPersist and parentCanvas.arg then
             -- 1. Pass the absolute variable straight to your updated database setters
             if parentCanvas.arg.SetItemValue then
                 parentCanvas.arg.SetItemValue(slot.index, slot.itemID)
@@ -218,11 +220,20 @@ local function CreateSubButtonSlot(parentCanvas, slotIndex)
         CommitChanges(cleanCursorItemID, slot.isChecked)
 
         if sourceWidget and sourceWidget ~= slot then
-            sourceWidget.obj:ExternalCommit(targetItemID, sourceWidget.obj.isChecked)
-            sourceWidget.obj.box:SetBackdropBorderColor(unpack(sourceWidget.obj.box.defaultBorderColor))
+            -- Slot-to-slot drag: finalize the source slot's removal (it was only tentatively
+            -- cleared during the drag) instead of swapping the displaced item back into it.
+            sourceWidget:ExternalCommit(nil, sourceWidget.isChecked)
+            sourceWidget.box:SetBackdropBorderColor(unpack(sourceWidget.box.defaultBorderColor))
         end
 
-        ClearCursor()
+        if targetItemID and targetItemID > 0 then
+            -- Hand the displaced item back to the cursor instead of discarding it
+            ClearCursor()
+            C_Item.PickupItem(targetItemID)
+        else
+            ClearCursor()
+        end
+
         Fishing.state.uiBuffCursorDragState = nil
         return true
     end
@@ -278,7 +289,7 @@ local function CreateSubButtonSlot(parentCanvas, slotIndex)
         if slot.itemID and slot.itemID > 0 then
             C_Item.PickupItem(slot.itemID)
             if GetCursorInfo() == "item" then
-                CommitChanges(nil, slot.isChecked)
+                CommitChanges(nil, slot.isChecked, true)
                 Fishing.state.uiBuffCursorDragState = { source = slot }
                 SetDragHighlight("active")
             end
@@ -286,10 +297,27 @@ local function CreateSubButtonSlot(parentCanvas, slotIndex)
     end)
 
     box:SetScript("OnDragStop", function()
-        if Fishing.state.uiBuffCursorDragState and Fishing.state.uiBuffCursorDragState.source == slot then
-            Fishing.state.uiBuffCursorDragState = nil
-        end
         SetDragHighlight(nil)
+        if not (Fishing.state.uiBuffCursorDragState and Fishing.state.uiBuffCursorDragState.source == slot) then
+            return
+        end
+        -- OnDragStop fires on the origin slot before OnReceiveDrag/OnMouseUp fires on whatever
+        -- slot is under the cursor, so defer this check until that has had a chance to run.
+        C_Timer.After(0, function()
+            if not (Fishing.state.uiBuffCursorDragState and Fishing.state.uiBuffCursorDragState.source == slot) then
+                return -- the drop was already claimed by a target slot
+            end
+            Fishing.state.uiBuffCursorDragState = nil
+            if GetCursorInfo() == "item" then
+                if type(MouseIsOver) == "function" and MouseIsOver(box) then
+                    TryDropCursorItemToSlot()
+                else
+                    -- Released outside any slot: finalize the removal and return the item to the cursor/bag.
+                    CommitChanges(nil, slot.isChecked)
+                    ClearCursor()
+                end
+            end
+        end)
     end)
 
     box:SetScript("OnReceiveDrag", function()
