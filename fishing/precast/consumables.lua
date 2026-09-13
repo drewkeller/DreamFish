@@ -324,7 +324,9 @@ function Fishing:ConfirmPendingBuffUse(successSpellID)
         if not isKnownDuration then
             self.state.pendingBuffObservation = {
                 itemID = itemID,
-                before = pending.auraBefore or {},
+                before = type(Fishing.BuildHelpfulAuraSnapshot) == "function"
+                    and Fishing:BuildHelpfulAuraSnapshot()
+                    or {},
                 expiresAt = now + 20,
             }
         else

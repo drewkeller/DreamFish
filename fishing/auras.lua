@@ -271,6 +271,16 @@ function Fishing:GetTrackedBuffRemaining(itemID)
         end
     end
 
+    if knownSpellID and knownDuration and self.db.global and type(self.db.global.buffAuraByItem) == "table" then
+        local tracked = self.db.global.buffAuraByItem[tostring(numericItemID)]
+        if type(tracked) == "table" and (tracked.spellID ~= knownSpellID or tracked.duration ~= knownDuration) then
+            tracked.spellID = knownSpellID
+            tracked.duration = knownDuration
+            trackedSpellID = knownSpellID
+            trackedDuration = knownDuration
+        end
+    end
+
     local spellIDsToCheck = {}
     if knownSpellID and knownSpellID > 0 then
         table.insert(spellIDsToCheck, knownSpellID)
