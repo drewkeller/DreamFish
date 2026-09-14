@@ -258,6 +258,7 @@ local function QueueBuffUse(itemID, category)
     table.insert(pendingUse.uses, {
         itemID = itemID,
         category = category,
+        sessionGeneration = state.fishingSessionGeneration,
         itemSpellID = itemSpellID or knownSpellID,
         knownSpellID = knownSpellID,
         countBefore = ns.Utils.CountItemInBags(itemID),
@@ -340,7 +341,7 @@ function Fishing:ConfirmPendingBuffUse(successSpellID)
         Trace("Confirmed consumable use: " .. Item(itemID))
         --self:CheckEnabledBuffItemsDepleted()
         if ns.Utils.CountItemInBags(itemID) == 0 then
-            Addon:Alert(ns.SystemColor.YELLOW, ns.Addon.GetDebugItemLabel(itemID) .. " has been depleted.")
+            Addon:Alert(ns.SystemColor.YELLOW, ns.Utils.GetDebugItemLabel(itemID) .. " has been depleted.")
         end
 
         if type(self.PrepareFishingClickAction) == "function" then
@@ -350,7 +351,10 @@ function Fishing:ConfirmPendingBuffUse(successSpellID)
             table.remove(pending.uses, index)
 
             -- Only an executed macro can establish that an item was rejected.
-            if pending.executedAt and itemID then
+            local isCurrentSession = pending.sessionGeneration == nil
+                or pending.sessionGeneration == state.fishingSessionGeneration
+            if pending.executedAt and itemID and isCurrentSession
+                and not state.suppressPendingBuffFailure then
                 self.state.buffUnknownDurationSuppressed = self.state.buffUnknownDurationSuppressed or {}
                 self.state.buffUnknownDurationSuppressed[itemID] = now + 10
                 Addon:Alert(ns.SystemColor.YELLOW, "Consumable use failed: " .. Item(itemID) .. ". Suppressing for 10 seconds.")

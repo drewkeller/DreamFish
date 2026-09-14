@@ -1,5 +1,6 @@
 local now = 100
 local bagCount = 1
+local alertCount = 0
 
 local Fishing = {
     state = {},
@@ -36,6 +37,7 @@ local namespace = {
             return tostring(itemID)
         end,
         Alert = function()
+            alertCount = alertCount + 1
         end,
     },
     Fishing = Fishing,
@@ -107,5 +109,18 @@ Fishing.db.global.buffAuraByItem["274588"] = {
 Fishing:GetTrackedBuffRemaining(274588)
 assert(Fishing.db.global.buffAuraByItem["274588"].duration == 30,
     "known aura duration must replace a stale learned duration")
+
+Fishing.state.fishingSessionGeneration = 2
+local alertsBeforeStaleFailure = alertCount
+Fishing.state.pendingBuffUse = {
+    executedAt = now,
+    uses = {
+        { itemID = 274588, expiresAt = now },
+    },
+    sessionGeneration = 1,
+}
+Fishing:ConfirmPendingBuffUse()
+assert(alertCount == alertsBeforeStaleFailure,
+    "a stale consumable failure after cast cancellation must be silent")
 
 print("fishing_consumables_learning_test: passed")

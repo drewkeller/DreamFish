@@ -356,6 +356,8 @@ end
 
 -- End the fishing session normally, after linger period
 function Fishing:EndFishingSession(reason)
+    self.state.fishingSessionGeneration = (self.state.fishingSessionGeneration or 0) + 1
+    self.state.suppressPendingBuffFailure = true
     self:CancelLingerTimer()
     self:StopWatchingStrikeKey()
     self:StopMouseButtonWatch()
@@ -594,6 +596,8 @@ end
 
 function Fishing:OnCastStarted(reason)
     self:SetFishingState(ns.Fishing.states.PRECASTING, reason)
+    self.state.fishingSessionGeneration = (self.state.fishingSessionGeneration or 0) + 1
+    self.state.suppressPendingBuffFailure = false
     -- A new cast supersedes any pending linger from the previous catch.
     self:CancelLingerTimer()
 
