@@ -351,8 +351,8 @@ function Fishing:ConfirmPendingBuffUse(successSpellID)
             table.remove(pending.uses, index)
 
             -- Only an executed macro can establish that an item was rejected.
-            local isCurrentSession = pending.sessionGeneration == nil
-                or pending.sessionGeneration == state.fishingSessionGeneration
+            local isCurrentSession = use.sessionGeneration == nil
+                or use.sessionGeneration == state.fishingSessionGeneration
             if pending.executedAt and itemID and isCurrentSession
                 and not state.suppressPendingBuffFailure then
                 self.state.buffUnknownDurationSuppressed = self.state.buffUnknownDurationSuppressed or {}

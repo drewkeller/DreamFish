@@ -115,9 +115,8 @@ local alertsBeforeStaleFailure = alertCount
 Fishing.state.pendingBuffUse = {
     executedAt = now,
     uses = {
-        { itemID = 274588, expiresAt = now },
+        { itemID = 274588, expiresAt = now, sessionGeneration = 1 },
     },
-    sessionGeneration = 1,
 }
 Fishing:ConfirmPendingBuffUse()
 assert(alertCount == alertsBeforeStaleFailure,

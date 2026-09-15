@@ -21,12 +21,17 @@ local function GetRaftAuraRemainingSeconds(raftToyID)
     return math.max(0, aura.expirationTime - GetTime())
 end
 
+local function IsRaftBlockedByShapeshift()
+    return type(GetShapeshiftForm) == "function" and GetShapeshiftForm() > 0
+end
+
 local function GetRaftUseDecision(self)
     local toyID = tonumber(self.db.profile.selectedRaftToy) or nil
     local hasRaftSelected = toyID and toyID > 0
     local hasToy = hasRaftSelected and ns.Utils.IsToyOwned(toyID) or false
     local isReady = hasToy and ns.Utils.IsCooldownReady(toyID)
     local swimming = IsSwimming()
+    local blockedByShapeshift = IsRaftBlockedByShapeshift()
     local auraRemaining = (hasToy and swimming) and GetRaftAuraRemainingSeconds(toyID) or nil
     local castLead = ns.Fishing.const.maxFishingCastSeconds + ns.Fishing.const.buffPreRefreshSafetySeconds
     if auraRemaining == nil and hasToy then
@@ -39,6 +44,7 @@ local function GetRaftUseDecision(self)
         and hasToy
         and isReady
         and needsRefresh
+        and not blockedByShapeshift
         and (swimming or auraRemaining ~= nil)
 
     if shouldApply then
@@ -51,6 +57,8 @@ local function GetRaftUseDecision(self)
         Trace("Raft is not owned")
     elseif not isReady then
         Trace("Raft toy on cooldown: " .. ns.Utils.GetDebugCooldownText(toyID))
+    elseif blockedByShapeshift then
+        Trace("Raft cannot be applied while shapeshifted")
     elseif not needsRefresh then
         Trace("Raft aura remaining sufficient for cast")
     elseif not (swimming or auraRemaining ~= nil) then
@@ -64,10 +72,12 @@ local function GetRaftUseDecision(self)
         hasToy = hasToy,
         ready = isReady,
         swimming = swimming,
+        blockedByShapeshift = blockedByShapeshift,
         auraRemaining = auraRemaining,
         needsRefreshForCast = needsRefresh,
         shouldApply = shouldApply,
     }
 end
 
+ns.precast.IsRaftBlockedByShapeshift = IsRaftBlockedByShapeshift
 ns.precast.GetRaftUseDecision = GetRaftUseDecision

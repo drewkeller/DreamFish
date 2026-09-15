@@ -15,17 +15,33 @@ local function Trace(msg)
     Fishing:Trace("precast", msg)
 end
 
+local RAFT_SHAPESHIFT_ERROR = "Raft-like items cannot be cast on a shape-shifted target"
+local lastRaftShapeshiftAlertAt
+
+local function ShowRaftShapeshiftError()
+    local now = (type(GetTime) == "function") and GetTime() or 0
+    if lastRaftShapeshiftAlertAt and (now - lastRaftShapeshiftAlertAt) < 2 then
+        return
+    end
+    lastRaftShapeshiftAlertAt = now
+    Addon:Alert(ns.SystemColor.RED, RAFT_SHAPESHIFT_ERROR)
+end
+
 function Fishing:ApplyRaft()
     local toyID = tonumber(profileDB.selectedRaftToy)
     if toyID and toyID > 0 and ns.Utils.IsToyOwned(toyID) then
-        C_ToyBox.UseToy(toyID)
+        if ns.precast.IsRaftBlockedByShapeshift() then
+            ShowRaftShapeshiftError()
+            return
+        end
+        UseToyByName(toyID)
     end
 end
 
 function Fishing:ApplyBobber()
     local toyID = tonumber(profileDB.selectedBobberToy)
     if toyID and toyID > 0 and ns.Utils.IsToyOwned(toyID) then
-        C_ToyBox.UseToy(toyID)
+        UseToyByName(toyID)
     end
 end
 
@@ -125,6 +141,8 @@ local function ConfigureFishingClickAction(self)
             raftExclusive = true
             Trace("Raft needed while swimming; skipping other pre-cast items this click")
         end
+    elseif raftDecision.blockedByShapeshift and raftDecision.swimming then
+        ShowRaftShapeshiftError()
     end
 
     if not raftExclusive then

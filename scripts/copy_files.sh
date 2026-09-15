@@ -30,3 +30,5 @@ cp -fa $ADDON_NAME.lua $ADDON_NAME.toc Bindings.lua Bindings.xml  \
 #cp -rf assets audio buff core fishing ui Libs "$ADDON_DIR"
 cp -rfa assets core Libs fishing looting module ui utility \
   "$ADDON_DIR"
+
+echo "$(date): Copyied files to $ADDON_DIR"
