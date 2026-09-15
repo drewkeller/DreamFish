@@ -111,12 +111,18 @@ function module:GetModuleOptions()
     }
 end
 
+local callbackDatabase
+module:RegisterOnModuleInitialize(function(self)
+    callbackDatabase = self.db
+end)
+
 module:OnInitialize()
 
 assert(module.config.displayName == "Sample Module", "module configuration was not loaded")
 assert(module.config.dbKey == "sample", "module database key was not loaded")
 assert(module.enabled == false, "saved module state was not applied")
 assert(module.initialized, "module initialization hook was not called")
+assert(callbackDatabase == module.db, "registered initialization callback did not receive the module database")
 
 local options = module:GetOptionsTable()
 assert(options.args.sampleOption, "module-specific options were not included")

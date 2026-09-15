@@ -12,11 +12,7 @@ ns.Fishing.state = {
 }
 
 ns.moduleDefaults["Fishing"] = {
-    global = {
-        buffAuraByItem = {
-            ["238374"] = { spellID = 1237942, duration = 30, category="other_consumable", }, -- Tender Lumifin
-        },
-    },
+    global = {},
     profile = {
         moduleEnabled = true,
         debug = false,

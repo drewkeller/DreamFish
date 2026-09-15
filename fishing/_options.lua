@@ -68,9 +68,9 @@ end
 
 -- These are the exact CVars /fstack itself reads as defaults when toggled.
 local function ApplyFrameStackFilters()
-    SetCVar("fstack_showhidden", not Fishing.db.profile.frameStackExcludeHidden)
-    SetCVar("fstack_showregions", not Fishing.db.profile.frameStackExcludeRegionsAndTextures)
-    SetCVar("fstack_showanchors", not Fishing.db.profile.frameStackExcludeAnchors)
+    SetCVar("fstack_showhidden", Fishing.db.profile.frameStackIncludeHidden)
+    SetCVar("fstack_showregions", Fishing.db.profile.frameStackIncludeRegionsAndTextures)
+    SetCVar("fstack_showanchors", Fishing.db.profile.frameStackIncludeAnchors)
 end
 
 -- FrameStackTooltip_Toggle only reads the CVars above when going hidden->shown, so a checkbox
@@ -105,6 +105,11 @@ function Fishing:GetModuleConfig()
     }
 end
 
+local SESSION_TEXT = "A session is one or more casts. It begins with the first precast "
+    .. "(initated by double click or hotkey) and ends when fishing is interrupted or "
+    .. "expires due to idle timeout."
+
+
 local function BuildModesTab(order)
     layoutCounter = 0
     return {
@@ -120,13 +125,13 @@ local function BuildModesTab(order)
                     castByDoubleRightClick = AutoOrder({
                         type = "toggle",
                         name = "Double right click",
-                        desc = "Double right click to begin fishing.",
+                        desc = "Double right click to begin a session or to cast.\n" .. SESSION_TEXT,
                         width = "full",
                     }),
                     castBySingleRightClickWhenFishing = AutoOrder({
                         type = "toggle",
-                        name = "Single right click (while fishing)",
-                        desc = "Single right click to cast when already in fishing session.",
+                        name = "Single right click (while in a \"session\")",
+                        desc = "Single right click to cast when already in fishing session.\n" .. SESSION_TEXT,
                         width = "full",
                         set = function(_, value)
                             Fishing.db.profile.castBySingleRightClickWhenFishing = value
@@ -138,7 +143,7 @@ local function BuildModesTab(order)
                     castByHotkey = AutoOrder({
                         type = "toggle",
                         name = "Hotkey",
-                        desc = "Use a hotkey to begin fishing.",
+                        desc = "Use a hotkey to begin a session or to cast.\n" .. SESSION_TEXT,
                         width = "full",
                     }),
                     castHotkeyKeybind1 = AutoOrder({
@@ -176,7 +181,7 @@ local function BuildModesTab(order)
                         type = "description",
                         name = "|c80999999  Requirements for either EasyStrike:|r\n"
                             .. "|c80999999  1. Turn on \"Enable Interact Key\" (Game Options > Controls).|r\n"
-                            .. "|c80999999  2. Set the \"Hotkey\" keybinding above.|r\n"
+                            .. "|c80999999  2. Set the \"Hotkey\" keybinding above (if hotkey mode).|r\n"
                             .. "|c80999999  3. Ensure another addon does not interfere while fishing.|r",
                         width = "full",
                     }),
@@ -306,8 +311,10 @@ local function BuildAudioFocusTab(order)
                     description = {
                         type = "description",
                         name = "\n"
-                            .. "|c66999999A value of 0 means completely muted, 100% means no reduction from the original volume.|r",
-                        fontSize = "medium",
+                            .. "|c66999999When a fishing session starts, the volume of each channel checked and reduced as follows.|r"
+                            .. "|c66999999   A value of 0 means completely muted.\n|r"
+                            .. "|c66999999   35% means the volume is reduced to 35% of the original volume.\n|r"
+                            .. "|c66999999   100% means no reduction from the original volume.|r",
                         order = 1,
                     },
                     -- Sliders (below) are inserted here
@@ -321,6 +328,38 @@ local function BuildAudioFocusTab(order)
     CreateCenteredSlider(group, "dialogDuckingLevel",   "Dialog",   "50%", 30)
 
     return tab
+end
+
+local function AddFrameFadeControlButtons(args)
+    args.forceHide = {
+        type = "execute",
+        name = "Start Faded Mode",
+        desc = "Hide frames according to frame selections.",
+        width = "relative",
+        relWidth = 0.49,
+        order = 1,
+        func = function()
+            Fishing:ForceHidden()
+        end
+    }
+    args.forceShow = {
+        type = "execute",
+        name = "Show Frames",
+        desc = "Show all frames.",
+        width = "relative",
+        relWidth = 0.49,
+        order = 2,
+        func = function()
+            Fishing:ForceVisible()
+        end
+    }
+    args.tickDescription = {
+        type = "description",
+        name = "\n|c66999999A ticked box indicates that the frame will be faded/hidden when the fade mode is active.|r\n ",
+        width = "relative",
+        relWidth = 0.95,
+        order = 3,
+    }
 end
 
 local function BuildFrameToggleArgs(frameEntries)
@@ -491,7 +530,23 @@ local function BuildFrameFadeSections(parentArgs)
 
     for _, categoryEntry in ipairs(Fishing.db.profile.fadeFrames) do
         if categoryEntry.name ~= "Custom" and categoryEntry.name ~= "Tackle Box" then
+
             local categoryArgs
+            parentArgs[categoryEntry.name] = AutoOrder({
+                type = "group",
+                name = categoryEntry.name,
+                inline = false,
+                args = {
+                    frameCheckboxArea = {
+                        type = "group",
+                        name = "",
+                        inline = true,
+                        order = 4,
+                    }
+                },
+            })
+            AddFrameFadeControlButtons(parentArgs[categoryEntry.name].args)
+
             if categoryEntry.sections then
                 categoryArgs = {}
                 for _, sectionEntry in ipairs(categoryEntry.sections) do
@@ -507,12 +562,7 @@ local function BuildFrameFadeSections(parentArgs)
             else
                 categoryArgs = BuildFrameToggleArgs(GetFadeSectionFrames(categoryEntry))
             end
-            parentArgs[categoryEntry.name] = AutoOrder({
-                type = "group",
-                name = categoryEntry.name,
-                inline = false,
-                args = categoryArgs,
-            })
+            parentArgs[categoryEntry.name].args.frameCheckboxArea.args = categoryArgs
         end
     end
 end
@@ -662,7 +712,8 @@ local function BuildFrameFadeTab(order)
             frameFocusEnabled = {
                 type = "toggle",
                 name = "Enable frame fade",
-                desc = "Automatically fade out configured frames while fishing.",
+                desc = "Automatically fade out configured frames while fishing to reduce screen clutter for a more immersive experience.\n"
+                    .. "Expand the categories below the main Frame Fade section to configure individual frame fade settings.",
                 width = "full",
                 order = 0,
                 get = function() return Fishing.db.profile.frameFocusEnabled end,
@@ -720,41 +771,42 @@ local function BuildFrameFadeTab(order)
                     frameStackToggle = AutoOrder({
                         type = "execute",
                         name = "Toggle Frame Stack Tool",
-                        desc = "Turn on the frame stack tool and hover over the frame/area you want to identify.",
+                        desc = "Turn on the frame stack tool and hover over the frame/area you want to identify.\n"
+                            .. "Especially useful for adding custom frames (see Custom section).",
                         width = "full",
                         func = function()
                             ToggleFrameStackMode()
                         end
                     }),
-                    frameStackExcludeHidden = AutoOrder({
+                    frameStackIncludeHidden = AutoOrder({
                         type = "toggle",
-                        name = "Exclude hidden frames",
-                        desc = "Exclude hidden frames from the frame stack tool.",
+                        name = "Include hidden frames",
+                        desc = "Include hidden frames in the frame stack tool.",
                         width = "full",
                         set = function(_, value)
-                            Fishing.db.profile.frameStackExcludeHidden = value
+                            Fishing.db.profile.frameStackIncludeHidden = value
                             ApplyFrameStackFilters()
                             RefreshFrameStackIfShown()
                         end,
                     }),
-                    frameStackExcludeRegionsAndTextures = AutoOrder({
+                    frameStackIncludeRegionsAndTextures = AutoOrder({
                         type = "toggle",
-                        name = "Exclude regions and textures",
-                        desc = "Exclude regions and textures from the frame stack tool.",
+                        name = "Include regions and textures",
+                        desc = "Include regions and textures in the frame stack tool.",
                         width = "full",
                         set = function(_, value)
-                            Fishing.db.profile.frameStackExcludeRegionsAndTextures = value
+                            Fishing.db.profile.frameStackIncludeRegionsAndTextures = value
                             ApplyFrameStackFilters()
                             RefreshFrameStackIfShown()
                         end,
                     }),
-                    frameStackExcludeAnchors = AutoOrder({
+                    frameStackIncludeAnchors = AutoOrder({
                         type = "toggle",
-                        name = "Exclude anchors",
-                        desc = "Exclude anchor points from the frame stack tool.",
+                        name = "Include anchors",
+                        desc = "Include anchor points in the frame stack tool.",
                         width = "full",
                         set = function(_, value)
-                            Fishing.db.profile.frameStackExcludeAnchors = value
+                            Fishing.db.profile.frameStackIncludeAnchors = value
                             ApplyFrameStackFilters()
                             RefreshFrameStackIfShown()
                         end,

@@ -140,7 +140,9 @@ def extract_wow_log_to_csv():
         valid_formats = ", ".join([f"'{fmt['value']}'" for fmt in output_formats])
         print(f"Error: Unsupported OUTPUT_FORMAT: {OUTPUT_FORMAT!r}. Use one of: {valid_formats}.")
         return
-    print(f"Success! Extracted {len(df)} records directly out into: '{output_file}'")
+    print(f"Success! Extracted {len(df)} records to: '{output_file}'")
+    print(f"Log start: {df.iloc[0]['Timestamp'] if not df.empty else 'N/A'}")
+    print(f"Log end  : {df.iloc[-1]['Timestamp'] if not df.empty else 'N/A'}")
 
 if __name__ == "__main__":
     extract_wow_log_to_csv()

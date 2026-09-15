@@ -44,6 +44,10 @@ function ModulePrototype:OnInitialize()
 
     -- Let the main module perform its logic first
     -- then call any listeners
+    assert(self.db, "Module seems to have lost its database")
+    assert(self.db.global, "Module must have a global section in its database")
+    assert(self.db.profile, "Module must have a profile in its database")
+    assert(self.db.char, "Module must have a char section in its database")
     if self.OnModuleInitialize then
         self:OnModuleInitialize()
     end
@@ -54,6 +58,10 @@ function ModulePrototype:OnInitialize()
 end
 
 function ModulePrototype:OnEnable()
+    assert(self.db, "Module seems to have lost its database")
+    assert(self.db.global, "Module must have a global section in its database")
+    assert(self.db.profile, "Module must have a profile in its database")
+    assert(self.db.char, "Module must have a char section in its database")
     if self.OnModuleEnable then
         self:OnModuleEnable()
     end

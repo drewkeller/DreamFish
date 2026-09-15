@@ -15,10 +15,6 @@ Fishing:RegisterOnModuleInitialize(function(self)
     charDB = self.db.char
 end)
 
-Fishing:RegisterOnModuleEnable(function(self)
-    profileDB = self.db.profile
-end)
-
 Fishing:RegisterOnModuleRegisterEvents(function(self)
     Trace("Registering events")
     self.RegisterMessage(MessageSink, "FISHING_SESSION_STARTED", "FISHING_SESSION_STARTED")
