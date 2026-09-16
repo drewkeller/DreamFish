@@ -7,12 +7,13 @@ ns.Fishing.state = {
     fishingSessionGeneration = 0,
     suppressPendingBuffFailure = false,
     buffItemLastUseAt = {},
-    pendingBuffObservation = {},
     buffUnknownDurationSuppressed = {},
 }
 
 ns.moduleDefaults["Fishing"] = {
-    global = {},
+    global = {
+        buffAuraByItem = {},
+    },
     profile = {
         moduleEnabled = true,
         debug = false,

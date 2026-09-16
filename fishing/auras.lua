@@ -101,7 +101,7 @@ function Fishing:UpdatePendingBuffObservation()
             local unresolvedItemID = tonumber(self.state.pendingBuffObservation.itemID)
             if unresolvedItemID and unresolvedItemID > 0 and self.state then
                 self.state.buffUnknownDurationSuppressed = self.state.buffUnknownDurationSuppressed or {}
-                self.state.buffUnknownDurationSuppressed[unresolvedItemID] = true
+                self.state.buffUnknownDurationSuppressed[unresolvedItemID] = GetTime() + 10
             end
             self.state.pendingBuffObservation = nil
             return
@@ -129,9 +129,14 @@ function Fishing:UpdatePendingBuffObservation()
             and knownAura.expirationTime
             and previousKnownAura.expirationTime
             and knownAura.expirationTime > previousKnownAura.expirationTime + 0.5
-        if (isNewKnownAura or refreshedKnownAura) and knownAura.duration then
+        if isNewKnownAura and knownAura.duration then
             bestSpellID = pendingKnownSpellID
             bestDuration = knownAura.duration
+            bestExpirationTime = knownAura.expirationTime
+        elseif refreshedKnownAura then
+            -- The aura can be extended by reapplication; this item only contributed the delta.
+            bestSpellID = pendingKnownSpellID
+            bestDuration = knownAura.expirationTime - previousKnownAura.expirationTime
             bestExpirationTime = knownAura.expirationTime
         end
     end
@@ -141,9 +146,15 @@ function Fishing:UpdatePendingBuffObservation()
             local previous = before[spellID]
             local isNewAura = previous == nil
             local refreshedAura = previous and aura.expirationTime and previous.expirationTime and aura.expirationTime > previous.expirationTime + 0.5
-            if (isNewAura or refreshedAura) and aura.duration and aura.duration > bestDuration then
+            local candidateDuration = nil
+            if isNewAura and aura.duration then
+                candidateDuration = aura.duration
+            elseif refreshedAura then
+                candidateDuration = aura.expirationTime - previous.expirationTime
+            end
+            if candidateDuration and candidateDuration > bestDuration then
                 bestSpellID = spellID
-                bestDuration = aura.duration
+                bestDuration = candidateDuration
                 bestExpirationTime = aura.expirationTime
             end
         end
@@ -226,9 +237,21 @@ function Fishing:UpdatePendingBuffObservation()
         local spellInfo = (C_Spell and C_Spell.GetSpellInfo) and C_Spell.GetSpellInfo(bestSpellID) or nil
         local auraName = spellInfo and spellInfo.name or nil
 
+        -- Once a duration is established, ignore small drift (timing jitter) and only
+        -- accept a new observation if it's significantly larger than what's already known.
+        local finalDuration = bestDuration
+        if existingDuration > 0 then
+            local significantMargin = math.max(2, existingDuration * 0.15)
+            if bestDuration <= existingDuration + significantMargin then
+                finalDuration = existingDuration
+            end
+        end
+
+        local existingEntry = self.db.global.buffAuraByItem[key]
         self.db.global.buffAuraByItem[key] = {
             spellID = bestSpellID,
-            duration = bestDuration,
+            duration = finalDuration,
+            isInstant = type(existingEntry) == "table" and existingEntry.isInstant or nil,
         }
         if self.state and self.state.buffUnknownDurationSuppressed then
             self.state.buffUnknownDurationSuppressed[itemID] = nil
@@ -236,11 +259,11 @@ function Fishing:UpdatePendingBuffObservation()
         if self.state and self.state.buffItemTransientUntil then
             self.state.buffItemTransientUntil[itemID] = nil
         end
-        self:Print("Buff tracked for item:" .. tostring(itemID)
+        self:Info("Buff tracked for item:" .. tostring(itemID)
             .. " [spellID=" .. tostring(bestSpellID)
             .. (auraName and (", aura=" .. tostring(auraName)) or "")
-            .. ", item=" .. ns.Utils.FormatDuration(bestDuration)
-            .. ", active=" .. ns.Utils.FormatDuration(bestDuration) .. " total]")
+            .. ", item=" .. ns.Utils.FormatDuration(finalDuration)
+            .. ", active=" .. ns.Utils.FormatDuration(finalDuration) .. " total]")
         self.state.pendingBuffObservation = nil
     end
 end
@@ -303,7 +326,9 @@ function Fishing:GetTrackedBuffRemaining(itemID)
                     duration = knownDuration or trackedDuration or (tonumber(aura.duration) or 0),
                 }
             end
-            return math.max(0, aura.expirationTime - GetTime()), tonumber(aura.duration)
+            -- The aura's spellID can be shared across items, so its live duration may reflect
+            -- another item's refresh; report this item's own known/tracked duration instead.
+            return math.max(0, aura.expirationTime - GetTime()), (knownDuration or trackedDuration or tonumber(aura.duration))
         end
     end
 
@@ -315,20 +340,30 @@ ns.GetAuraBySpellID = function(spellID)
 end
 
 function Fishing:GetBuffTimingText(itemID)
-    if not self.db.global or type(self.db.global.buffAuraByItem) ~= "table" then
-        return "duration unknown (learning aura)"
-    end
-
-    local normalized = self.db.global.buffAuraByItem[tostring(itemID)]
-    if type(normalized) ~= "table" or not normalized.spellID then
+    local numericItemID = tonumber(itemID)
+    local known = numericItemID
+        and ns.Fishing.const
+        and type(ns.Fishing.const.knownBuffItems) == "table"
+        and ns.Fishing.const.knownBuffItems[numericItemID]
+        or nil
+    local tracked = self.db.global
+        and type(self.db.global.buffAuraByItem) == "table"
+        and self.db.global.buffAuraByItem[tostring(itemID)]
+        or nil
+    local spellID = type(known) == "table" and tonumber(known.spellID)
+        or type(tracked) == "table" and tonumber(tracked.spellID)
+        or nil
+    local itemDuration = type(known) == "table" and tonumber(known.duration)
+        or type(tracked) == "table" and tonumber(tracked.duration)
+        or nil
+    if not spellID then
         return "duration unknown (learning aura spell mapping)"
     end
 
-    local itemDuration = normalized.duration
-    local aura = ns.GetAuraBySpellID(normalized.spellID)
+    local aura = ns.GetAuraBySpellID(spellID)
     if aura and aura.expirationTime and aura.expirationTime > 0 then
         local remaining = math.max(0, aura.expirationTime - GetTime())
-        local activeTotal = aura.duration or remaining
+        local activeTotal = itemDuration or aura.duration or remaining
         return "item=" .. ns.Utils.FormatDuration(itemDuration) .. ", active=" .. ns.Utils.FormatDuration(remaining) .. " remaining / " .. ns.Utils.FormatDuration(activeTotal) .. " total"
     end
 

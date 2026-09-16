@@ -496,6 +496,16 @@ function Fishing:OnSpellCastStarted(event, unit, _, spellID, ...)
 
     self:Trace("auraevent", string.format("OnSpellCastStarted: Spell=%s | State=%s | len(macrotext)=%d",
         spellName, self:CurrentStateName(), #liveMacroText))
+
+    -- A cast bar starting for a queued consumable's spell proves it is not instant-use.
+    local pending = self.state.pendingBuffUse
+    if type(pending) == "table" and type(pending.uses) == "table" then
+        for _, use in ipairs(pending.uses) do
+            if tonumber(use.itemSpellID) == tonumber(spellID) or tonumber(use.knownSpellID) == tonumber(spellID) then
+                use.castStarted = true
+            end
+        end
+    end
 end
 
 function Fishing:OnSpellcastChannelStarted(event, unit, ...)

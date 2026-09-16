@@ -130,6 +130,15 @@ local function ConfigureFishingClickAction(self)
     local hasItemUseAction = false
     local raftExclusive = false
 
+    -- An incomplete item record must be observed without another item competing for events.
+    local learningDecision = ns.precast.GetConsumableUseDecision(self, false, true)
+    if learningDecision.shouldApply then
+        local learningItem = learningDecision.items[1]
+        InsertUseItemMacroLine(macroLines, learningItem.itemID)
+        Trace("Armed learning buff alone: " .. ns.Utils.GetDebugItemLabel(learningItem.itemID))
+        return FinalizeSecureFishingAction(Fishing.clickFrame, macroLines, false, true)
+    end
+
     -- Raft
     local raftDecision = ns.precast.GetRaftUseDecision(self)
     if raftDecision.shouldApply then
@@ -174,7 +183,7 @@ local function ConfigureFishingClickAction(self)
         if consumableDecision.shouldApply then
             for _, consumable in ipairs(consumableDecision.items or {}) do
                 if (InsertUseItemMacroLine(macroLines, consumable.itemID)) then
-                    Addon:Print("Armed due buff: " .. ns.Utils.GetDebugItemLabel(consumable.itemID) .. " (" .. tostring(consumable.category) .. ")")
+                    Trace("Armed due buff: " .. ns.Utils.GetDebugItemLabel(consumable.itemID) .. " (" .. tostring(consumable.category) .. ")")
                 end
                 hasItemUseAction = true
                 if consumable.category == "lure" then

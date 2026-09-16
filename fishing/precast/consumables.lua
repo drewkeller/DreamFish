@@ -101,6 +101,17 @@ local function GetKnownSpellAndDuration(itemID)
     return spellID, duration
 end
 
+local function NeedsLearning(itemID)
+    local known = GetKnownBuff(itemID)
+    if type(known) == "table" then
+        return false
+    end
+    local tracked = GetTrackedBuff(itemID)
+    local hasEffectData = type(tracked) == "table" and tonumber(tracked.spellID) and tonumber(tracked.duration)
+    local hasCastClassification = type(tracked) == "table" and tracked.isInstant ~= nil
+    return not hasEffectData or not hasCastClassification
+end
+
 local function IsFishingLureApplied()
     Trace("Checking pole for lure...")
     if not C_TooltipInfo or type(C_TooltipInfo.GetInventoryItem) ~= "function" then
@@ -196,8 +207,10 @@ local function IsDue(itemID, category, now)
         end
     end
     -- Update your suppression check loop so it cleanly handles temporary item blocks
-    if state.buffUnknownDurationSuppressed and state.buffUnknownDurationSuppressed[itemID] then
-        if now > state.buffUnknownDurationSuppressed[itemID] then
+    local suppressedUntil = state.buffUnknownDurationSuppressed
+        and state.buffUnknownDurationSuppressed[itemID]
+    if suppressedUntil then
+        if type(suppressedUntil) == "number" and now > suppressedUntil then
             state.buffUnknownDurationSuppressed[itemID] = nil -- Suppression expired, clear it
         else
             return false, "zone_failure_suppressed_active" -- unknown or zone failure
@@ -261,6 +274,7 @@ local function QueueBuffUse(itemID, category)
         sessionGeneration = state.fishingSessionGeneration,
         itemSpellID = itemSpellID or knownSpellID,
         knownSpellID = knownSpellID,
+        castStarted = false,
         countBefore = ns.Utils.CountItemInBags(itemID),
         auraBefore = type(Fishing.BuildHelpfulAuraSnapshot) == "function"
             and Fishing:BuildHelpfulAuraSnapshot()
@@ -319,6 +333,18 @@ function Fishing:ConfirmPendingBuffUse(successSpellID)
         rawset(lastUses, itemID, now)
         local known = GetKnownBuff(itemID)
         local spellID = type(known) == "table" and tonumber(known.spellID) or nil
+        -- Only learn isInstant for items the const table doesn't already classify.
+        if globalDB and type(globalDB.buffAuraByItem) == "table"
+            and (type(known) ~= "table" or known.castTime == nil) then
+            local trackedKey = tostring(itemID)
+            local trackedEntry = globalDB.buffAuraByItem[trackedKey]
+            local observedIsInstant = not use.castStarted
+            if type(trackedEntry) == "table" then
+                trackedEntry.isInstant = observedIsInstant
+            else
+                globalDB.buffAuraByItem[trackedKey] = { isInstant = observedIsInstant }
+            end
+        end
         local isKnownDuration = type(known) == "table"
             and tonumber(known.spellID)
             and tonumber(known.duration)
@@ -333,12 +359,10 @@ function Fishing:ConfirmPendingBuffUse(successSpellID)
         else
             self.state.pendingBuffObservation = nil
         end
-        self:Debug("Confirmed consumable use: " .. Item(itemID) .. " (spellID=" .. tostring(spellID) .. ")")
         if type(Fishing.AnnounceBuffUse) == "function" then
             Fishing:AnnounceBuffUse(itemID, spellID)
         end
 
-        Trace("Confirmed consumable use: " .. Item(itemID))
         --self:CheckEnabledBuffItemsDepleted()
         if ns.Utils.CountItemInBags(itemID) == 0 then
             Addon:Alert(ns.SystemColor.YELLOW, ns.Utils.GetDebugItemLabel(itemID) .. " has been depleted.")
@@ -366,7 +390,7 @@ function Fishing:ConfirmPendingBuffUse(successSpellID)
     end
 end
 
-local function GetConsumableUseDecision(self, instantOnly)
+local function GetConsumableUseDecision(self, instantOnly, learningOnly)
     local decision = { shouldApply = false }
     if type(Fishing.ConfirmPendingBuffUse) == "function" then
         Fishing:ConfirmPendingBuffUse()
@@ -386,6 +410,7 @@ local function GetConsumableUseDecision(self, instantOnly)
 
     local categoryOrder = { "fooddrink", "lure", "bait", "bobber", "other_consumable" }
     local itemsToApply = {}
+    local queuedEffectSpellIDs = {}
     for _, category in ipairs(categoryOrder) do
         local items = configured[category]
         if type(items) == "table" then
@@ -394,7 +419,9 @@ local function GetConsumableUseDecision(self, instantOnly)
                 if type(entry) == "table" and entry.enabled == true and not IsExcluded(tonumber(entry.itemID), entry) then
                     local itemID = tonumber(entry.itemID)
                     local known = GetKnownBuff(itemID)
-                    local isInstant = type(known) == "table" and tonumber(known.castTime) == 0
+                    local tracked = GetTrackedBuff(itemID)
+                    local isInstant = (type(known) == "table" and tonumber(known.castTime) == 0)
+                        or (type(known) ~= "table" and type(tracked) == "table" and tracked.isInstant == true)
                     --Trace("Checking due consumable: " .. Item(itemID) .. " (" .. tostring(category) .. ")")
                     if not itemID or itemID <= 0 then
                         --Trace("Skipping due consumable: invalid itemID")
@@ -409,7 +436,13 @@ local function GetConsumableUseDecision(self, instantOnly)
                             Trace("Skipping due consumable: not due " .. Item(itemID, category) .. " (" .. tostring(reason) .. ")")
                         elseif not ns.Utils.FindItemInBags(itemID) then
                             Trace("Skipping due consumable: not found in bags " .. Item(itemID, category))
-                        elseif category == "lure" then
+                        elseif queuedEffectSpellIDs[GetKnownSpellAndDuration(itemID)] then
+                            Trace("Skipping due consumable: equivalent effect already queued " .. Item(itemID, category))
+                        elseif learningOnly and NeedsLearning(itemID) then
+                            QueueBuffUse(itemID, category)
+                            Trace("Learning consumable is queued alone: " .. Item(itemID, category))
+                            return { shouldApply = true, items = { { itemID = itemID, category = category } } }
+                        elseif not learningOnly and category == "lure" then
                             local poleID = type(ns.precast.GetEquippedProfessionItemID) == "function"
                                 and ns.precast.GetEquippedProfessionItemID()
                                 or nil
@@ -418,15 +451,23 @@ local function GetConsumableUseDecision(self, instantOnly)
                             elseif #itemsToApply > 0 then
                                 return { shouldApply = true, items = itemsToApply }
                             else
+                                local effectSpellID = GetKnownSpellAndDuration(itemID)
+                                if effectSpellID then
+                                    queuedEffectSpellIDs[effectSpellID] = true
+                                end
                                 QueueBuffUse(itemID, category)
                                 Trace("Lure is queued: " .. Item(itemID))
                                 return { shouldApply = true, items = { { itemID = itemID, category = category } } }
                             end
-                        else
+                        elseif not learningOnly then
                             if not isInstant and #itemsToApply > 0 then
                                 return { shouldApply = true, items = itemsToApply }
                             end
                             Trace("Consumable is queued: " .. Item(itemID, category))
+                            local effectSpellID = GetKnownSpellAndDuration(itemID)
+                            if effectSpellID then
+                                queuedEffectSpellIDs[effectSpellID] = true
+                            end
                             QueueBuffUse(itemID, category)
                             table.insert(itemsToApply, { itemID = itemID, category = category })
                             if not isInstant then
