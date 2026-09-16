@@ -18,6 +18,7 @@ embeds.xml
 # Core modules (load first)
 core/_init.lua
 utility/debug.lua
+utility/logviewer.lua
 utility/math.lua
 utility/audio.lua
 utility/inventory.lua

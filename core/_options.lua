@@ -112,7 +112,17 @@ local function GetOptions()
                     func = function()
                         local logDB = Addon:GetLogDB()
                         table.wipe(logDB)
+                        Addon:RefreshLogViewer()
                         Addon:Print("Log has been cleared.")
+                    end,
+                },
+                view = {
+                    type = "execute",
+                    name = "View / Copy Log",
+                    desc = "Opens the log in a selectable text box for copying.",
+                    order = 2,
+                    func = function()
+                        Addon:OpenLogViewer()
                     end,
                 },
             },
