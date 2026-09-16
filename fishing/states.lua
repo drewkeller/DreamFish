@@ -55,7 +55,7 @@ Fishing:RegisterTraceSource("states")
 
 local function Trace(state, reason)
     if Fishing.db and Fishing.db.profile and Fishing.db.profile.traces and Fishing.db.profile.traces["states"] then
-        Addon:Print("|cFF999999[" .. (FISHING_STATE_NAMES[state] or tostring(state)) .. "]|r ", reason)
+        Addon:DebugModuleSource(ns.logLevel.DEBUG, Fishing, (FISHING_STATE_NAMES[state] or tostring(state)), (reason or "unknown reason"), reason)
     end
 end
 
@@ -81,22 +81,22 @@ function Fishing:SetFishingState(state, reason)
         local wasCastActive = currentFlags.isCastActive
         local isCastActive = FISHING_STATE_FLAGS[state].isCastActive
         if not wasCastActive and isCastActive then
-            Addon:Print("Fishing cast started: " .. (reason or "unknown reason"))
+            Trace(state, "Fishing cast started: " .. (reason or "unknown reason"))
             self:SendMessage("FISHING_CAST_STARTED", oldState, state)
         end
         if wasCastActive and not isCastActive then
-            Addon:Print("Fishing cast ended: " .. (reason or "unknown reason"))
+            Trace(state, "Fishing cast ended: " .. (reason or "unknown reason"))
             self:SendMessage("FISHING_CAST_ENDED", oldState, state)
         end
 
         local wasFishing = currentFlags.isFishing
         local isFishing = FISHING_STATE_FLAGS[state].isFishing
         if not wasFishing and isFishing then
-            Addon:Print("Fishing session started: " .. (reason or "unknown reason"))
+            Trace(state, "Fishing session started: " .. (reason or "unknown reason"))
             self:SendMessage("FISHING_SESSION_STARTED", oldState, state)
         end
         if wasFishing and not isFishing then
-            Addon:Print("Fishing session ended: " .. (reason or "unknown reason"))
+            Trace(state, "Fishing session ended: " .. (reason or "unknown reason"))
             self:SendMessage("FISHING_SESSION_ENDED", oldState, state)
         end
     end

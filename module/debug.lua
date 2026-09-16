@@ -31,6 +31,10 @@ function ModulePrototype:Print(msg, ...)
     ns.Utils.DebugModuleSource(ns.logLevel.INFO, self, "", msg, ...)
 end
 
+function ModulePrototype:Info(msg, ...)
+    ns.Utils.DebugModuleSource(ns.logLevel.INFO, self, "", msg, ...)
+end
+
 function ModulePrototype:Trace(sourceName, msg, ...)
     ns.Utils.DebugModuleSource(ns.logLevel.TRACE, self, sourceName, msg, ...)
 end

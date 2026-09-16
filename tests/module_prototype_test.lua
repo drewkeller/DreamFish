@@ -1,4 +1,5 @@
 local printedMessages = {}
+local debugMessages = {}
 local modules = {}
 
 local DreamFish = {
@@ -53,7 +54,8 @@ end
 local namespace = {
     Addon = DreamFish,
     moduleDefaults = {},
-    Utils = { DebugModuleSource = function()
+    Utils = { DebugModuleSource = function(...)
+        table.insert(debugMessages, { ... })
     end },
     logLevel = { INFO = 1, TRACE = 2, DEBUG = 3, ALERT = 4 },
 }
@@ -69,6 +71,10 @@ namespace.moduleDefaults.sample = {
 }
 local module = setmetatable({ initialized = false }, { __index = namespace.ModulePrototype })
 modules.sample = module
+
+function module:Print()
+    error("AceConsole Print should not handle module log messages")
+end
 
 function module:GetName()
     return "sample"
@@ -141,5 +147,8 @@ assert(module.enabled, "enable option did not enable the module")
 DreamFish.db.profile.sample.debugEnabled = true
 module:Debug("test message")
 assert(#printedMessages == 0, "debug output must use the debug utility")
+module:Info("test info")
+assert(debugMessages[#debugMessages][4] == "test info",
+    "module info output must use the prototype debug utility when AceConsole shadows Print")
 
 print("module_prototype_test: passed")

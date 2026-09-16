@@ -145,7 +145,7 @@ function ModulePrototype:GetDebugGroup()
                     set = function(_, value)
                         targetModule.db.profile.debugEnabled = value
                         local state = value and "|cFF00FF00ON|r" or "|cFFFF0000OFF|r"
-                        self:Print(config.displayName .. " debug mode is now " .. state .. ".")
+                        self:Info(config.displayName .. " debug mode is now " .. state .. ".")
                     end,
                 },
                 traceGroup ={

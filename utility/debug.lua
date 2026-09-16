@@ -108,6 +108,7 @@ end
 -- Print to chat: addonName and message
 -- For messages that have  already been loggged.
 local function PrintNoLog(prefix, colorHex, msg, ...)
+    if prefix == "" then print("addonName: " .. addonName) end
     prefix = prefix or ("|cFF9ACDFF[" .. addonName .. "]|r ")
 
     local output = msg
@@ -204,7 +205,11 @@ function ns.Utils.DebugModuleSourceWithStack(level, module, source, stackTrace, 
 
     local logLevelInfo = ns.logLevelInfo[level]
     local colorHex = logLevelInfo.color
-    local prefix = source and string.format("|cFF%s[%s]|r", colorHex, source) or ""
+    local prefixName = addonName
+    if source and source ~= "" then
+        prefixName = source
+    end
+    local prefix = source and string.format("|cFF%s[%s]|r", colorHex, prefixName) or ""
     local hasProfile = module and module.db and module.db.profile
 
     if source and level <= ns.logLevel.TRACE then
