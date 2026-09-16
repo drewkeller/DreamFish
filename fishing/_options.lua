@@ -626,19 +626,27 @@ local function BuildCustomFrameFadeSection(parentArgs)
             }),
             frameStackToggle = AddChild({
                 type = "execute",
-                name = "1. Toggle Frame Stack Tool",
+                name = "1. Click to toggle frame stack tool",
                 desc = "Turn on the frame stack tool and hover over the frame/area you want to identify.",
                 width = "full",
                 func = function()
                     ToggleFrameStackMode()
                 end
             }),
+            frameStackInstruction = AddChild({
+                type = "description",
+                name = "2. Hover over the frame you want to identify using the Frame Stack Tool and press ALT/right ALT to select it in the tool.",
+                width = "full",
+            }),
             grabSelectedFrameStack = AddChild({
                 type = "execute",
-                name = "2. Use Selected Frame",
+                name = "3. Click to copy selected frame name to box below",
                 desc = "Grab the frame currently highlighted in the frame stack tool (Alt/Right Alt to cycle its highlight) and load its name below.",
                 width = "full",
-                func = GrabSelectedFrameStackName,
+                func = function()
+                    GrabSelectedFrameStackName()
+                    ToggleFrameStackMode()
+                end,
             }),
             customFrameInput = AddChild({
                 type = "input",
@@ -651,7 +659,7 @@ local function BuildCustomFrameFadeSection(parentArgs)
             }),
             addCustomFrame = AddChild({
                 type = "execute",
-                name = "3. Add",
+                name = "4. Add",
                 desc = "Add the frame name typed above to the custom fade list.",
                 width = "relative",
                 relWidth = 0.24,

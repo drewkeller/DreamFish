@@ -40,7 +40,7 @@ local function SetIsChecked(dbKey, isChecked)
     charDB[dbKey].isChecked = isChecked and true or false
     if not InCombatLockdown() then
         ns.precast.ApplySelectedFishingPole()
-        --Fishing:PrepareFishingClickAction()
+        Fishing:PrepareFishingClickAction()
     end
 end
 
