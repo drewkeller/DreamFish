@@ -7,6 +7,7 @@ ns.Fishing.state = {
     fishingSessionGeneration = 0,
     suppressPendingBuffFailure = false,
     learningBuffItems = {},
+    buffLearning = nil,
     buffItemLastUseAt = {},
     buffUnknownDurationSuppressed = {},
 }

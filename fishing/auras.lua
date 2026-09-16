@@ -98,12 +98,16 @@ function Fishing:UpdatePendingBuffObservation()
 
     if self.state.pendingBuffObservation.expiresAt then
         if GetTime() > self.state.pendingBuffObservation.expiresAt then
+            local learningCandidate = self.state.pendingBuffObservation.learningCandidate
             local unresolvedItemID = tonumber(self.state.pendingBuffObservation.itemID)
             if unresolvedItemID and unresolvedItemID > 0 and self.state then
                 self.state.buffUnknownDurationSuppressed = self.state.buffUnknownDurationSuppressed or {}
                 self.state.buffUnknownDurationSuppressed[unresolvedItemID] = GetTime() + 10
             end
             self.state.pendingBuffObservation = nil
+            if learningCandidate and type(self.FailBuffLearning) == "function" then
+                self:FailBuffLearning(learningCandidate, "aura data was not observed")
+            end
             return
         end
     end
@@ -268,6 +272,15 @@ function Fishing:UpdatePendingBuffObservation()
             .. (auraName and (", aura=" .. tostring(auraName)) or "")
             .. ", duration=" .. ns.Utils.FormatDuration(finalDuration) .. "]")
         self.state.pendingBuffObservation = nil
+        if self.state.buffLearning and tonumber(self.state.buffLearning.itemID) == itemID then
+            self.state.buffLearning = nil
+            if type(ns.RefreshBuffItemSlots) == "function" then
+                ns.RefreshBuffItemSlots()
+            end
+            if type(self.NotifyBuffLearningChanged) == "function" then
+                self:NotifyBuffLearningChanged()
+            end
+        end
     end
 end
 

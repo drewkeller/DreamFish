@@ -435,6 +435,15 @@ local options = {
                     fontSize = "medium",
                     hidden = function() return Fishing.db.profile.showBuffNotes == false end,
                 },
+                learningControl = {
+                    type = "execute",
+                    name = " ",
+                    dialogControl = "DreamFishBuffItemDropBox",
+                    width = "full",
+                    order = 1,
+                    func = function() end,
+                    arg = { mode = "learningControl" },
+                },
             },
         },
         lootTrackerTab = {

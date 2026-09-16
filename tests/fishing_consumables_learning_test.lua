@@ -32,6 +32,9 @@ end
 function Fishing:PrepareFishingClickAction()
 end
 
+function Fishing:ScheduleTimer()
+end
+
 local namespace = {
     SystemColor = {},
     Addon = {
@@ -113,6 +116,15 @@ Fishing.db.global.buffAuraByItem["274588"] = {
     spellID = 1303623,
     duration = 43.72,
 }
+Fishing.state.pendingBuffUse = {
+    uses = {
+        { itemID = 274588, countBefore = 1, expiresAt = now + 5 },
+    },
+}
+bagCount = 0
+Fishing:ConfirmPendingBuffUse()
+assert(Fishing.db.global.buffAuraByItem["274588"].isInstant == nil,
+    "learned metadata must not override an authoritative known item")
 Fishing:GetTrackedBuffRemaining(274588)
 assert(Fishing.db.global.buffAuraByItem["274588"].duration == 30,
     "known aura duration must replace a stale learned duration")
@@ -158,9 +170,37 @@ Fishing.state.pendingBuffUse = nil
 Fishing.state.pendingBuffObservation = nil
 Fishing.state.buffItemLastUseAt = {}
 
-local knownLearningDecision = namespace.precast.GetConsumableUseDecision(Fishing, false, true)
-assert(knownLearningDecision.shouldApply == false,
-    "a consumable with built-in metadata must not be selected for learning")
+local learningCandidates = Fishing:GetBuffLearningCandidates()
+assert(#learningCandidates == 0, "built-in consumables must not be selected for learning")
+
+namespace.Fishing.const.knownBuffItems = {}
+Fishing.db.global.buffAuraByItem = {}
+Fishing.db.char.buffs.other_consumable = { { itemID = 274588, enabled = true } }
+local candidate = Fishing:GetBuffLearningStatus()
+assert(candidate and candidate.itemID == 274588, "an enabled unknown item should be the next learning candidate")
+assert(Fishing:BeginBuffLearning(candidate), "learning should start for the selected candidate")
+assert(Fishing.state.buffLearning.itemID == 274588, "learning state should retain the selected item")
+Fishing:MarkBuffLearningExecuted()
+assert(Fishing.state.pendingBuffUse.executedAt == now, "learning click should mark the pending use executed")
+now = now + 6
+Fishing:ConfirmPendingBuffUse()
+assert(Fishing.db.char.buffs.other_consumable[1].enabled == false,
+    "an unconfirmed learning item should be disabled")
+Fishing.state.buffLearning = nil
+Fishing.state.pendingBuffUse = nil
+now = 100
+namespace.Fishing.const.knownBuffItems = {
+    [238365] = { spellID = 1303623, duration = 30, castTime = 0, category = "other_consumable" },
+    [274588] = { spellID = 1303623, duration = 30, castTime = 0, category = "other_consumable" },
+    [238367] = { spellID = 1303624, duration = 30, castTime = 0, category = "other_consumable" },
+    [274587] = { spellID = 1303624, duration = 30, castTime = 0, category = "other_consumable" },
+}
+Fishing.db.char.buffs.other_consumable = {
+    { itemID = 238365, enabled = true },
+    { itemID = 274588, enabled = true },
+    { itemID = 238367, enabled = true },
+    { itemID = 274587, enabled = true },
+}
 
 Fishing.state.buffUnknownDurationSuppressed = { [274588] = true }
 local permanentlySuppressedDecision = namespace.precast.GetConsumableUseDecision(Fishing, false)

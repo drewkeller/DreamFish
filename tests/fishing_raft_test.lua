@@ -125,28 +125,18 @@ assert(alerts[1] == "Raft-like items cannot be cast on a shape-shifted target",
     "automatic raft block should show the client-style error")
 
 local consumableDecisionCalls = 0
-namespace.precast.GetConsumableUseDecision = function(_, _, learningOnly)
+namespace.precast.GetConsumableUseDecision = function()
     consumableDecisionCalls = consumableDecisionCalls + 1
-    if learningOnly then
-        return {
-            shouldApply = true,
-            items = { { itemID = 274588, category = "other_consumable" } },
-        }
-    end
-    error("a learning consumable must prevent the normal pre-cast pass")
+    return { shouldApply = false }
 end
 namespace.precast.GetBobberUseDecision = function()
     return { shouldApply = true, toyID = 202207 }
 end
 frameAttributes.macrotext = nil
 Fishing.ConfigureFishingClickAction(Fishing)
-assert(frameAttributes.macrotext == "/use item:274588\n/cast [nochanneling] Fishing",
-    "a learning consumable must be the only item use in its macro")
-assert(consumableDecisionCalls == 1, "only the learning pre-cast pass should run")
-assert(prints[1] == "Learning buff item: 274588",
-    "a learning consumable should announce that its data is being learned")
-Fishing.ConfigureFishingClickAction(Fishing)
-assert(#prints == 1, "rebuilding the same pending learning action must not repeat its announcement")
+assert(frameAttributes.macrotext == "/use item:202207\n/cast [nochanneling] Fishing",
+    "normal fishing pre-cast should continue without automatic learning")
+assert(consumableDecisionCalls == 1, "normal pre-cast should evaluate consumables once")
 
 Fishing:ApplyRaft()
 assert(usedToyID == nil, "manual raft apply must not activate while shapeshifted")

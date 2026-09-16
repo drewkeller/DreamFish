@@ -15,6 +15,7 @@ Fishing.state = Fishing.state or {}
 Fishing.state.uiBuffCursorDragState = Fishing.state.uiBuffCursorDragState or nil
 Fishing.state.buffItemLastKnownCount = Fishing.state.buffItemLastKnownCount or {}
 Fishing.state.buffItemLastUseAt = Fishing.state.buffItemLastUseAt or {}
+ns.BuffItemSlots = ns.BuffItemSlots or {}
 
 local function CreateSubButtonSlot(parentCanvas, slotIndex)
     local frame = CreateFrame("Frame", nil, parentCanvas, "BackdropTemplate")
@@ -38,6 +39,7 @@ local function CreateSubButtonSlot(parentCanvas, slotIndex)
     box.defaultBorderColor = { 0.9, 0.8, 0.2, 1 }
     box.dragHoverBorderColor = { 0.2, 1.0, 0.35, 1 }
     box.invalidDragBorderColor = { 1.0, 0.15, 0.15, 1 }
+    box.learningBorderColor = { 0.1, 0.85, 1.0, 1 }
     box:SetBackdropBorderColor(unpack(box.defaultBorderColor))
 
     box.icon = box:CreateTexture(nil, "ARTWORK")
@@ -46,6 +48,39 @@ local function CreateSubButtonSlot(parentCanvas, slotIndex)
     box.countText = box:CreateFontString(nil, "OVERLAY", "NumberFontNormal")
     box.countText:SetPoint("BOTTOMRIGHT", box, "BOTTOMRIGHT", -2, 2)
     box.countText:SetTextColor(1, 1, 1, 1)
+
+    -- box.learningBadge = box:CreateFontString(nil, "OVERLAY")
+    -- box.learningBadge:SetFont("Fonts\\skurri.ttf", 28, "THICKOUTLINE")
+    -- box.learningBadge:SetPoint("CENTER", box, "CENTER", 0, 0)
+    -- box.learningBadge:SetText("?")
+    -- box.learningBadge:SetTextColor(1, 1, 0.1, 1)
+    -- box.learningBadge:SetShadowColor(0, 0, 0, 1)
+    -- box.learningBadge:SetShadowOffset(2, -2)
+
+    -- 1. Create the Golden Question Mark Badge first
+    box.learningBadge = box:CreateTexture(nil, "OVERLAY")
+    box.learningBadge:SetTexture("Interface\\GossipFrame\\ActiveQuestIcon")
+    box.learningBadge:SetSize(26, 26)
+    box.learningBadge:SetPoint("TOPRIGHT", box, "TOPRIGHT", 0, 0)
+    -- This sets the sub-level layer high to pull it to the absolute front
+    box.learningBadge:SetDrawLayer("OVERLAY", 2)
+    box.learningBadge:Hide()
+
+    -- 2. Use an opaque backing so the badge remains legible over item art.
+    -- box.learningBadgeBg = box:CreateTexture(nil, "OVERLAY")
+    -- box.learningBadgeBg:SetTexture("Interface\\Common\\Shadow")
+    -- box.learningBadgeBg:SetColorTexture(0, 0, 0, 0.3)
+    -- box.learningBadgeBg:SetSize(26, 26)
+    -- box.learningBadgeBg:SetPoint("TOPRIGHT", box.learningBadge, "TOPRIGHT", 0, 0)
+    -- box.learningBadgeBg:SetDrawLayer("OVERLAY", 1)
+    -- box.learningBadgeBg:Hide()
+
+
+    box.learningHighlight = box:CreateTexture(nil, "OVERLAY")
+    box.learningHighlight:SetPoint("TOPLEFT", box, "TOPLEFT", -4, 4)
+    box.learningHighlight:SetPoint("BOTTOMRIGHT", box, "BOTTOMRIGHT", 4, -4)
+    box.learningHighlight:SetColorTexture(0.1, 0.85, 1.0, 0.35)
+    box.learningHighlight:Hide()
 
     local checkbox = CreateFrame("CheckButton", nil, box, "SettingsCheckboxTemplate")
     checkbox:SetSize(20, 20)
@@ -64,6 +99,7 @@ local function CreateSubButtonSlot(parentCanvas, slotIndex)
         itemID = nil,
         isChecked = false,
     }
+    table.insert(ns.BuffItemSlots, slot)
 
     local function SetDragHighlight(state)
         if state == "active" or state == "valid" then
@@ -129,6 +165,25 @@ local function CreateSubButtonSlot(parentCanvas, slotIndex)
             box:SetAttribute("macrotext2", nil)
         end
         checkbox:SetChecked(slot.isChecked)
+        local category = parentCanvas.arg and parentCanvas.arg.category
+        local needsLearning = slot.itemID and slot.itemID > 0
+            and Fishing:IsBuffItemLearningRequired(slot.itemID)
+        if needsLearning then
+            box.learningBadge:Show()
+            --box.learningBadgeBg:Show()
+        else
+            box.learningBadge:Hide()
+            --box.learningBadgeBg:Hide()
+        end
+        local nextCandidate = Fishing:GetBuffLearningStatus()
+        if needsLearning and type(nextCandidate) == "table"
+            and nextCandidate.category == category and nextCandidate.slotIndex == slot.index then
+            box:SetBackdropBorderColor(unpack(box.learningBorderColor))
+            box.learningHighlight:Show()
+        else
+            box:SetBackdropBorderColor(unpack(box.defaultBorderColor))
+            box.learningHighlight:Hide()
+        end
         UpdateCountDisplay()
     end
 
@@ -383,7 +438,9 @@ local function CreateSubButtonSlot(parentCanvas, slotIndex)
     end)
 
     function slot:LoadSavedState()
-        if parentCanvas.arg then
+        if parentCanvas.arg
+            and type(parentCanvas.arg.GetItemValue) == "function"
+            and type(parentCanvas.arg.GetCheckedValue) == "function" then
             self.itemID = tonumber(parentCanvas.arg.GetItemValue(self.index)) or nil
             self.isChecked = parentCanvas.arg.GetCheckedValue(self.index) or false
         end
@@ -393,6 +450,18 @@ local function CreateSubButtonSlot(parentCanvas, slotIndex)
     box.obj = slot
     return slot
 
+end
+
+function ns.RefreshBuffItemSlots()
+    for _, slot in ipairs(ns.BuffItemSlots) do
+        local arg = slot.frame and slot.frame:GetParent() and slot.frame:GetParent().arg
+        if type(arg) == "table"
+            and type(arg.GetItemValue) == "function"
+            and type(arg.GetCheckedValue) == "function"
+            and type(slot.LoadSavedState) == "function" then
+            slot:LoadSavedState()
+        end
+    end
 end
 
 -- Export the factory function directly onto your shared addon namespace

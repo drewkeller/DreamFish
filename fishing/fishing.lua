@@ -73,6 +73,7 @@ function Fishing:OnModuleEnable()
     self:RegisterEvent("PLAYER_EQUIPMENT_CHANGED",     "OnEquipmentChanged")
     self:RegisterEvent("BAG_UPDATE_DELAYED",           "OnBagUpdateDelayed")
     self:RegisterEvent("UNIT_AURA",                    "OnAurasChanged")
+    self:RegisterEvent("UI_ERROR_MESSAGE",             "OnUIErrorMessage")
     self:RegisterEvent("LOOT_READY",                   "OnLootReady")
     self:RegisterEvent("LOOT_CLOSED",                  "OnLootClosed")
 
@@ -97,6 +98,7 @@ function Fishing:OnModuleDisable()
     self:UnregisterEvent("PLAYER_EQUIPMENT_CHANGED")
     self:UnregisterEvent("BAG_UPDATE_DELAYED")
     self:UnregisterEvent("UNIT_AURA")
+    self:UnregisterEvent("UI_ERROR_MESSAGE")
     self:UnregisterEvent("LOOT_READY")
     self:UnregisterEvent("LOOT_CLOSED")
     self:UnregisterMessage("FISHING_CAST_ENDED")
@@ -146,6 +148,16 @@ function Fishing:OnBagUpdateDelayed()
             -- The PreClick release-edge no longer disarms the frame mid-PRECASTING, so a plain
             -- re-arm here is sufficient for the upcoming release to cast.
             self:PrepareFishingClickAction()
+        end
+    end
+
+    if type(self.state.buffLearning) == "table" then
+        if type(self.ConfirmPendingBuffUse) == "function" then
+            Addon:TraceCore("learning", "Confirming pending buff use.")
+            self:ConfirmPendingBuffUse()
+        end
+        if type(self.UpdatePendingBuffObservation) == "function" then
+            self:UpdatePendingBuffObservation()
         end
     end
 
@@ -212,6 +224,11 @@ end
 function Fishing:OnAurasChanged(event, unit, updateInfo)
     if type(unit) == "string" and unit ~= "player" then
         return
+    end
+
+    if type(self.state.buffLearning) == "table"
+        and type(self.UpdatePendingBuffObservation) == "function" then
+        self:UpdatePendingBuffObservation()
     end
 
     if not self:IsInFishingSession() or self:IsFishingState(ns.Fishing.states.IDLE) then
@@ -519,6 +536,17 @@ function Fishing:OnSpellcastChannelStarted(event, unit, ...)
     self:Trace("auraevent", string.format("OnSpellcastChannelStarted: Spell=%s | State=%s | len(macrotext)=%d",
         spellName, self:CurrentStateName(), #liveMacroText))
 
+    local learning = self.state.buffLearning
+    if type(learning) == "table" then
+        local pending = self.state.pendingBuffUse
+        local pendingItemID = type(pending) == "table" and type(pending.uses) == "table"
+            and pending.uses[1] and pending.uses[1].itemID or nil
+        Addon:TraceCore("learning", "Spell success: spellID=" .. tostring(spellID)
+            .. " name=" .. tostring(spellName)
+            .. " learningItemID=" .. tostring(learning.itemID)
+            .. " pendingItemID=" .. tostring(pendingItemID))
+    end
+
     if type(self.ConfirmPendingBuffUse) == "function" then
         self:ConfirmPendingBuffUse(spellID)
     end
@@ -533,6 +561,15 @@ function Fishing:OnSpellcastChannelStarted(event, unit, ...)
     self:ReleaseClickCapture()
     self:ConfigureBobberInteractAction()
     self:ArmBobberInteractOverride()
+end
+
+function Fishing:OnUIErrorMessage(_, messageType, message)
+    local attemptUntil = tonumber(self.state.buffLearningAttemptUntil) or 0
+    if type(self.state.buffLearning) == "table" or GetTime() <= attemptUntil then
+        Addon:TraceCore("learning", "UI error: type=" .. tostring(messageType)
+            .. " message=" .. tostring(message)
+            .. " learningItemID=" .. tostring(self.state.buffLearning and self.state.buffLearning.itemID))
+    end
 end
 
 function Fishing:OnSpellcastChannelEnded(event, unit, ...)

@@ -4,6 +4,7 @@ local Fishing = ns.Fishing
 local AceGUI = LibStub("AceGUI-3.0")
 
 Addon:RegisterTraceSource("buffitemdropbox")
+Addon:RegisterTraceSource("learning")
 
 local WIDGET_NAME = "DreamFishBuffItemDropBox"
 local WIDGET_VERSION = 1
@@ -14,6 +15,7 @@ Fishing.state = Fishing.state or {}
 Fishing.state.uiBuffCursorDragState = Fishing.state.uiBuffCursorDragState or nil
 Fishing.state.buffItemLastKnownCount = Fishing.state.buffItemLastKnownCount or {}
 Fishing.state.buffItemLastUseAt = Fishing.state.buffItemLastUseAt or {}
+ns.BuffLearningWidgets = ns.BuffLearningWidgets or {}
 
 local function Trace(msg)
     Addon:TraceCore("buffitemdropbox", msg)
@@ -32,6 +34,96 @@ local function CreateBuffItemWidget()
         category = nil,
         userdata = {},
     }
+
+    local function EnsureLearningButton(self)
+        if self.learningButton then
+            return self.learningButton
+        end
+        local button = CreateFrame("Button", nil, self.frame, "SecureActionButtonTemplate,UIPanelButtonTemplate")
+        button:SetSize(180, 28)
+        button:SetPoint("TOPLEFT", self.frame, "TOPLEFT", 0, 0)
+        button:RegisterForClicks("AnyDown", "AnyUp")
+        button:HookScript("OnMouseDown", function(_, mouseButton)
+            Addon:TraceCore("learning", "Learning mouse down: button=" .. tostring(mouseButton))
+        end)
+        button:HookScript("OnMouseUp", function(_, mouseButton)
+            Addon:TraceCore("learning", "Learning mouse up: button=" .. tostring(mouseButton))
+        end)
+        button:HookScript("PreClick", function(_, mouseButton, down)
+            local parent = button:GetParent()
+            local mouseFocus = type(GetMouseFocus) == "function" and GetMouseFocus() or nil
+            Addon:TraceCore("learning", "Learning PreClick: button=" .. tostring(mouseButton)
+                .. " down=" .. tostring(down)
+                .. " type1=" .. tostring(button:GetAttribute("type1"))
+                .. " macrotext1=" .. tostring(button:GetAttribute("macrotext1"))
+                .. " combat=" .. tostring(InCombatLockdown())
+                .. " protected=" .. tostring(button:IsProtected())
+                .. " enabled=" .. tostring(button:IsEnabled())
+                .. " visible=" .. tostring(button:IsVisible())
+                .. " parentProtected=" .. tostring(parent and parent:IsProtected())
+                .. " focused=" .. tostring(mouseFocus == button))
+            if mouseButton == "LeftButton" and not down and button.learningCandidate then
+                Fishing.state.buffLearningAttemptUntil = GetTime() + 7
+                Fishing:BeginBuffLearning(button.learningCandidate)
+            end
+        end)
+        button:HookScript("PostClick", function(_, mouseButton, down)
+            if mouseButton ~= "LeftButton" or down then
+                return
+            end
+            Addon:TraceCore("learning", "Learning button clicked")
+            if type(Fishing.state.buffLearning) == "table" then
+                Addon:TraceCore("learning", "Buff learning started for item "
+                    .. tostring(Fishing.state.buffLearning.itemID))
+                Fishing:MarkBuffLearningExecuted()
+            end
+            C_Timer.After(0, function()
+                Fishing:NotifyBuffLearningChanged()
+            end)
+            C_Timer.After(0.1, function()
+                local learning = Fishing.state.buffLearning
+                local itemID = learning and learning.itemID or nil
+                local itemCount = itemID and C_Item.GetItemCount(itemID, false, false, false, false) or nil
+                local cooldownInfo = itemID and C_Item.GetItemCooldown and C_Item.GetItemCooldown(itemID) or nil
+                Addon:TraceCore("learning", "Learning post-click: itemID=" .. tostring(itemID)
+                    .. " count=" .. tostring(itemCount)
+                    .. " cooldown=" .. tostring(cooldownInfo)
+                    .. " type1=" .. tostring(button:GetAttribute("type1"))
+                    .. " macrotext1=" .. tostring(button:GetAttribute("macrotext1")))
+            end)
+        end)
+        self.learningButton = button
+        return button
+    end
+
+    local function RefreshLearningButton(self)
+        local button = EnsureLearningButton(self)
+        local learning = Fishing:GetBuffLearningStatus()
+        local count = Fishing:GetBuffLearningCandidateCount()
+        local isBusy = type(learning) == "table" and learning.phase ~= nil
+        button.learningCandidate = isBusy and nil or learning
+        button:Show()
+        button:SetText(isBusy and "Learning..." or ("Learn (" .. tostring(count) .. " items)"))
+        if not InCombatLockdown() then
+            local macroText = learning and not isBusy and "/use item:" .. tostring(learning.itemID) or nil
+            button:SetAttribute("type", macroText and "macro" or nil)
+            button:SetAttribute("macrotext", macroText)
+            button:SetAttribute("type1", macroText and "macro" or nil)
+            button:SetAttribute("macrotext1", macroText)
+            button:SetAttribute("type2", nil)
+            button:SetAttribute("macrotext2", nil)
+            button:SetAttribute("item", nil)
+            button:SetAttribute("item1", nil)
+        end
+        Addon:TraceCore("learning", button:GetText() .. " learning=" .. tostring(learning)
+            .. " isBusy=" .. tostring(isBusy) .. ", count=" .. tostring(count)
+            .. ", macrotext1=" .. tostring(button:GetAttribute("macrotext1")))
+        if count <= 0 or isBusy or InCombatLockdown() then
+            button:Disable()
+        else
+            button:Enable()
+        end
+    end
 
     -- ACEGUI LIFECYCLE INTERFACES REQUIRED IMPLEMENTATIONS
     widget.OnRelease = function(self)
@@ -120,6 +212,23 @@ local function CreateBuffItemWidget()
             self.frame.arg = arg
         end
 
+        if self.arg and self.arg.mode == "learningControl" then
+            ns.BuffLearningWidgets[self] = true
+            if self.slotsMatrixPool then
+                for _, btnSlot in ipairs(self.slotsMatrixPool) do
+                    btnSlot.frame:Hide()
+                end
+            end
+            self.frame:SetHeight(28)
+            RefreshLearningButton(self)
+            return
+        end
+
+        ns.BuffLearningWidgets[self] = nil
+
+        if self.learningButton then
+            self.learningButton:Hide()
+        end
         local maxSlotsCount = self.arg and tonumber(self.arg.slots) or 5
         local itemsPerRow = 5
         local rowsNeeded = math.ceil(maxSlotsCount / itemsPerRow)
@@ -211,11 +320,20 @@ local function CreateBuffItemWidget()
     widget.SetHelptext = function(self, text) end
     widget.SetMultiselect = function(self, value) end
     widget.SetItemValue = function(self, item, value) end
+    widget.RefreshLearningButton = RefreshLearningButton
 
     -- FIX: Clean registration sequence with zero debugging proxy wrapper overhead
     frame.obj = widget
     AceGUI:RegisterAsWidget(widget)
     return widget
+end
+
+function ns.RefreshBuffLearningWidgets()
+    for widget in pairs(ns.BuffLearningWidgets) do
+        if widget.frame and widget.frame:IsShown() and type(widget.RefreshLearningButton) == "function" then
+            widget:RefreshLearningButton()
+        end
+    end
 end
 
 AceGUI:RegisterWidgetType(WIDGET_NAME, CreateBuffItemWidget, WIDGET_VERSION)

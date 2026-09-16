@@ -112,6 +112,132 @@ local function NeedsLearning(itemID)
     return not hasEffectData or not hasCastClassification
 end
 
+local QueueBuffUse
+
+function Fishing:IsBuffItemLearningRequired(itemID)
+    return NeedsLearning(itemID)
+end
+
+local LEARNING_CATEGORY_ORDER = { "fooddrink", "lure", "bait", "bobber", "other_consumable" }
+
+function Fishing:GetBuffLearningCandidates()
+    local candidates = {}
+    local configured = charDB and charDB.buffs
+    if type(configured) ~= "table" then
+        return candidates
+    end
+
+    for _, category in ipairs(LEARNING_CATEGORY_ORDER) do
+        local items = configured[category]
+        if type(items) == "table" then
+            for slotIndex, entry in ipairs(items) do
+                local itemID = type(entry) == "table" and tonumber(entry.itemID) or nil
+                if itemID and itemID > 0 and entry.enabled == true and NeedsLearning(itemID) then
+                    table.insert(candidates, {
+                        itemID = itemID,
+                        category = category,
+                        slotIndex = slotIndex,
+                        available = ns.Utils.FindItemInBags(itemID) ~= nil,
+                    })
+                end
+            end
+        end
+    end
+
+    return candidates
+end
+
+function Fishing:GetBuffLearningCandidateCount()
+    local count = 0
+    for _, candidate in ipairs(self:GetBuffLearningCandidates()) do
+        if candidate.available and candidate.category ~= "lure" then
+            count = count + 1
+        end
+    end
+    return count
+end
+
+function Fishing:GetBuffLearningStatus()
+    if type(self.state.buffLearning) == "table" then
+        return self.state.buffLearning
+    end
+    for _, candidate in ipairs(self:GetBuffLearningCandidates()) do
+        if candidate.available and candidate.category ~= "lure" then
+            return candidate
+        end
+    end
+    return nil
+end
+
+function Fishing:NotifyBuffLearningChanged()
+    if type(ns.RefreshBuffLearningWidgets) == "function" then
+        ns.RefreshBuffLearningWidgets()
+    end
+    local registry = type(LibStub) == "function" and LibStub("AceConfigRegistry-3.0", true) or nil
+    if registry then
+        registry:NotifyChange("DreamFishDialog")
+    end
+end
+
+function Fishing:BeginBuffLearning(candidate)
+    if type(self.state.buffLearning) == "table" then
+        return false
+    end
+    if type(candidate) ~= "table" or not candidate.available or candidate.category == "lure" then
+        return false
+    end
+    self.state.buffLearning = {
+        itemID = candidate.itemID,
+        category = candidate.category,
+        slotIndex = candidate.slotIndex,
+        phase = "using",
+    }
+    Trace("Beginning buff learning for itemID=" .. tostring(candidate.itemID))
+    QueueBuffUse(candidate.itemID, candidate.category)
+    return true
+end
+
+function Fishing:MarkBuffLearningExecuted()
+    local learning = self.state.buffLearning
+    local pending = self.state.pendingBuffUse
+    if type(learning) ~= "table" or type(pending) ~= "table" or pending.executedAt then
+        Trace("Cannot execute buff learning: invalid state or already executed")
+        return
+    end
+    Trace("Executing buff learning for itemID=" .. tostring(learning.itemID))
+    pending.executedAt = GetNow()
+    for _, use in ipairs(pending.uses or {}) do
+        use.expiresAt = pending.executedAt + 5
+    end
+    learning.phase = "confirming"
+    self:ScheduleTimer(function()
+        if type(self.state.buffLearning) == "table" and self.state.buffLearning.phase == "confirming" then
+            self:ConfirmPendingBuffUse()
+        end
+    end, 5.1)
+end
+
+function Fishing:FailBuffLearning(candidate, reason)
+    if type(candidate) ~= "table" then
+        return
+    end
+    local configured = charDB and charDB.buffs and charDB.buffs[candidate.category]
+    local entry = type(configured) == "table" and configured[candidate.slotIndex] or nil
+    if type(entry) == "table" and tonumber(entry.itemID) == tonumber(candidate.itemID) then
+        entry.enabled = false
+    end
+    self.state.buffLearning = nil
+    self.state.pendingBuffUse = nil
+    self.state.pendingBuffObservation = nil
+    Addon:Alert(ns.SystemColor.YELLOW, "Could not learn buff item: " .. Item(candidate.itemID)
+        .. ". It has been disabled.")
+    self:Trace("buffs", "Buff learning failed: " .. tostring(reason))
+    if type(ns.RefreshBuffItemSlots) == "function" then
+        ns.RefreshBuffItemSlots()
+    end
+    self:NotifyBuffLearningChanged()
+end
+
 local function IsFishingLureApplied()
     Trace("Checking pole for lure...")
     if not C_TooltipInfo or type(C_TooltipInfo.GetInventoryItem) ~= "function" then
@@ -255,7 +381,7 @@ local function IsDue(itemID, category, now)
     return true, "unknown_duration_no_aura " .. LastUseString(lastUse, knownDuration)
 end
 
-local function QueueBuffUse(itemID, category)
+QueueBuffUse = function(itemID, category)
     local itemSpellID = nil
     if C_Item and type(C_Item.GetItemSpell) == "function" then
         local spellID = C_Item.GetItemSpell(itemID)
@@ -281,6 +407,7 @@ local function QueueBuffUse(itemID, category)
             or {},
         expiresAt = GetNow() + 5,
     })
+    Trace("Queued buff use for itemID=" .. tostring(itemID) .. " category=" .. tostring(category))
 end
 
 function Fishing:CheckEnabledBuffItemsDepleted()
@@ -333,9 +460,9 @@ function Fishing:ConfirmPendingBuffUse(successSpellID)
         rawset(lastUses, itemID, now)
         local known = GetKnownBuff(itemID)
         local spellID = type(known) == "table" and tonumber(known.spellID) or nil
-        -- Only learn isInstant for items the const table doesn't already classify.
+        -- Built-in metadata is authoritative; only unknown items use learned fallback data.
         if globalDB and type(globalDB.buffAuraByItem) == "table"
-            and (type(known) ~= "table" or known.castTime == nil) then
+            and type(known) ~= "table" then
             local trackedKey = tostring(itemID)
             local trackedEntry = globalDB.buffAuraByItem[trackedKey]
             local observedIsInstant = not use.castStarted
@@ -356,8 +483,15 @@ function Fishing:ConfirmPendingBuffUse(successSpellID)
                     or {},
                 expiresAt = now + 20,
             }
+            if type(self.state.buffLearning) == "table"
+                and tonumber(self.state.buffLearning.itemID) == itemID then
+                self.state.pendingBuffObservation.learningCandidate = self.state.buffLearning
+                self.state.buffLearning.phase = "observing"
+            end
         else
             self.state.pendingBuffObservation = nil
+            self.state.buffLearning = nil
+            self:NotifyBuffLearningChanged()
         end
         if type(Fishing.AnnounceBuffUse) == "function" then
             Fishing:AnnounceBuffUse(itemID, spellID)
@@ -377,6 +511,11 @@ function Fishing:ConfirmPendingBuffUse(successSpellID)
             -- Only an executed macro can establish that an item was rejected.
             local isCurrentSession = use.sessionGeneration == nil
                 or use.sessionGeneration == state.fishingSessionGeneration
+            if type(self.state.buffLearning) == "table"
+                and tonumber(self.state.buffLearning.itemID) == itemID then
+                self:FailBuffLearning(self.state.buffLearning, "use was not confirmed")
+                return
+            end
             if pending.executedAt and itemID and isCurrentSession
                 and not state.suppressPendingBuffFailure then
                 self.state.buffUnknownDurationSuppressed = self.state.buffUnknownDurationSuppressed or {}
@@ -390,7 +529,7 @@ function Fishing:ConfirmPendingBuffUse(successSpellID)
     end
 end
 
-local function GetConsumableUseDecision(self, instantOnly, learningOnly)
+local function GetConsumableUseDecision(self, instantOnly)
     local decision = { shouldApply = false }
     if type(Fishing.ConfirmPendingBuffUse) == "function" then
         Fishing:ConfirmPendingBuffUse()
@@ -408,10 +547,9 @@ local function GetConsumableUseDecision(self, instantOnly, learningOnly)
         return decision
     end
 
-    local categoryOrder = { "fooddrink", "lure", "bait", "bobber", "other_consumable" }
     local itemsToApply = {}
     local queuedEffectSpellIDs = {}
-    for _, category in ipairs(categoryOrder) do
+    for _, category in ipairs(LEARNING_CATEGORY_ORDER) do
         local items = configured[category]
         if type(items) == "table" then
             for _, entry in pairs(items) do
@@ -436,13 +574,11 @@ local function GetConsumableUseDecision(self, instantOnly, learningOnly)
                             Trace("Skipping due consumable: not due " .. Item(itemID, category) .. " (" .. tostring(reason) .. ")")
                         elseif not ns.Utils.FindItemInBags(itemID) then
                             Trace("Skipping due consumable: not found in bags " .. Item(itemID, category))
+                        elseif NeedsLearning(itemID) then
+                            Trace("Skipping unlearned consumable outside Buff Items learning mode: " .. Item(itemID, category))
                         elseif queuedEffectSpellIDs[GetKnownSpellAndDuration(itemID)] then
                             Trace("Skipping due consumable: equivalent effect already queued " .. Item(itemID, category))
-                        elseif learningOnly and NeedsLearning(itemID) then
-                            QueueBuffUse(itemID, category)
-                            Trace("Learning consumable is queued alone: " .. Item(itemID, category))
-                            return { shouldApply = true, items = { { itemID = itemID, category = category } } }
-                        elseif not learningOnly and category == "lure" then
+                        elseif category == "lure" then
                             local poleID = type(ns.precast.GetEquippedProfessionItemID) == "function"
                                 and ns.precast.GetEquippedProfessionItemID()
                                 or nil
@@ -459,7 +595,7 @@ local function GetConsumableUseDecision(self, instantOnly, learningOnly)
                                 Trace("Lure is queued: " .. Item(itemID))
                                 return { shouldApply = true, items = { { itemID = itemID, category = category } } }
                             end
-                        elseif not learningOnly then
+                        else
                             if not isInstant and #itemsToApply > 0 then
                                 return { shouldApply = true, items = itemsToApply }
                             end
