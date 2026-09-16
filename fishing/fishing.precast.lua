@@ -136,6 +136,11 @@ local function ConfigureFishingClickAction(self)
         local learningItem = learningDecision.items[1]
         InsertUseItemMacroLine(macroLines, learningItem.itemID)
         Trace("Armed learning buff alone: " .. ns.Utils.GetDebugItemLabel(learningItem.itemID))
+        self.state.learningBuffItems = self.state.learningBuffItems or {}
+        if not self.state.learningBuffItems[learningItem.itemID] then
+            self.state.learningBuffItems[learningItem.itemID] = true
+            Addon:Print("Learning buff item: " .. ns.Utils.GetDebugItemLabel(learningItem.itemID))
+        end
         return FinalizeSecureFishingAction(Fishing.clickFrame, macroLines, false, true)
     end
 

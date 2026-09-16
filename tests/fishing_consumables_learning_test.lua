@@ -43,6 +43,8 @@ local namespace = {
         Alert = function()
             alertCount = alertCount + 1
         end,
+        Print = function()
+        end,
     },
     Fishing = Fishing,
     Utils = {

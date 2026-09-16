@@ -259,11 +259,14 @@ function Fishing:UpdatePendingBuffObservation()
         if self.state and self.state.buffItemTransientUntil then
             self.state.buffItemTransientUntil[itemID] = nil
         end
-        self:Info("Buff tracked for item:" .. tostring(itemID)
-            .. " [spellID=" .. tostring(bestSpellID)
+        if self.state and self.state.learningBuffItems then
+            self.state.learningBuffItems[itemID] = nil
+        end
+        Addon:Print("Learned buff item: " .. ns.Utils.GetDebugItemLabel(itemID)
+            .. " [isInstant=" .. tostring(type(existingEntry) == "table" and existingEntry.isInstant == true)
+            .. ", spellID=" .. tostring(bestSpellID)
             .. (auraName and (", aura=" .. tostring(auraName)) or "")
-            .. ", item=" .. ns.Utils.FormatDuration(finalDuration)
-            .. ", active=" .. ns.Utils.FormatDuration(finalDuration) .. " total]")
+            .. ", duration=" .. ns.Utils.FormatDuration(finalDuration) .. "]")
         self.state.pendingBuffObservation = nil
     end
 end

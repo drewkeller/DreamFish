@@ -1,6 +1,7 @@
 local shapeshiftForm = 1
 local usedToyID
 local alerts = {}
+local prints = {}
 
 function GetShapeshiftForm()
     return shapeshiftForm
@@ -65,7 +66,8 @@ function Addon:Alert(_, message)
     table.insert(alerts, message)
 end
 
-function Addon:Print()
+function Addon:Print(message)
+    table.insert(prints, message)
 end
 
 local namespace = {
@@ -141,6 +143,10 @@ Fishing.ConfigureFishingClickAction(Fishing)
 assert(frameAttributes.macrotext == "/use item:274588\n/cast [nochanneling] Fishing",
     "a learning consumable must be the only item use in its macro")
 assert(consumableDecisionCalls == 1, "only the learning pre-cast pass should run")
+assert(prints[1] == "Learning buff item: 274588",
+    "a learning consumable should announce that its data is being learned")
+Fishing.ConfigureFishingClickAction(Fishing)
+assert(#prints == 1, "rebuilding the same pending learning action must not repeat its announcement")
 
 Fishing:ApplyRaft()
 assert(usedToyID == nil, "manual raft apply must not activate while shapeshifted")
