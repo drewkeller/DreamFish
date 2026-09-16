@@ -4,7 +4,6 @@ local Fishing = ns.Fishing
 local AceGUI = LibStub("AceGUI-3.0")
 
 Addon:RegisterTraceSource("buffitemdropbox")
-Addon:RegisterTraceSource("learning")
 
 local WIDGET_NAME = "DreamFishBuffItemDropBox"
 local WIDGET_VERSION = 1
@@ -43,27 +42,8 @@ local function CreateBuffItemWidget()
         button:SetSize(180, 28)
         button:SetPoint("TOPLEFT", self.frame, "TOPLEFT", 0, 0)
         button:RegisterForClicks("AnyDown", "AnyUp")
-        button:HookScript("OnMouseDown", function(_, mouseButton)
-            Addon:TraceCore("learning", "Learning mouse down: button=" .. tostring(mouseButton))
-        end)
-        button:HookScript("OnMouseUp", function(_, mouseButton)
-            Addon:TraceCore("learning", "Learning mouse up: button=" .. tostring(mouseButton))
-        end)
         button:HookScript("PreClick", function(_, mouseButton, down)
-            local parent = button:GetParent()
-            local mouseFocus = type(GetMouseFocus) == "function" and GetMouseFocus() or nil
-            Addon:TraceCore("learning", "Learning PreClick: button=" .. tostring(mouseButton)
-                .. " down=" .. tostring(down)
-                .. " type1=" .. tostring(button:GetAttribute("type1"))
-                .. " macrotext1=" .. tostring(button:GetAttribute("macrotext1"))
-                .. " combat=" .. tostring(InCombatLockdown())
-                .. " protected=" .. tostring(button:IsProtected())
-                .. " enabled=" .. tostring(button:IsEnabled())
-                .. " visible=" .. tostring(button:IsVisible())
-                .. " parentProtected=" .. tostring(parent and parent:IsProtected())
-                .. " focused=" .. tostring(mouseFocus == button))
             if mouseButton == "LeftButton" and not down and button.learningCandidate then
-                Fishing.state.buffLearningAttemptUntil = GetTime() + 7
                 Fishing:BeginBuffLearning(button.learningCandidate)
             end
         end)
@@ -71,25 +51,11 @@ local function CreateBuffItemWidget()
             if mouseButton ~= "LeftButton" or down then
                 return
             end
-            Addon:TraceCore("learning", "Learning button clicked")
             if type(Fishing.state.buffLearning) == "table" then
-                Addon:TraceCore("learning", "Buff learning started for item "
-                    .. tostring(Fishing.state.buffLearning.itemID))
                 Fishing:MarkBuffLearningExecuted()
             end
             C_Timer.After(0, function()
                 Fishing:NotifyBuffLearningChanged()
-            end)
-            C_Timer.After(0.1, function()
-                local learning = Fishing.state.buffLearning
-                local itemID = learning and learning.itemID or nil
-                local itemCount = itemID and C_Item.GetItemCount(itemID, false, false, false, false) or nil
-                local cooldownInfo = itemID and C_Item.GetItemCooldown and C_Item.GetItemCooldown(itemID) or nil
-                Addon:TraceCore("learning", "Learning post-click: itemID=" .. tostring(itemID)
-                    .. " count=" .. tostring(itemCount)
-                    .. " cooldown=" .. tostring(cooldownInfo)
-                    .. " type1=" .. tostring(button:GetAttribute("type1"))
-                    .. " macrotext1=" .. tostring(button:GetAttribute("macrotext1")))
             end)
         end)
         self.learningButton = button
@@ -115,9 +81,6 @@ local function CreateBuffItemWidget()
             button:SetAttribute("item", nil)
             button:SetAttribute("item1", nil)
         end
-        Addon:TraceCore("learning", button:GetText() .. " learning=" .. tostring(learning)
-            .. " isBusy=" .. tostring(isBusy) .. ", count=" .. tostring(count)
-            .. ", macrotext1=" .. tostring(button:GetAttribute("macrotext1")))
         if count <= 0 or isBusy or InCombatLockdown() then
             button:Disable()
         else
