@@ -417,9 +417,15 @@ function Fishing:OnMovementStarted()
 end
 
 function Fishing:OnMountDisplayChanged()
-    if not self:IsInFishingSession() then return end
     if IsMounted() then
+        if self:IsInFishingSession() then
         self:CancelFishingSession("mounted")
+        end
+        return
+    end
+
+    if not self:IsInFishingSession() then
+        self:CheckAndEquipUnderlightAngler("dismounted")
     end
 end
 
