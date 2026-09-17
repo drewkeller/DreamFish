@@ -25,6 +25,24 @@ local function IsRaftBlockedByShapeshift()
     return type(GetShapeshiftForm) == "function" and GetShapeshiftForm() > 0
 end
 
+local function IsRecentlyUsed(toyID)
+    local lastUseAt = Fishing.state
+        and type(Fishing.state.raftToyLastUseAt) == "table"
+        and Fishing.state.raftToyLastUseAt[toyID]
+        or nil
+    return lastUseAt and (GetTime() - lastUseAt) < 10
+end
+
+local function MarkRaftUse(toyID)
+    if not toyID then
+        return
+    end
+    Fishing.state.raftToyLastUseAt = type(Fishing.state.raftToyLastUseAt) == "table"
+        and Fishing.state.raftToyLastUseAt
+        or {}
+    Fishing.state.raftToyLastUseAt[toyID] = GetTime()
+end
+
 local function GetRaftUseDecision(self)
     local toyID = tonumber(self.db.profile.selectedRaftToy) or nil
     local hasRaftSelected = toyID and toyID > 0
@@ -32,6 +50,7 @@ local function GetRaftUseDecision(self)
     local isReady = hasToy and ns.Utils.IsCooldownReady(toyID)
     local swimming = IsSwimming()
     local blockedByShapeshift = IsRaftBlockedByShapeshift()
+    local recentlyUsed = hasToy and IsRecentlyUsed(toyID) or false
     local auraRemaining = (hasToy and swimming) and GetRaftAuraRemainingSeconds(toyID) or nil
     local castLead = ns.Fishing.const.maxFishingCastSeconds + ns.Fishing.const.buffPreRefreshSafetySeconds
     if auraRemaining == nil and hasToy then
@@ -45,6 +64,7 @@ local function GetRaftUseDecision(self)
         and isReady
         and needsRefresh
         and not blockedByShapeshift
+        and not recentlyUsed
         and (swimming or auraRemaining ~= nil)
 
     if shouldApply then
@@ -57,6 +77,8 @@ local function GetRaftUseDecision(self)
         Trace("Raft is not owned")
     elseif not isReady then
         Trace("Raft toy on cooldown: " .. ns.Utils.GetDebugCooldownText(toyID))
+    elseif recentlyUsed then
+        Trace("Raft was recently used; waiting for player to climb on or aura state to settle")
     elseif blockedByShapeshift then
         Trace("Raft cannot be applied while shapeshifted")
     elseif not needsRefresh then
@@ -73,6 +95,7 @@ local function GetRaftUseDecision(self)
         ready = isReady,
         swimming = swimming,
         blockedByShapeshift = blockedByShapeshift,
+        recentlyUsed = recentlyUsed,
         auraRemaining = auraRemaining,
         needsRefreshForCast = needsRefresh,
         shouldApply = shouldApply,
@@ -80,4 +103,5 @@ local function GetRaftUseDecision(self)
 end
 
 ns.precast.IsRaftBlockedByShapeshift = IsRaftBlockedByShapeshift
+ns.precast.MarkRaftUse = MarkRaftUse
 ns.precast.GetRaftUseDecision = GetRaftUseDecision

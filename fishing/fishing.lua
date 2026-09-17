@@ -198,10 +198,11 @@ function Fishing:SetKeybindings(primaryKey, secondaryKey)
     SaveBindings(GetCurrentBindingSet())
 end
 
-function Fishing:PrepareFishingClickAction()
+function Fishing:PrepareFishingClickAction(options)
     if not self.clickFrame or InCombatLockdown() then
         return
     end
+    options = type(options) == "table" and options or {}
 
     self:Trace("precast", string.format("[PrepareClick Action] Live State=%s", Fishing:CurrentStateName()))
 
@@ -211,7 +212,27 @@ function Fishing:PrepareFishingClickAction()
         return
     end
 
-    ns.Fishing.ConfigureFishingClickAction(self)
+    if self:IsFishingState(ns.Fishing.states.PRECASTING)
+        and type(self.IsPrecastConsumableDecisionMade) == "function"
+        and self:IsPrecastConsumableDecisionMade()
+        and not options.forcePrecastReconfigure then
+        if options.showSwimmingGuidance
+            and type(IsSwimming) == "function"
+            and IsSwimming()
+            and type(self.ShowPrecastSwimmingGuidance) == "function" then
+            self:ShowPrecastSwimmingGuidance({ allowClimb = true })
+        end
+        options.forcePrecastReconfigure = true
+        options.skipConsumableDecision = true
+    end
+
+    if options.forcePrecastReconfigure
+        and type(self.IsPrecastConsumableDecisionMade) == "function"
+        and self:IsPrecastConsumableDecisionMade() then
+        options.skipConsumableDecision = true
+    end
+
+    ns.Fishing.ConfigureFishingClickAction(self, options)
 
     if self:IsFishingState(ns.Fishing.states.PRECASTING) then
         self:StartPrecastLingerTimer()
@@ -341,6 +362,98 @@ function Fishing:StartPrecastLingerTimer()
     end, duration)
 end
 
+function Fishing:ClearPrecastSwimmingWatch()
+    if self.state.precastSwimmingWatchTimer then
+        if type(self.CancelTimer) == "function" then
+            self:CancelTimer(self.state.precastSwimmingWatchTimer)
+        end
+        self.state.precastSwimmingWatchTimer = nil
+    end
+end
+
+function Fishing:CheckPrecastSwimmingStarted()
+    self.state.precastSwimmingWatchTimer = nil
+    if not self:IsFishingState(ns.Fishing.states.PRECASTING) then
+        return
+    end
+    if self.state.precastStartedSwimming == true then
+        return
+    end
+    if type(IsSwimming) == "function" and IsSwimming() then
+        self:Trace("precast", "Swimming started during PRECAST; rearming pre-cast action")
+        self.state.precastStartedSwimming = true
+        if type(self.state.pendingBuffUse) == "table" and not self.state.pendingBuffUse.executedAt then
+            self:Trace("precast", "Clearing unexecuted consumable decision before raft rearm")
+            self.state.pendingBuffUse = nil
+        end
+        if type(self.ClearPrecastConsumableSnapshot) == "function" then
+            self:ClearPrecastConsumableSnapshot("swimming invalidated consumable decision")
+        else
+            self.state.precastConsumableSnapshot = nil
+        end
+        self:PrepareFishingClickAction({ forcePrecastReconfigure = true })
+        self:ShowPrecastSwimmingGuidance()
+        return
+    end
+    if type(self.ScheduleTimer) ~= "function" then
+        return
+    end
+    self.state.precastSwimmingWatchTimer = self:ScheduleTimer(function()
+        self:CheckPrecastSwimmingStarted()
+    end, 0.1)
+end
+
+function Fishing:StartPrecastSwimmingWatch()
+    self:ClearPrecastSwimmingWatch()
+    if self.state.precastStartedSwimming == true then
+        return
+    end
+    if type(self.ScheduleTimer) ~= "function" then
+        return
+    end
+    self.state.precastSwimmingWatchTimer = self:ScheduleTimer(function()
+        self:CheckPrecastSwimmingStarted()
+    end, 0.1)
+end
+
+function Fishing:ShowPrecastSwimmingGuidance(options)
+    options = type(options) == "table" and options or {}
+    local raftDecision = type(ns.precast.GetRaftUseDecision) == "function"
+        and ns.precast.GetRaftUseDecision(self)
+        or nil
+    local raftAuraPresent = type(raftDecision) == "table" and tonumber(raftDecision.auraRemaining) ~= nil
+    local hasOwnedRaft = type(raftDecision) == "table"
+        and raftDecision.hasToy == true
+        and raftDecision.blockedByShapeshift ~= true
+    local raftCanBeUsed = hasOwnedRaft and raftDecision.ready == true
+    local guidanceKind = "unavailable"
+    local message = "You are swimming and no raft is available to use for fishing."
+    if raftAuraPresent then
+        if not options.allowClimb then
+            return
+        end
+        guidanceKind = "climb"
+        message = "You are swimming. Climb on the raft to continue fishing."
+    elseif raftCanBeUsed then
+        guidanceKind = "use"
+        message = "You are swimming. Use the raft to continue fishing."
+    elseif hasOwnedRaft then
+        guidanceKind = "waiting"
+        message = "You are swimming. Wait for the raft, then climb on it to continue fishing."
+    end
+
+    local guidanceRank = { unavailable = 1, waiting = 2, use = 3, climb = 4 }
+    local previousRank = guidanceRank[self.state.precastSwimmingGuidanceKind] or 0
+    local nextRank = guidanceRank[guidanceKind] or 0
+    if not (guidanceKind == "climb" and options.allowClimb)
+        and nextRank <= previousRank then
+        return
+    end
+    self.state.precastSwimmingGuidanceKind = guidanceKind
+    self.state.precastSwimmingAlerted = true
+    Addon:Alert(ns.SystemColor.YELLOW, message)
+end
+
 function Fishing:StartLinger()
     -- Recasting is allowed while lingering, so hand the hotkey and the secure action back to casting.
     self:ClearBobberInteractOverride()
@@ -382,6 +495,10 @@ function Fishing:EndFishingSession(reason)
     self.state.buffDepletionAlerted = nil
     self.state.castStartConfirmationAttempt = nil
     self.state.poleSwapInitiatedAt = nil
+    self.state.precastStartedSwimming = false
+    self.state.precastSwimmingAlerted = false
+    self.state.precastSwimmingGuidanceKind = nil
+    self:ClearPrecastSwimmingWatch()
     -- Clear any pole-swap lock left over from an interrupted/cancelled cast so the
     -- next cast isn't suppressed into "fishing cast did not start".
     self.state.isEquippingPrimaryPole = false
@@ -419,7 +536,7 @@ end
 function Fishing:OnMountDisplayChanged()
     if IsMounted() then
         if self:IsInFishingSession() then
-        self:CancelFishingSession("mounted")
+            self:CancelFishingSession("mounted")
         end
         return
     end
@@ -629,6 +746,8 @@ function Fishing:OnCastStarted(reason)
     if type(self.StartPrecastConsumableSnapshot) == "function" then
         self:StartPrecastConsumableSnapshot(reason)
     end
+    self.state.precastStartedSwimming = type(IsSwimming) == "function" and IsSwimming() == true
+    self:StartPrecastSwimmingWatch()
     self.state.fishingSessionGeneration = (self.state.fishingSessionGeneration or 0) + 1
     self.state.suppressPendingBuffFailure = false
     -- A new cast supersedes any pending linger from the previous catch.

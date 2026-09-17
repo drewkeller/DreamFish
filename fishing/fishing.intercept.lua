@@ -194,7 +194,7 @@ function Fishing:HookPreClickWithHandler()
                 or self:IsFishingState(ns.Fishing.states.LINGERING) then
                 self:OnCastStarted("Hotkey")
             elseif self:IsFishingState(ns.Fishing.states.PRECASTING) then
-                self:PrepareFishingClickAction()
+                self:PrepareFishingClickAction({ showSwimmingGuidance = true })
             end
         end)
     end
@@ -218,12 +218,46 @@ function Fishing:HookPostClickWithHandler()
                 self:Trace("mouse", "PostClick Macro: " .. liveMacroText)
             end
 
+            local selectedRaftToy = self.db
+                and self.db.profile
+                and tonumber(self.db.profile.selectedRaftToy)
+                or nil
+            if selectedRaftToy and selectedRaftToy > 0
+                and type(liveMacroText) == "string"
+                and liveMacroText:find("/use item:" .. tostring(selectedRaftToy), 1, true)
+                and ns.precast
+                and type(ns.precast.MarkRaftUse) == "function" then
+                ns.precast.MarkRaftUse(selectedRaftToy)
+            end
+
              if Fishing:IsFishingState(ns.Fishing.states.PRECASTING) then
                 local pending = Fishing.state.pendingBuffUse
 
                 -- FIX: Also fetch any active pending use changes if a background pass armed it intra-frame!
                 if not pending and self.state.pendingBuffUse then
                     pending = self.state.pendingBuffUse
+                end
+
+                if pending then
+                    local macroContainsPendingUse = false
+                    local pendingUseStarted = false
+                    if type(liveMacroText) == "string" and type(pending.uses) == "table" then
+                        for _, use in ipairs(pending.uses) do
+                            if use.castStarted then
+                                pendingUseStarted = true
+                            end
+                            local itemID = tonumber(use.itemID)
+                            if itemID and liveMacroText:find("/use item:" .. tostring(itemID), 1, true) then
+                                macroContainsPendingUse = true
+                                break
+                            end
+                        end
+                    end
+                    if not macroContainsPendingUse and not pendingUseStarted then
+                        self:Trace("mouse", "PostClick release: clearing unexecuted consumable pending state not present in clicked macro.")
+                        self.state.pendingBuffUse = nil
+                        pending = nil
+                    end
                 end
 
                 if pending then

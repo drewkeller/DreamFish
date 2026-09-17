@@ -106,6 +106,11 @@ function Fishing:SetFishingState(state, reason)
         else
             self.state.precastConsumableSnapshot = nil
         end
+        if type(self.ClearPrecastSwimmingWatch) == "function" then
+            self:ClearPrecastSwimmingWatch()
+        else
+            self.state.precastSwimmingWatchTimer = nil
+        end
     end
 
     self.state.current = state

@@ -1,7 +1,7 @@
 
 # Choosing the next buff
 
-Once a consumable buff decision is made during PRECAST, all decisions about which consumable effects belong to that pre-cast action are fixed. The addon assumes the pre-cast action is immediately imminent or already in progress, so repeated preparation passes must not add, replace, or reorder consumable effects. The decision remains fixed until the fishing session leaves PRECAST, either because the attempt is interrupted/cancelled or because the actual Fishing cast begins.
+Once a consumable buff decision is made during PRECAST, all decisions about which consumable effects belong to that pre-cast action are fixed. The addon assumes the pre-cast action is immediately imminent or already in progress, so no later preparation pass in the same PRECAST should recompute, add, replace, or reorder consumable effects. The decision remains fixed until the fishing session leaves PRECAST, either because the attempt is interrupted/cancelled or because the actual Fishing cast begins.
 
 During a pre-cast, the next buff item is chosen in the order below.
 
@@ -25,6 +25,9 @@ During a pre-cast, the next buff item is chosen in the order below.
 		* Exists in the bags
 		* Lure, if fishing pole equipped
 		* Bait, if there is not already a bait
+
+4. Same-effect consumables are mutually exclusive within one PRECAST.
+	If two configured items resolve to the same effect spell ID, choosing one marks that effect handled for the current PRECAST. A later PRECAST callback must not run a fresh consumable selection or add an equivalent replacement after the first item is confirmed or removed from the pending-use list.
 
 # When a buff is "due"
 

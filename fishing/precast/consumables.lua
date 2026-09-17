@@ -135,12 +135,24 @@ local function MarkPrecastEffectQueued(effectSpellID)
     end
 end
 
+local function MarkPrecastConsumableDecisionMade()
+    if type(state.precastConsumableSnapshot) == "table" then
+        state.precastConsumableSnapshot.decisionMade = true
+    end
+end
+
+function Fishing:IsPrecastConsumableDecisionMade()
+    local snapshot = self.state.precastConsumableSnapshot
+    return type(snapshot) == "table" and snapshot.decisionMade == true
+end
+
 function Fishing:StartPrecastConsumableSnapshot(reason)
     local generation = (tonumber(self.state.precastConsumableSnapshotGeneration) or 0) + 1
     self.state.precastConsumableSnapshotGeneration = generation
     self.state.precastConsumableSnapshot = {
         generation = generation,
         effectSpellIDs = {},
+        decisionMade = false,
     }
     Trace("Started consumable precast snapshot generation=" .. tostring(generation)
         .. " reason=" .. tostring(reason))
@@ -584,10 +596,12 @@ local function GetConsumableUseDecision(self, instantOnly)
         Fishing:UpdatePendingBuffObservation()
     end
     if type(self.state.pendingBuffUse) == "table" and type(self.state.pendingBuffUse.uses) == "table" then
+        MarkPrecastConsumableDecisionMade()
         Trace("Skipping consumable scan: use confirmation pending")
         return { shouldApply = #self.state.pendingBuffUse.uses > 0, items = self.state.pendingBuffUse.uses }
     end
     local configured = charDB and charDB.buffs
+    MarkPrecastConsumableDecisionMade()
     if type(configured) ~= "table" then
         return decision
     end

@@ -30,7 +30,9 @@ local profile = {
     castByDoubleRightClick = true,
     castBySingleRightClickWhenFishing = false,
     castByHotkey = true,
+    selectedRaftToy = 85500,
 }
+local markedRaftToyID
 
 local Fishing = {
     clickFrame = {},
@@ -246,6 +248,9 @@ local ns = {
     },
     precast = {},
 }
+ns.precast.MarkRaftUse = function(toyID)
+    markedRaftToyID = toyID
+end
 Fishing.db = ns.FishingDB
 assert(loadfile("fishing/fishing.intercept.lua"))("DreamFish", ns)
 assert(loadfile("fishing/states.lua"))("DreamFish", ns)
@@ -339,10 +344,23 @@ assert(Fishing:IsFishingState(ns.Fishing.states.IDLE),
 
 Fishing:SetFishingState(ns.Fishing.states.PRECASTING)
 secureAttributes.dreamfish_precast_action = true
+secureAttributes.macrotext = "/use item:85500"
 postClickCallback(Fishing.clickFrame, "RightButton", false)
 assert(#scheduledCallbacks == 1,
     "pre-cast item actions must not schedule failed fishing-cast recovery")
+assert(markedRaftToyID == 85500, "clicked raft macro should mark raft recently used")
 secureAttributes.dreamfish_precast_action = nil
+secureAttributes.macrotext = nil
+
+Fishing:SetFishingState(ns.Fishing.states.PRECASTING)
+Fishing.state.pendingBuffUse = { executedAt = currentTime, uses = { { itemID = 238365, category = "other_consumable" } } }
+secureAttributes.dreamfish_precast_action = true
+secureAttributes.macrotext = "/use item:142528\n/cast [nochanneling] Fishing"
+postClickCallback(Fishing.clickFrame, "RightButton", false)
+assert(Fishing.state.pendingBuffUse == nil,
+    "bobber-only macros must not mark unrelated pending consumables as executed")
+secureAttributes.dreamfish_precast_action = nil
+secureAttributes.macrotext = nil
 
 profile.castByHotkey = false
 local mouseActionsBeforeHotkey = gameMouseActions

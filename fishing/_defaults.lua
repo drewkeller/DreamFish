@@ -12,6 +12,11 @@ ns.Fishing.state = {
     buffUnknownDurationSuppressed = {},
     precastConsumableSnapshot = nil,
     precastConsumableSnapshotGeneration = 0,
+    precastStartedSwimming = false,
+    precastSwimmingWatchTimer = nil,
+    precastSwimmingAlerted = false,
+    precastSwimmingGuidanceKind = nil,
+    raftToyLastUseAt = {},
 }
 
 ns.moduleDefaults["Fishing"] = {
