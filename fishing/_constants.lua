@@ -56,8 +56,7 @@ ns.moduleConstants["Fishing"] = {
         [241316] = { spellID = 1236763, duration = 3600, castTime = 0,     category = "other_consumable", }, -- Haranir Phial of Perception (2)
         [241317] = { spellID = 1236763, duration = 1800, castTime = 0,     category = "other_consumable", }, -- Haranir Phial of Perception (1)
         [241148] = { spellID = 1237919, duration = 1800, castTime = 0,     category = "other_consumable", }, -- Amani Angler's Ward
-        -- commented for learning testing
-        --[281022] = { spellID = 1310061, duration = 1800, castTime = 0,     category = "other_consumable", }, -- Eerie lure (attracts some types of fish)
+        [281022] = { spellID = 1310061, duration = 1800, castTime = 0,     category = "other_consumable", }, -- Eerie lure (attracts some types of fish)
         [242299] = { spellID = 1269152, duration = 3600, castTime = 10000, category = "fooddrink", }, -- Sanguithorn Tea
         [262651] = { spellID = 1284999, duration = 600,  castTime = 1500,  category = "lure", }, -- Pointed Spikesnail
         [262650] = { spellID = 1284999, duration = 600,  castTime = 1500,  category = "lure", }, -- Writhing Wiggleworm (same spellID and text as Pointed Spikesnail)

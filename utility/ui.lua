@@ -273,7 +273,7 @@ function Addon:OpenDialogWindow(windowName, tabOrGroupName)
     AceConfigDialog:Open(windowName, tabOrGroupName)
     local dialog = AceConfigDialog.OpenFrames and AceConfigDialog.OpenFrames[windowName]
     local dialogFrame = GetDialogFrame(dialog)
-    Trace(windowName, "OpenDialogWindow")
+    --Trace(windowName, "OpenDialogWindow")
 
     if windowName == "DreamFishDialog" and ns.Fishing and ns.Fishing.RefreshDreamFishDialogFade then
         ns.Fishing:RefreshDreamFishDialogFade()
@@ -287,18 +287,16 @@ function Addon:OpenDialogWindow(windowName, tabOrGroupName)
         if dialogFrame.frame then
             dialogFrame.frame:SetFrameStrata("BACKGROUND")
             dialogFrame.frame:SetFrameLevel(1)
-            Trace(windowName, "(1) Set frame strata to BACKGROUND and level to 1")
         else
             dialogFrame:SetFrameStrata("BACKGROUND")
             dialogFrame:SetFrameLevel(1)
-            Trace(windowName, "(2) Set frame strata to BACKGROUND and level to 1")
         end
 
         -- Intercept various events
         if dialogFrame.DreamFishPositionHooked then
-            Trace(windowName, "Dialog frame events already hooked, skipping.")
+            --Trace(windowName, "Dialog frame events already hooked, skipping.")
         else
-            Trace(windowName, "Hooking dialog frame events")
+            --Trace(windowName, "Hooking dialog frame events")
             dialogFrame.DreamFishPositionHooked = true
 
             -- Hook the standard close event

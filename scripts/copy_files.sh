@@ -31,4 +31,4 @@ cp -fa $ADDON_NAME.lua $ADDON_NAME.toc Bindings.lua Bindings.xml  \
 cp -rfa assets core Libs fishing looting module ui utility \
   "$ADDON_DIR"
 
-echo "$(date): Copyied files to $ADDON_DIR"
+echo "$(date): Copied files to $ADDON_DIR"

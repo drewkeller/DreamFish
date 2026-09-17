@@ -390,9 +390,8 @@ function Fishing:GetBuffTimingText(itemID)
 end
 
 function Fishing:AnnounceBuffUse(itemID, spellID)
-    local itemName = (type(C_Item.GetItemInfo) == "function" and C_Item.GetItemInfo(itemID)) or ("item:" .. tostring(itemID))
-    Trace("Used: " .. tostring(itemName) .. " (" .. tostring(itemID) .. ", spellID=" .. tostring(spellID) .. ") [" .. self:GetBuffTimingText(itemID) .. "]")
-    self:Info("Used " .. tostring(itemName))
+    Trace("Used: " .. ns.Utils.ItemName(itemID) .. " (" .. tostring(itemID) .. ", spellID=" .. tostring(spellID) .. ") [" .. self:GetBuffTimingText(itemID) .. "]")
+    self:Info("Used " .. ns.Utils.ItemLink(itemID))
 end
 
 local function EnsureCategoryTooltipFrame()

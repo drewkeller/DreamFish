@@ -196,6 +196,7 @@ function Addon:Alert(systemColor, msg, ...)
     local colorInfo = (blizzName and ChatTypeInfo[blizzName]) or ChatTypeInfo["RAID_WARNING"]
     RaidWarningUtil.AddMessage(msg, colorInfo)
     PrintNoLog(prefix, nil, msg, ...)
+    LogSource(ns.logLevel.INFO, "Alert", msg, ...)
 end
 
 function ns.Utils.DebugModuleSourceWithStack(level, module, source, stackTrace, msg, ...)
@@ -250,6 +251,22 @@ function ns.Utils.FormatDuration(seconds)
         return tostring(minutes) .. "m " .. tostring(secs) .. "s"
     end
     return tostring(secs) .. "s"
+end
+
+function ns.Utils.ItemName(itemID)
+    if type(C_Item.GetItemInfo) == "function" then
+        local itemName = C_Item.GetItemInfo(itemID)
+        return itemName or ("Unknown Item " .. tostring(itemID))
+    end
+    return "Unknown Item " .. tostring(itemID)
+end
+
+function ns.Utils.ItemLink(itemID)
+    if type(C_Item.GetItemInfo) == "function" then
+        local itemName, itemLink = C_Item.GetItemInfo(itemID)
+        return itemLink or itemName or ("Unknown Item " .. tostring(itemID))
+    end
+    return  "Unknown Item " .. tostring(itemID)
 end
 
 function ns.Utils.GetDebugItemLabel(itemID)
