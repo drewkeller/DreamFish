@@ -114,6 +114,45 @@ end
 
 local QueueBuffUse
 
+local function GetSnapshotEffectSpellIDs()
+    local snapshot = state.precastConsumableSnapshot
+    if type(snapshot) ~= "table" then
+        return nil
+    end
+    if type(snapshot.effectSpellIDs) ~= "table" then
+        snapshot.effectSpellIDs = {}
+    end
+    return snapshot.effectSpellIDs
+end
+
+local function MarkPrecastEffectQueued(effectSpellID)
+    if not effectSpellID then
+        return
+    end
+    local snapshotEffectSpellIDs = GetSnapshotEffectSpellIDs()
+    if snapshotEffectSpellIDs then
+        snapshotEffectSpellIDs[effectSpellID] = true
+    end
+end
+
+function Fishing:StartPrecastConsumableSnapshot(reason)
+    local generation = (tonumber(self.state.precastConsumableSnapshotGeneration) or 0) + 1
+    self.state.precastConsumableSnapshotGeneration = generation
+    self.state.precastConsumableSnapshot = {
+        generation = generation,
+        effectSpellIDs = {},
+    }
+    Trace("Started consumable precast snapshot generation=" .. tostring(generation)
+        .. " reason=" .. tostring(reason))
+end
+
+function Fishing:ClearPrecastConsumableSnapshot(reason)
+    if type(self.state.precastConsumableSnapshot) == "table" then
+        Trace("Cleared consumable precast snapshot reason=" .. tostring(reason))
+    end
+    self.state.precastConsumableSnapshot = nil
+end
+
 function Fishing:IsBuffItemLearningRequired(itemID)
     return NeedsLearning(itemID)
 end
@@ -186,6 +225,13 @@ function Fishing:BeginBuffLearning(candidate)
     if type(candidate) ~= "table" or not candidate.available or candidate.category == "lure" then
         return false
     end
+    local pending = self.state.pendingBuffUse
+    if type(pending) == "table" and pending.executedAt then
+        Trace("Cannot begin buff learning: consumable confirmation pending")
+        return false
+    end
+    self.state.pendingBuffUse = nil
+    self.state.precastConsumableSnapshot = nil
     self.state.buffLearning = {
         itemID = candidate.itemID,
         category = candidate.category,
@@ -315,10 +361,8 @@ local function IsDue(itemID, category, now)
     end
     local pending = state.pendingBuffObservation
     if type(pending) == "table" and tonumber(pending.itemID) == itemID then
-        local known = GetKnownBuff(itemID)
-        local isKnownDuration = type(known) == "table"
-            and tonumber(known.spellID)
-            and tonumber(known.duration)
+        local spellID, knownDuration = GetKnownSpellAndDuration(itemID)
+        local isKnownDuration = spellID and knownDuration
         if not isKnownDuration then
             return false, "pending_observation" .. LastUseString(lastUse, nil)
         end
@@ -387,8 +431,7 @@ QueueBuffUse = function(itemID, category)
         local spellID = C_Item.GetItemSpell(itemID)
         itemSpellID = tonumber(spellID)
     end
-    local known = GetKnownBuff(itemID)
-    local knownSpellID = type(known) == "table" and tonumber(known.spellID) or nil
+    local knownSpellID = GetKnownSpellAndDuration(itemID)
     local pendingUse = state.pendingBuffUse
     if type(pendingUse) ~= "table" or type(pendingUse.uses) ~= "table" then
         pendingUse = { uses = {} }
@@ -398,6 +441,9 @@ QueueBuffUse = function(itemID, category)
         itemID = itemID,
         category = category,
         sessionGeneration = state.fishingSessionGeneration,
+        precastGeneration = state.precastConsumableSnapshot
+            and state.precastConsumableSnapshot.generation
+            or nil,
         itemSpellID = itemSpellID or knownSpellID,
         knownSpellID = knownSpellID,
         castStarted = false,
@@ -407,6 +453,7 @@ QueueBuffUse = function(itemID, category)
             or {},
         expiresAt = GetNow() + 5,
     })
+    MarkPrecastEffectQueued(knownSpellID)
     Trace("Queued buff use for itemID=" .. tostring(itemID) .. " category=" .. tostring(category))
 end
 
@@ -459,7 +506,7 @@ function Fishing:ConfirmPendingBuffUse(successSpellID)
         self.state.buffItemLastUseAt = lastUses
         rawset(lastUses, itemID, now)
         local known = GetKnownBuff(itemID)
-        local spellID = type(known) == "table" and tonumber(known.spellID) or nil
+        local spellID, trackedDuration = GetKnownSpellAndDuration(itemID)
         -- Built-in metadata is authoritative; only unknown items use learned fallback data.
         if globalDB and type(globalDB.buffAuraByItem) == "table"
             and type(known) ~= "table" then
@@ -472,9 +519,7 @@ function Fishing:ConfirmPendingBuffUse(successSpellID)
                 globalDB.buffAuraByItem[trackedKey] = { isInstant = observedIsInstant }
             end
         end
-        local isKnownDuration = type(known) == "table"
-            and tonumber(known.spellID)
-            and tonumber(known.duration)
+        local isKnownDuration = spellID and trackedDuration
         if not isKnownDuration then
             self.state.pendingBuffObservation = {
                 itemID = itemID,
@@ -549,15 +594,24 @@ local function GetConsumableUseDecision(self, instantOnly)
 
     local itemsToApply = {}
     local queuedEffectSpellIDs = {}
+    local snapshotEffectSpellIDs = GetSnapshotEffectSpellIDs()
+    if snapshotEffectSpellIDs then
+        for effectSpellID, queued in pairs(snapshotEffectSpellIDs) do
+            if queued then
+                queuedEffectSpellIDs[effectSpellID] = true
+            end
+        end
+    end
     for _, category in ipairs(LEARNING_CATEGORY_ORDER) do
         local items = configured[category]
         if type(items) == "table" then
-            for _, entry in pairs(items) do
+            for _, entry in ipairs(items) do
 
                 if type(entry) == "table" and entry.enabled == true and not IsExcluded(tonumber(entry.itemID), entry) then
                     local itemID = tonumber(entry.itemID)
                     local known = GetKnownBuff(itemID)
                     local tracked = GetTrackedBuff(itemID)
+                    local effectSpellID = GetKnownSpellAndDuration(itemID)
                     local isInstant = (type(known) == "table" and tonumber(known.castTime) == 0)
                         or (type(known) ~= "table" and type(tracked) == "table" and tracked.isInstant == true)
                     --Trace("Checking due consumable: " .. Item(itemID) .. " (" .. tostring(category) .. ")")
@@ -576,8 +630,8 @@ local function GetConsumableUseDecision(self, instantOnly)
                             Trace("Skipping due consumable: not found in bags " .. Item(itemID, category))
                         elseif NeedsLearning(itemID) then
                             Trace("Skipping unlearned consumable outside Buff Items learning mode: " .. Item(itemID, category))
-                        elseif queuedEffectSpellIDs[GetKnownSpellAndDuration(itemID)] then
-                            Trace("Skipping due consumable: equivalent effect already queued " .. Item(itemID, category))
+                        elseif effectSpellID and queuedEffectSpellIDs[effectSpellID] then
+                            Trace("Skipping due consumable: equivalent effect already handled this precast " .. Item(itemID, category))
                         elseif category == "lure" then
                             local poleID = type(ns.precast.GetEquippedProfessionItemID) == "function"
                                 and ns.precast.GetEquippedProfessionItemID()
@@ -587,9 +641,9 @@ local function GetConsumableUseDecision(self, instantOnly)
                             elseif #itemsToApply > 0 then
                                 return { shouldApply = true, items = itemsToApply }
                             else
-                                local effectSpellID = GetKnownSpellAndDuration(itemID)
                                 if effectSpellID then
                                     queuedEffectSpellIDs[effectSpellID] = true
+                                    MarkPrecastEffectQueued(effectSpellID)
                                 end
                                 QueueBuffUse(itemID, category)
                                 Trace("Lure is queued: " .. Item(itemID))
@@ -600,9 +654,9 @@ local function GetConsumableUseDecision(self, instantOnly)
                                 return { shouldApply = true, items = itemsToApply }
                             end
                             Trace("Consumable is queued: " .. Item(itemID, category))
-                            local effectSpellID = GetKnownSpellAndDuration(itemID)
                             if effectSpellID then
                                 queuedEffectSpellIDs[effectSpellID] = true
+                                MarkPrecastEffectQueued(effectSpellID)
                             end
                             QueueBuffUse(itemID, category)
                             table.insert(itemsToApply, { itemID = itemID, category = category })

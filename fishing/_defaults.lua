@@ -10,6 +10,8 @@ ns.Fishing.state = {
     buffLearning = nil,
     buffItemLastUseAt = {},
     buffUnknownDurationSuppressed = {},
+    precastConsumableSnapshot = nil,
+    precastConsumableSnapshotGeneration = 0,
 }
 
 ns.moduleDefaults["Fishing"] = {

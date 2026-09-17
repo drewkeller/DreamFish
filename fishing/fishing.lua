@@ -626,6 +626,9 @@ end
 
 function Fishing:OnCastStarted(reason)
     self:SetFishingState(ns.Fishing.states.PRECASTING, reason)
+    if type(self.StartPrecastConsumableSnapshot) == "function" then
+        self:StartPrecastConsumableSnapshot(reason)
+    end
     self.state.fishingSessionGeneration = (self.state.fishingSessionGeneration or 0) + 1
     self.state.suppressPendingBuffFailure = false
     -- A new cast supersedes any pending linger from the previous catch.

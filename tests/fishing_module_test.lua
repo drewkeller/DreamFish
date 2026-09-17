@@ -327,6 +327,11 @@ assert(Fishing.state.current == namespace.Fishing.states.IDLE,
     "mounting did not cancel fishing")
 assert(cancelledFor == "cancelled: mounted", "mount cancellation used the wrong reason")
 
+mounted = false
+Fishing:OnMountDisplayChanged()
+assert(underlightEquipReasons[#underlightEquipReasons] == "dismounted",
+    "dismount did not retry the Underlight Angler equip")
+
 Fishing:OnModuleDisable()
 
 assert(next(registeredEvents) == nil, "disabling Fishing did not unregister its events")

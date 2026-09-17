@@ -69,6 +69,7 @@ end
 
 function Fishing:SetFishingState(state, reason)
     assert(FISHING_STATE_FLAGS[state], "Unknown fishing state: " .. tostring(state))
+    local oldState = self.state.current
 
     if reason then
         Trace(state, reason)
@@ -76,8 +77,6 @@ function Fishing:SetFishingState(state, reason)
 
     local currentFlags = FISHING_STATE_FLAGS[self.state.current]
     if currentFlags then
-        local oldState = self.state.current
-
         local wasCastActive = currentFlags.isCastActive
         local isCastActive = FISHING_STATE_FLAGS[state].isCastActive
         if not wasCastActive and isCastActive then
@@ -98,6 +97,14 @@ function Fishing:SetFishingState(state, reason)
         if wasFishing and not isFishing then
             Trace(state, "Fishing session ended: " .. (reason or "unknown reason"))
             self:SendMessage("FISHING_SESSION_ENDED", oldState, state)
+        end
+    end
+
+    if oldState == FISHING_STATES.PRECASTING and state ~= FISHING_STATES.PRECASTING then
+        if type(self.ClearPrecastConsumableSnapshot) == "function" then
+            self:ClearPrecastConsumableSnapshot("leaving PRECAST")
+        else
+            self.state.precastConsumableSnapshot = nil
         end
     end
 

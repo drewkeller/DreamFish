@@ -1,7 +1,9 @@
 
- # Choosing the next buff
+# Choosing the next buff
 
- During a pre-cast, the next buff item is chosen in this order:
+Once a consumable buff decision is made during PRECAST, all decisions about which consumable effects belong to that pre-cast action are fixed. The addon assumes the pre-cast action is immediately imminent or already in progress, so repeated preparation passes must not add, replace, or reorder consumable effects. The decision remains fixed until the fishing session leaves PRECAST, either because the attempt is interrupted/cancelled or because the actual Fishing cast begins.
+
+During a pre-cast, the next buff item is chosen in the order below.
 
 1. Higher-level pre-cast actions run first
 	* Fishing pole equip (instant cast, but some delay before it becomes equipped)
@@ -14,7 +16,7 @@
 2. Consumable buff categories are checked in fixed priority order:
 	fooddrink -> lure -> bait -> bobber -> other consumable
 
-3. Within a category, configured order wins.
+3. Within a category, configured order wins (in technical-speak, array order).
 	Scan the charDB[category] buff items from top to bottom and return the first candidate that:
 		* Is enabled
 		* Is not excluded
@@ -37,7 +39,7 @@ The checks happen in this order.
 	If the item was used within the last 5 seconds, it is not due. This prevents the same aura from being selected again before the game has populated its aura state.
 
 3. Recent-aura protection
-	If this item has a known aura and a different item was used within the last 5 seconds that is expected to produce the same aura, this item is not due.
+	If this item has a known aura and a different item was used within the last 5 seconds that is expected to produce the same aura, this item is not due. In other words, items resolving to the same effect spell ID are mutually exclusive within the current PRECAST cycle.
 
 4. Tracked aura remaining time
 	If remaining time an aura can be determined, the item is due when:
