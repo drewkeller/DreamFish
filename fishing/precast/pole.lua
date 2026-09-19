@@ -11,6 +11,8 @@ end)
 
 Fishing:RegisterTraceSource("pole")
 
+local FISHING_POLE_SLOT = 28
+
 local function Trace(msg)
     Fishing:Trace("pole", msg)
 end
@@ -19,7 +21,7 @@ local function GetEquippedProfessionItemID()
     if type(GetInventoryItemID) ~= "function" then
         return nil
     end
-    local ok, rawItemID = pcall(GetInventoryItemID, "player", 28)
+    local ok, rawItemID = pcall(GetInventoryItemID, "player", FISHING_POLE_SLOT)
     if not ok then
         return nil
     end
@@ -67,43 +69,17 @@ local function GetConfiguredPoleSelections()
     }
 end
 
-local function GetWaterContextDiagnostics()
-    local diagnostics = {
-        isSwimming = false,
-        isSubmerged = false,
-        secureOption = nil,
-        source = nil,
-        result = false,
-    }
-
-    if type(IsSwimming) == "function" and IsSwimming() then
-        diagnostics.isSwimming = true
-        diagnostics.source = "IsSwimming"
-        diagnostics.result = true
-        return diagnostics
-    end
-
-    if type(IsSubmerged) == "function" and IsSubmerged() then
-        diagnostics.isSubmerged = true
-        diagnostics.source = "IsSubmerged"
-        diagnostics.result = true
-        return diagnostics
-    end
-
-    return diagnostics
-end
-
-local function IsPlayerInWaterContext()
-    return GetWaterContextDiagnostics().result
-end
-
 local function GetSelectedFishingPoleDecision()
     local selections = GetConfiguredPoleSelections()
-    local poleItemID = selections.primary.itemID
-    local hasItem = ns.Utils.IsItemAvailableForEquip(poleItemID)
+    local itemID = selections.primary.itemID
+    local isSelected = selections.primary.isChecked
+    local hasItem = ns.Utils.IsItemAvailableForEquip(itemID)
     local mounted = (type(IsMounted) == "function" and IsMounted()) or false
     local equippedItemID = GetEquippedProfessionItemID()
-    local alreadyEquipped = poleItemID and equippedItemID and (poleItemID == equippedItemID) or false
+    local canEquip = itemID
+        and isSelected
+        and hasItem
+    local alreadyEquipped = itemID and equippedItemID and (itemID == equippedItemID) or false
     local shouldApply = hasItem
         and selections.primary.isChecked
         and Fishing:CanStartCast()
@@ -111,21 +87,22 @@ local function GetSelectedFishingPoleDecision()
         and (not alreadyEquipped)
 
     if shouldApply then
-        Trace("Primary fishing poleItemID=" .. tostring(poleItemID) .. " is ready to be applied.")
+        Trace("Primary fishing poleItemID=" .. tostring(itemID) .. " is ready to be applied.")
     elseif not hasItem then
-        Trace("Primary fishing poleItemID=" .. tostring(poleItemID) .. " is not available in bags or equipped.")
+        Trace("Primary fishing poleItemID=" .. tostring(itemID) .. " is not available in bags or equipped.")
     elseif not selections.primary.isChecked then
-        Trace("Primary fishing poleItemID=" .. tostring(poleItemID) .. " is not selected for application.")
+        Trace("Primary fishing poleItemID=" .. tostring(itemID) .. " is not selected for application.")
     elseif mounted then
         Trace("Player is mounted; primary pole will not be applied.")
     elseif alreadyEquipped then
-        Trace("Primary fishing poleItemID=" .. tostring(poleItemID) .. " is already equipped; no action needed.")
+        Trace("Primary fishing poleItemID=" .. tostring(itemID) .. " is already equipped; no action needed.")
     end
 
     return {
-        itemID = poleItemID,
+        itemID = itemID,
         hasItem = hasItem,
         mounted = mounted,
+        canEquip = canEquip,
         alreadyEquipped = alreadyEquipped,
         shouldApply = shouldApply,
     }
@@ -240,6 +217,21 @@ local function TryEquipItemToProfessionSlot(itemID)
     return false
 end
 
+function TryUnequipFishingPole()
+    if InCombatLockdown() then
+        return
+    end
+
+    -- Look for an empty bag slot to put the pole into
+    local bag, slot = ns.Utils.GetFreeBagSlot()
+    if not bag or not slot then
+        Addon:Alert(ns.SystemColor.INFO, "Your bags are full. Cannot unequip fishing pole.")
+        return false
+    end
+    PickupInventoryItem(FISHING_POLE_SLOT)
+    C_Container.PickupContainerItem(bag, slot)
+    return true
+end
 
 local function ApplySelectedFishingPole()
     local selections = GetConfiguredPoleSelections()

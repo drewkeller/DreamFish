@@ -24,6 +24,7 @@ ns.moduleConstants["Fishing"] = {
     underlightAnglerItemID = 133755,
     oversizedBobberItemID = 202207,
     fishingSpellID = 131474,
+    surfaceTensionSpellID = 216441,
     maxFishingCastSeconds = 20,
     buffPreRefreshSafetySeconds = 2,
 

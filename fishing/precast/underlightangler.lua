@@ -22,6 +22,9 @@ local function GetUnderlightAnglerEquipDecision()
     local hasItem = ns.Utils.IsItemAvailableForEquip(itemID)
     local mounted = IsMounted()
     local equippedItemID = ns.precast.GetEquippedProfessionItemID()
+    local canEquip = itemID
+        and isSelected
+        and hasItem
     local alreadyEquipped = itemID
         and equippedItemID
         and (itemID == equippedItemID)
@@ -49,6 +52,7 @@ local function GetUnderlightAnglerEquipDecision()
     return {
         itemID = itemID,
         hasItem = hasItem,
+        canEquip = canEquip,
         shouldEquip = shouldEquip,
         mounted = mounted,
         alreadyEquipped = alreadyEquipped,
@@ -83,13 +87,13 @@ function Fishing:CheckAndEquipUnderlightAngler(reason, ignoreActiveChannel)
         if ClearCursor then
             ClearCursor()
         end
-        Trace("Equipping Underlight Angler: " .. tostring(reason))
+        Trace("Equipping Underlight Angler (1): " .. tostring(reason))
         return true
     end
 
     if C_Item.EquipItemByName then
         C_Item.EquipItemByName("item:" .. tostring(itemID))
-        Trace("Equipping Underlight Angler: " .. tostring(reason))
+        Trace("Equipping Underlight Angler (2): " .. tostring(reason))
         return true
     end
 

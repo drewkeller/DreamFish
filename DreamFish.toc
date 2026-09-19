@@ -70,6 +70,7 @@ fishing/precast/pole.lua
 fishing/precast/raft.lua
 fishing/precast/underlightangler.lua
 fishing/fishing.precast.lua
+fishing/surfacetension.lua
 
 # UI system (commands, config)
 ui/dreamfishdialog.lua

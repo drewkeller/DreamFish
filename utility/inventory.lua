@@ -169,3 +169,18 @@ function ns.Utils.GetFreeBagSlots(includeReagentBag)
     end
     return free
 end
+
+function ns.Utils.GetFreeBagSlot()
+    local bagCount = NUM_BAG_SLOTS or 4
+    for bag = 0, bagCount do
+        local slots = ns.Utils.ContainerNumSlots(bag)
+        if slots and slots > 0 then
+            for slot = 1, slots do
+                if not ns.Utils.ContainerItemID(bag, slot) then
+                    return bag, slot
+                end
+            end
+        end
+    end
+    return nil, nil
+end
