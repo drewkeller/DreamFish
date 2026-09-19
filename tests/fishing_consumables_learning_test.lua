@@ -62,6 +62,15 @@ local namespace = {
         FormatDuration = function(duration)
             return tostring(duration)
         end,
+        ItemName = function(itemID)
+            return tostring(itemID)
+        end,
+        ItemLink = function(itemID)
+            return tostring(itemID)
+        end,
+        IsItemAvailableForEquip = function(itemID)
+            return true
+        end,
     },
     precast = {},
 }
@@ -88,6 +97,8 @@ C_UnitAuras = {
 
 assert(loadfile("fishing/auras.lua"))("DreamFish", namespace)
 assert(loadfile("fishing/precast/consumables.lua"))("DreamFish", namespace)
+-- assert(loadfile("utility/debug.lua"))("DreamFish", namespace)
+-- assert(loadfile("utility/inventory.lua"))("DreamFish", namespace)
 
 Fishing.state.pendingBuffUse = {
     uses = {

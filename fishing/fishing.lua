@@ -105,6 +105,8 @@ function Fishing:OnModuleDisable()
 end
 
 function Fishing:OnBagUpdateDelayed()
+    LibStub("AceConfigRegistry-3.0"):NotifyChange(addonName .. "Dialog")
+
     if type(self.CheckAndHandlePoleSwapReset) == "function" then
         self:CheckAndHandlePoleSwapReset()
     end

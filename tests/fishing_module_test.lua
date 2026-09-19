@@ -10,6 +10,7 @@ local swimming = false
 local alertMessages = {}
 local underlightEquipReasons = {}
 local releaseClickCaptureCount = 0
+local notifiedConfigTables = {}
 
 local DreamFish = {
     db = {
@@ -85,6 +86,13 @@ function LibStub(name, silent)
         return {
             GetAddon = function()
                 return DreamFish
+            end,
+        }
+    end
+    if name == "AceConfigRegistry-3.0" then
+        return {
+            NotifyChange = function(_, appName)
+                table.insert(notifiedConfigTables, appName)
             end,
         }
     end
@@ -285,12 +293,17 @@ assert(Fishing.enabled, "Fishing did not use its saved enabled state")
 assert(frameCreated, "enabling Fishing did not create the secure frame")
 assert(registeredEvents.PLAYER_REGEN_ENABLED, "enabling Fishing did not register its combat event")
 assert(registeredEvents.PLAYER_EQUIPMENT_CHANGED, "enabling Fishing did not register its equipment refresh event")
+assert(registeredEvents.BAG_UPDATE_DELAYED, "enabling Fishing did not register its bag refresh event")
 assert(registeredEvents.UNIT_AURA, "enabling Fishing did not register its aura refresh event")
 assert(registeredEvents.UNIT_SPELLCAST_START, "enabling Fishing did not register its spellcast start event")
 assert(registeredEvents.UNIT_SPELLCAST_SUCCEEDED, "enabling Fishing did not register its spellcast success event")
 assert(registeredEvents.PLAYER_MOUNT_DISPLAY_CHANGED, "enabling Fishing did not register its mount event")
 assert(bindingsApplied, "enabling Fishing did not apply its keybinding")
 assert(preparedActionCount == 0, "enabling Fishing must not prepare a cast action before a fishing session starts")
+
+Fishing:OnBagUpdateDelayed()
+assert(notifiedConfigTables[#notifiedConfigTables] == "DreamFishDialog",
+    "bag changes must refresh the tackle dialog's pole controls")
 
 Fishing:OnCastStarted()
 assert(preparedActionCount == 1, "starting Fishing must configure the secure action exactly once")

@@ -188,7 +188,7 @@ function Fishing:GetBuffLearningCandidates()
                         itemID = itemID,
                         category = category,
                         slotIndex = slotIndex,
-                        available = ns.Utils.FindItemInBags(itemID) ~= nil,
+                        available = ns.Utils.IsItemAvailableForEquip(itemID) ~= nil,
                     })
                 end
             end
@@ -640,7 +640,7 @@ local function GetConsumableUseDecision(self, instantOnly)
                         local isDue, reason = IsDue(itemID, category, GetNow())
                         if not isDue then
                             Trace("Skipping due consumable: not due " .. Item(itemID, category) .. " (" .. tostring(reason) .. ")")
-                        elseif not ns.Utils.FindItemInBags(itemID) then
+                        elseif ns.Utils.FindItemInBags(itemID) == nil then
                             Trace("Skipping due consumable: not found in bags " .. Item(itemID, category))
                         elseif NeedsLearning(itemID) then
                             Trace("Skipping unlearned consumable outside Buff Items learning mode: " .. Item(itemID, category))

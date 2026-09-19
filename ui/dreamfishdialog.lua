@@ -12,6 +12,10 @@ local function GetFishingCharDB()
     return Fishing.db and Fishing.db.char or {}
 end
 
+local function IsUnderlightAnglerItemID(itemID)
+    return tonumber(itemID) == tonumber(ns.Fishing.const.underlightAnglerItemID)
+end
+
 local layoutCounter = 0
 local function AutoOrder(nodeTable)
     layoutCounter = layoutCounter + 1
@@ -41,11 +45,14 @@ local function SetIsChecked(dbKey, isChecked)
     if not InCombatLockdown() then
         ns.precast.ApplySelectedFishingPole()
         Fishing:PrepareFishingClickAction()
+        if dbKey == "underlightAngler" then
+            if isChecked then
+                Fishing:CreateSurfaceTensionMonitor()
+            else
+                Fishing:RemoveSurfaceTensionMonitor()
+            end
+        end
     end
-end
-
-local function IsUnderlightAnglerItemID(itemID)
-    return tonumber(itemID) == tonumber(ns.Fishing.const.underlightAnglerItemID)
 end
 
 local function GetBuffItem(category, index)
@@ -108,6 +115,15 @@ local function AutoDetectUnderlightAngler()
     end
 
     return false
+end
+
+local function IsUnderlightAnglerAvailable()
+    local anglerID = tonumber(ns.Fishing.const.underlightAnglerItemID)
+    if not anglerID then return false end
+
+    local isAvailable = ns.Utils.IsItemAvailableForEquip(anglerID)
+    Trace("Underlight Angler available for equip: " .. tostring(isAvailable))
+    return isAvailable
 end
 
 local function GetEquipmentAvailableForSlot(slotID, validatorFunc)
@@ -282,15 +298,36 @@ local options = {
                     name = "Underlight Angler",
                     width = "normal",
                     dialogControl = "DreamFishEquipmentPreview",
-                    get = function() return tostring(GetItemID("underlightAngler") or "") end,
+                    get = function()
+                        -- If the item is no longer available, forcefully clear the configuration state
+                        if not IsUnderlightAnglerAvailable() then
+                            if GetItemID("underlightAngler") then
+                                SetItemID("underlightAngler", nil)
+                                SetIsChecked("underlightAngler", false)
+                            end
+                            return ""
+                        end
+                        return tostring(GetItemID("underlightAngler") or "")
+                    end,
                     set = function(_, itemID) SetItemID("underlightAngler", itemID) end,
+                    disabled = function() return IsUnderlightAnglerAvailable() == false end,
                     arg = {
                         desc = "Always shown here if it is available in your bags or equipped.",
                         slotID = 28,
                         canRemoveItem = false,
                         validateItemIDFunc = function(itemID) return IsUnderlightAnglerItemID(itemID) end,
-                        getIsChecked = function() return GetIsChecked("underlightAngler") end,
-                        setIsChecked = function(value) SetIsChecked("underlightAngler", value) end,
+                        getIsChecked = function()
+                            if not IsUnderlightAnglerAvailable() then return false end
+                            return GetIsChecked("underlightAngler")
+                        end,
+                        setIsChecked = function(value)
+                            -- Only allow enabling if the item is physically present
+                            if value and not IsUnderlightAnglerAvailable() then
+                                SetIsChecked("underlightAngler", false)
+                                return
+                            end
+                            SetIsChecked("underlightAngler", value)
+                        end,
                     },
                 }),
                 divider = AutoOrder({

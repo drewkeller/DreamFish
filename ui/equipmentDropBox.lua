@@ -168,6 +168,7 @@ local function CreateEquipmentDropBox()
     local function ReadUserData(self)
         -- 1. Look up the database key dynamically based on the stored label string
         local dbKey = GetDBKeyFromWidgetLabel(widget.currentLabel)
+        local validatorFunc = nil
 
         if dbKey then
             -- 2. Reach directly into your addon namespace functions!
@@ -179,6 +180,7 @@ local function CreateEquipmentDropBox()
 
                 if targetNode and targetNode.arg then
                     local config = targetNode.arg
+                    validatorFunc = config.validateItemIDFunc
 
                     if type(config.getIsChecked) == "function" then
                         widget.isChecked = config.getIsChecked() or false
@@ -209,8 +211,14 @@ local function CreateEquipmentDropBox()
         if not widget.itemID or widget.itemID == 0 then
             -- Query the player's live character sheet inventory slot
             local activelyEquippedItemID = GetEquippedProfessionItemID(widget.slotID)
+            local isValid = true
+            if activelyEquippedItemID and validatorFunc then
+                if not validatorFunc(activelyEquippedItemID) then
+                    isValid = false
+                end
+            end
 
-            if activelyEquippedItemID then
+            if activelyEquippedItemID and isValid then
                 Addon:Debug("No saved configuration found. Auto-populating from equipped slot: " .. activelyEquippedItemID)
 
                 -- Force the live item identification number into your widget state
