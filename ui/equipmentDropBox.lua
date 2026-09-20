@@ -97,7 +97,6 @@ local function CreateEquipmentDropBox()
             noteString:Hide()
         else
             icon:SetTexture(nil)
-            Addon:Debug("widget.itemID is nil")
             noteString:Show()
         end
 

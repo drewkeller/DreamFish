@@ -145,7 +145,6 @@ local function PendingConsumableHasStarted(pending)
 end
 
 local function ConfigureFishingClickAction(self, options)
-    --local underlightDecision = ns.precast.GetUnderlightAnglerEquipDecision()
     options = type(options) == "table" and options or {}
     local macroLines = {}
 
