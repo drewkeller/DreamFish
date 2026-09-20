@@ -289,11 +289,11 @@ end
 
 function Fishing:OnAddonLoaded(event)
     -- Delay the initial login equipment check to allow the client to fully cache bag and inventory tracking
-    C_Timer.After(2.0, function()
-        if type(self.CheckAndEquipUnderlightAngler) == "function" then
-            self:CheckAndEquipUnderlightAngler("addon loaded (delayed packet safety pass)")
-        end
-    end)
+    -- C_Timer.After(2.0, function()
+    --     if type(self.CheckAndEquipUnderlightAngler) == "function" then
+    --         self:CheckAndEquipUnderlightAngler("addon loaded (delayed packet safety pass)")
+    --     end
+    -- end)
 end
 
 -- This function does NOT fire for profession slotted items
@@ -438,7 +438,7 @@ function Fishing:ShowPrecastSwimmingGuidance(options)
         message = "You are swimming. Climb on the raft to continue fishing."
     elseif raftCanBeUsed then
         guidanceKind = "use"
-        message = "You are swimming. Use the raft to continue fishing."
+        message = "You are swimming. Cast a raft to continue fishing."
     elseif hasOwnedRaft then
         guidanceKind = "waiting"
         message = "You are swimming. Wait for the raft, then climb on it to continue fishing."
@@ -492,7 +492,7 @@ function Fishing:EndFishingSession(reason)
     self:StopMouseButtonWatch()
     self:ClearBobberInteractOverride()
     self:ReleaseClickCapture()
-    self:CheckAndEquipUnderlightAngler(reason, true)
+    --self:CheckAndEquipUnderlightAngler(reason, true)
     self.state.pendingBuffUse = nil
     self.state.buffDepletionAlerted = nil
     self.state.castStartConfirmationAttempt = nil
@@ -527,7 +527,7 @@ end
 
 function Fishing:OnCombatEnded()
     self:UpdateKeybindsAfterCombat()
-    self:CheckAndEquipUnderlightAngler("combat ended")
+    --self:CheckAndEquipUnderlightAngler("combat ended")
 end
 
 function Fishing:OnMovementStarted()
@@ -543,9 +543,9 @@ function Fishing:OnMountDisplayChanged()
         return
     end
 
-    if not self:IsInFishingSession() then
-        self:CheckAndEquipUnderlightAngler("dismounted")
-    end
+    -- if not self:IsInFishingSession() then
+    --     self:CheckAndEquipUnderlightAngler("dismounted")
+    -- end
 end
 
 -- BUTTON2 lives on its own owner frame so it can be released without dropping the hotkey override.

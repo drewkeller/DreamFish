@@ -59,46 +59,46 @@ local function GetUnderlightAnglerEquipDecision()
     }
 end
 
-function Fishing:CheckAndEquipUnderlightAngler(reason, ignoreActiveChannel)
-    local selection = ns.precast.GetConfiguredPoleSelections().underlight
-    local itemID = tonumber(ns.Fishing.const.underlightAnglerItemID)
-    if not selection.isChecked or not itemID or itemID <= 0 or InCombatLockdown() or IsMounted() then
-        return false
-    end
+-- function Fishing:CheckAndEquipUnderlightAngler(reason, ignoreActiveChannel)
+--     local selection = ns.precast.GetConfiguredPoleSelections().underlight
+--     local itemID = tonumber(ns.Fishing.const.underlightAnglerItemID)
+--     if not selection.isChecked or not itemID or itemID <= 0 or InCombatLockdown() or IsMounted() then
+--         return false
+--     end
 
-    if ns.precast.GetEquippedProfessionItemID() == itemID then
-        return true
-    end
+--     if ns.precast.GetEquippedProfessionItemID() == itemID then
+--         return true
+--     end
 
-    -- Equipping an item interrupts an active channel, so never equip while the fishing channel
-    -- is running. The delayed post-login safety pass can otherwise land mid-cast and cancel it.
-    -- The pole is equipped later by the session-end call when the channel has finished.
-    -- Session end is exempt: the cast is already over or being cancelled, and the channel info
-    -- can still report stale for a moment (e.g. movement cancels).
-    if not ignoreActiveChannel and type(UnitChannelInfo) == "function" and UnitChannelInfo("player") then
-        Trace("Skipping Underlight Angler equip; a channel is active: " .. tostring(reason))
-        return false
-    end
+--     -- Equipping an item interrupts an active channel, so never equip while the fishing channel
+--     -- is running. The delayed post-login safety pass can otherwise land mid-cast and cancel it.
+--     -- The pole is equipped later by the session-end call when the channel has finished.
+--     -- Session end is exempt: the cast is already over or being cancelled, and the channel info
+--     -- can still report stale for a moment (e.g. movement cancels).
+--     if not ignoreActiveChannel and type(UnitChannelInfo) == "function" and UnitChannelInfo("player") then
+--         Trace("Skipping Underlight Angler equip; a channel is active: " .. tostring(reason))
+--         return false
+--     end
 
-    local bag, slot = ns.Utils.FindItemInBags(itemID)
-    if bag and slot and C_Container and C_Container.PickupContainerItem and EquipCursorItem then
-        C_Container.PickupContainerItem(bag, slot)
-        EquipCursorItem(28)
-        if ClearCursor then
-            ClearCursor()
-        end
-        Trace("Equipping Underlight Angler (1): " .. tostring(reason))
-        return true
-    end
+--     local bag, slot = ns.Utils.FindItemInBags(itemID)
+--     if bag and slot and C_Container and C_Container.PickupContainerItem and EquipCursorItem then
+--         C_Container.PickupContainerItem(bag, slot)
+--         EquipCursorItem(28)
+--         if ClearCursor then
+--             ClearCursor()
+--         end
+--         Trace("Equipping Underlight Angler (1): " .. tostring(reason))
+--         return true
+--     end
 
-    if C_Item.EquipItemByName then
-        C_Item.EquipItemByName("item:" .. tostring(itemID))
-        Trace("Equipping Underlight Angler (2): " .. tostring(reason))
-        return true
-    end
+--     if C_Item.EquipItemByName then
+--         C_Item.EquipItemByName("item:" .. tostring(itemID))
+--         Trace("Equipping Underlight Angler (2): " .. tostring(reason))
+--         return true
+--     end
 
-    return false
-end
+--     return false
+-- end
 
 function Fishing:OnFishingCastEnded(event, oldState, newState)
 end
