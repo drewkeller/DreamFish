@@ -16,6 +16,9 @@ for _, mode in ipairs(ns.LootTracker.const.LootModes) do
     LootMode[mode.id:upper()] = mode.id
 end
 
+local GetLootSituation
+local UpdateNativeAutoLootSetting
+
 LootTracker:RegisterTraceSource("iteminfo")
 LootTracker:RegisterTraceSource("lootmode")
 
@@ -24,10 +27,13 @@ local function Trace(message)
 end
 
 local function AutoLootToString(value)
-    if type(value) ~= "string" then
+    if type(value) == "string" then
         return value == "1" and "ON" or "OFF"
     end
-    return value and "ON" or "OFF"
+    if type(value) == "boolean" then
+        return value == true and "ON" or "OFF"
+    end
+    return "UNKNOWN (" .. tostring(value) .. ")"
 end
 
 local function SituationToString(situation)
@@ -36,7 +42,7 @@ end
 
 local function SaveNativeAutoLootSetting()
     state.savedAutoLootDefault = GetCVar("autoLootDefault") == "1"
-    Trace("Saved native auto loot setting as " .. AutoLootToString(state.savedAutoLootDefault))
+    Trace("Saved original native auto loot setting as " .. AutoLootToString(state.savedAutoLootDefault))
 end
 
 local function RestoreNativeAutoLootSetting()
@@ -80,6 +86,7 @@ LootTracker:RegisterOnModuleInitialize(function(self)
 end)
 
 LootTracker:RegisterOnModuleEnable(function(self)
+    UpdateNativeAutoLootSetting(nil, GetLootSituation())
 end)
 
 LootTracker:RegisterOnModuleRegisterEvents(function(self)
@@ -102,7 +109,7 @@ LootTracker:RegisterOnModuleDisable(function(self)
     RestoreNativeAutoLootSetting()
 end)
 
-local function GetLootSituation()
+GetLootSituation = function()
     if state.isFishing then
         return profileDB.lootModeWhenFishing
     else
@@ -114,14 +121,14 @@ local function HasNativeAutoLootOverride(situation)
     return situation.lootMode ~= LootMode.NONE
 end
 
-local function UpdateNativeAutoLootSetting(previousSituation, currentSituation)
+UpdateNativeAutoLootSetting = function(previousSituation, currentSituation)
     Trace("Updating native auto loot setting. Previous situation: " .. SituationToString(previousSituation) .. ", Current situation: " .. SituationToString(currentSituation))
-    if not IsNativeAutoLootSettingExpected(previousSituation) then
+    if previousSituation and not IsNativeAutoLootSettingExpected(previousSituation) then
         Trace("Native auto loot setting is not as expected. Aborting update.")
         state.cvarInterference = true
         return
     end
-    if HasNativeAutoLootOverride(previousSituation) and not HasNativeAutoLootOverride(currentSituation) then
+    if previousSituation and HasNativeAutoLootOverride(previousSituation) and not HasNativeAutoLootOverride(currentSituation) then
         RestoreNativeAutoLootSetting()
     elseif currentSituation.lootMode == LootMode.MANUAL or currentSituation.lootMode == LootMode.MANAGED then
         Trace("Setting native auto loot to OFF for " .. SituationToString(currentSituation) .. " loot mode")
