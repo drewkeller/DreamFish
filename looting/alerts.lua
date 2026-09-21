@@ -1,7 +1,7 @@
 local addonName, ns = ...
 local Addon = ns.Addon
 local LootTracker = ns.LootTracker
-local MessageSink = {}
+local MessageSink = ns.MessageSink:new(LootTracker)
 
 local profileDB
 local state = {
@@ -26,14 +26,14 @@ end)
 LootTracker:RegisterOnModuleRegisterEvents(function(self)
     Trace("Registering events")
     self:RegisterEvent("UNIT_AURA", "UNIT_AURA")
-    self.RegisterMessage(MessageSink, "FISHING_SESSION_STARTED", "FISHING_SESSION_STARTED")
-    self.RegisterMessage(MessageSink, "FISHING_SESSION_ENDED", "FISHING_SESSION_ENDED")
+    MessageSink:RegisterMessage("FISHING_SESSION_STARTED", "FISHING_SESSION_STARTED")
+    MessageSink:RegisterMessage("FISHING_SESSION_ENDED", "FISHING_SESSION_ENDED")
 end)
 
 LootTracker:RegisterOnModuleUnregisterEvents(function(self)
     self:UnregisterEvent("UNIT_AURA")
-    self.UnregisterMessage(MessageSink, "FISHING_SESSION_STARTED")
-    self.UnregisterMessage(MessageSink, "FISHING_SESSION_ENDED")
+    MessageSink:UnregisterMessage("FISHING_SESSION_STARTED")
+    MessageSink:UnregisterMessage("FISHING_SESSION_ENDED")
 end)
 
 function MessageSink:FISHING_SESSION_STARTED(...)

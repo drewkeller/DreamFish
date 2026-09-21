@@ -32,9 +32,11 @@ core/_options.lua
 module/prototype.lua
 module/debug.lua
 module/callbacks.lua
+module/messagesink.lua
 fishing/_constants.lua
 fishing/_defaults.lua
 fishing/_defaults_framefade.lua
+fishing/distance.lua
 fishing/_options.lua
 looting/_constants.lua
 looting/_defaults.lua

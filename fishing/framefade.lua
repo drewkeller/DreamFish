@@ -1,6 +1,7 @@
 -- DreamFish: Focus frame fading while fishing
 local addonName, ns = ...
 local Fishing = ns.Fishing or LibStub("AceAddon-3.0"):GetAddon("DreamFish"):GetModule("Fishing")
+local MessageSink = ns.MessageSink:new(Fishing)
 
 local globalDB, profileDB, charDB
 
@@ -38,17 +39,17 @@ end)
 
 Fishing:RegisterOnModuleRegisterEvents(function(self)
     Debug("Registering events")
-    self:RegisterEvent("PLAYER_ENTERING_WORLD", "PLAYER_ENTERING_WORLD")
-    self:RegisterEvent("PLAYER_REGEN_ENABLED", "PLAYER_REGEN_ENABLED")
-    self:RegisterMessage("FISHING_SESSION_STARTED", "FISHING_SESSION_STARTED")
-    self:RegisterMessage("FISHING_SESSION_ENDED",   "FISHING_SESSION_ENDED")
+    MessageSink:RegisterEvent("PLAYER_ENTERING_WORLD", "PLAYER_ENTERING_WORLD")
+    MessageSink:RegisterEvent("PLAYER_REGEN_ENABLED", "PLAYER_REGEN_ENABLED")
+    MessageSink:RegisterMessage("FISHING_SESSION_STARTED", "FISHING_SESSION_STARTED")
+    MessageSink:RegisterMessage("FISHING_SESSION_ENDED",   "FISHING_SESSION_ENDED")
 end)
 
 Fishing:RegisterOnModuleUnregisterEvents(function(self)
-    self:UnregisterEvent("PLAYER_ENTERING_WORLD")
-    self:UnregisterEvent("PLAYER_REGEN_ENABLED")
-    self:UnregisterMessage("FISHING_SESSION_STARTED")
-    self:UnregisterMessage("FISHING_SESSION_ENDED")
+    MessageSink:UnregisterEvent("PLAYER_ENTERING_WORLD")
+    MessageSink:UnregisterEvent("PLAYER_REGEN_ENABLED")
+    MessageSink:UnregisterMessage("FISHING_SESSION_STARTED")
+    MessageSink:UnregisterMessage("FISHING_SESSION_ENDED")
 end)
 
 Fishing:RegisterOnModuleDisable(function(self)
@@ -160,7 +161,7 @@ local frameFader = {
     restoreAt = nil,
 }
 
-function Fishing:PLAYER_ENTERING_WORLD(...)
+function MessageSink:PLAYER_ENTERING_WORLD(...)
     -- Detect if ElvUI module exists and is enabled by the user
     if C_AddOns.IsAddOnLoaded("ElvUI") and _G["ElvUI"] then
         Trace("ElvUI detected and loaded")
@@ -168,21 +169,22 @@ function Fishing:PLAYER_ENTERING_WORLD(...)
     end
 end
 
-function Fishing:PLAYER_REGEN_ENABLED(...)
-    self:RefreshFade()
+function MessageSink:PLAYER_REGEN_ENABLED(...)
+    Addon:Info("framefade: Player regen enabled")
+    Fishing:RefreshFade()
 end
 
-function Fishing:FISHING_SESSION_STARTED(...)
+function MessageSink:FISHING_SESSION_STARTED(...)
     if not state.isFishing then
         state.isFishing = true
-        self:RefreshFade()
+        Fishing:RefreshFade()
     end
 end
 
-function Fishing:FISHING_SESSION_ENDED(...)
+function MessageSink:FISHING_SESSION_ENDED(...)
     if state.isFishing then
         state.isFishing = false
-        self:RefreshFade()
+        Fishing:RefreshFade()
     end
 end
 

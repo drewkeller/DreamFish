@@ -1,6 +1,6 @@
 local addonName, ns = ...
 local Fishing = ns.Fishing or LibStub("AceAddon-3.0"):GetAddon("DreamFish"):GetModule("Fishing")
-local MessageSink = {}
+local MessageSink = ns.MessageSink:new(Fishing)
 
 local globalDB, profileDB, charDB
 
@@ -17,14 +17,14 @@ end)
 
 Fishing:RegisterOnModuleRegisterEvents(function(self)
     Trace("Registering events")
-    self.RegisterMessage(MessageSink, "FISHING_SESSION_STARTED", "FISHING_SESSION_STARTED")
-    self.RegisterMessage(MessageSink, "FISHING_SESSION_ENDED",   "FISHING_SESSION_ENDED")
+    MessageSink:RegisterMessage("FISHING_SESSION_STARTED", "FISHING_SESSION_STARTED")
+    MessageSink:RegisterMessage("FISHING_SESSION_ENDED",   "FISHING_SESSION_ENDED")
     self:ResumePersistedAudioDuckingState()
 end)
 
 Fishing:RegisterOnModuleUnregisterEvents(function(self)
-    self.UnregisterMessage(MessageSink, "FISHING_SESSION_STARTED")
-    self.UnregisterMessage(MessageSink, "FISHING_SESSION_ENDED")
+    MessageSink:UnregisterMessage("FISHING_SESSION_STARTED")
+    MessageSink:UnregisterMessage("FISHING_SESSION_ENDED")
 end)
 
 Fishing:RegisterOnModuleDisable(function(self)
