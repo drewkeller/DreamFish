@@ -73,7 +73,7 @@ local function EquipUnderlightAngler(info)
 end
 
 ExecuteStabilizedGearChanges = function(reason, targetSwimmingState)
-    if InCombatLockdown() or not Fishing:IsFishingState(ns.Fishing.states.IDLE) or not ns.isStartupScanComplete then
+    if InCombatLockdown() or not ns.isStartupScanComplete then
         return
     end
 
