@@ -1,7 +1,6 @@
 local shapeshiftForm = 1
 local now = 10
 local swimming = true
-local usedToyID
 local alerts = {}
 local prints = {}
 local guidanceShown = false
@@ -16,10 +15,6 @@ end
 
 function GetTime()
     return now
-end
-
-function UseToyByName(toyID)
-    usedToyID = toyID
 end
 
 C_Item = {
@@ -150,13 +145,7 @@ assert(consumableDecisionCalls == 0, "cast-time pre-cast actions must skip consu
 assert(Fishing.state.pendingBuffUse == nil,
     "cast-time pre-cast actions should clear stale unexecuted pending consumables")
 
-Fishing:ApplyRaft()
-assert(usedToyID == nil, "manual raft apply must not activate while shapeshifted")
-
 shapeshiftForm = 0
-Fishing:ApplyRaft()
-assert(usedToyID == 85500, "manual raft apply should use the supported toy API")
-
 swimming = true
 local freshRaftDecision = namespace.precast.GetRaftUseDecision(Fishing)
 assert(freshRaftDecision.shouldApply == true, "ready raft should be applicable before recent-use protection")

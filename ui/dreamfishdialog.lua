@@ -260,7 +260,8 @@ local options = {
                     type = "description",
                     name = "Modes:\n"
                         .. "• Auto-swap: |cFF999999Check both boxes|r\n"
-                        .. "   |cFF999999(swap occurs when starting/stopping fishing)|r\n"
+                        .. "   |cFF999999- Equip fishing pole when fishing starts|r\n"
+                        .. "   |cFF999999- Equip Underlight Angler when swimming|r\n"
                         .. "• Single-pole: |cFF999999Only check one box.|r\n"
                         .. "• Manual: |cFF999999Leave both boxes unchecked.|r",
                     fontSize = "medium"
@@ -356,18 +357,7 @@ local options = {
                             set = function(_, value)
                                 Fishing.db.profile.selectedRaftToy = value
                             end,
-                            width = "relative",
-                            relWidth = 0.75,
-                        }),
-                        applyRaft = AutoOrder({
-                            type = "execute",
-                            name = "Apply",
-                            desc = "Manually apply the selected raft now.",
-                            func = function()
-                                Fishing:ApplyRaft()
-                            end,
-                            width = "relative",
-                            relWidth = 0.24,
+                            width = "full",
                         }),
                     },
                 }),
@@ -393,18 +383,7 @@ local options = {
                             set = function(_, value)
                                 Fishing.db.profile.selectedBobberToy = value
                             end,
-                            width = "relative",
-                            relWidth = 0.75,
-                        }),
-                        applyBobber = AutoOrder({
-                            type = "execute",
-                            name = "Apply",
-                            desc = "Manually apply the selected bobber now.",
-                            func = function()
-                                Fishing:ApplyBobber()
-                            end,
-                            width = "relative",
-                            relWidth = 0.24,
+                            width = "full",
                         }),
                         useOversizedBobber = AutoOrder({
                             type = "toggle",

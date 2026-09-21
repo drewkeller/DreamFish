@@ -27,24 +27,6 @@ local function ShowRaftShapeshiftError()
     Addon:Alert(ns.SystemColor.RED, RAFT_SHAPESHIFT_ERROR)
 end
 
-function Fishing:ApplyRaft()
-    local toyID = tonumber(profileDB.selectedRaftToy)
-    if toyID and toyID > 0 and ns.Utils.IsToyOwned(toyID) then
-        if ns.precast.IsRaftBlockedByShapeshift() then
-            ShowRaftShapeshiftError()
-            return
-        end
-        UseToyByName(toyID)
-    end
-end
-
-function Fishing:ApplyBobber()
-    local toyID = tonumber(profileDB.selectedBobberToy)
-    if toyID and toyID > 0 and ns.Utils.IsToyOwned(toyID) then
-        UseToyByName(toyID)
-    end
-end
-
 local DUE_BUFF_CATEGORY_ORDER = { "fooddrink", "lure", "bait", "bobber", "other_consumable" }
 
 function Fishing:ResolveBobberApplyAction()
