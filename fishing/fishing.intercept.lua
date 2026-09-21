@@ -96,14 +96,14 @@ function Fishing:CheckHeldMouseButtons()
         end
     end
 
-    local held = leftDown and rightDown
-    if held == bothMouseButtonsHeld then return end
+    -- local held = leftDown and rightDown
+    -- if held == bothMouseButtonsHeld then return end
 
-    bothMouseButtonsHeld = held
-    if held and self:IsInFishingSession() then
-        self:Trace("mouse", "both mouse buttons held")
-        self:CancelFishingSession("both mouse buttons held")
-    end
+    -- bothMouseButtonsHeld = held
+    -- if held and self:IsInFishingSession() then
+    --     self:Trace("mouse", "both mouse buttons held")
+    --     self:CancelFishingSession("both mouse buttons held")
+    -- end
 end
 
 function Fishing:IsSoloPhysicalRightClick()

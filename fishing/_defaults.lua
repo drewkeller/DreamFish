@@ -38,6 +38,8 @@ ns.moduleDefaults["Fishing"] = {
         showBuffNotes = true,
         -- other
         closeWindowOnEscape = true,
+        movementCancelsFishing = true,
+        movementAmountToCancelFishing = 0,
         lingerExpirationEnabled = true,
         lingerDuration = 10,
         -- audio

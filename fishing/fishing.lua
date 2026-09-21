@@ -65,7 +65,7 @@ function Fishing:OnModuleEnable()
     self:RegisterEvent("ADDON_LOADED",                 "OnAddonLoaded")
     self:RegisterEvent("PLAYER_REGEN_ENABLED",         "OnCombatEnded")
     self:RegisterEvent("PLAYER_REGEN_DISABLED",        "OnCombatStarted")
-    self:RegisterEvent("PLAYER_STARTED_MOVING",        "OnMovementStarted")
+    --self:RegisterEvent("PLAYER_STARTED_MOVING",        "OnMovementStarted")
     self:RegisterEvent("PLAYER_MOUNT_DISPLAY_CHANGED", "OnMountDisplayChanged")
     self:RegisterEvent("UNIT_SPELLCAST_START",         "OnSpellCastStarted")
     self:RegisterEvent("UNIT_SPELLCAST_SUCCEEDED",     "OnSpellcastChannelStarted")
@@ -530,10 +530,10 @@ function Fishing:OnCombatEnded()
     --self:CheckAndEquipUnderlightAngler("combat ended")
 end
 
-function Fishing:OnMovementStarted()
-    if not self:IsInFishingSession() then return end
-    self:CancelFishingSession("movement started")
-end
+-- function Fishing:OnMovementStarted()
+--     if not self:IsInFishingSession() then return end
+--     self:CancelFishingSession("movement started")
+-- end
 
 function Fishing:OnMountDisplayChanged()
     if IsMounted() then

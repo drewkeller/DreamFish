@@ -117,149 +117,192 @@ local function BuildModesTab(order)
         name = "Modes",
         order = order,
         args = {
-            castingTriggers = AutoOrder({
+            triggers = AutoOrder({
                 type = "group",
-                name = "Casting triggers",
-                inline = true,
+                name = "Triggers",
                 args = {
-                    castByDoubleRightClick = AutoOrder({
-                        type = "toggle",
-                        name = "Double right click",
-                        desc = "Double right click to begin a session or to cast.\n" .. SESSION_TEXT,
-                        width = "full",
+                    castingTriggers = AutoOrder({
+                        type = "group",
+                        name = "Casting triggers",
+                        inline = true,
+                        args = {
+                            castByDoubleRightClick = AutoOrder({
+                                type = "toggle",
+                                name = "Double right click",
+                                desc = "Double right click to begin a session or to cast.\n" .. SESSION_TEXT,
+                                width = "full",
+                            }),
+                            castBySingleRightClickWhenFishing = AutoOrder({
+                                type = "toggle",
+                                name = "Single right click (while in a \"session\")",
+                                desc = "Single right click to cast when already in fishing session.\n" .. SESSION_TEXT,
+                                width = "full",
+                                set = function(_, value)
+                                    Fishing.db.profile.castBySingleRightClickWhenFishing = value
+                                    if not value and Fishing.clickFrame and not InCombatLockdown() then
+                                        ClearOverrideBindings(Fishing.clickFrame)
+                                    end
+                                end,
+                            }),
+                            castByHotkey = AutoOrder({
+                                type = "toggle",
+                                name = "Hotkey",
+                                desc = "Use a hotkey to begin a session or to cast.\n" .. SESSION_TEXT,
+                                width = "full",
+                            }),
+                            castHotkeyKeybind1 = AutoOrder({
+                                type = "keybinding",
+                                name = "",
+                                desc = "Set the keybinding for the hotkey casting mode.",
+                                width = 1.0,
+                                get = function()
+                                    return Fishing:GetKeybindings()[1]
+                                end,
+                                set = function(_, value)
+                                    Fishing:SetKeybindings(value, nil)
+                                end,
+                            }),
+                            castHotkeyKeybind2 = AutoOrder({
+                                type = "keybinding",
+                                name = "",
+                                desc = "Set the keybinding for the hotkey casting mode.",
+                                width = 1.0,
+                                get = function()
+                                    return Fishing:GetKeybindings()[2]
+                                end,
+                                set = function(_, value)
+                                    Fishing:SetKeybindings(nil, value)
+                                end,
+                            }),
+                        },
                     }),
-                    castBySingleRightClickWhenFishing = AutoOrder({
+                    reelingTriggers = AutoOrder({
+                        type = "group",
+                        name = "Reel/bobber triggers",
+                        inline = true,
+                        args = {
+                            modeEasyStrikeNote = AutoOrder({
+                                type = "description",
+                                name = "|c80999999  Requirements for either EasyStrike:|r\n"
+                                    .. "|c80999999  1. Turn on \"Enable Interact Key\" (Game Options > Controls).|r\n"
+                                    .. "|c80999999  2. Set the \"Hotkey\" keybinding above (if hotkey mode).|r\n"
+                                    .. "|c80999999  3. Ensure another addon does not interfere while fishing.|r",
+                                width = "full",
+                            }),
+                            strikeByRightClick = AutoOrder({
+                                type = "toggle",
+                                name = "EasyStrike (right click)",
+                                desc = "When the bobber indicates a bite, right click anywhere or use the hotkey to hook, play, and land the fish.",
+                                width = "full",
+                            }),
+                            strikeByRightClickNote = AutoOrder({
+                                type = "description",
+                                name = "      |c80999999Since this replaces the normal \"turn or action\" action|r\n"
+                                    .. "      |c80999999on the right mouse button, it may be a bit awkward if you|r\n"
+                                    .. "      |c80999999are used to using RMB to turn or start movement by|r\n"
+                                    .. "      |c80999999pressing RMB first.|r\n"
+                                    .. "      |c80999999However, you can still mouse-look using LMB and initiate|r\n"
+                                    .. "      |c80999999movement by holding down LMB first and then RMB.|r",
+                            }),
+                            strikeByHotkey = AutoOrder({
+                                type = "toggle",
+                                name = "EasyStrike (hotkey)",
+                                desc = "Use a hotkey to hook, play, and land the fish when the bobber indicates a bite.",
+                                width = "full",
+                            }),
+                        },
+                    }),
+                },
+            }),
+            sessionExits = AutoOrder({
+                type = "group",
+                name = "Session Exits",
+                order = 2,
+                args = {
+                    movementCancelsFishing = AutoOrder({
                         type = "toggle",
-                        name = "Single right click (while in a \"session\")",
-                        desc = "Single right click to cast when already in fishing session.\n" .. SESSION_TEXT,
+                        name = "Exit session on movement",
+                        desc = "Enable exiting the fishing session when movement is detected.",
                         width = "full",
+                        get = function()
+                            return Fishing.db.profile.movementCancelsFishing or false
+                        end,
                         set = function(_, value)
-                            Fishing.db.profile.castBySingleRightClickWhenFishing = value
-                            if not value and Fishing.clickFrame and not InCombatLockdown() then
-                                ClearOverrideBindings(Fishing.clickFrame)
+                            Fishing.db.profile.movementCancelsFishing = value
+                        end,
+                    }),
+                    movementAmountToCancelFishing = AutoOrder({
+                        type = "range",
+                        name = "Distance",
+                        desc = "The movement distance required to cancel the fishing session.",
+                        min = 0,
+                        max = 100,
+                        step = 1,
+                        bigStep = 5,
+                        disabled = function()
+                            return Fishing.db.profile.movementCancelsFishing == false
+                        end,
+                        get = function()
+                            return Fishing.db.profile.movementAmountToCancelFishing or 0
+                        end,
+                        set = function(_, value)
+                            Fishing.db.profile.movementAmountToCancelFishing = value
+                        end,
+                    }),
+                    spacer1 = AutoOrder({
+                        type = "description",
+                        name = " ",
+                        fontSize = "small",
+                    }),
+                    lingerExpirationEnabled = AutoOrder({
+                        type = "toggle",
+                        name = "Exit session if idle",
+                        desc = "Enable the fishing session to expire after a period of idle time.",
+                        width = "full",
+                        get = function()
+                            return Fishing.db.profile.lingerExpirationEnabled or false
+                        end,
+                        set = function(_, value)
+                            Fishing.db.profile.lingerExpirationEnabled = value
+                            if not value then
+                                if type(Fishing.CancelLingerTimer) == "function" then
+                                    Fishing:CancelLingerTimer()
+                                end
+                            elseif Fishing.IsFishingState and ns.Fishing and ns.Fishing.states then
+                                if Fishing:IsFishingState(ns.Fishing.states.LINGERING) and type(Fishing.StartLinger) == "function" then
+                                    Fishing:StartLinger()
+                                elseif Fishing:IsFishingState(ns.Fishing.states.PRECASTING) and type(Fishing.StartPrecastLingerTimer) == "function" then
+                                    Fishing:StartPrecastLingerTimer()
+                                end
                             end
                         end,
                     }),
-                    castByHotkey = AutoOrder({
-                        type = "toggle",
-                        name = "Hotkey",
-                        desc = "Use a hotkey to begin a session or to cast.\n" .. SESSION_TEXT,
-                        width = "full",
-                    }),
-                    castHotkeyKeybind1 = AutoOrder({
-                        type = "keybinding",
-                        name = "",
-                        desc = "Set the keybinding for the hotkey casting mode.",
-                        width = 1.0,
+                    lingerDuration = AutoOrder({
+                        type = "range",
+                        name = "Idle time",
+                        desc = "The number of seconds of idle time for the fishing session to expire.",
+                        min = 0,
+                        max = 60,
+                        step = 1,
+                        bigStep = 5,
+                        disabled = function()
+                            return Fishing.db.profile.lingerExpirationEnabled == false
+                        end,
                         get = function()
-                            return Fishing:GetKeybindings()[1]
+                            return Fishing.db.profile.lingerDuration or 10
                         end,
                         set = function(_, value)
-                            Fishing:SetKeybindings(value, nil)
-                        end,
-                    }),
-                    castHotkeyKeybind2 = AutoOrder({
-                        type = "keybinding",
-                        name = "",
-                        desc = "Set the keybinding for the hotkey casting mode.",
-                        width = 1.0,
-                        get = function()
-                            return Fishing:GetKeybindings()[2]
-                        end,
-                        set = function(_, value)
-                            Fishing:SetKeybindings(nil, value)
+                            Fishing.db.profile.lingerDuration = value
+                            if Fishing.db.profile.lingerExpirationEnabled and Fishing.IsFishingState and ns.Fishing and ns.Fishing.states then
+                                if Fishing:IsFishingState(ns.Fishing.states.LINGERING) and type(Fishing.StartLinger) == "function" then
+                                    Fishing:StartLinger()
+                                elseif Fishing:IsFishingState(ns.Fishing.states.PRECASTING) and type(Fishing.StartPrecastLingerTimer) == "function" then
+                                    Fishing:StartPrecastLingerTimer()
+                                end
+                            end
                         end,
                     }),
                 },
-            }),
-            reelingTriggers = AutoOrder({
-                type = "group",
-                name = "Reel/bobber triggers",
-                inline = true,
-                args = {
-                    modeEasyStrikeNote = AutoOrder({
-                        type = "description",
-                        name = "|c80999999  Requirements for either EasyStrike:|r\n"
-                            .. "|c80999999  1. Turn on \"Enable Interact Key\" (Game Options > Controls).|r\n"
-                            .. "|c80999999  2. Set the \"Hotkey\" keybinding above (if hotkey mode).|r\n"
-                            .. "|c80999999  3. Ensure another addon does not interfere while fishing.|r",
-                        width = "full",
-                    }),
-                    strikeByRightClick = AutoOrder({
-                        type = "toggle",
-                        name = "EasyStrike (right click)",
-                        desc = "When the bobber indicates a bite, right click anywhere or use the hotkey to hook, play, and land the fish.",
-                        width = "full",
-                    }),
-                    strikeByRightClickNote = AutoOrder({
-                        type = "description",
-                        name = "      |c80999999Since this replaces the normal \"turn or action\" action|r\n"
-                            .. "      |c80999999on the right mouse button, it may be a bit awkward if you|r\n"
-                            .. "      |c80999999are used to using RMB to turn or start movement by|r\n"
-                            .. "      |c80999999pressing RMB first.|r\n"
-                            .. "      |c80999999However, you can still mouse-look using LMB and initiate|r\n"
-                            .. "      |c80999999movement by holding down LMB first and then RMB.|r",
-                    }),
-                    strikeByHotkey = AutoOrder({
-                        type = "toggle",
-                        name = "EasyStrike (hotkey)",
-                        desc = "Use a hotkey to hook, play, and land the fish when the bobber indicates a bite.",
-                        width = "full",
-                    }),
-                },
-            }),
-            spacer = AutoOrder({
-                type = "description",
-                name = " ",
-                fontSize = "small",
-            }),
-            lingerExpirationEnabled = AutoOrder({
-                type = "toggle",
-                name = "Exit fishing if idle",
-                desc = "Enable the fishing session to expire after a period of idle time.",
-                width = "full",
-                get = function()
-                    return Fishing.db.profile.lingerExpirationEnabled or false
-                end,
-                set = function(_, value)
-                    Fishing.db.profile.lingerExpirationEnabled = value
-                    if not value then
-                        if type(Fishing.CancelLingerTimer) == "function" then
-                            Fishing:CancelLingerTimer()
-                        end
-                    elseif Fishing.IsFishingState and ns.Fishing and ns.Fishing.states then
-                        if Fishing:IsFishingState(ns.Fishing.states.LINGERING) and type(Fishing.StartLinger) == "function" then
-                            Fishing:StartLinger()
-                        elseif Fishing:IsFishingState(ns.Fishing.states.PRECASTING) and type(Fishing.StartPrecastLingerTimer) == "function" then
-                            Fishing:StartPrecastLingerTimer()
-                        end
-                    end
-                end,
-            }),
-            lingerDuration = AutoOrder({
-                type = "range",
-                name = "Linger duration",
-                desc = "The number of seconds of idle time for the fishing session to expire.",
-                min = 0,
-                max = 60,
-                step = 1,
-                bigStep = 5,
-                disabled = function()
-                    return Fishing.db.profile.lingerExpirationEnabled == false
-                end,
-                get = function()
-                    return Fishing.db.profile.lingerDuration or 10
-                end,
-                set = function(_, value)
-                    Fishing.db.profile.lingerDuration = value
-                    if Fishing.db.profile.lingerExpirationEnabled and Fishing.IsFishingState and ns.Fishing and ns.Fishing.states then
-                        if Fishing:IsFishingState(ns.Fishing.states.LINGERING) and type(Fishing.StartLinger) == "function" then
-                            Fishing:StartLinger()
-                        elseif Fishing:IsFishingState(ns.Fishing.states.PRECASTING) and type(Fishing.StartPrecastLingerTimer) == "function" then
-                            Fishing:StartPrecastLingerTimer()
-                        end
-                    end
-                end,
             }),
         },
     }

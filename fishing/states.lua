@@ -55,7 +55,7 @@ Fishing:RegisterTraceSource("states")
 
 local function Trace(state, reason)
     if Fishing.db and Fishing.db.profile and Fishing.db.profile.traces and Fishing.db.profile.traces["states"] then
-        Addon:DebugModuleSource(ns.logLevel.DEBUG, Fishing, (FISHING_STATE_NAMES[state] or tostring(state)), (reason or "unknown reason"), reason)
+        ns.Utils.DebugModuleSource(ns.logLevel.DEBUG, Fishing, (FISHING_STATE_NAMES[state] or tostring(state)), (reason or "unknown reason"))
     end
 end
 
