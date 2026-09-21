@@ -378,10 +378,10 @@ function Fishing:CheckPrecastSwimmingStarted()
     if not self:IsFishingState(ns.Fishing.states.PRECASTING) then
         return
     end
-    if self.state.precastStartedSwimming == true then
-        return
-    end
-    if type(IsSwimming) == "function" and IsSwimming() then
+
+    local swimming = type(IsSwimming) == "function" and IsSwimming() == true
+    local wasSwimming = self.state.precastStartedSwimming == true
+    if swimming and not wasSwimming then
         self:Trace("precast", "Swimming started during PRECAST; rearming pre-cast action")
         self.state.precastStartedSwimming = true
         if type(self.state.pendingBuffUse) == "table" and not self.state.pendingBuffUse.executedAt then
@@ -395,8 +395,12 @@ function Fishing:CheckPrecastSwimmingStarted()
         end
         self:PrepareFishingClickAction({ forcePrecastReconfigure = true })
         self:ShowPrecastSwimmingGuidance()
-        return
+    elseif wasSwimming and not swimming then
+        self:Trace("precast", "Swimming ended during PRECAST; rearming fishing action")
+        self.state.precastStartedSwimming = false
+        self:PrepareFishingClickAction({ forcePrecastReconfigure = true })
     end
+
     if type(self.ScheduleTimer) ~= "function" then
         return
     end
@@ -407,9 +411,6 @@ end
 
 function Fishing:StartPrecastSwimmingWatch()
     self:ClearPrecastSwimmingWatch()
-    if self.state.precastStartedSwimming == true then
-        return
-    end
     if type(self.ScheduleTimer) ~= "function" then
         return
     end

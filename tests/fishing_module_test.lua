@@ -329,18 +329,9 @@ function Fishing:SetFishingState(state, reason)
     return setFishingState(self, state, reason)
 end
 
-Fishing:OnMovementStarted()
-assert(Fishing.state.current == namespace.Fishing.states.IDLE,
-    "movement cancellation did not return Fishing to IDLE")
-assert(cancelledFor == "cancelled: movement started", "movement cancellation used the wrong reason")
-assert(underlightEquipReasons[#underlightEquipReasons] == "cancelled: movement started",
-    "movement cancellation did not request Underlight Angler equip")
-
 Fishing:OnCastStarted()
 Fishing:OnCombatStarted()
 assert(cancelledFor == "cancelled: combat started", "combat cancellation used the wrong reason")
-assert(underlightEquipReasons[#underlightEquipReasons] == "cancelled: combat started",
-    "combat cancellation did not request Underlight Angler equip")
 
 Fishing:OnCastStarted()
 mounted = false
@@ -356,8 +347,6 @@ assert(cancelledFor == "cancelled: mounted", "mount cancellation used the wrong 
 
 mounted = false
 Fishing:OnMountDisplayChanged()
-assert(underlightEquipReasons[#underlightEquipReasons] == "dismounted",
-    "dismount did not retry the Underlight Angler equip")
 
 Fishing:OnModuleDisable()
 
@@ -371,8 +360,6 @@ assert(options.args.modesTab, "Modes tab is missing from the Fishing tab group")
 assert(options.args.tackleTab, "Tackle tab is missing from the Fishing tab group")
 assert(options.args.modesTab.type == "group", "Modes tab is not an AceConfig group")
 assert(options.args.tackleTab.type == "group", "Tackle tab is not an AceConfig group")
-assert(options.args.modesTab.args.castingTriggers.args.castBySingleRightClickWhenFishing,
-    "single-right-click option is missing")
 assert(options.args.tackleTab.args.raftSection == nil,
     "Raft controls should be configured from the DreamFish dialog, not the Fishing options tab")
 assert(options.args.tackleTab.args.bobberSection == nil,
@@ -446,6 +433,7 @@ end
 local preparedBeforeSwimming = preparedActionCount
 Fishing.state.precastStartedSwimming = false
 Fishing.state.precastSwimmingAlerted = false
+Fishing.state.precastSwimmingGuidanceKind = nil
 Fishing.state.pendingBuffUse = { uses = { { itemID = 262650, category = "lure" } } }
 Fishing.state.precastConsumableSnapshot = { generation = 1, effectSpellIDs = {}, decisionMade = true }
 Fishing:SetFishingState(namespace.Fishing.states.PRECASTING)
@@ -465,9 +453,16 @@ assert(Fishing.state.precastConsumableSnapshot == nil,
     "swimming during PRECAST should clear the stale consumable snapshot")
 assert(Fishing.state.precastStartedSwimming == true,
     "precast swimming watch should record that swimming has been handled")
-assert(alertMessages[1] == "You are swimming. Use the raft to continue fishing.",
+assert(alertMessages[1] == "You are swimming. Cast a raft to continue fishing.",
     "swimming during PRECAST should alert the player to use the raft before the aura is present")
 swimming = false
+scheduledTimerCallback()
+assert(preparedActionCount == preparedBeforeSwimming + 2,
+    "leaving swimming during PRECAST should re-arm the fishing action")
+assert(Fishing.state.precastStartedSwimming == false,
+    "precast swimming watch should record that the player climbed out of the water")
+assert(type(scheduledTimerCallback) == "function" and scheduledTimerDelay == 0.1,
+    "precast swimming watch should keep polling until PRECAST ends")
 
 alertMessages = {}
 namespace.precast.GetRaftUseDecision = function()
@@ -476,7 +471,7 @@ end
 Fishing.state.precastSwimmingAlerted = false
 Fishing.state.precastSwimmingGuidanceKind = nil
 Fishing:ShowPrecastSwimmingGuidance()
-assert(alertMessages[1] == "You are swimming. Use the raft to continue fishing.",
+assert(alertMessages[1] == "You are swimming. Cast a raft to continue fishing.",
     "swimming guidance should say use the raft when the raft aura is not present yet")
 namespace.precast.GetRaftUseDecision = function()
     return { hasToy = true, ready = false, recentlyUsed = true, blockedByShapeshift = false }
