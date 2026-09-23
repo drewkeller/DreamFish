@@ -25,7 +25,7 @@ end
 function LootTracker:GetModuleConfig()
     return {
         moduleName = "LootTracker",
-        displayName = "Loot Tracker",
+        displayName = "Looting",
         dbKey = "lootTracker",
         defaults = ns.moduleDefaults.LootTracker,
         showEnableOption = false,

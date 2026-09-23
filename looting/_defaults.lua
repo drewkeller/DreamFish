@@ -42,7 +42,6 @@ ns.moduleDefaults["LootTracker"] = {
         }
     },
     char = {
-        itemsLooted = 0,
         lootedItems = {},
         lootedCurrencies = {},
     }

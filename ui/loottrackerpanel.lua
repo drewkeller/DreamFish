@@ -28,7 +28,6 @@ local function CreateLootTrackerPanelWidget()
     resetButton:SetWidth(240)
     resetButton:SetCallback("OnClick", function()
         local LootTracker = ns.LootTracker
-        LootTracker.db.char.itemsLooted = 0
         LootTracker.db.char.lootedItems = {}
         LootTracker.db.char.lootedCurrencies = {}
         LootTracker:UpdateTrackerDisplay()

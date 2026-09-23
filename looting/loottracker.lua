@@ -82,16 +82,13 @@ function LootTracker:BAG_UPDATE_DELAYED(...)
                     if currentQuantity > lastQuantity then
                         local amountGained = currentQuantity - lastQuantity
 
-                        -- 1. Step up overall tracking data metrics
-                        self.db.char.itemsLooted = self.db.char.itemsLooted + amountGained
-
-                        -- 2. ADJUSTMENT: Step up specific character-scoped entry tracking
+                        -- Increase the count for the item
                         if not self.db.char.lootedItems then
                             self.db.char.lootedItems = {}
                         end
                         self.db.char.lootedItems[itemId] = (self.db.char.lootedItems[itemId] or 0) + amountGained
 
-                        -- 3. Redraw your scrolling labels instantly
+                        -- Redraw scrolling labels
                         self:UpdateTrackerDisplay()
                         if lootTrackerWindow and self.db.profile.windowVisible then
                             lootTrackerWindow:Show()
@@ -131,7 +128,6 @@ function LootTracker:CURRENCY_DISPLAY_UPDATE(event, currencyType, quantityChange
         end
 
         self.db.char.lootedCurrencies[currencyType] = (self.db.char.lootedCurrencies[currencyType] or 0) + amountGained
-        self.db.char.itemsLooted = self.db.char.itemsLooted + amountGained
 
         self:UpdateTrackerDisplay()
         if lootTrackerWindow and self.db.profile.windowVisible then
@@ -204,7 +200,6 @@ function LootTracker:CreateLootTrackerWindow()
     resetButton:SetText("Reset LootTracker")
     resetButton:SetWidth(240)
     resetButton:SetCallback("OnClick", function()
-        self.db.char.itemsLooted = 0
         self.db.char.lootedItems = {}
         self.db.char.lootedCurrencies = {}
         self:UpdateTrackerDisplay()
@@ -307,17 +302,6 @@ function LootTracker:PopulateScrollContainer(container)
 
     -- COMPLETELY CLEAR SCROLL SUB-WIDGETS
     container:ReleaseChildren()
-
-    local grandTotal = self.db.char.itemsLooted or 0
-    local totalLabel = AceGUI:Create("Label")
-    totalLabel:SetText("Total Looted: |cFF00FF00" .. grandTotal .. "|r")
-    totalLabel:SetFontObject(GameFontNormalLarge)
-    totalLabel:SetFullWidth(true)
-    container:AddChild(totalLabel)
-
-    local separator = AceGUI:Create("Heading")
-    separator:SetFullWidth(true)
-    container:AddChild(separator)
 
     if not self.db.char.lootedItems then self.db.char.lootedItems = {} end
     if not self.db.char.lootedCurrencies then self.db.char.lootedCurrencies = {} end
