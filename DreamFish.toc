@@ -61,7 +61,7 @@ ui/equipmentDropBox.lua
 ui/loottrackerpanel.lua
 fishing/ui/castbar.lua
 
-fishing/fishing.intercept.lua
+fishing/intercept.lua
 fishing/auras.lua
 fishing/states.lua
 fishing/audio.lua
@@ -72,7 +72,7 @@ fishing/precast/oversizebobber.lua
 fishing/precast/pole.lua
 fishing/precast/raft.lua
 fishing/precast/underlightangler.lua
-fishing/fishing.precast.lua
+fishing/precast.lua
 fishing/surfacetension.lua
 
 # UI system (commands, config)

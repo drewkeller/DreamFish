@@ -92,7 +92,7 @@ function Addon:OnInitialize()
 
     -- Nest these items as subcategories below the addon's main menu item
     local fishingOptionsFrame, fishingOptionsCategoryID = AceConfigDialog:AddToBlizOptions(addonName .. "_Fishing", "Fishing", addonName)
-    local lootTrackerOptionsFrame, lootTrackerOptionsCategoryID = AceConfigDialog:AddToBlizOptions(addonName .. "_LootTracker", "Loot Tracker", addonName)
+    local lootTrackerOptionsFrame, lootTrackerOptionsCategoryID = AceConfigDialog:AddToBlizOptions(addonName .. "_LootTracker", "Looting", addonName)
     local profileOptionsFrame, profileOptionsCategoryID = AceConfigDialog:AddToBlizOptions(addonName .. "_Profile", "Profiles", addonName)
 
     self.mainConfigCategoryIDs = {

@@ -436,13 +436,13 @@ function Fishing:ShowPrecastSwimmingGuidance(options)
             return
         end
         guidanceKind = "climb"
-        message = "You are swimming. Climb on the raft to continue fishing."
+        message = "Jump to board the raft and continue fishing."
     elseif raftCanBeUsed then
         guidanceKind = "use"
-        message = "You are swimming. Cast a raft to continue fishing."
+        message = "Cast again for a raft."
     elseif hasOwnedRaft then
         guidanceKind = "waiting"
-        message = "You are swimming. Wait for the raft, then climb on it to continue fishing."
+        message = "Wait for the raft, then board it to continue fishing."
     end
 
     local guidanceRank = { unavailable = 1, waiting = 2, use = 3, climb = 4 }

@@ -354,7 +354,7 @@ local function BuildAudioFocusTab(order)
                     description = {
                         type = "description",
                         name = "\n"
-                            .. "|c66999999When a fishing session starts, the volume of each channel checked and reduced as follows.|r"
+                            .. "|c66999999When a fishing session starts, the volume of each channel is checked and reduced as follows.|r\n"
                             .. "|c66999999   A value of 0 means completely muted.\n|r"
                             .. "|c66999999   35% means the volume is reduced to 35% of the original volume.\n|r"
                             .. "|c66999999   100% means no reduction from the original volume.|r",
