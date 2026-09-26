@@ -1,6 +1,6 @@
 #!/bin/bash
 
-ADDON_NAME="DreamFish"
+source ./.env
 
 echo "WOW_DIR     : $WOW_DIR"
 echo "WOW_ACCOUNT : $WOW_ACCOUNT"

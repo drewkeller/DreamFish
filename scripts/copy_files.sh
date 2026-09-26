@@ -1,6 +1,6 @@
 #!/bin/bash
 
-export ADDON_NAME="DreamFish"
+source ./.env
 
 if [[ $WOW_DIR == "" ]]; then
   echo "Please set the WOW_DIR environment variable."
