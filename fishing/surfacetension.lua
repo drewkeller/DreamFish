@@ -77,6 +77,11 @@ ExecuteStabilizedGearChanges = function(reason, targetSwimmingState)
         return
     end
 
+    -- prevent water walking -> attempt to fish -> pole swap -> swimming -> pole swap -> underlight equip loop
+    if Fishing:IsFishingState(ns.Fishing.states.PRECASTING) then
+        return
+    end
+
     local currentRealSwimming = GetWaterContextDiagnostics()
     if currentRealSwimming ~= targetSwimmingState then
         return
@@ -159,11 +164,13 @@ local function EvaluateSwimmingState(reason)
     end
 
     if currentSwimming then
+        ns.Fishing.states.wasRecentlySwimming = true
         lastConfirmedSwimmingState = true
         ExecuteStabilizedGearChanges(reason, true)
     else
         if not exitDebounceTimer then
             exitDebounceTimer = C_Timer.After(EXIT_DEBOUNCE_DELAY, function()
+                ns.Fishing.states.wasRecentlySwimming = false
                 exitDebounceTimer = nil
                 lastConfirmedSwimmingState = false
                 ExecuteStabilizedGearChanges(reason, false)
@@ -208,6 +215,7 @@ function Fishing:CreateSurfaceTensionMonitor()
 
                         -- Synchronize baseline states now that structural assets are validated
                         lastConfirmedSwimmingState = GetWaterContextDiagnostics()
+                        ns.Fishing.states.wasRecentlySwimming = lastConfirmedSwimmingState
                         ExecuteStabilizedGearChanges("Startup Synchronization Complete", lastConfirmedSwimmingState)
                     else
                         Trace("Inventory sync check frame passed (" .. event .. "). Waiting for remaining packets.")
@@ -237,6 +245,7 @@ function Fishing:RemoveSurfaceTensionMonitor()
         currentTimerID = currentTimerID + 1
         if exitDebounceTimer then exitDebounceTimer:Cancel() exitDebounceTimer = nil end
         lastConfirmedSwimmingState = nil
+        ns.Fishing.states.wasRecentlySwimming = nil
     end
     Trace("SurfaceTension monitor removed.")
 end

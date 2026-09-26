@@ -17,6 +17,7 @@ ns.Fishing.state = {
     precastSwimmingAlerted = false,
     precastSwimmingGuidanceKind = nil,
     raftToyLastUseAt = {},
+    wasRecentlySwimming = nil,
 }
 
 ns.moduleDefaults["Fishing"] = {
