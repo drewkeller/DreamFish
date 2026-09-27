@@ -37,10 +37,6 @@ local function GetPoleEquipmentInfo()
     }
 end
 
-local function GetWaterContextDiagnostics()
-    return (type(IsSwimming) == "function" and IsSwimming()) or (type(IsSubmerged) == "function" and IsSubmerged()) or false
-end
-
 -- State variables for the event engine
 local monitorFrame = nil
 local isAuraLockActive = false
@@ -82,7 +78,7 @@ ExecuteStabilizedGearChanges = function(reason, targetSwimmingState)
         return
     end
 
-    local currentRealSwimming = GetWaterContextDiagnostics()
+    local currentRealSwimming = ns.Utils.IsSwimmingOrSubmerged() == true
     if currentRealSwimming ~= targetSwimmingState then
         return
     end
@@ -151,7 +147,7 @@ end
 local function EvaluateSwimmingState(reason)
     if isProcessingSwap or not ns.isStartupScanComplete then return end
 
-    local currentSwimming = GetWaterContextDiagnostics()
+    local currentSwimming = ns.Utils.IsSwimmingOrSubmerged() == true
 
     if currentSwimming and exitDebounceTimer then
         exitDebounceTimer:Cancel()
@@ -214,7 +210,7 @@ function Fishing:CreateSurfaceTensionMonitor()
                         Trace("Startup inventory match successful via " .. event .. ". Underlight Angler discovered.")
 
                         -- Synchronize baseline states now that structural assets are validated
-                        lastConfirmedSwimmingState = GetWaterContextDiagnostics()
+                        lastConfirmedSwimmingState = ns.Utils.IsSwimmingOrSubmerged() == true
                         ns.Fishing.states.wasRecentlySwimming = lastConfirmedSwimmingState
                         ExecuteStabilizedGearChanges("Startup Synchronization Complete", lastConfirmedSwimmingState)
                     else

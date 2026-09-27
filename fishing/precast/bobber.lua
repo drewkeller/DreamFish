@@ -42,7 +42,7 @@ local function GetBobberUseDecision()
     local castLead = ns.Fishing.const.maxFishingCastSeconds + ns.Fishing.const.buffPreRefreshSafetySeconds
     local needsRefreshForCast = (bobberAuraRemaining == nil) or (bobberAuraRemaining <= castLead)
     local mounted = IsMounted()
-    local swimming = IsSwimming()
+    local swimming = ns.Utils.IsSwimmingOrSubmerged() == true
     local shouldApply = hasBobberSelected
         and hasToy
         and bobberReady

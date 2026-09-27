@@ -47,7 +47,7 @@ local function GetOversizedBobberDecision()
     local castLead = ns.Fishing.const.maxFishingCastSeconds + ns.Fishing.const.buffPreRefreshSafetySeconds
     local needsRefresh = (auraRemaining == nil) or (auraRemaining <= castLead)
     local mounted = IsMounted()
-    local swimming = IsSwimming()
+    local swimming = ns.Utils.IsSwimmingOrSubmerged() == true
     local shouldApply = hasBobberSelected
         and hasToy
         and isReady

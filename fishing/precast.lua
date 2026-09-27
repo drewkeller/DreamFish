@@ -215,7 +215,7 @@ local function ConfigureFishingClickAction(self, options)
                     end
                 end
             end
-            if #macroLines == 0 and type(IsSwimming) == "function" and IsSwimming() then
+            if #macroLines == 0 and ns.Utils.IsSwimmingOrSubmerged() == true then
                 return FinalizeNoopPrecastAction(Fishing.clickFrame, "Configured as no-op while waiting for player to leave swimming")
             end
             local configured = FinalizeSecureFishingAction(Fishing.clickFrame, macroLines, raftExclusive, hasItemUseAction)

@@ -48,7 +48,7 @@ local function GetRaftUseDecision(self)
     local hasRaftSelected = toyID and toyID > 0
     local hasToy = hasRaftSelected and ns.Utils.IsToyOwned(toyID) or false
     local isReady = hasToy and ns.Utils.IsCooldownReady(toyID)
-    local swimming = IsSwimming() or IsSubmerged()
+    local swimming = ns.Utils.IsSwimmingOrSubmerged() == true
     -- Don't tell the player they are swimming if they aren't, but still likely want to use raft
     --local recentlySwimming = ns.Fishing.states.wasRecentlySwimming == true
     local blockedByShapeshift = IsRaftBlockedByShapeshift()
@@ -68,6 +68,10 @@ local function GetRaftUseDecision(self)
         and not blockedByShapeshift
         and not recentlyUsed
         and (swimming or auraRemaining ~= nil) -- or recentlySwimming)
+
+    Trace(string.format("swimming=%s submerged=%s aura=%s recentlyUsed=%s",
+        tostring(swimming), tostring(type(IsSubmerged) == "function" and IsSubmerged()),
+        tostring(auraRemaining), tostring(recentlyUsed)))
 
     if shouldApply then
         Trace("Raft can be applied")

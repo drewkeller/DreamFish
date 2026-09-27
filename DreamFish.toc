@@ -23,6 +23,7 @@ utility/logviewer.lua
 utility/math.lua
 utility/audio.lua
 utility/inventory.lua
+utility/swimming.lua
 utility/toys.lua
 utility/ui.lua
 
