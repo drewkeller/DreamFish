@@ -577,7 +577,8 @@ function Fishing:ConfirmPendingBuffUse(successSpellID)
                 and not state.suppressPendingBuffFailure then
                 self.state.buffUnknownDurationSuppressed = self.state.buffUnknownDurationSuppressed or {}
                 self.state.buffUnknownDurationSuppressed[itemID] = now + 10
-                Addon:Alert(ns.SystemColor.YELLOW, "Consumable use failed: " .. Item(itemID) .. ". Suppressing for 10 seconds.")
+                Addon:Alert(ns.SystemColor.YELLOW, "Consumable use failed: " .. ns.Utils.ItemName(itemID))
+                ns.Utils.PrintNoLog("Consumable use failed: " .. ns.Utils.ItemLink(itemID))
             end
         end
     end

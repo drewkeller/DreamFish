@@ -239,7 +239,7 @@ local function CheckBagSpace()
         if now - state.lastBagWarning >= tonumber(profileDB.bagAlertThrottle) then
             state.lastBagWarning = now
 
-            Addon:Alert(ns.SystemColor.YELLOW,
+            Addon:AlertWithSound(ns.SystemColor.YELLOW,
             string.format("Low bag space! Bags: %s free, Reagent: %s free",
                 tostring(regularFree or "n/a"), tostring(reagentFree or "n/a"))
             )

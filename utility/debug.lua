@@ -6,15 +6,14 @@ ns.Utils = Utils
 local MAX_LOG_ENTRIES = 1000
 local log = {}
 
-local function Milliseconds()
-    local updtime = GetTime()
-    return string.format("%03d", math.floor((updtime % 1) * 1000))
-end
-
 local function Timestamp()
-    local updtime = GetTime()
-    local milli = math.floor((updtime % 1) * 1000)
-    return string.format("%s.%03d", date("%H:%M:%S"), milli)
+    local uptimeSeconds = GetTime()
+    local ms = math.floor((uptimeSeconds % 1) * 1000)
+    local totalSecs = math.floor(uptimeSeconds)
+    local h = math.floor(totalSecs / 3600)
+    local m = math.floor((totalSecs % 3600) / 60)
+    local s = totalSecs % 60
+    return string.format("%d:%02d:%02d.%03d", h, m, s, ms)
 end
 
 local function FormatLogValue(value, seen)
@@ -67,6 +66,7 @@ local function Log(msg, ...)
         table.remove(logDB, 1)
     end
 end
+ns.Utils.Log = Log
 
 local function LogSourceWithStack(level, source, stackTrace, msg, ...)
     if not source or not msg then
@@ -122,7 +122,7 @@ local function PrintNoLog(prefix, colorHex, msg, ...)
 
     local colorStart = colorHex and "|cFF" .. colorHex or ""
     local colorEnd = colorHex and "|r" or ""
-    DEFAULT_CHAT_FRAME:AddMessage(string.format("%s: %s %s%s%s", Milliseconds(), prefix, colorStart, output, colorEnd))
+    DEFAULT_CHAT_FRAME:AddMessage(string.format("%s: %s %s%s%s", Timestamp(), prefix, colorStart, output, colorEnd))
 end
 
 -- Print to log: timestap and message
@@ -187,9 +187,6 @@ function Addon:PrintLootMessage(msg)
 end
 
 function Addon:Alert(systemColor, msg, ...)
-    if ns.Utils.IsCoreLoaded() and Addon then
-        ns.Utils.PlayWarningCue()
-    end
     local prefix = "|cFF9ACDFF[" .. addonName .. "]|r"
     local blizzName = type(systemColor) == "table" and systemColor.blizzName or nil
     -- RaidWarningUtil.AddMessage indexes colorInfo without a nil check
@@ -197,6 +194,13 @@ function Addon:Alert(systemColor, msg, ...)
     RaidWarningUtil.AddMessage(msg, colorInfo)
     PrintNoLog(prefix, nil, msg, ...)
     LogSource(ns.logLevel.INFO, "Alert", msg, ...)
+end
+
+function Addon:AlertWithSound(systemColor, msg, ...)
+    if ns.Utils.IsCoreLoaded() and Addon then
+        ns.Utils.PlayWarningCue()
+    end
+    Addon:Alert(systemColor, msg, ...)
 end
 
 function ns.Utils.DebugModuleSourceWithStack(level, module, source, stackTrace, msg, ...)
