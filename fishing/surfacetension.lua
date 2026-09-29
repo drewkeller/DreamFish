@@ -154,8 +154,11 @@ local function EvaluateSwimmingState(reason)
         exitDebounceTimer = nil
     end
 
-    -- Allow BAG_UPDATE_DELAYED and Aura Timeouts to bypass standard state match filters
-    if currentSwimming == lastConfirmedSwimmingState and reason ~= "aura-wait-finished" and reason ~= "BAG_UPDATE_DELAYED" then
+    -- Only perform checks when swimming state changes or certain events occur
+    if currentSwimming == lastConfirmedSwimmingState and
+        reason ~= "aura-wait-finished" and
+        reason ~= "BAG_UPDATE_DELAYED" and
+        reason ~= "combat-finished" then
         return
     end
 
@@ -196,6 +199,12 @@ function Fishing:CreateSurfaceTensionMonitor()
 
     monitorFrame:SetScript("OnEvent", function(_, event, unit)
         if event == "UNIT_AURA" and unit ~= "player" then return end
+        local reason = event
+
+        if event == "PLAYER_REGEN_ENABLED" then
+            Trace("Player has left combat.")
+            reason = "combat-finished"
+        end
 
         -- Handle the initial loading screen handshake blocks
         if event == "PLAYER_LOGIN" or event == "SPELLS_CHANGED" or event == "PLAYER_ENTERING_WORLD" then
@@ -221,7 +230,7 @@ function Fishing:CreateSurfaceTensionMonitor()
             return
         end
 
-        EvaluateSwimmingState(event)
+        EvaluateSwimmingState(reason)
     end)
 
     ns.frames.surfaceTensionMonitor = monitorFrame

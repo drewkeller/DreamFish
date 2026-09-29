@@ -244,7 +244,7 @@ function Fishing:PrepareFishingClickAction(options)
         and not options.forcePrecastReconfigure then
         if options.showSwimmingGuidance
             and type(IsSwimming) == "function"
-            and IsSwimming()
+            and ns.Utils.IsSwimmingOrSubmerged()
             and type(self.ShowPrecastSwimmingGuidance) == "function" then
             self:ShowPrecastSwimmingGuidance({ allowClimb = true })
         end
@@ -403,7 +403,7 @@ function Fishing:CheckPrecastSwimmingStarted()
         return
     end
 
-    local swimming = type(IsSwimming) == "function" and IsSwimming() == true
+    local swimming = ns.Utils.IsSwimmingOrSubmerged() == true
     local wasSwimming = self.state.precastStartedSwimming == true
     if swimming and not wasSwimming then
         self:Trace("precast", "Swimming started during PRECAST; rearming pre-cast action")
@@ -472,7 +472,7 @@ function Fishing:ShowPrecastSwimmingGuidance(options)
         message = "Wait for the raft, then board it to continue fishing."
     end
 
-    local guidanceRank = { unavailable = 1, waiting = 2, use = 3, climb = 4 }
+    local guidanceRank = { unavailable = 1, blocked = 2, waiting = 3, use = 4, climb = 5 }
     local previousRank = guidanceRank[self.state.precastSwimmingGuidanceKind] or 0
     local nextRank = guidanceRank[guidanceKind] or 0
     if not (guidanceKind == "climb" and options.allowClimb)
@@ -781,7 +781,7 @@ function Fishing:OnCastStarted(reason)
     if type(self.StartPrecastConsumableSnapshot) == "function" then
         self:StartPrecastConsumableSnapshot(reason)
     end
-    self.state.precastStartedSwimming = type(IsSwimming) == "function" and IsSwimming() == true
+    self.state.precastStartedSwimming = ns.Utils.IsSwimmingOrSubmerged() == true
     self:StartPrecastSwimmingWatch()
     self.state.fishingSessionGeneration = (self.state.fishingSessionGeneration or 0) + 1
     self.state.suppressPendingBuffFailure = false

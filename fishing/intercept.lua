@@ -358,7 +358,10 @@ function Fishing:HideClickFrame()
             ClearOverrideBindings(self.clickFrame)
         end
         self.clickFrame:Hide()
+        -- OnCastStarted re-shows this full-screen frame; left enabled, it would swallow left-button mouselook.
+        self.clickFrame:SetMouseClickEnabled(false)
         self.clickFrame:SetMouseMotionEnabled(false)
+        self.clickFrame:EnableMouse(false)
     end
     hideTimerHandle = nil
 end
@@ -452,7 +455,7 @@ function Fishing:TraceStrikeContext(source)
         .. " state=" .. self:CurrentStateName()
         .. " sinceCast=" .. elapsed
         .. " softinteractGUID=" .. tostring(softInteractGUID))
-end
+    end
 
 function Fishing:HandleStrikeKeyDown(pressedKey)
     if not strikeKeyFrame or pressedKey ~= strikeKeyFrame.watchedKey then return end
