@@ -9,6 +9,10 @@ Fishing:RegisterOnModuleInitialize(function(self)
     charDB = self.db.char
 end)
 
+local states = {
+    currentBobberToyID = nil
+}
+
 Fishing:RegisterTraceSource("bobber")
 
 local function Trace(msg)
@@ -35,6 +39,14 @@ end
 
 local function GetBobberUseDecision()
     local toyID = tonumber(profileDB.selectedBobberToy) or nil
+    if toyID == -1 then
+        local readyForNewBobber = states.currentBobberToyID == nil or ns.Utils.IsCooldownReady(states.currentBobberToyID)
+        if readyForNewBobber then
+        Trace("Selecting a random bobber toy")
+        toyID = ns.Utils.GetRandomOwnedToyID(ns.Fishing.const.bobberToyItemIDs) or nil
+        states.currentBobberToyID = toyID
+        end
+    end
     local hasBobberSelected = toyID and toyID > 0
     local hasToy = hasBobberSelected and ns.Utils.IsToyOwned(toyID) or false
     local bobberReady = hasToy and ns.Utils.IsCooldownReady(toyID)
@@ -55,7 +67,7 @@ local function GetBobberUseDecision()
     elseif toyID and toyID == 0 then
         Trace("'Standard' bobber is selected")
     elseif not hasBobberSelected then
-        Trace("No bobber toy selected or invalid ID")
+        Trace("No bobber toy selected or invalid ID: " .. tostring(toyID))
     elseif not hasToy then
         Trace("Bobber is not owned")
     elseif not bobberReady then

@@ -1,6 +1,9 @@
 local addonName, ns = ...
 local Addon = ns.Addon
 local Fishing = ns.Fishing
+local states = {
+    currentRaftToyID = nil,
+}
 
 Fishing:RegisterTraceSource("raft")
 local function Trace(msg)
@@ -45,6 +48,14 @@ end
 
 local function GetRaftUseDecision(self)
     local toyID = tonumber(self.db.profile.selectedRaftToy) or nil
+    if toyID == -1 then
+        local readyForNewRaft = states.currentRaftToyID == nil or ns.Utils.IsCooldownReady(states.currentRaftToyID)
+        if readyForNewRaft then
+            Trace("Selecting a random raft toy")
+            toyID = ns.Utils.GetRandomOwnedToyID(ns.Fishing.const.raftToyItemIDs) or nil
+            states.currentRaftToyID = toyID
+        end
+    end
     local hasRaftSelected = toyID and toyID > 0
     local hasToy = hasRaftSelected and ns.Utils.IsToyOwned(toyID) or false
     local isReady = hasToy and ns.Utils.IsCooldownReady(toyID)

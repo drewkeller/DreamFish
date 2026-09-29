@@ -346,10 +346,10 @@ local options = {
                             name = "Raft",
                             desc = "Choose the raft to be used when fishing. Applied automatically when casting the fishing line.",
                             values = function()
-                                return ns.Utils.BuildOwnedToyOptions(ns.Fishing.const.raftToyItemIDs, "No Raft")
+                                return ns.Utils.BuildOwnedToyOptions(ns.Fishing.const.raftToyItemIDs, "No Raft", "Random Raft")
                             end,
                             sorting = function()
-                                return ns.Utils.BuildOwnedToySortingKeys(ns.Fishing.const.raftToyItemIDs, "No Raft")
+                                return ns.Utils.BuildOwnedToySortingKeys(ns.Fishing.const.raftToyItemIDs, "No Raft", "Random Raft")
                             end,
                             get = function()
                                 return Fishing.db.profile.selectedRaftToy
@@ -372,10 +372,10 @@ local options = {
                             name = "Bobber",
                             desc = "Choose the bobber to be used when fishing. Applied automatically when casting the fishing line.",
                             values = function()
-                                return ns.Utils.BuildOwnedToyOptions(ns.Fishing.const.bobberToyItemIDs, "Standard Bobber")
+                                return ns.Utils.BuildOwnedToyOptions(ns.Fishing.const.bobberToyItemIDs, "Standard Bobber", "Random Bobber")
                             end,
                             sorting = function()
-                                return ns.Utils.BuildOwnedToySortingKeys(ns.Fishing.const.bobberToyItemIDs, "Standard Bobber")
+                                return ns.Utils.BuildOwnedToySortingKeys(ns.Fishing.const.bobberToyItemIDs, "Standard Bobber", "Random Bobber")
                             end,
                             get = function()
                                 return Fishing.db.profile.selectedBobberToy
