@@ -146,8 +146,6 @@ local function ConfigureFishingClickAction(self, options)
             raftExclusive = true
             Trace("Raft needed while swimming; skipping other pre-cast items this click")
         end
-    elseif raftDecision.blockedByShapeshift and raftDecision.swimming then
-        ShowRaftShapeshiftError()
     end
 
     if raftDecision.swimming and not raftDecision.shouldApply then

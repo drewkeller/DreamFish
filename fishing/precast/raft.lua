@@ -66,6 +66,7 @@ local function GetRaftUseDecision(self)
     local recentlyUsed = hasToy and IsRecentlyUsed(toyID) or false
     local auraRemaining = (hasToy and swimming) and GetRaftAuraRemainingSeconds(toyID) or nil
     local castLead = ns.Fishing.const.maxFishingCastSeconds + ns.Fishing.const.buffPreRefreshSafetySeconds
+    local isShapeShifted = IsRaftBlockedByShapeshift()
     if auraRemaining == nil and hasToy then
         -- If aura can't be observed while not swimming, try once more without the swim gate.
         auraRemaining = GetRaftAuraRemainingSeconds(toyID)
@@ -79,6 +80,7 @@ local function GetRaftUseDecision(self)
         and not blockedByShapeshift
         and not recentlyUsed
         and (swimming or auraRemaining ~= nil) -- or recentlySwimming)
+        and not isShapeShifted
 
     Trace(string.format("swimming=%s submerged=%s aura=%s recentlyUsed=%s",
         tostring(swimming), tostring(type(IsSubmerged) == "function" and IsSubmerged()),
@@ -116,6 +118,7 @@ local function GetRaftUseDecision(self)
         auraRemaining = auraRemaining,
         needsRefreshForCast = needsRefresh,
         shouldApply = shouldApply,
+        isShapeShifted = isShapeShifted,
     }
 end
 

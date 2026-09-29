@@ -461,6 +461,9 @@ function Fishing:ShowPrecastSwimmingGuidance(options)
         end
         guidanceKind = "climb"
         message = "Jump to board the raft and continue fishing."
+    elseif raftDecision.blockedByShapeshift then
+        guidanceKind = "blocked"
+        message = "Raft cannot be used while shapeshifted."
     elseif raftCanBeUsed then
         guidanceKind = "use"
         message = "Cast again for a raft."
