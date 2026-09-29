@@ -90,6 +90,11 @@ function Fishing:CheckHeldMouseButtons()
         leftMouseButtonHeld = leftDown
         -- A held left button means the player is mouselooking, so the right button belongs to the camera.
         if leftDown then
+            if self.clickFrame then
+                self:Trace("mouse", string.format("Left down: state=%s clickFrame shown=%s mouse=%s click=%s",
+                    self:CurrentStateName(), tostring(self.clickFrame:IsShown()),
+                    tostring(self.clickFrame:IsMouseEnabled()), tostring(self.clickFrame:IsMouseClickEnabled())))
+            end
             self:SuspendRightClickStrike()
         else
             self:ArmRightClickStrike()
@@ -125,6 +130,10 @@ function Fishing:HandleMouseDown(_, button)
     end
 
     self:Trace("mouse", "Physical right click state=" .. Fishing:CurrentStateName())
+
+    if self:IsFishingState(ns.Fishing.states.WAITING_FOR_BITE) then
+        self:TraceStrikeContext("right click")
+    end
 
     if not self:IsFishingState(ns.Fishing.states.WAITING_FOR_BITE) then
         -- Catch single-click recasting WHILE IN A SESSION before polling double-click registers
@@ -295,6 +304,16 @@ function Fishing:HookPostClickWithHandler()
                     end
 
                     if frame:GetAttribute("dreamfish_precast_action") then
+                        -- Physical clicks skip PreClick's rearm, so a no-op action would otherwise never be replaced.
+                        if liveMacroText == "" or liveMacroText == "nil" then
+                            self:Trace("mouse", "PostClick release: no-op action; rearming for next click.")
+                            C_Timer.After(0, function()
+                                if Fishing:IsFishingState(ns.Fishing.states.PRECASTING) then
+                                    Fishing:PrepareFishingClickAction({ showSwimmingGuidance = true })
+                                end
+                            end)
+                            return
+                        end
                         self:Trace("mouse", "PostClick release: Pre-cast item action awaiting completion.")
                         return
                     end
@@ -425,15 +444,19 @@ function Fishing:StopWatchingStrikeKey()
     strikeKeyFrame:Hide()
 end
 
+function Fishing:TraceStrikeContext(source)
+    local startedAt = self.state and self.state.fishingChannelStartedAt
+    local elapsed = startedAt and string.format("%.2fs", GetTime() - startedAt) or "n/a"
+    local softInteractGUID = UnitGUID("softinteract") or "none"
+    self:Trace("EasyStrike", "strike via " .. tostring(source)
+        .. " state=" .. self:CurrentStateName()
+        .. " sinceCast=" .. elapsed
+        .. " softinteractGUID=" .. tostring(softInteractGUID))
+end
+
 function Fishing:HandleStrikeKeyDown(pressedKey)
     if not strikeKeyFrame or pressedKey ~= strikeKeyFrame.watchedKey then return end
-
-    local target = UnitExists("target") and UnitName("target") or "none"
-    local softInteract = UnitExists("softinteract") and UnitName("softinteract") or "none"
-    self:Trace("EasyStrike", "strike key=" .. tostring(pressedKey)
-        .. " state=" .. self:CurrentStateName()
-        .. " target=" .. tostring(target)
-        .. " softinteract=" .. tostring(softInteract))
+    self:TraceStrikeContext("key " .. tostring(pressedKey))
 end
 
 function Fishing:ApplyKeybinding()

@@ -75,6 +75,9 @@ function Fishing:OnModuleEnable()
     self:RegisterEvent("UNIT_AURA",                    "OnAurasChanged")
     self:RegisterEvent("LOOT_READY",                   "OnLootReady")
     self:RegisterEvent("LOOT_CLOSED",                  "OnLootClosed")
+    self:RegisterEvent("UI_ERROR_MESSAGE",             "UI_ERROR_MESSAGE")
+    self:RegisterEvent("UI_INFO_MESSAGE",              "UI_INFO_MESSAGE")
+    self:RegisterEvent("CHAT_MSG_SYSTEM",              "CHAT_MSG_SYSTEM")
 
     self:RegisterMessage("FISHING_CAST_ENDED",         "OnFishingCastEnded")
 
@@ -100,8 +103,29 @@ function Fishing:OnModuleDisable()
     self:UnregisterEvent("LOOT_READY")
     self:UnregisterEvent("LOOT_CLOSED")
     self:UnregisterMessage("FISHING_CAST_ENDED")
+    self:UnregisterEvent("UI_ERROR_MESSAGE")
+    self:UnregisterEvent("UI_INFO_MESSAGE")
+    self:UnregisterEvent("CHAT_MSG_SYSTEM")
     self:RemoveCastBar()
     self:RemoveClickFrame()
+end
+
+function Fishing:UI_ERROR_MESSAGE(event, messageType, message)
+    if ns.Utils.Log then
+        ns.Utils.Log(string.format("[UI_ERROR_MESSAGE] [%s] %s", tostring(messageType), tostring(message)))
+    end
+end
+
+function Fishing:UI_INFO_MESSAGE(event, messageType, message)
+    if ns.Utils.Log then
+        ns.Utils.Log(string.format("[UI_INFO_MESSAGE] [%s] %s", tostring(messageType), tostring(message)))
+    end
+end
+
+function Fishing:CHAT_MSG_SYSTEM(event, message)
+    if self:IsInFishingSession() then
+        ns.Utils.Log(string.format("[CHAT_MSG_SYSTEM] %s", tostring(message)))
+    end
 end
 
 function Fishing:OnBagUpdateDelayed()
@@ -667,6 +691,7 @@ function Fishing:OnSpellcastChannelStarted(event, unit, ...)
         return
     end
 
+    self.state.fishingChannelStartedAt = GetTime()
     self.state.castStartConfirmationAttempt = nil
     self:SetFishingState(ns.Fishing.states.CASTING, "spellcast")
     self:StartMouseButtonWatch()
@@ -698,7 +723,11 @@ function Fishing:OnSpellcastChannelEnded(event, unit, ...)
             return
         end
 
-        self:Trace("EasyStrike", "cast finished event=" .. tostring(event) .. " state=" .. self:CurrentStateName())
+        local startedAt = self.state.fishingChannelStartedAt
+        self:Trace("EasyStrike", "cast finished event=" .. tostring(event)
+            .. " state=" .. self:CurrentStateName()
+            .. " channelDuration=" .. (startedAt and string.format("%.2fs", GetTime() - startedAt) or "n/a"))
+
         -- Currently, looting happens in CASTING state and if we cancel fishing here, we don't get the loot.
         if (self.state.current == ns.Fishing.states.WAITING_FOR_BITE) then
             -- A right-click strike stops the channel before LOOT_READY arrives, so give the loot window a chance.
