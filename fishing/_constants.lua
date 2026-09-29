@@ -64,6 +64,8 @@ ns.moduleConstants["Fishing"] = {
         [241145] = { spellID = 1237964, duration = 1800, castTime = 1500,  category = "bait", }, -- Lucky Loa Lure
         [241147] = { spellID = 1237974, duration = 1800, castTime = 1500,  category = "bait", }, -- Blood Hunter Lure
         [241149] = { spellID = 1237965, duration = 1800, castTime = 1500,  category = "bait", }, -- Ominous Octopus Lure
+        [277821] = { spellID = 1302820, duration = 1800, castTime = 1500,  category = "bait", }, -- Ula'tek Snakehead Lure
+        [278391] = { spellID = 0,       duration = 120,  castTime = 0,     category = "other_consumable", }, -- Eerie Bauble (not commuable)
         -- War Within fishing consumables
         [220137] = { spellID = 456156,  duration = 30,   castTime = 0,     category = "other_consumable", }, -- Bismuth Bitterling
         [220135] = { spellID = 456157,  duration = 30,   castTime = 0,     category = "other_consumable", }, -- Bloody Perch

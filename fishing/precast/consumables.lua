@@ -485,10 +485,8 @@ function Fishing:CheckEnabledBuffItemsDepleted()
                 local itemID = type(entry) == "table" and tonumber(entry.itemID) or nil
                 if itemID and itemID > 0 and entry.enabled ~= false
                     and ns.Utils.CountItemInBags(itemID) == 0 then
-                    local itemName = (C_Item and type(C_Item.GetItemInfo) == "function" and C_Item.GetItemInfo(itemID))
-                        or "Unknown buff item"
                     state.buffDepletionAlerted = true
-                    Addon:Alert(ns.SystemColor.YELLOW, "Buff item depleted: " .. tostring(itemName) .. " (" .. tostring(itemID) .. ")")
+                    Addon:Alert(ns.SystemColor.YELLOW, "Buff item depleted: " .. ns.Utils.ItemLink(itemID))
                     return
                 end
             end
