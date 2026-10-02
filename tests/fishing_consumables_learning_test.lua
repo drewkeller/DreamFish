@@ -333,6 +333,7 @@ assert(nextPrecastDecision.items[2].itemID == 238367,
 
 Fishing.state.pendingBuffUse = nil
 Fishing.state.buffItemLastUseAt = {}
+Fishing.state.lureAppliedUntil = nil
 Fishing.db.char.buffs.other_consumable = {}
 Fishing.db.char.buffs.lure = {
     { itemID = 262651, enabled = true },
@@ -342,7 +343,7 @@ namespace.Fishing.const.knownBuffItems[262651] = {
     spellID = 1284999, duration = 600, castTime = 1500, category = "lure",
 }
 namespace.Fishing.const.knownBuffItems[262650] = {
-    spellID = 1284999, duration = 600, castTime = 1500, category = "lure",
+    spellID = 1285000, duration = 600, castTime = 1500, category = "lure",
 }
 namespace.precast.GetEquippedProfessionItemID = function()
     return 244790
@@ -361,10 +362,27 @@ bagCount = 1
 now = now + 3
 local nextLureDecision = namespace.precast.GetConsumableUseDecision(Fishing, false)
 assert(nextLureDecision.shouldApply == false,
-    "a confirmed lure must suppress equivalent lures during its duration across precasts")
+    "a confirmed lure must suppress other lures with different effects across precasts")
 now = now + 600
 local expiredLureDecision = namespace.precast.GetConsumableUseDecision(Fishing, false)
 assert(expiredLureDecision.shouldApply == true and expiredLureDecision.items[1].itemID == 262651,
     "a lure should become due again after its confirmed duration expires")
+Fishing:ConfirmPendingBuffUse(1284999)
+assert(Fishing.state.lureAppliedUntil > now, "confirmed lure should start a pole-wide cooldown")
+local equippedJournalPoleID = 244790
+function GetInventoryItemID(_, slot)
+    assert(slot == 28)
+    return equippedJournalPoleID
+end
+assert(loadfile("fishing/precast/pole.lua"))("DreamFish", namespace)
+Fishing.state.lastKnownJournalPoleID = equippedJournalPoleID
+Fishing:CheckAndHandlePoleSwapReset()
+assert(Fishing.state.lureAppliedUntil > now, "checking the same pole must preserve its lure cooldown")
+equippedJournalPoleID = 244791
+Fishing:CheckAndHandlePoleSwapReset()
+assert(Fishing.state.lureAppliedUntil == nil, "changing poles must clear the lure cooldown")
+local swappedPoleDecision = namespace.precast.GetConsumableUseDecision(Fishing, false)
+assert(swappedPoleDecision.shouldApply == true and swappedPoleDecision.items[1].itemID == 262651,
+    "the new pole must be eligible for a lure immediately")
 
 print("fishing_consumables_learning_test: passed")

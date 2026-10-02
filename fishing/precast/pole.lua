@@ -141,6 +141,7 @@ function Fishing:CheckAndHandlePoleSwapReset()
 
     -- If your live slot tool shifts compared to our last checked pass, clear your tracking states instantly
     if currentJournalPoleID and self.state.lastKnownJournalPoleID and (currentJournalPoleID ~= self.state.lastKnownJournalPoleID) then
+        self.state.lureAppliedUntil = nil
         if type(self.state.buffItemLastUseAt) == "table" and self.db and self.db.char.buffs then
             local configuredBuffs = self.db.char.buffs
             if type(configuredBuffs.lure) == "table" then

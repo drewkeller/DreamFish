@@ -358,19 +358,10 @@ local function IsDue(itemID, category, now)
             return false, "fishing_lure_already_applied"
         end
 
-        local effectSpellID = GetKnownSpellAndDuration(itemID)
-        local configuredLures = charDB and charDB.buffs and charDB.buffs.lure
-        if effectSpellID and type(configuredLures) == "table" then
-            for _, entry in ipairs(configuredLures) do
-                local lureItemID = type(entry) == "table" and tonumber(entry.itemID) or nil
-                local lureSpellID, duration = GetKnownSpellAndDuration(lureItemID)
-                local lastUse = lureItemID and tonumber(state.buffItemLastUseAt[lureItemID])
-                if lureSpellID == effectSpellID and lastUse and duration and duration > 0
-                    and now - lastUse < duration then
-                    Trace("Lure is not due: confirmed application remains within its known duration.")
-                    return false, "confirmed_lure_duration" .. LastUseString(lastUse, duration)
-                end
-            end
+        local lureAppliedUntil = tonumber(state.lureAppliedUntil)
+        if lureAppliedUntil and now < lureAppliedUntil then
+            Trace("Lure is not due: confirmed application remains within its known duration.")
+            return false, "confirmed_lure_duration (" .. string.format("%.1f seconds remaining", lureAppliedUntil - now) .. ")"
         end
     end
 
@@ -524,6 +515,9 @@ function Fishing:ConfirmPendingBuffUse(successSpellID)
         rawset(lastUses, itemID, now)
         local known = GetKnownBuff(itemID)
         local spellID, trackedDuration = GetKnownSpellAndDuration(itemID)
+        if use.category == "lure" then
+            self.state.lureAppliedUntil = now + math.max(5, trackedDuration or 0)
+        end
         -- Built-in metadata is authoritative; only unknown items use learned fallback data.
         if globalDB and type(globalDB.buffAuraByItem) == "table"
             and type(known) ~= "table" then
