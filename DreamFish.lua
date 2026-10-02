@@ -5,6 +5,8 @@ local AceConfig = LibStub("AceConfig-3.0")
 local AceConfigDialog = LibStub("AceConfigDialog-3.0")
 
 local DialogName = addonName .. "Dialog"
+local dialogWasShownBeforeAFK = false
+local playerWasAFK = false
 
 local function RefreshConfigUI()
     LibStub("AceConfigRegistry-3.0"):NotifyChange(addonName)
@@ -125,6 +127,37 @@ end
 function Addon:OnEnable()
     self:RegisterChatCommands()
     self:RegisterEvent("PLAYER_ENTERING_WORLD")
+    self:RegisterEvent("PLAYER_FLAGS_CHANGED", function(_, unit)
+        if unit and unit ~= "player" then
+            return
+        end
+
+        if UnitIsAFK("player") then
+            if not playerWasAFK then
+                local dialog = AceConfigDialog.OpenFrames and AceConfigDialog.OpenFrames[DialogName]
+                local dialogFrame = dialog and (dialog.frame or dialog)
+                dialogWasShownBeforeAFK = dialogFrame and dialogFrame.IsShown and dialogFrame:IsShown() or false
+                playerWasAFK = true
+                Addon:TraceCore("ui.dreamfishdialog", "AFK, dialog visible: " .. tostring(dialogWasShownBeforeAFK))
+            end
+        elseif playerWasAFK then
+            playerWasAFK = false
+            Addon:TraceCore("ui.dreamfishdialog", "Back from AFK, dialog was visible before AFK: " .. tostring(dialogWasShownBeforeAFK))
+            if dialogWasShownBeforeAFK then
+                dialogWasShownBeforeAFK = false
+                local dialog = AceConfigDialog.OpenFrames and AceConfigDialog.OpenFrames[DialogName]
+                local dialogFrame = dialog and (dialog.frame or dialog)
+                if not (dialogFrame and dialogFrame.IsShown and dialogFrame:IsShown()) then
+                    C_Timer.After(0, function()
+                        if not UnitIsAFK("player") then
+                            Addon:TraceCore("ui.dreamfishdialog", "Reopening dialog after AFK")
+                            Addon:OpenDialogWindow(DialogName)
+                        end
+                    end)
+                end
+            end
+        end
+    end)
 
     -- for development
     if self.db.profile.debugEnabled then

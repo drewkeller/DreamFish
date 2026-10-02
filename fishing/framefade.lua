@@ -170,7 +170,6 @@ function MessageSink:PLAYER_ENTERING_WORLD(...)
 end
 
 function MessageSink:PLAYER_REGEN_ENABLED(...)
-    Addon:Info("framefade: Player regen enabled")
     Fishing:RefreshFade()
 end
 
