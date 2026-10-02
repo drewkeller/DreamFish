@@ -331,4 +331,40 @@ assert(nextPrecastDecision.items[1].itemID == 238365,
 assert(nextPrecastDecision.items[2].itemID == 238367,
     "next PRECAST can choose Root Crab after Spotted Killifish was recently used")
 
+Fishing.state.pendingBuffUse = nil
+Fishing.state.buffItemLastUseAt = {}
+Fishing.db.char.buffs.other_consumable = {}
+Fishing.db.char.buffs.lure = {
+    { itemID = 262651, enabled = true },
+    { itemID = 262650, enabled = true },
+}
+namespace.Fishing.const.knownBuffItems[262651] = {
+    spellID = 1284999, duration = 600, castTime = 1500, category = "lure",
+}
+namespace.Fishing.const.knownBuffItems[262650] = {
+    spellID = 1284999, duration = 600, castTime = 1500, category = "lure",
+}
+namespace.precast.GetEquippedProfessionItemID = function()
+    return 244790
+end
+C_TooltipInfo = {
+    GetInventoryItem = function()
+        return { lines = { { leftText = "Fishing Pole" } } }
+    end,
+}
+Fishing.state.precastConsumableSnapshot = nil
+local lureDecision = namespace.precast.GetConsumableUseDecision(Fishing, false)
+assert(lureDecision.items[1].itemID == 262651, "first due lure should be Spikesnail")
+bagCount = 0
+Fishing:ConfirmPendingBuffUse(1284999)
+bagCount = 1
+now = now + 3
+local nextLureDecision = namespace.precast.GetConsumableUseDecision(Fishing, false)
+assert(nextLureDecision.shouldApply == false,
+    "a confirmed lure must suppress equivalent lures during its duration across precasts")
+now = now + 600
+local expiredLureDecision = namespace.precast.GetConsumableUseDecision(Fishing, false)
+assert(expiredLureDecision.shouldApply == true and expiredLureDecision.items[1].itemID == 262651,
+    "a lure should become due again after its confirmed duration expires")
+
 print("fishing_consumables_learning_test: passed")

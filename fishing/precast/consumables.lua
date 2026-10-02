@@ -358,12 +358,19 @@ local function IsDue(itemID, category, now)
             return false, "fishing_lure_already_applied"
         end
 
-        local known = GetKnownBuff(itemID)
-        local lastUse = tonumber(state.buffItemLastUseAt[itemID])
-        local duration = type(known) == "table" and tonumber(known.duration) or nil
-        if lastUse and duration and duration > 0 and now - lastUse < duration then
-            Trace("Lure is not due: confirmed application remains within its known duration.")
-            return false, "confirmed_lure_duration" .. LastUseString(lastUse, duration)
+        local effectSpellID = GetKnownSpellAndDuration(itemID)
+        local configuredLures = charDB and charDB.buffs and charDB.buffs.lure
+        if effectSpellID and type(configuredLures) == "table" then
+            for _, entry in ipairs(configuredLures) do
+                local lureItemID = type(entry) == "table" and tonumber(entry.itemID) or nil
+                local lureSpellID, duration = GetKnownSpellAndDuration(lureItemID)
+                local lastUse = lureItemID and tonumber(state.buffItemLastUseAt[lureItemID])
+                if lureSpellID == effectSpellID and lastUse and duration and duration > 0
+                    and now - lastUse < duration then
+                    Trace("Lure is not due: confirmed application remains within its known duration.")
+                    return false, "confirmed_lure_duration" .. LastUseString(lastUse, duration)
+                end
+            end
         end
     end
 
