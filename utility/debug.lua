@@ -124,6 +124,7 @@ local function PrintNoLog(prefix, colorHex, msg, ...)
     local colorEnd = colorHex and "|r" or ""
     DEFAULT_CHAT_FRAME:AddMessage(string.format("%s: %s %s%s%s", Timestamp(), prefix, colorStart, output, colorEnd))
 end
+ns.Utils.PrintNoLog = PrintNoLog
 
 -- Print to log: timestap and message
 -- Print to chat: addonName and message

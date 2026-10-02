@@ -243,7 +243,6 @@ function Fishing:PrepareFishingClickAction(options)
         and self:IsPrecastConsumableDecisionMade()
         and not options.forcePrecastReconfigure then
         if options.showSwimmingGuidance
-            and type(IsSwimming) == "function"
             and ns.Utils.IsSwimmingOrSubmerged()
             and type(self.ShowPrecastSwimmingGuidance) == "function" then
             self:ShowPrecastSwimmingGuidance({ allowClimb = true })

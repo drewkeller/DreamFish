@@ -280,7 +280,7 @@ function IsMounted()
     return mounted
 end
 
-function IsSwimming()
+function IsSwimmingOrSubmerged()
     return swimming
 end
 

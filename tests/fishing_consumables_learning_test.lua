@@ -21,6 +21,10 @@ end
 function Fishing:Trace()
 end
 
+function Fishing:CurrentStateName()
+    return "PRECASTING"
+end
+
 function Fishing:Debug()
 end
 

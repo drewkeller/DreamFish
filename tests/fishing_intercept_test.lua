@@ -252,7 +252,7 @@ ns.precast.MarkRaftUse = function(toyID)
     markedRaftToyID = toyID
 end
 Fishing.db = ns.FishingDB
-assert(loadfile("fishing/fishing.intercept.lua"))("DreamFish", ns)
+assert(loadfile("fishing/intercept.lua"))("DreamFish", ns)
 assert(loadfile("fishing/states.lua"))("DreamFish", ns)
 for _, initializer in ipairs(Fishing.onInitializeFuncs) do
     initializer(Fishing)

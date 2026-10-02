@@ -9,7 +9,7 @@ function GetShapeshiftForm()
     return shapeshiftForm
 end
 
-function IsSwimming()
+function IsSwimmingOrSubmerged()
     return swimming
 end
 
