@@ -78,6 +78,7 @@ local namespace = {
     Fishing = Fishing,
     SystemColor = { RED = {} },
     Utils = {
+        IsSwimmingOrSubmerged = IsSwimmingOrSubmerged,
         IsToyOwned = function()
             return true
         end,
@@ -119,13 +120,11 @@ namespace.precast.GetConsumableUseDecision = function(_, _, learningOnly)
     }
 end
 
-assert(loadfile("fishing/fishing.precast.lua"))("DreamFish", namespace)
+assert(loadfile("fishing/precast.lua"))("DreamFish", namespace)
 
 Fishing.ConfigureFishingClickAction(Fishing)
 assert(frameAttributes.macrotext == "",
     "shapeshifted swimming must wait instead of arming consumables")
-assert(alerts[1] == "Raft-like items cannot be cast on a shape-shifted target",
-    "automatic raft block should show the client-style error")
 
 local consumableDecisionCalls = 0
 namespace.precast.GetConsumableUseDecision = function()

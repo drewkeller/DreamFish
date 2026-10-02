@@ -284,6 +284,12 @@ function IsSwimmingOrSubmerged()
     return swimming
 end
 
+function GetTime()
+    return 100
+end
+
+namespace.Utils.IsSwimmingOrSubmerged = IsSwimmingOrSubmerged
+
 Fishing:OnInitialize()
 Fishing:OnEnable()
 
@@ -373,10 +379,11 @@ assert(tackleFadeArgs.opacityWithMouseover.get() == false, "opacityWithMouseover
 tackleFadeArgs.opacityWithMouseover.set(nil, true)
 assert(tackleFadeArgs.opacityWithMouseover.get() == true, "opacityWithMouseover should be true after set")
 
-local lingerExpirationOption = options.args.modesTab.args.lingerExpirationEnabled
-local lingerDurationOption = options.args.modesTab.args.lingerDuration
-assert(lingerExpirationOption, "lingerExpirationEnabled option is missing from modesTab")
-assert(lingerDurationOption, "lingerDuration option is missing from modesTab")
+local sessionExitOptions = options.args.modesTab.args.sessionExits.args
+local lingerExpirationOption = sessionExitOptions.lingerExpirationEnabled
+local lingerDurationOption = sessionExitOptions.lingerDuration
+assert(lingerExpirationOption, "lingerExpirationEnabled option is missing from sessionExits")
+assert(lingerDurationOption, "lingerDuration option is missing from sessionExits")
 assert(lingerExpirationOption.get() == true, "lingerExpirationEnabled default value should be true")
 assert(lingerDurationOption.get() == 10, "lingerDuration default value should be 10")
 assert(lingerDurationOption.disabled() == false, "lingerDuration should not be disabled when lingerExpirationEnabled is true")
@@ -453,7 +460,7 @@ assert(Fishing.state.precastConsumableSnapshot == nil,
     "swimming during PRECAST should clear the stale consumable snapshot")
 assert(Fishing.state.precastStartedSwimming == true,
     "precast swimming watch should record that swimming has been handled")
-assert(alertMessages[1] == "You are swimming. Cast a raft to continue fishing.",
+assert(alertMessages[1] == "Cast again for a raft.",
     "swimming during PRECAST should alert the player to use the raft before the aura is present")
 swimming = false
 scheduledTimerCallback()
@@ -471,7 +478,7 @@ end
 Fishing.state.precastSwimmingAlerted = false
 Fishing.state.precastSwimmingGuidanceKind = nil
 Fishing:ShowPrecastSwimmingGuidance()
-assert(alertMessages[1] == "You are swimming. Cast a raft to continue fishing.",
+assert(alertMessages[1] == "Cast again for a raft.",
     "swimming guidance should say use the raft when the raft aura is not present yet")
 namespace.precast.GetRaftUseDecision = function()
     return { hasToy = true, ready = false, recentlyUsed = true, blockedByShapeshift = false }
@@ -483,10 +490,10 @@ namespace.precast.GetRaftUseDecision = function()
     return { hasToy = true, auraRemaining = 30, blockedByShapeshift = false }
 end
 Fishing:ShowPrecastSwimmingGuidance({ allowClimb = true })
-assert(alertMessages[2] == "You are swimming. Climb on the raft to continue fishing.",
+assert(alertMessages[2] == "Jump to board the raft and continue fishing.",
     "swimming guidance should upgrade to climb once the raft aura is present")
 Fishing:ShowPrecastSwimmingGuidance({ allowClimb = true })
-assert(alertMessages[3] == "You are swimming. Climb on the raft to continue fishing.",
+assert(alertMessages[3] == "Jump to board the raft and continue fishing.",
     "player attempts while still swimming should repeat climb guidance")
 
 print("fishing_module_test: passed")
