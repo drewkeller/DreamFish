@@ -3,7 +3,10 @@ local Addon = ns.Addon
 local Fishing = ns.Fishing
 local states = {
     currentRaftToyID = nil,
+    lastSelectedAt = nil,
 }
+
+local MIN_TIME_CHANGE_RAFT = 300
 
 Fishing:RegisterTraceSource("raft")
 local function Trace(msg)
@@ -49,11 +52,16 @@ end
 local function GetRaftUseDecision(self)
     local toyID = tonumber(self.db.profile.selectedRaftToy) or nil
     if toyID == -1 then
-        local readyForNewRaft = states.currentRaftToyID == nil or ns.Utils.IsCooldownReady(states.currentRaftToyID)
-        if readyForNewRaft then
-            Trace("Selecting a random raft toy")
-            toyID = ns.Utils.GetRandomOwnedToyID(ns.Fishing.const.raftToyItemIDs) or nil
+        local now = GetTime()
+        local needRaft = states.currentRaftToyID == nil
+        local timeForNewRaft = states.lastSelectedAt == nil or (now - states.lastSelectedAt) >= MIN_TIME_CHANGE_RAFT
+        if needRaft or timeForNewRaft then
+            toyID = ns.Utils.GetRandomOwnedToyID(ns.Fishing.const.raftToyItemIDs, states.currentRaftToyID) or nil
+            Trace("Selected a random raft: " .. tostring(toyID) .. " was: " .. tostring(states.currentRaftToyID))
             states.currentRaftToyID = toyID
+            states.lastSelectedAt = now
+        else
+            toyID = states.currentRaftToyID
         end
     end
     local hasRaftSelected = toyID and toyID > 0
@@ -91,7 +99,7 @@ local function GetRaftUseDecision(self)
     elseif toyID and toyID == 0 then
         Trace("'None' raft is selected")
     elseif not hasRaftSelected then
-        Trace("No raft toy selected or invalid ID")
+        Trace("No raft toy selected or invalid ID: " .. tostring(toyID))
     elseif not hasToy then
         Trace("Raft is not owned")
     elseif not isReady then

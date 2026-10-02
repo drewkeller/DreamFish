@@ -42,9 +42,11 @@ local function GetBobberUseDecision()
     if toyID == -1 then
         local readyForNewBobber = states.currentBobberToyID == nil or ns.Utils.IsCooldownReady(states.currentBobberToyID)
         if readyForNewBobber then
-        Trace("Selecting a random bobber toy")
-        toyID = ns.Utils.GetRandomOwnedToyID(ns.Fishing.const.bobberToyItemIDs) or nil
-        states.currentBobberToyID = toyID
+            toyID = ns.Utils.GetRandomOwnedToyID(ns.Fishing.const.bobberToyItemIDs, states.currentBobberToyID) or nil
+            Trace("Selected a random bobber: " .. tostring(toyID) .. " was: " .. tostring(states.currentBobberToyID))
+            states.currentBobberToyID = toyID
+        else
+            toyID = states.currentBobberToyID
         end
     end
     local hasBobberSelected = toyID and toyID > 0

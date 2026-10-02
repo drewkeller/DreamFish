@@ -127,7 +127,15 @@ function ns.Utils.BuildOwnedToySortingKeys(candidateIDs, includeDefault, randomL
     return keys
 end
 
-function ns.Utils.GetRandomOwnedToyID(candidateIDs)
+function ns.Utils.GetRandomOwnedToyID(candidateIDs, currentID)
+    if #candidateIDs > 1 then
+        for i = #candidateIDs, 1, -1 do
+            if tonumber(type(candidateIDs[i]) == "table" and candidateIDs[i].id or candidateIDs[i]) == currentID then
+                table.remove(candidateIDs, i)
+            end
+        end
+    end
+
     local ownedAndReady = ns.Utils.FilterOwnedAndReadyToys(candidateIDs)
 
     -- Return a random itemID from the validated pool if any are available
