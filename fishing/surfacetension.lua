@@ -83,8 +83,8 @@ ExecuteStabilizedGearChanges = function(reason, targetSwimmingState)
         return
     end
 
-    -- If player left the water, abort and reset everything
-    if not currentRealSwimming then
+    -- If player left the water or mounted, abort and reset everything
+    if not currentRealSwimming or IsMounted() then
         if isAuraLockActive or awaitingPrimaryClearHandshake then
             Trace("Action-Pass ["..reason.."]: Confirmed on dry land. Clearing locks.")
             isAuraLockActive = false
