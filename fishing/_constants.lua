@@ -18,8 +18,9 @@ ns.moduleConstants["Fishing"] = {
         { id = 143662, name = "Wooden Pepe" },
     },
     raftToyItemIDs = {
-        { id = 85500, name = "Angler's Fishing Raft" },
+        { id = 85500,  name = "Angler's Fishing Raft" },
         { id = 198428, name = "Tuskarr Dinghy" },
+        { id = 235801, name = "Personal Fishing Barge" },
     },
     underlightAnglerItemID = 133755,
     oversizedBobberItemID = 202207,
