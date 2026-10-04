@@ -6,6 +6,7 @@ Fishing:RegisterTraceSource("mouse")
 
 local lastClickTime = 0
 local lastSingleFishingClickTime = 0
+local lastRightClickStrikeTime
 local doubleClickDelay = 0.25
 local hideTimerHandle = nil
 local suppressCapturedClick = false
@@ -137,6 +138,40 @@ function Fishing:HandleMouseDown(_, button)
 
     if self:IsFishingState(ns.Fishing.states.WAITING_FOR_BITE) then
         self:TraceStrikeContext("right click")
+        if self:IsSoloPhysicalRightClick()
+            and self.db.profile.strikeByDoubleRightClick and not self.db.profile.strikeByRightClick then
+            local currentTime = GetTime()
+            if lastRightClickStrikeTime
+                and currentTime - lastRightClickStrikeTime <= doubleClickDelay then
+                self:ResetRightClickStrikeWindow()
+                local castAttempt = self.state.castAttempt
+                self:ScheduleTimer(function()
+                    if self.state.castAttempt == castAttempt
+                        and self:IsFishingState(ns.Fishing.states.WAITING_FOR_BITE) then
+                        self:ArmRightClickStrike()
+                    end
+                end, 0)
+                self:TraceStrikeContext("double right click strike")
+            else
+                lastRightClickStrikeTime = currentTime
+                local firstClickTime = currentTime
+                self:ScheduleTimer(function()
+                    if lastRightClickStrikeTime ~= firstClickTime
+                        or not self:IsFishingState(ns.Fishing.states.WAITING_FOR_BITE) then
+                        return
+                    end
+                    self:UseNativeRightClickStrike()
+                end, 0)
+                self:ScheduleTimer(function()
+                    if lastRightClickStrikeTime ~= firstClickTime then return end
+                    self:ResetRightClickStrikeWindow()
+                    if self:IsFishingState(ns.Fishing.states.WAITING_FOR_BITE) then
+                        self:ArmRightClickStrike()
+                    end
+                end, doubleClickDelay)
+                self:Trace("EasyStrike", "first right click; waiting for second click")
+            end
+        end
     end
 
     if not self:IsFishingState(ns.Fishing.states.WAITING_FOR_BITE) then
@@ -176,6 +211,10 @@ function Fishing:HookPreClickWithHandler()
     if not self:IsHooked(self.clickFrame, "PreClick") then
         self.clickFrame:SetScript("PreClick", function(_, button, down)
             if InCombatLockdown() then return end
+            if button == "RightButton" and not down and rightClickStrikeReleasePending then
+                rightClickStrikeReleasePending = false
+                return
+            end
             if button ~= "RightButton" or not down or not self:IsSoloPhysicalRightClick() then
                 -- A release edge (down=false) during an active PRECASTING pass must not disarm the
                 -- frame: a settling pole swap may have just re-armed it, and clearing here would
@@ -191,6 +230,17 @@ function Fishing:HookPreClickWithHandler()
                 self:ReleaseClickCapture()
                 return
             end
+
+            if self:IsFishingState(ns.Fishing.states.WAITING_FOR_BITE) then
+                if self.db.profile.strikeByDoubleRightClick and not self.db.profile.strikeByRightClick
+                    and not rightClickStrikeReleasePending then
+                    self.clickFrame:SetAttribute("type", "macro")
+                    self.clickFrame:SetAttribute("spell", nil)
+                    self.clickFrame:SetAttribute("macrotext", "/stopmacro")
+                end
+                return
+            end
+            self:ResetRightClickStrikeWindow()
 
             -- If the right mouse button is already down, we are in the middle of a click
             -- and should not trigger a cast.
@@ -337,21 +387,22 @@ function Fishing:IsDoubleClick()
     local currentTime = GetTime()
     local isDoubleClick = false
     if (currentTime - lastClickTime) <= doubleClickDelay then
-        -- Show the secure intercept frame to catch the up-click
-        self.clickFrame:EnableMouse(true)
-        self.clickFrame:SetMouseClickEnabled(true)
-        self.clickFrame:SetMouseMotionEnabled(true)
-        self.clickFrame:Show()
-
+        self:CaptureClickFrameForRelease()
         isDoubleClick = true
-
-        -- Queue the frame cleanup
-        if hideTimerHandle then self:CancelTimer(hideTimerHandle) end
-        hideTimerHandle = self:ScheduleTimer("HideClickFrame", 0.1)
     end
 
     lastClickTime = currentTime
     return isDoubleClick
+end
+
+function Fishing:CaptureClickFrameForRelease()
+    self.clickFrame:EnableMouse(true)
+    self.clickFrame:SetMouseClickEnabled(true)
+    self.clickFrame:SetMouseMotionEnabled(true)
+    self.clickFrame:Show()
+
+    if hideTimerHandle then self:CancelTimer(hideTimerHandle) end
+    hideTimerHandle = self:ScheduleTimer("HideClickFrame", 0.1)
 end
 
 function Fishing:HideClickFrame()
@@ -467,6 +518,11 @@ function Fishing:TraceStrikeContext(source)
 function Fishing:HandleStrikeKeyDown(pressedKey)
     if not strikeKeyFrame or pressedKey ~= strikeKeyFrame.watchedKey then return end
     self:TraceStrikeContext("key " .. tostring(pressedKey))
+end
+
+function Fishing:ResetRightClickStrikeWindow()
+    lastRightClickStrikeTime = nil
+    rightClickStrikeReleasePending = false
 end
 
 function Fishing:ApplyKeybinding()

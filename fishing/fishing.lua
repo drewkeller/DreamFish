@@ -578,15 +578,30 @@ end
 
 -- BUTTON2 lives on its own owner frame so it can be released without dropping the hotkey override.
 function Fishing:ArmRightClickStrike()
-    if InCombatLockdown() or not self.db.profile.strikeByRightClick then return end
+    if InCombatLockdown()
+        or not (self.db.profile.strikeByRightClick or self.db.profile.strikeByDoubleRightClick) then
+        return
+    end
     if not self:IsFishingState(ns.Fishing.states.WAITING_FOR_BITE) then return end
     if IsMouseButtonDown("LeftButton") then return end
 
+    if self.db.profile.strikeByRightClick then
+        if not rightClickStrikeOwner then
+            rightClickStrikeOwner = CreateFrame("Frame")
+        end
+        self:UseNativeRightClickStrike()
+    elseif rightClickStrikeOwner then
+        ClearOverrideBindings(rightClickStrikeOwner)
+    end
+    self:Trace("EasyStrike", "right-click strike armed")
+end
+
+function Fishing:UseNativeRightClickStrike()
+    if InCombatLockdown() then return end
     if not rightClickStrikeOwner then
         rightClickStrikeOwner = CreateFrame("Frame")
     end
     SetOverrideBinding(rightClickStrikeOwner, true, "BUTTON2", "INTERACTTARGET")
-    self:Trace("EasyStrike", "right-click strike armed")
 end
 
 -- Overriding BUTTON2 costs the native TURNORACTION binding, so give it back while the player steers.
@@ -607,9 +622,11 @@ function Fishing:ConfigureBobberInteractAction()
 end
 
 function Fishing:ArmBobberInteractOverride()
-    if InCombatLockdown() or not (self.db.profile.strikeByRightClick or self.db.profile.strikeByHotkey) then
+    if InCombatLockdown() or not (self.db.profile.strikeByRightClick
+        or self.db.profile.strikeByDoubleRightClick or self.db.profile.strikeByHotkey) then
         self:Trace("EasyStrike", "override skipped: combat=" .. tostring(InCombatLockdown())
             .. " rightClick=" .. tostring(self.db.profile.strikeByRightClick)
+            .. " doubleRightClick=" .. tostring(self.db.profile.strikeByDoubleRightClick)
             .. " hotkey=" .. tostring(self.db.profile.strikeByHotkey))
         return false
     end
@@ -634,6 +651,7 @@ function Fishing:ArmBobberInteractOverride()
     -- BUTTON2 is armed separately so mouse steering can reclaim it mid-cast.
 
     local applied = hotkeyApplied or self.db.profile.strikeByRightClick
+        or self.db.profile.strikeByDoubleRightClick
     if applied then
         if hotkeyApplied then
             self:WatchStrikeKey(boundKeys[1])
@@ -647,6 +665,9 @@ function Fishing:ArmBobberInteractOverride()
 end
 
 function Fishing:ClearBobberInteractOverride()
+    if type(self.ResetRightClickStrikeWindow) == "function" then
+        self:ResetRightClickStrikeWindow()
+    end
     if self.clickFrame and not InCombatLockdown() then
         ClearOverrideBindings(self.clickFrame)
         self:Trace("EasyStrike", "override cleared")

@@ -32,6 +32,7 @@ ns.moduleDefaults["Fishing"] = {
         castBySingleRightClickWhenFishing = false,
         castByHotkey = true,
         strikeByRightClick = false,
+        strikeByDoubleRightClick = true,
         strikeByHotkey = true,
         selectedRaftToy = 0,
         selectedBobberToy = 0,

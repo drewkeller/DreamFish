@@ -30,9 +30,12 @@ local profile = {
     castByDoubleRightClick = true,
     castBySingleRightClickWhenFishing = false,
     castByHotkey = true,
+    strikeByRightClick = false,
+    strikeByDoubleRightClick = true,
     selectedRaftToy = 85500,
 }
 local markedRaftToyID
+local rightClickStrikeBindingMode
 
 local Fishing = {
     clickFrame = {},
@@ -140,6 +143,14 @@ end
 function Fishing:Trace()
 end
 
+function Fishing:ArmRightClickStrike()
+    rightClickStrikeBindingMode = profile.strikeByRightClick and "interact" or "native"
+end
+
+function Fishing:UseNativeRightClickStrike()
+    rightClickStrikeBindingMode = "interact"
+end
+
 function Fishing:RegisterOnModuleInitialize(func)
     self.onInitializeFuncs = self.onInitializeFuncs or {}
     table.insert(self.onInitializeFuncs, func)
@@ -231,6 +242,10 @@ end
 
 function IsModifiedClick(action)
     return false
+end
+
+function UnitGUID(unit)
+    return nil
 end
 
 function ClearOverrideBindings(frame)
@@ -383,6 +398,49 @@ assert(secureAttributes.type == nil, "modified right clicks must clear the captu
 
 shiftKeyDown = false
 rightMouseDown = false
+
+Fishing:SetFishingState(ns.Fishing.states.WAITING_FOR_BITE)
+currentTime = 10
+mouseDownCallback(WorldFrame, "RightButton")
+assert(rightClickStrikeBindingMode ~= "interact",
+    "first double-right-click must leave native right-click behavior untouched")
+local firstClickArmCallback = scheduledCallbacks[#scheduledCallbacks - 1]
+assert(type(firstClickArmCallback) == "function", "native second-click binding was not scheduled")
+firstClickArmCallback()
+assert(rightClickStrikeBindingMode == "interact",
+    "native interaction should arm after the first click event")
+currentTime = 10.1
+mouseDownCallback(WorldFrame, "RightButton")
+assert(rightClickStrikeBindingMode == "interact",
+    "second click must keep native interaction bound until its input dispatch completes")
+local secondClickRearmCallback = scheduledCallbacks[#scheduledCallbacks]
+assert(type(secondClickRearmCallback) == "function", "second-click binding restore was not scheduled")
+secondClickRearmCallback()
+assert(rightClickStrikeBindingMode == "native",
+    "second click must restore native right-click behavior afterward")
+currentTime = 12
+mouseDownCallback(WorldFrame, "RightButton")
+local timeoutArmCallback = scheduledCallbacks[#scheduledCallbacks - 1]
+local timeoutRestoreCallback = scheduledCallbacks[#scheduledCallbacks]
+timeoutArmCallback()
+assert(rightClickStrikeBindingMode == "interact",
+    "native interaction should be armed while waiting for a second click")
+timeoutRestoreCallback()
+assert(rightClickStrikeBindingMode == "native",
+    "a single click must restore native right-click behavior after the double-click window")
+currentTime = 12.3
+mouseDownCallback(WorldFrame, "RightButton")
+assert(rightClickStrikeBindingMode == "native",
+    "clicks outside the double-click interval must not interact")
+profile.strikeByRightClick = true
+profile.strikeByDoubleRightClick = false
+currentTime = 13
+rightClickStrikeBindingMode = "single"
+mouseDownCallback(WorldFrame, "RightButton")
+assert(rightClickStrikeBindingMode == "single",
+    "single-right-click mode must bypass double-click binding transitions")
+profile.strikeByRightClick = false
+Fishing:SetFishingState(ns.Fishing.states.IDLE)
 
 bindingsCleared = false
 Fishing:HideClickFrame()

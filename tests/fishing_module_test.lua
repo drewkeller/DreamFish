@@ -11,6 +11,8 @@ local alertMessages = {}
 local underlightEquipReasons = {}
 local releaseClickCaptureCount = 0
 local notifiedConfigTables = {}
+local rightClickStrikeBinding
+local nativeRightClickStrikeBinding
 
 local DreamFish = {
     db = {
@@ -20,7 +22,8 @@ local DreamFish = {
                 moduleEnabled = true,
                 debug = false,
                 castBySingleRightClickWhenFishing = false,
-                strikeByRightClick = true,
+                strikeByRightClick = false,
+                strikeByDoubleRightClick = true,
                 strikeByHotkey = true,
                 lingerExpirationEnabled = true,
                 lingerDuration = 10,
@@ -237,7 +240,15 @@ function GetBindingKey()
     return "NUMPAD0"
 end
 
-function SetOverrideBinding()
+function SetOverrideBinding(owner, priority, key, command)
+    if key == "BUTTON2" then
+        nativeRightClickStrikeBinding = {
+            owner = owner,
+            priority = priority,
+            key = key,
+            command = command,
+        }
+    end
 end
 
 function IsMouseButtonDown()
@@ -266,14 +277,29 @@ end
 function Fishing:SendMessage()
 end
 
-function SetOverrideBindingClick()
+function SetOverrideBindingClick(owner, priority, key, frameName, mouseButton)
+    if key == "BUTTON2" then
+        rightClickStrikeBinding = {
+            owner = owner,
+            priority = priority,
+            key = key,
+            frameName = frameName,
+            mouseButton = mouseButton,
+        }
+    end
 end
 
 function InCombatLockdown()
     return false
 end
 
-function ClearOverrideBindings()
+function ClearOverrideBindings(owner)
+    if nativeRightClickStrikeBinding and nativeRightClickStrikeBinding.owner == owner then
+        nativeRightClickStrikeBinding = nil
+    end
+    if rightClickStrikeBinding and rightClickStrikeBinding.owner == owner then
+        rightClickStrikeBinding = nil
+    end
 end
 
 function IsMounted()
@@ -326,6 +352,25 @@ assert(releaseClickCaptureCount == 1,
     "confirming a fishing cast must close the temporary full-screen click capture")
 assert(Fishing.state.current == namespace.Fishing.states.WAITING_FOR_BITE,
     "confirming a fishing cast must arm bobber interaction")
+rightClickStrikeBinding = nil
+nativeRightClickStrikeBinding = nil
+Fishing:ArmRightClickStrike()
+assert(not rightClickStrikeBinding and not nativeRightClickStrikeBinding,
+    "double-right-click-only mode must preserve the native right-click binding")
+Fishing:UseNativeRightClickStrike()
+assert(nativeRightClickStrikeBinding and nativeRightClickStrikeBinding.command == "INTERACTTARGET",
+    "double-right-click mode must create an owner to arm native interaction for the second click")
+Fishing:ArmRightClickStrike()
+assert(not nativeRightClickStrikeBinding,
+    "double-right-click mode must remove the temporary interaction override")
+Fishing.db.profile.strikeByRightClick = true
+Fishing:ArmRightClickStrike()
+assert(nativeRightClickStrikeBinding and nativeRightClickStrikeBinding.command == "INTERACTTARGET",
+    "single-right-click strike must use the native INTERACTTARGET binding")
+Fishing.db.profile.strikeByRightClick = false
+Fishing:ArmRightClickStrike()
+assert(not nativeRightClickStrikeBinding,
+    "double-right-click strike must clear the native interaction override")
 Fishing:OnEquipmentChanged(nil, FISHINGTOOLSLOT)
 assert(preparedActionCount == 2, "refresh while waiting for a bite must not reconfigure the secure action")
 local cancelledFor

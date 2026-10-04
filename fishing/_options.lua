@@ -183,16 +183,22 @@ local function BuildModesTab(order)
                         args = {
                             modeEasyStrikeNote = AutoOrder({
                                 type = "description",
-                                name = "|c80999999  Requirements for either EasyStrike:|r\n"
+                                name = "|c80999999  Requirements for any EasyStrike:|r\n"
                                     .. "|c80999999  1. Turn on \"Enable Interact Key\" (Game Options > Controls).|r\n"
-                                    .. "|c80999999  2. Set the \"Hotkey\" keybinding above (if hotkey mode).|r\n"
-                                    .. "|c80999999  3. Ensure another addon does not interfere while fishing.|r",
+                                    .. "|c80999999  2. Ensure another addon does not interfere while fishing.|r\n"
+                                    .. "|c80999999  * (For hotkey mode) Set the \"Hotkey\" keybinding above.|r\n",
+                                width = "full",
+                            }),
+                            strikeByDoubleRightClick = AutoOrder({
+                                type = "toggle",
+                                name = "EasyStrike (double right click)",
+                                desc = "When the bobber indicates a bite, double right click in an empty area of the screen to hook, play, and land the fish.",
                                 width = "full",
                             }),
                             strikeByRightClick = AutoOrder({
                                 type = "toggle",
                                 name = "EasyStrike (right click)",
-                                desc = "When the bobber indicates a bite, right click anywhere or use the hotkey to hook, play, and land the fish.",
+                                desc = "When the bobber indicates a bite, right click  in an empty area of the screen to hook, play, and land the fish.",
                                 width = "full",
                             }),
                             strikeByRightClickNote = AutoOrder({
