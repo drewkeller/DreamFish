@@ -425,6 +425,14 @@ tackleFadeArgs.opacityWithMouseover.set(nil, true)
 assert(tackleFadeArgs.opacityWithMouseover.get() == true, "opacityWithMouseover should be true after set")
 
 local sessionExitOptions = options.args.modesTab.args.sessionExits.args
+local strikeOptions = options.args.modesTab.args.triggers.args.reelingTriggers.args
+strikeOptions.strikeByRightClick.set(nil, true)
+assert(Fishing.db.profile.strikeByRightClick and not Fishing.db.profile.strikeByDoubleRightClick,
+    "enabling single-click strike must disable double-click strike")
+strikeOptions.strikeByDoubleRightClick.set(nil, true)
+assert(Fishing.db.profile.strikeByDoubleRightClick and not Fishing.db.profile.strikeByRightClick,
+    "enabling double-click strike must disable single-click strike")
+
 local lingerExpirationOption = sessionExitOptions.lingerExpirationEnabled
 local lingerDurationOption = sessionExitOptions.lingerDuration
 assert(lingerExpirationOption, "lingerExpirationEnabled option is missing from sessionExits")

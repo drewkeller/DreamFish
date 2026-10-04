@@ -109,6 +109,17 @@ local SESSION_TEXT = "A session is one or more casts. It begins with the first p
     .. "(initated by double click or hotkey) and ends when fishing is interrupted or "
     .. "expires due to idle timeout."
 
+local function SetExclusiveStrikeMode(selectedKey, otherKey, value)
+    Fishing.db.profile[selectedKey] = value
+    if value then
+        Fishing.db.profile[otherKey] = false
+    end
+    local AceConfigRegistry = LibStub("AceConfigRegistry-3.0", true)
+    if AceConfigRegistry then
+        AceConfigRegistry:NotifyChange(addonName .. "_Fishing")
+    end
+end
+
 
 local function BuildModesTab(order)
     layoutCounter = 0
@@ -194,16 +205,22 @@ local function BuildModesTab(order)
                                 name = "EasyStrike (double right click)",
                                 desc = "When the bobber indicates a bite, double right click in an empty area of the screen to hook, play, and land the fish.",
                                 width = "full",
+                                set = function(_, value)
+                                    SetExclusiveStrikeMode("strikeByDoubleRightClick", "strikeByRightClick", value)
+                                end,
                             }),
                             strikeByRightClick = AutoOrder({
                                 type = "toggle",
                                 name = "EasyStrike (right click)",
                                 desc = "When the bobber indicates a bite, right click  in an empty area of the screen to hook, play, and land the fish.",
                                 width = "full",
+                                set = function(_, value)
+                                    SetExclusiveStrikeMode("strikeByRightClick", "strikeByDoubleRightClick", value)
+                                end,
                             }),
                             strikeByRightClickNote = AutoOrder({
                                 type = "description",
-                                name = "      |c80999999Since this replaces the normal \"turn or action\" action|r\n"
+                                name = "      |c80999999Since single click replaces the normal \"turn or action\"|r\n"
                                     .. "      |c80999999on the right mouse button, it may be a bit awkward if you|r\n"
                                     .. "      |c80999999are used to using RMB to turn or start movement by|r\n"
                                     .. "      |c80999999pressing RMB first.|r\n"

@@ -7,7 +7,8 @@ Fishing:RegisterTraceSource("mouse")
 local lastClickTime = 0
 local lastSingleFishingClickTime = 0
 local lastRightClickStrikeTime
-local doubleClickDelay = 0.25
+local rightClickStrikeGeneration = 0
+local doubleClickDelay = 0.35
 local hideTimerHandle = nil
 local suppressCapturedClick = false
 local clickFrameName = "DreamFishSecureFishingFrame"
@@ -144,31 +145,36 @@ function Fishing:HandleMouseDown(_, button)
             if lastRightClickStrikeTime
                 and currentTime - lastRightClickStrikeTime <= doubleClickDelay then
                 self:ResetRightClickStrikeWindow()
-                local castAttempt = self.state.castAttempt
-                self:ScheduleTimer(function()
-                    if self.state.castAttempt == castAttempt
+                local generation = rightClickStrikeGeneration
+                self:WaitForRightClickStrikeRelease(generation, function()
+                    if generation == rightClickStrikeGeneration
                         and self:IsFishingState(ns.Fishing.states.WAITING_FOR_BITE) then
                         self:ArmRightClickStrike()
                     end
-                end, 0)
+                end)
                 self:TraceStrikeContext("double right click strike")
             else
-                lastRightClickStrikeTime = currentTime
-                local firstClickTime = currentTime
-                self:ScheduleTimer(function()
-                    if lastRightClickStrikeTime ~= firstClickTime
-                        or not self:IsFishingState(ns.Fishing.states.WAITING_FOR_BITE) then
+                self:ResetRightClickStrikeWindow()
+                local generation = rightClickStrikeGeneration
+                self:WaitForRightClickStrikeRelease(generation, function()
+                    if generation ~= rightClickStrikeGeneration
+                        or not self:IsFishingState(ns.Fishing.states.WAITING_FOR_BITE)
+                        or not self.db.profile.strikeByDoubleRightClick
+                        or self.db.profile.strikeByRightClick then
                         return
                     end
+                    lastRightClickStrikeTime = GetTime()
                     self:UseNativeRightClickStrike()
-                end, 0)
-                self:ScheduleTimer(function()
-                    if lastRightClickStrikeTime ~= firstClickTime then return end
-                    self:ResetRightClickStrikeWindow()
-                    if self:IsFishingState(ns.Fishing.states.WAITING_FOR_BITE) then
+                    local firstClickReleaseTime = lastRightClickStrikeTime
+                    self:ScheduleTimer(function()
+                        if generation ~= rightClickStrikeGeneration
+                            or lastRightClickStrikeTime ~= firstClickReleaseTime then
+                            return
+                        end
+                        self:ResetRightClickStrikeWindow()
                         self:ArmRightClickStrike()
-                    end
-                end, doubleClickDelay)
+                    end, doubleClickDelay)
+                end)
                 self:Trace("EasyStrike", "first right click; waiting for second click")
             end
         end
@@ -521,8 +527,20 @@ function Fishing:HandleStrikeKeyDown(pressedKey)
 end
 
 function Fishing:ResetRightClickStrikeWindow()
+    rightClickStrikeGeneration = rightClickStrikeGeneration + 1
     lastRightClickStrikeTime = nil
     rightClickStrikeReleasePending = false
+end
+
+function Fishing:WaitForRightClickStrikeRelease(generation, callback)
+    self:ScheduleTimer(function()
+        if generation ~= rightClickStrikeGeneration then return end
+        if IsMouseButtonDown("RightButton") then
+            self:WaitForRightClickStrikeRelease(generation, callback)
+            return
+        end
+        callback()
+    end, 0.02)
 end
 
 function Fishing:ApplyKeybinding()

@@ -401,37 +401,51 @@ rightMouseDown = false
 
 Fishing:SetFishingState(ns.Fishing.states.WAITING_FOR_BITE)
 currentTime = 10
+rightMouseDown = true
 mouseDownCallback(WorldFrame, "RightButton")
 assert(rightClickStrikeBindingMode ~= "interact",
     "first double-right-click must leave native right-click behavior untouched")
-local firstClickArmCallback = scheduledCallbacks[#scheduledCallbacks - 1]
+local firstClickArmCallback = scheduledCallbacks[#scheduledCallbacks]
 assert(type(firstClickArmCallback) == "function", "native second-click binding was not scheduled")
 firstClickArmCallback()
+assert(rightClickStrikeBindingMode ~= "interact",
+    "native interaction must not arm while the first click is still held")
+rightMouseDown = false
+scheduledCallbacks[#scheduledCallbacks]()
 assert(rightClickStrikeBindingMode == "interact",
-    "native interaction should arm after the first click event")
+    "native interaction should arm only after the first click releases")
 currentTime = 10.1
+rightMouseDown = true
 mouseDownCallback(WorldFrame, "RightButton")
 assert(rightClickStrikeBindingMode == "interact",
     "second click must keep native interaction bound until its input dispatch completes")
 local secondClickRearmCallback = scheduledCallbacks[#scheduledCallbacks]
 assert(type(secondClickRearmCallback) == "function", "second-click binding restore was not scheduled")
+rightMouseDown = false
 secondClickRearmCallback()
 assert(rightClickStrikeBindingMode == "native",
-    "second click must restore native right-click behavior afterward")
+    "second click must restore native right-click behavior after its release")
 currentTime = 12
+rightMouseDown = true
 mouseDownCallback(WorldFrame, "RightButton")
-local timeoutArmCallback = scheduledCallbacks[#scheduledCallbacks - 1]
-local timeoutRestoreCallback = scheduledCallbacks[#scheduledCallbacks]
+local timeoutArmCallback = scheduledCallbacks[#scheduledCallbacks]
 timeoutArmCallback()
+assert(rightClickStrikeBindingMode == "native",
+    "timeout window must not begin while the first click remains held")
+rightMouseDown = false
+scheduledCallbacks[#scheduledCallbacks]()
 assert(rightClickStrikeBindingMode == "interact",
     "native interaction should be armed while waiting for a second click")
+local timeoutRestoreCallback = scheduledCallbacks[#scheduledCallbacks]
 timeoutRestoreCallback()
 assert(rightClickStrikeBindingMode == "native",
     "a single click must restore native right-click behavior after the double-click window")
 currentTime = 12.3
+rightMouseDown = true
 mouseDownCallback(WorldFrame, "RightButton")
 assert(rightClickStrikeBindingMode == "native",
     "clicks outside the double-click interval must not interact")
+rightMouseDown = false
 profile.strikeByRightClick = true
 profile.strikeByDoubleRightClick = false
 currentTime = 13
@@ -439,7 +453,28 @@ rightClickStrikeBindingMode = "single"
 mouseDownCallback(WorldFrame, "RightButton")
 assert(rightClickStrikeBindingMode == "single",
     "single-right-click mode must bypass double-click binding transitions")
+local castCountBeforeFollowUp = castStartedCount
+Fishing:SetFishingState(ns.Fishing.states.LINGERING)
+profile.castByDoubleRightClick = false
+profile.castBySingleRightClickWhenFishing = true
+currentTime = 13.1
+mouseDownCallback(WorldFrame, "RightButton")
+assert(castStartedCount == castCountBeforeFollowUp + 1,
+    "one right click while lingering should start a cast in single-click recast mode")
 profile.strikeByRightClick = false
+profile.castBySingleRightClickWhenFishing = false
+Fishing:SetFishingState(ns.Fishing.states.IDLE)
+
+profile.castByDoubleRightClick = true
+local castCountBeforeDoubleClick = castStartedCount
+currentTime = 14
+mouseDownCallback(WorldFrame, "RightButton")
+assert(castStartedCount == castCountBeforeDoubleClick,
+    "first click outside the double-click interval must not cast")
+currentTime = 14.3
+mouseDownCallback(WorldFrame, "RightButton")
+assert(castStartedCount == castCountBeforeDoubleClick + 1,
+    "two right clicks 300 ms apart should start a cast")
 Fishing:SetFishingState(ns.Fishing.states.IDLE)
 
 bindingsCleared = false

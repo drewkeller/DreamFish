@@ -45,6 +45,9 @@ function Fishing:OnModuleInitialize()
     -- access the database within "Fishing" functions using self.db
     -- In local functions, use ns.FishingDB
     ns.FishingDB = self.db
+    if self.db and self.db.profile and self.db.profile.strikeByRightClick then
+        self.db.profile.strikeByDoubleRightClick = false
+    end
 
     self.state = self.state or {}
 
