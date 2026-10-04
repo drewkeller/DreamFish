@@ -409,26 +409,67 @@ function Fishing:CancelTimer(timer)
     cancelledTimers = cancelledTimers + 1
 end
 
+-- A delayed stop from a previous cast must not linger a newer cast.
+Fishing.state.castAttempt = 41
+Fishing:SetFishingState(namespace.Fishing.states.WAITING_FOR_BITE)
+Fishing:OnSpellcastChannelEnded(nil, "player", "previous-cast-guid", namespace.Fishing.const.fishingSpellID)
+local staleChannelStopCallback = scheduledTimerCallback
+assert(type(staleChannelStopCallback) == "function", "channel stop should defer linger while waiting for loot")
+Fishing:OnCastStarted("recast before delayed cleanup")
+Fishing:OnSpellcastChannelStarted(nil, "player", "new-cast-guid", namespace.Fishing.const.fishingSpellID)
+staleChannelStopCallback()
+assert(Fishing.state.current == namespace.Fishing.states.WAITING_FOR_BITE,
+    "a delayed channel stop from the previous cast must not end a newer cast")
+
 Fishing.enabled = true
 Fishing.db.profile.lingerDuration = 15
 Fishing.db.profile.lingerExpirationEnabled = true
 
 Fishing:SetFishingState(namespace.Fishing.states.PRECASTING)
-Fishing:StartPrecastLingerTimer()
-assert(scheduledTimerDelay == 15, "precast linger timer should use lingerDuration")
+Fishing:RefreshPrecastLingerTimer()
+assert(scheduledTimerDelay == 3, "precast fallback timer should start with a three-second delay")
 assert(type(scheduledTimerCallback) == "function", "precast linger timer callback should be scheduled")
 
--- Firing callback while in PRECASTING should end fishing session normally
+-- Firing the fallback while in PRECASTING should enter LINGERING.
 scheduledTimerCallback()
-assert(Fishing.state.current == namespace.Fishing.states.IDLE, "precast linger expiration must transition to IDLE")
+assert(Fishing.state.current == namespace.Fishing.states.LINGERING,
+    "precast fallback expiration must transition to LINGERING")
 
--- When lingerExpirationEnabled is false, StartPrecastLingerTimer should cancel and not schedule
+-- The fallback remains active even when LINGERING expiration is disabled.
 scheduledTimerCallback = nil
 scheduledTimerDelay = nil
 Fishing.db.profile.lingerExpirationEnabled = false
 Fishing:SetFishingState(namespace.Fishing.states.PRECASTING)
-Fishing:StartPrecastLingerTimer()
-assert(scheduledTimerCallback == nil, "StartPrecastLingerTimer must not schedule when lingerExpirationEnabled is false")
+Fishing:RefreshPrecastLingerTimer(3)
+assert(scheduledTimerDelay == 3, "precast fallback should not depend on linger expiration settings")
+
+namespace.Fishing.const.knownBuffItems = { [180993] = { castTime = 1500 } }
+Fishing.state.precastArmedItemIDs = { 180993 }
+Fishing.state.precastItemSpellStarted = {}
+C_Item = { GetItemSpell = function() return 12345 end }
+Fishing:OnSpellCastStarted("UNIT_SPELLCAST_START", "player", nil, 12345)
+assert(scheduledTimerDelay == 4.5,
+    "using an armed item should add its cast time to the three-second fallback")
+
+local cancelledForNoCast = nil
+local originalCancelFishingSession = Fishing.CancelFishingSession
+Fishing.CancelFishingSession = function(_, reason)
+    cancelledForNoCast = reason
+end
+Fishing.state.current = namespace.Fishing.states.PRECASTING
+Fishing.state.castAttempt = 17
+Fishing.state.castStartConfirmationAttempt = nil
+Fishing.state.pendingBuffUse = nil
+Fishing.state.isEquippingPrimaryPole = false
+Fishing.state.lingerTimer = { id = "precastFallback" }
+Fishing:AwaitFishingCastStart()
+assert(type(scheduledTimerCallback) == "function",
+    "cast-start confirmation timer should be scheduled")
+scheduledTimerCallback()
+assert(cancelledForNoCast == nil,
+    "cast-start confirmation must defer to the active PRECAST fallback timer")
+Fishing.CancelFishingSession = originalCancelFishingSession
+Fishing.state.lingerTimer = nil
 
 scheduledTimerCallback = nil
 scheduledTimerDelay = nil

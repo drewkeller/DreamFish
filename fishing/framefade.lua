@@ -612,16 +612,30 @@ local function IsBaselineCaptureSuppressed()
     return false
 end
 
+local function GetReadableFrameAlpha(frame)
+    if not frame or not frame.GetAlpha then
+        return nil
+    end
+
+    local alpha = frame:GetAlpha()
+    if type(issecretvalue) == "function" and issecretvalue(alpha) then
+        return nil
+    end
+    return alpha
+end
+
 local function FadeFrameIn(name, duration)
     local frame = ResolveNamedFrame(name)
     if not frame then
         return
     end
 
-    local wasShown = frameFader.wasShownByName[name]
-    if wasShown == nil and frame and frame.IsShown then
-        wasShown = frame:IsShown() and true or false
+    local currentAlpha = GetReadableFrameAlpha(frame)
+    if currentAlpha == nil then
+        return
     end
+
+    local wasShown = frameFader.wasShownByName[name]
     local originalAlpha = tonumber(frameFader.originalAlphaByName[name])
 
     if wasShown == true then
@@ -642,7 +656,7 @@ local function FadeFrameIn(name, duration)
         end
 
         if duration and duration > 0 and type(UIFrameFadeIn) == "function" and frame.GetAlpha then
-            UIFrameFadeIn(frame, duration, frame:GetAlpha() or HIDDEN_ALPHA, targetAlpha)
+            UIFrameFadeIn(frame, duration, currentAlpha, targetAlpha)
         elseif frame.SetAlpha then
             frame:SetAlpha(targetAlpha)
         end
@@ -688,8 +702,12 @@ end
 local function FadeFrameOut(name, duration)
     local frame = ResolveNamedFrame(name)
 
+    local alpha = GetReadableFrameAlpha(frame)
+    if alpha == nil then
+        return
+    end
+
     local isShown = frame and frame.IsShown and frame:IsShown()
-    local alpha = frame and frame.GetAlpha and frame:GetAlpha()
 
     -- cache current visibility states for restoral
     if (not frameFader.isFaded) and (not IsFrameFading(frame)) and (not IsBaselineCaptureSuppressed()) then
@@ -705,7 +723,7 @@ local function FadeFrameOut(name, duration)
     if frame and isShown == true and alpha > 0.001 then
         SetFrameClickEnabled(frame, false)
         if type(UIFrameFadeOut) == "function" and frame.GetAlpha then
-            UIFrameFadeOut(frame, FADE_OUT_DURATION, frame:GetAlpha() or VISIBLE_ALPHA, HIDDEN_ALPHA)
+            UIFrameFadeOut(frame, FADE_OUT_DURATION, alpha, HIDDEN_ALPHA)
         elseif frame.SetAlpha then
             frame:SetAlpha(HIDDEN_ALPHA)
         elseif frame.Hide then

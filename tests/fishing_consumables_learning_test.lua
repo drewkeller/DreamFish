@@ -1,7 +1,9 @@
 local now = 100
 local bagCount = 1
 local alertCount = 0
+local soundAlertCount = 0
 local infoMessages = {}
+local printNoLogArgs
 
 local Fishing = {
     state = {},
@@ -23,6 +25,10 @@ end
 
 function Fishing:CurrentStateName()
     return "PRECASTING"
+end
+
+function Fishing:IsInFishingSession()
+    return true
 end
 
 function Fishing:Debug()
@@ -52,6 +58,10 @@ local namespace = {
         Alert = function()
             alertCount = alertCount + 1
         end,
+        AlertWithSound = function()
+            alertCount = alertCount + 1
+            soundAlertCount = soundAlertCount + 1
+        end,
         Print = function()
         end,
     },
@@ -71,6 +81,9 @@ local namespace = {
         end,
         ItemLink = function(itemID)
             return tostring(itemID)
+        end,
+        PrintNoLog = function(...)
+            printNoLogArgs = { ... }
         end,
         IsItemAvailableForEquip = function(itemID)
             return true
@@ -117,12 +130,40 @@ Fishing.state.pendingBuffUse = {
 bagCount = 0
 Fishing:ConfirmPendingBuffUse()
 
+assert(alertCount == 1 and soundAlertCount == 1,
+    "depletion caused by confirmed fishing use should alert with sound")
 assert(Fishing.state.pendingBuffObservation, "confirmed unknown consumable should enter learning mode")
 assert(Fishing.db.global.buffAuraByItem["274588"].isInstant == true,
     "confirming an unconfigured consumable with no observed cast bar should learn it as instant-use")
 Fishing:UpdatePendingBuffObservation()
 assert(Fishing.db.global.buffAuraByItem["274588"].spellID == nil,
     "an aura already active at consumable confirmation must not be learned for the item")
+
+Fishing.state.buffDepletionAlerted = nil
+local alertsBeforeRenotification = alertCount
+bagCount = 0
+Fishing:CheckEnabledBuffItemsDepleted()
+assert(alertCount == alertsBeforeRenotification + 1 and soundAlertCount == 1,
+    "renotifying an already-depleted consumable should not play the alert sound")
+
+Fishing.state.buffDepletionAlerted = nil
+Fishing.state.pendingBuffDepletionChecks = nil
+Fishing.state.pendingBuffUse = {
+    uses = {
+        { itemID = 274588, countBefore = 1, itemSpellID = 1303623, expiresAt = now + 5 },
+    },
+}
+bagCount = 1
+Fishing:ConfirmPendingBuffUse(1303623)
+assert(soundAlertCount == 1,
+    "stale positive bag count at spell confirmation should defer the depletion sound")
+bagCount = 0
+Fishing:CheckEnabledBuffItemsDepleted()
+assert(soundAlertCount == 2,
+    "delayed bag update to zero should sound for an item consumed during fishing")
+Fishing:CheckEnabledBuffItemsDepleted()
+assert(soundAlertCount == 2,
+    "the delayed depletion sound should not repeat after confirmation")
 
 namespace.Fishing.const.knownBuffItems[274588] = {
     spellID = 1303623,
@@ -157,6 +198,21 @@ Fishing.state.pendingBuffUse = {
 Fishing:ConfirmPendingBuffUse()
 assert(alertCount == alertsBeforeStaleFailure,
     "a stale consumable failure after cast cancellation must be silent")
+
+local alertsBeforeCurrentFailure = alertCount
+bagCount = 1
+Fishing.state.pendingBuffUse = {
+    executedAt = now,
+    uses = {
+        { itemID = 274588, countBefore = 1, expiresAt = now, sessionGeneration = 2 },
+    },
+}
+Fishing:ConfirmPendingBuffUse()
+assert(alertCount == alertsBeforeCurrentFailure + 1,
+    "an unconfirmed consumable from the current session should alert on expiry")
+assert(printNoLogArgs and printNoLogArgs[1] == nil and printNoLogArgs[2] == nil
+    and printNoLogArgs[3] == "Consumable use failed: 274588",
+    "PrintNoLog should receive the failure message in its msg argument")
 
 Fishing.db.char.buffs.other_consumable = {
     { itemID = 238365, enabled = true },
@@ -334,6 +390,8 @@ assert(nextPrecastDecision.items[2].itemID == 238367,
 Fishing.state.pendingBuffUse = nil
 Fishing.state.buffItemLastUseAt = {}
 Fishing.state.lureAppliedUntil = nil
+namespace.Fishing.const.maxFishingCastSeconds = 20
+namespace.Fishing.const.buffPreRefreshSafetySeconds = 2
 Fishing.db.char.buffs.other_consumable = {}
 Fishing.db.char.buffs.lure = {
     { itemID = 262651, enabled = true },
@@ -348,9 +406,10 @@ namespace.Fishing.const.knownBuffItems[262650] = {
 namespace.precast.GetEquippedProfessionItemID = function()
     return 244790
 end
+local poleTooltipHasLure = false
 C_TooltipInfo = {
     GetInventoryItem = function()
-        return { lines = { { leftText = "Fishing Pole" } } }
+        return { lines = { { leftText = poleTooltipHasLure and "Fishing Lure" or "Fishing Pole" } } }
     end,
 }
 Fishing.state.precastConsumableSnapshot = nil
@@ -363,12 +422,18 @@ now = now + 3
 local nextLureDecision = namespace.precast.GetConsumableUseDecision(Fishing, false)
 assert(nextLureDecision.shouldApply == false,
     "a confirmed lure must suppress other lures with different effects across precasts")
-now = now + 600
-local expiredLureDecision = namespace.precast.GetConsumableUseDecision(Fishing, false)
-assert(expiredLureDecision.shouldApply == true and expiredLureDecision.items[1].itemID == 262651,
-    "a lure should become due again after its confirmed duration expires")
+now = Fishing.state.lureAppliedUntil - 23.6
+local beforeRefreshDecision = namespace.precast.GetConsumableUseDecision(Fishing, false)
+assert(beforeRefreshDecision.shouldApply == false,
+    "lure must stay active when more than lure cast time and a fishing cast remain")
+poleTooltipHasLure = true
+now = Fishing.state.lureAppliedUntil - 23.4
+local refreshLureDecision = namespace.precast.GetConsumableUseDecision(Fishing, false)
+assert(refreshLureDecision.shouldApply == true and refreshLureDecision.items[1].itemID == 262651,
+    "lure must refresh before a cast even when the expiring lure remains on the pole")
 Fishing:ConfirmPendingBuffUse(1284999)
 assert(Fishing.state.lureAppliedUntil > now, "confirmed lure should start a pole-wide cooldown")
+poleTooltipHasLure = false
 local equippedJournalPoleID = 244790
 function GetInventoryItemID(_, slot)
     assert(slot == 28)
@@ -381,6 +446,7 @@ assert(Fishing.state.lureAppliedUntil > now, "checking the same pole must preser
 equippedJournalPoleID = 244791
 Fishing:CheckAndHandlePoleSwapReset()
 assert(Fishing.state.lureAppliedUntil == nil, "changing poles must clear the lure cooldown")
+assert(Fishing.state.lureRefreshLeadSeconds == nil, "changing poles must clear the lure refresh lead")
 local swappedPoleDecision = namespace.precast.GetConsumableUseDecision(Fishing, false)
 assert(swappedPoleDecision.shouldApply == true and swappedPoleDecision.items[1].itemID == 262651,
     "the new pole must be eligible for a lure immediately")
