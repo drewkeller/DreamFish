@@ -75,7 +75,7 @@ local function GetOptions()
         },
         debugMode = {
             type = "toggle",
-            name = "Enable Debug Mode",
+            name = "Debug mode",
             desc = "Enables debug mode for the addon, providing additional output for troubleshooting.",
             order = 100,
             width = "full",

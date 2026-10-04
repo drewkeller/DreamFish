@@ -68,8 +68,13 @@ local function Log(msg, ...)
 end
 ns.Utils.Log = Log
 
-local function LogSourceWithStack(level, source, stackTrace, msg, ...)
-    if not source or not msg then
+local function IsDebugEnabled(module)
+    local profile = module and module.db and module.db.profile
+    return profile and (profile.debugEnabled or profile.debugMode)
+end
+
+local function LogSourceWithStack(level, module, source, stackTrace, msg, ...)
+    if not IsDebugEnabled(module) or not source or not msg then
         return
     end
 
@@ -88,8 +93,11 @@ local function LogSourceWithStack(level, source, stackTrace, msg, ...)
     Log(output)
 end
 
-local function LogSource(level, source, msg, ...)
-    LogSourceWithStack(level, source, nil, msg, ...)
+local function LogSource(level, module, source, msg, ...)
+    if not IsDebugEnabled(module) then
+        return
+    end
+    LogSourceWithStack(level, module, source, nil, msg, ...)
 end
 
 function ns.Utils.IsCoreLoaded()
@@ -107,7 +115,7 @@ end
 -- Print to log: none
 -- Print to chat: addonName and message
 -- For messages that have  already been loggged.
-local function PrintNoLog(prefix, colorHex, msg, ...)
+local function PrintModuleNoLog(module, prefix, colorHex, msg, ...)
     if prefix == "" then print("addonName: " .. addonName) end
     prefix = prefix or ("|cFF9ACDFF[" .. addonName .. "]|r ")
 
@@ -122,7 +130,12 @@ local function PrintNoLog(prefix, colorHex, msg, ...)
 
     local colorStart = colorHex and "|cFF" .. colorHex or ""
     local colorEnd = colorHex and "|r" or ""
-    DEFAULT_CHAT_FRAME:AddMessage(string.format("%s: %s %s%s%s", Timestamp(), prefix, colorStart, output, colorEnd))
+    local timestamp = IsDebugEnabled(module) and (Timestamp() .. ": ") or ""
+    DEFAULT_CHAT_FRAME:AddMessage(string.format("%s%s %s%s%s", timestamp, prefix, colorStart, output, colorEnd))
+end
+
+local function PrintNoLog(prefix, colorHex, msg, ...)
+    PrintModuleNoLog(Addon, prefix, colorHex, msg, ...)
 end
 ns.Utils.PrintNoLog = PrintNoLog
 
@@ -194,7 +207,7 @@ function Addon:Alert(systemColor, msg, ...)
     local colorInfo = (blizzName and ChatTypeInfo[blizzName]) or ChatTypeInfo["RAID_WARNING"]
     RaidWarningUtil.AddMessage(msg, colorInfo)
     PrintNoLog(prefix, nil, msg, ...)
-    LogSource(ns.logLevel.INFO, "Alert", msg, ...)
+    LogSource(ns.logLevel.INFO, Addon, "Alert", msg, ...)
 end
 
 function Addon:AlertWithSound(systemColor, msg, ...)
@@ -219,24 +232,24 @@ function ns.Utils.DebugModuleSourceWithStack(level, module, source, stackTrace, 
     local hasProfile = module and module.db and module.db.profile
 
     if source and level <= ns.logLevel.TRACE then
-        LogSource(level, source, msg, ...)
+        LogSource(level, module, source, msg, ...)
         if hasProfile and module.db.profile.traces and module.db.profile.traces[source] then
-            PrintNoLog(prefix, "999999", msg, ...)
+            PrintModuleNoLog(module, prefix, "999999", msg, ...)
         end
     elseif level <= ns.logLevel.DEBUG then
-        LogSource(level, source, msg, ...)
-        if hasProfile and module.db.profile.debugEnabled then
-            PrintNoLog(prefix, nil, msg, ...)
+        LogSource(level, module, source, msg, ...)
+        if IsDebugEnabled(module) then
+            PrintModuleNoLog(module, prefix, nil, msg, ...)
         end
     elseif level <= ns.logLevel.INFO then
-        LogSource(level, source, msg, ...)
-        PrintNoLog(prefix, nil, msg, ...)
+        LogSource(level, module, source, msg, ...)
+        PrintModuleNoLog(module, prefix, nil, msg, ...)
     elseif level <= ns.logLevel.WARNING then
-        LogSource(level, source, msg, ...)
-        PrintNoLog(prefix, colorHex, msg, ...)
+        LogSource(level, module, source, msg, ...)
+        PrintModuleNoLog(module, prefix, colorHex, msg, ...)
     elseif level <= ns.logLevel.ERROR then
-        LogSourceWithStack(level, source, stackTrace, msg, ...)
-        PrintNoLog(prefix, colorHex, msg, ...)
+        LogSourceWithStack(level, module, source, stackTrace, msg, ...)
+        PrintModuleNoLog(module, prefix, colorHex, msg, ...)
     end
 end
 

@@ -59,7 +59,9 @@ function Addon:OnInitialize()
     self.logDB = self:GetLogDB()
     Addon.logDB = self.logDB
     table.wipe(self.logDB)
-    self:Info("Log database initialized") -- with " .. tostring(#self.logDB) .. " entries.")
+    if self.db.debugmode then
+        self:Info("Log database initialized") -- with " .. tostring(#self.logDB) .. " entries.")
+    end
 
     --MergeOptionsTables(self)
     self:InitializeTraceSources()
@@ -128,7 +130,6 @@ end
 
 function Addon:OnEnable()
     self:RegisterChatCommands()
-    self:RegisterEvent("PLAYER_ENTERING_WORLD")
     self:RegisterEvent("PLAYER_FLAGS_CHANGED", function(_, unit)
         if unit and unit ~= "player" then
             return
@@ -167,8 +168,4 @@ function Addon:OnEnable()
             Addon:OpenDialogWindow("DreamFishDialog")
         end)
     end
-end
-
-function Addon:PLAYER_ENTERING_WORLD(event, isLogin, isReload)
-    self:Print("Hello World from " .. addonName .. "!")
 end
