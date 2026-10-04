@@ -10,7 +10,8 @@ local MIN_TIME_CHANGE_RAFT = 300
 
 Fishing:RegisterTraceSource("raft")
 local function Trace(msg)
-    Fishing:Trace("raft", msg)
+    -- prevent noisy logging
+    --Fishing:Trace("raft", msg)
 end
 
 local function GetRaftAuraRemainingSeconds(raftToyID)

@@ -16,7 +16,8 @@ local states = {
 Fishing:RegisterTraceSource("bobber")
 
 local function Trace(msg)
-    Fishing:Trace("bobber", msg)
+    -- prevent noisy logging
+    --Fishing:Trace("bobber", msg)
 end
 
 local function GetBobberAuraRemainingSeconds(bobberToyID)

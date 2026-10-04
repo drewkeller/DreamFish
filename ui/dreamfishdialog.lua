@@ -122,7 +122,7 @@ local function IsUnderlightAnglerAvailable()
     if not anglerID then return false end
 
     local isAvailable = ns.Utils.IsItemAvailableForEquip(anglerID)
-    Trace("Underlight Angler available for equip: " .. tostring(isAvailable))
+    --Trace("Underlight Angler available for equip: " .. tostring(isAvailable))
     return isAvailable
 end
 

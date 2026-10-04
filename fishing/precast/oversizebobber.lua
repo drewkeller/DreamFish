@@ -12,7 +12,8 @@ end)
 Fishing:RegisterTraceSource("oversize")
 
 local function Trace(msg)
-    Fishing:Trace("oversize", msg)
+    -- prevent noisy logging
+    --Fishing:Trace("oversize", msg)
 end
 
 local function GetOversizedBobberAuraRemainingSeconds()

@@ -14,7 +14,8 @@ Fishing:RegisterOnModuleInitialize(function(self)
 end)
 
 local function Trace(msg)
-    Fishing:Trace("buffs", msg)
+    -- prevent noisy logging
+    --Fishing:Trace("buffs", msg)
 end
 
 local function Item(itemID, category)

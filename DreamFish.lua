@@ -138,11 +138,11 @@ function Addon:OnEnable()
                 local dialogFrame = dialog and (dialog.frame or dialog)
                 dialogWasShownBeforeAFK = dialogFrame and dialogFrame.IsShown and dialogFrame:IsShown() or false
                 playerWasAFK = true
-                Addon:TraceCore("ui.dreamfishdialog", "AFK, dialog visible: " .. tostring(dialogWasShownBeforeAFK))
+                --Addon:TraceCore("ui.dreamfishdialog", "AFK, dialog visible: " .. tostring(dialogWasShownBeforeAFK))
             end
         elseif playerWasAFK then
             playerWasAFK = false
-            Addon:TraceCore("ui.dreamfishdialog", "Back from AFK, dialog was visible before AFK: " .. tostring(dialogWasShownBeforeAFK))
+            --Addon:TraceCore("ui.dreamfishdialog", "Back from AFK, dialog was visible before AFK: " .. tostring(dialogWasShownBeforeAFK))
             if dialogWasShownBeforeAFK then
                 dialogWasShownBeforeAFK = false
                 local dialog = AceConfigDialog.OpenFrames and AceConfigDialog.OpenFrames[DialogName]
@@ -150,7 +150,7 @@ function Addon:OnEnable()
                 if not (dialogFrame and dialogFrame.IsShown and dialogFrame:IsShown()) then
                     C_Timer.After(0, function()
                         if not UnitIsAFK("player") then
-                            Addon:TraceCore("ui.dreamfishdialog", "Reopening dialog after AFK")
+                            --Addon:TraceCore("ui.dreamfishdialog", "Reopening dialog after AFK")
                             Addon:OpenDialogWindow(DialogName)
                         end
                     end)

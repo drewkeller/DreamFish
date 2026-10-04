@@ -132,7 +132,7 @@ ExecuteStabilizedGearChanges = function(reason, targetSwimmingState)
         else
             Trace("Action-Pass ["..reason.."]: Missing SurfaceTension. Unequipping Underlight (No fallback).")
             isProcessingSwap = true
-            ns.Utils.TryUnequipSlot(FISHING_POLE_SLOT)
+            ns.Utils.TryUnequipProfessionSlot(FISHING_POLE_SLOT)
             isProcessingSwap = false
             awaitingPrimaryClearHandshake = true
         end
