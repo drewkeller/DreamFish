@@ -271,8 +271,6 @@ local function BuildModesTab(order)
                             elseif Fishing.IsFishingState and ns.Fishing and ns.Fishing.states then
                                 if Fishing:IsFishingState(ns.Fishing.states.LINGERING) and type(Fishing.StartLinger) == "function" then
                                     Fishing:StartLinger()
-                                elseif Fishing:IsFishingState(ns.Fishing.states.PRECASTING) and type(Fishing.StartPrecastLingerTimer) == "function" then
-                                    Fishing:StartPrecastLingerTimer()
                                 end
                             end
                         end,
@@ -296,8 +294,6 @@ local function BuildModesTab(order)
                             if Fishing.db.profile.lingerExpirationEnabled and Fishing.IsFishingState and ns.Fishing and ns.Fishing.states then
                                 if Fishing:IsFishingState(ns.Fishing.states.LINGERING) and type(Fishing.StartLinger) == "function" then
                                     Fishing:StartLinger()
-                                elseif Fishing:IsFishingState(ns.Fishing.states.PRECASTING) and type(Fishing.StartPrecastLingerTimer) == "function" then
-                                    Fishing:StartPrecastLingerTimer()
                                 end
                             end
                         end,

@@ -259,9 +259,6 @@ function Fishing:PrepareFishingClickAction(options)
 
     ns.Fishing.ConfigureFishingClickAction(self, options)
 
-    if self:IsFishingState(ns.Fishing.states.PRECASTING) then
-        self:StartPrecastLingerTimer()
-    end
 end
 
 function Fishing:OnAurasChanged(event, unit, updateInfo)
@@ -364,25 +361,29 @@ end
 
 function Fishing:CancelLingerTimer()
     if self.state.lingerTimer then
+        self:Trace("precast", "Cancelling linger timer")
         self:CancelTimer(self.state.lingerTimer)
         self.state.lingerTimer = nil
     end
 end
 
-function Fishing:StartPrecastLingerTimer()
+function Fishing:RefreshPrecastLingerTimer(duration)
     self:CancelLingerTimer()
-    if not (self.db and self.db.profile and self.db.profile.lingerExpirationEnabled) then
+    if not self:IsFishingState(ns.Fishing.states.PRECASTING) then
         return
     end
-    local duration = tonumber(self.db and self.db.profile and self.db.profile.lingerDuration) or 10
+    if type(self.ScheduleTimer) ~= "function" then
+        return
+    end
+    duration = tonumber(duration) or ns.Fishing.const.precastExpirationSeconds
     if duration <= 0 then
         return
     end
     self.state.lingerTimer = self:ScheduleTimer(function()
         self.state.lingerTimer = nil
         if self:IsFishingState(ns.Fishing.states.PRECASTING) then
-            self:Trace("precast", "Precasting linger duration expired while waiting for action")
-            self:EndFishingSession("normally after linger")
+            self:Trace("precast", "Precasting fallback expired while waiting for action")
+            self:StartLinger()
         end
     end, duration)
 end
@@ -663,6 +664,8 @@ function Fishing:OnSpellCastStarted(event, unit, _, spellID, ...)
     self:Trace("auraevent", string.format("OnSpellCastStarted: Spell=%s | State=%s | len(macrotext)=%d",
         spellName, self:CurrentStateName(), #liveMacroText))
 
+    self:RefreshPrecastItemLingerTimer(spellID)
+
     -- A cast bar starting for a queued consumable's spell proves it is not instant-use.
     local pending = self.state.pendingBuffUse
     if type(pending) == "table" and type(pending.uses) == "table" then
@@ -670,6 +673,48 @@ function Fishing:OnSpellCastStarted(event, unit, _, spellID, ...)
             if tonumber(use.itemSpellID) == tonumber(spellID) or tonumber(use.knownSpellID) == tonumber(spellID) then
                 use.castStarted = true
             end
+        end
+    end
+end
+
+function Fishing:RefreshPrecastItemLingerTimer(spellID)
+    if not self:IsFishingState(ns.Fishing.states.PRECASTING) then
+        return
+    end
+    local spellKey = tonumber(spellID)
+    local armedItems = self.state.precastArmedItemIDs
+    if not spellKey or type(armedItems) ~= "table" then
+        return
+    end
+
+    for _, itemID in ipairs(armedItems) do
+        local knownItems = ns.Fishing.const and ns.Fishing.const.knownBuffItems
+        local knownItem = type(knownItems) == "table" and knownItems[tonumber(itemID)] or nil
+        local itemSpellID = type(knownItem) == "table" and tonumber(knownItem.spellID) or nil
+        if C_Item and type(C_Item.GetItemSpell) == "function" then
+            local ok, value = pcall(C_Item.GetItemSpell, itemID)
+            if ok then
+                itemSpellID = itemSpellID or tonumber(value)
+            end
+        end
+        if itemSpellID == spellKey then
+            local startedSpells = self.state.precastItemSpellStarted
+            if type(startedSpells) ~= "table" then
+                startedSpells = {}
+                self.state.precastItemSpellStarted = startedSpells
+            end
+            if startedSpells[spellKey] then
+                return
+            end
+            startedSpells[spellKey] = true
+
+            local castTime = type(knownItem) == "table" and tonumber(knownItem.castTime) or nil
+            if castTime == nil and C_Spell and type(C_Spell.GetSpellInfo) == "function" then
+                local ok, spellInfo = pcall(C_Spell.GetSpellInfo, spellKey)
+                castTime = ok and type(spellInfo) == "table" and tonumber(spellInfo.castTime) or nil
+            end
+            self:RefreshPrecastLingerTimer(ns.Fishing.const.precastExpirationSeconds + math.max(0, castTime or 0) / 1000)
+            return
         end
     end
 end
@@ -684,6 +729,8 @@ function Fishing:OnSpellcastChannelStarted(event, unit, ...)
     -- Log channel succession confirmations
     self:Trace("auraevent", string.format("OnSpellcastChannelStarted: Spell=%s | State=%s | len(macrotext)=%d",
         spellName, self:CurrentStateName(), #liveMacroText))
+
+    self:RefreshPrecastItemLingerTimer(spellID)
 
     if type(self.ConfirmPendingBuffUse) == "function" then
         self:ConfirmPendingBuffUse(spellID)
@@ -733,8 +780,10 @@ function Fishing:OnSpellcastChannelEnded(event, unit, ...)
         -- Currently, looting happens in CASTING state and if we cancel fishing here, we don't get the loot.
         if (self.state.current == ns.Fishing.states.WAITING_FOR_BITE) then
             -- A right-click strike stops the channel before LOOT_READY arrives, so give the loot window a chance.
+            local castAttempt = self.state.castAttempt
             self:ScheduleTimer(function()
-                if self:IsFishingState(ns.Fishing.states.WAITING_FOR_BITE) then
+                if self.state.castAttempt == castAttempt
+                    and self:IsFishingState(ns.Fishing.states.WAITING_FOR_BITE) then
                     self:StartLinger()
                 end
             end, 0.5)
@@ -769,7 +818,8 @@ function Fishing:AwaitFishingCastStart()
         self.state.castStartConfirmationAttempt = nil
         if self:IsFishingState(ns.Fishing.states.PRECASTING)
             and not self.state.pendingBuffUse
-            and not self.state.isEquippingPrimaryPole then
+            and not self.state.isEquippingPrimaryPole
+            and not self.state.lingerTimer then
             self:CancelFishingSession("fishing cast did not start")
         end
     end, confirmDelay)
@@ -777,6 +827,7 @@ end
 
 function Fishing:OnCastStarted(reason)
     self:SetFishingState(ns.Fishing.states.PRECASTING, reason)
+    self.state.precastItemSpellStarted = {}
     if type(self.StartPrecastConsumableSnapshot) == "function" then
         self:StartPrecastConsumableSnapshot(reason)
     end
@@ -786,6 +837,7 @@ function Fishing:OnCastStarted(reason)
     self.state.suppressPendingBuffFailure = false
     -- A new cast supersedes any pending linger from the previous catch.
     self:CancelLingerTimer()
+    self:RefreshPrecastLingerTimer(3)
 
     self.state.castAttempt = (self.state.castAttempt or 0) + 1
     self.state.castStartConfirmationAttempt = nil

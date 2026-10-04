@@ -28,6 +28,7 @@ ns.moduleConstants["Fishing"] = {
     surfaceTensionSpellID = 216441,
     maxFishingCastSeconds = 20,
     buffPreRefreshSafetySeconds = 2,
+    precastExpirationSeconds = 3,
 
     -- These are items that provide fishing-related buffs (auras) that we can track
     -- Exception: "lure" category items are not auras and can't be tracked directly

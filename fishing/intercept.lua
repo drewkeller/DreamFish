@@ -130,6 +130,10 @@ function Fishing:HandleMouseDown(_, button)
     end
 
     self:Trace("mouse", "Physical right click state=" .. Fishing:CurrentStateName())
+    if self:IsFishingState(ns.Fishing.states.PRECASTING)
+        and type(self.RefreshPrecastLingerTimer) == "function" then
+        self:RefreshPrecastLingerTimer(ns.Fishing.const.precastExpirationSeconds)
+    end
 
     if self:IsFishingState(ns.Fishing.states.WAITING_FOR_BITE) then
         self:TraceStrikeContext("right click")
@@ -203,6 +207,9 @@ function Fishing:HookPreClickWithHandler()
                 or self:IsFishingState(ns.Fishing.states.LINGERING) then
                 self:OnCastStarted("Hotkey")
             elseif self:IsFishingState(ns.Fishing.states.PRECASTING) then
+                if type(self.RefreshPrecastLingerTimer) == "function" then
+                    self:RefreshPrecastLingerTimer(ns.Fishing.const.precastExpirationSeconds)
+                end
                 self:PrepareFishingClickAction({ showSwimmingGuidance = true })
             end
         end)
