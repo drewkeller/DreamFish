@@ -51,7 +51,9 @@ function Addon:Debug(message, ...)
 end
 
 function Addon:OnInitialize()
+    local wasLegacyDB = ns.Database.IsLegacy(_G[addonName .. "DB"])
     self.db = LibStub("AceDB-3.0"):New(addonName .. "DB", ns.DatabaseDefaults, true)
+    ns.Database.Upgrade(self.db, wasLegacyDB)
 
     -- Set up logging in second SavedVariables table
     self.logDB = self:GetLogDB()

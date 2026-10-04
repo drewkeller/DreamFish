@@ -29,6 +29,8 @@ utility/ui.lua
 
 # Defaults must be defined first
 core/_defaults.lua
+module/database.lua
+core/_migrations.lua
 core/_options.lua
 module/prototype.lua
 module/debug.lua
@@ -37,10 +39,12 @@ module/messagesink.lua
 fishing/_constants.lua
 fishing/_defaults.lua
 fishing/_defaults_framefade.lua
+fishing/_migrations.lua
 fishing/distance.lua
 fishing/_options.lua
 looting/_constants.lua
 looting/_defaults.lua
+looting/_migrations.lua
 looting/_options.lua
 
 # Core initializers
