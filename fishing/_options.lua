@@ -146,7 +146,7 @@ local function BuildModesTab(order)
                             }),
                             castByHotkey = AutoOrder({
                                 type = "toggle",
-                                name = "Hotkey",
+                                name = "Hotkey/Binding",
                                 desc = "Use a hotkey to begin a session or to cast.\n" .. SESSION_TEXT,
                                 width = "full",
                             }),
@@ -212,7 +212,7 @@ local function BuildModesTab(order)
                             }),
                             strikeByHotkey = AutoOrder({
                                 type = "toggle",
-                                name = "EasyStrike (hotkey)",
+                                name = "EasyStrike (hotkey/binding)",
                                 desc = "Use a hotkey to hook, play, and land the fish when the bobber indicates a bite.",
                                 width = "full",
                             }),

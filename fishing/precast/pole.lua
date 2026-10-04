@@ -128,6 +128,10 @@ local function ApplySelectedFishingPole()
         itemToEquip = underlight.itemID
     end
 
+    if not itemToEquip then
+        return
+    end
+
     if(ns.Utils.TryEquipItemToProfessionSlot(itemToEquip, FISHING_POLE_SLOT)) then
         Trace("Successfully equipped selected pole: " .. ns.Utils.GetDebugItemLabel(itemToEquip))
     else

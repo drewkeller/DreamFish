@@ -25,6 +25,10 @@ function ns.Utils.TryEquipItemToProfessionSlot(itemID, equipSlot)
         return GetInventoryItemID("player", equipSlot) == itemID
     end
 
+    if IsNowEquipped() then
+        return true
+    end
+
     local function TryEquipFromBagCursor(targetSlot)
         local bag, slot = ns.Utils.FindItemInBags(itemID)
         if bag == nil or slot == nil then

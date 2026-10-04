@@ -178,9 +178,32 @@ local function EvaluateSwimmingState(reason)
     end
 end
 
+local function RunStartupScan(source)
+    if ns.isStartupScanComplete then return end
+
+    local underlightDecision = ns.precast.GetUnderlightAnglerEquipDecision()
+    if underlightDecision and underlightDecision.canEquip then
+        ns.isStartupScanComplete = true
+        Trace("Startup inventory match successful via " .. source .. ". Underlight Angler discovered.")
+
+        -- Synchronize baseline states now that structural assets are validated
+        lastConfirmedSwimmingState = ns.Utils.IsSwimmingOrSubmerged() == true
+        ns.Fishing.states.wasRecentlySwimming = lastConfirmedSwimmingState
+        ExecuteStabilizedGearChanges("Startup Synchronization Complete", lastConfirmedSwimmingState)
+    else
+        Trace("Inventory sync check frame passed (" .. source .. "). Waiting for remaining packets.")
+    end
+end
+
 -- EVENT REGISTER PIPELINE
 function Fishing:CreateSurfaceTensionMonitor()
-    if monitorFrame then return monitorFrame end
+    if monitorFrame then
+        -- Monitor may predate the Underlight option being ticked
+        if IsLoggedIn() then
+            RunStartupScan("monitor-refresh")
+        end
+        return monitorFrame
+    end
     Trace("Creating SurfaceTension monitor.")
 
     monitorFrame = CreateFrame("Frame")
@@ -211,20 +234,7 @@ function Fishing:CreateSurfaceTensionMonitor()
             if not ns.isStartupScanComplete then
                 -- Add a micro-delay (0.5s) to guarantee the container data links are verified
                 C_Timer.After(0.5, function()
-                    if ns.isStartupScanComplete then return end
-
-                    local underlightDecision = ns.precast.GetUnderlightAnglerEquipDecision()
-                    if underlightDecision and underlightDecision.canEquip then
-                        ns.isStartupScanComplete = true
-                        Trace("Startup inventory match successful via " .. event .. ". Underlight Angler discovered.")
-
-                        -- Synchronize baseline states now that structural assets are validated
-                        lastConfirmedSwimmingState = ns.Utils.IsSwimmingOrSubmerged() == true
-                        ns.Fishing.states.wasRecentlySwimming = lastConfirmedSwimmingState
-                        ExecuteStabilizedGearChanges("Startup Synchronization Complete", lastConfirmedSwimmingState)
-                    else
-                        Trace("Inventory sync check frame passed (" .. event .. "). Waiting for remaining packets.")
-                    end
+                    RunStartupScan(event)
                 end)
             end
             return
@@ -234,6 +244,11 @@ function Fishing:CreateSurfaceTensionMonitor()
     end)
 
     ns.frames.surfaceTensionMonitor = monitorFrame
+
+    -- Startup events won't fire again if the monitor is created after login (e.g. option toggled on)
+    if IsLoggedIn() then
+        RunStartupScan("monitor-created")
+    end
     return monitorFrame
 end
 
