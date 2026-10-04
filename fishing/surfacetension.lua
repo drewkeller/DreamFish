@@ -178,8 +178,26 @@ local function EvaluateSwimmingState(reason)
     end
 end
 
+-- First run: enable Underlight Angler when it's owned and no primary pole has been chosen
+local function AutoEnableUnderlightOnFirstRun()
+    local charDB = Fishing.db and Fishing.db.char
+    if not charDB then return end
+    charDB.underlightAngler = charDB.underlightAngler or {}
+    charDB.primaryPole = charDB.primaryPole or {}
+    if charDB.underlightAngler.itemID or charDB.primaryPole.itemID then return end
+
+    local anglerID = tonumber(ns.Fishing.const.underlightAnglerItemID)
+    if not anglerID or not ns.Utils.IsItemAvailableForEquip(anglerID) then return end
+
+    charDB.underlightAngler.itemID = anglerID
+    charDB.underlightAngler.isChecked = true
+    Trace("First run: Underlight Angler found with no primary pole set. Enabled Underlight Angler.")
+end
+
 local function RunStartupScan(source)
     if ns.isStartupScanComplete then return end
+
+    AutoEnableUnderlightOnFirstRun()
 
     local underlightDecision = ns.precast.GetUnderlightAnglerEquipDecision()
     if underlightDecision and underlightDecision.canEquip then
