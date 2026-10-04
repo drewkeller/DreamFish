@@ -4,6 +4,8 @@ local scheduledCallbacks = {}
 local lootSlots = {}
 local lootedNames = {}
 local closeLootCalls = 0
+local recordedLoot = {}
+local successfulCastCount = 0
 local warnings = {}
 local registeredEvents = {}
 local unregisteredEvents = {}
@@ -48,6 +50,8 @@ local LootTracker = {
             lootModeWhenFishing = { lootMode = "none", ignoreJunk = false, stayOpenForJunk = true },
             lootModeWhenOther = { lootMode = "none", ignoreJunk = false, stayOpenForJunk = true },
             lootDelay = 0,
+            trackFishingLoot = true,
+            trackNonFishingLoot = true,
         },
     },
 }
@@ -56,6 +60,14 @@ function LootTracker:RegisterTraceSource()
 end
 
 function LootTracker:Trace()
+end
+
+function LootTracker:RecordLootedItem(itemID, quantity)
+    table.insert(recordedLoot, { itemID = itemID, quantity = quantity })
+end
+
+function LootTracker:RecordSuccessfulCast()
+    successfulCastCount = successfulCastCount + 1
 end
 
 function LootTracker:RegisterOnModuleInitialize(callback)
@@ -223,6 +235,10 @@ local function fireLootClosed()
     LootTracker:LOOT_CLOSED()
 end
 
+local function fireLootSlotCleared(slot)
+    LootTracker:LOOT_SLOT_CLEARED("LOOT_SLOT_CLEARED", slot)
+end
+
 local function runScheduledCallback(index)
     local scheduled = assert(scheduledCallbacks[index], "missing scheduled callback")
     scheduled.callback()
@@ -263,12 +279,20 @@ LootTracker.db.profile.lootModeWhenOther.lootMode = "managed"
 LootTracker.db.profile.lootModeWhenOther.ignoreJunk = false
 LootTracker.db.profile.lootModeWhenOther.stayOpenForJunk = true
 LootTracker.db.profile.lootDelay = 0
+sendFishingMessage("FISHING_SESSION_STARTED")
 setLootSlots({ item("First", 1), item("Second", 2) })
 fireLootReady()
 assertTableEquals(lootedNames, { "First", "Second" }, "managed loot must follow displayed item order")
 assertEquals(GetNumLootItems(), 0, "managed loot must clear every slot")
 assertEquals(closeLootCalls, 1, "fully looted windows must close")
+fireLootSlotCleared(1)
+fireLootSlotCleared(2)
+fireLootSlotCleared(1)
+assertEquals(#recordedLoot, 2, "only cleared managed loot slots should be recorded")
+assertEquals(successfulCastCount, 1,
+    "multiple cleared slots in one fishing loot window should count as one successful cast")
 fireLootClosed()
+sendFishingMessage("FISHING_SESSION_ENDED")
 
 LootTracker.db.profile.lootModeWhenOther.ignoreJunk = true
 LootTracker.db.profile.lootModeWhenOther.stayOpenForJunk = true
@@ -278,6 +302,17 @@ assertTableEquals(lootedNames, { "Valuable" }, "managed mode must loot valuable 
 assertEquals(lootSlots[1].name, "Junk", "ignored junk must remain in the loot window")
 assertEquals(closeLootCalls, 0, "managed mode must keep a junk-containing window open when configured")
 fireLootClosed()
+
+LootTracker.db.profile.lootModeWhenOther.lootMode = "manual"
+setLootSlots({ item("Manual", 2) })
+fireLootReady()
+assertEquals(#lootedNames, 0, "manual mode must not auto-loot items")
+fireLootSlotCleared(1)
+assertEquals(#recordedLoot, 3, "manually cleared loot slots should be recorded")
+assertEquals(recordedLoot[3].quantity, 1, "loot quantity should be taken from the loot slot")
+assertEquals(successfulCastCount, 1, "looting outside fishing should not increment successful fishing casts")
+fireLootClosed()
+LootTracker.db.profile.lootModeWhenOther.lootMode = "managed"
 
 LootTracker.db.profile.lootModeWhenOther.stayOpenForJunk = false
 setLootSlots({ item("Junk", 0) })
@@ -340,6 +375,7 @@ assert(unregisteredMessages.FISHING_SESSION_STARTED, "disable must unregister th
 assert(unregisteredMessages.FISHING_SESSION_ENDED, "disable must unregister the fishing-end message")
 assert(unregisteredEvents.LOOT_READY, "disable must unregister LOOT_READY")
 assert(unregisteredEvents.LOOT_CLOSED, "disable must unregister LOOT_CLOSED")
+assert(unregisteredEvents.LOOT_SLOT_CLEARED, "disable must unregister LOOT_SLOT_CLEARED")
 assertEquals(autoLootDefault, "1", "disable must restore the saved native auto-loot setting")
 
 print("looting_lootmode_test: passed")

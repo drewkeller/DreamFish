@@ -17,6 +17,7 @@ ns.moduleDefaults["LootTracker"] = {
             ignoreJunk = false,
             stayOpenForJunk = true,
         },
+        limitLootDataRows = 100,
         lootDelay = 150,
         trackFishingLoot = true,
         trackNonFishingLoot = false,
@@ -47,5 +48,6 @@ ns.moduleDefaults["LootTracker"] = {
     char = {
         lootedItems = {},
         lootedCurrencies = {},
+        castsLooted = 0,
     }
 }

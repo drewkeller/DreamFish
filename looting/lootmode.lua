@@ -2,6 +2,7 @@ local addonName, ns = ...
 local Addon = ns.Addon
 local LootTracker = ns.LootTracker
 
+local charDB
 local profileDB
 local state = {
     savedAutoLootDefault = nil,
@@ -9,6 +10,8 @@ local state = {
     settingCVar = false,
     isFishing = false,
     lootWindowOpen = false,
+    lootSlotItems = {},
+    fishingCastCounted = false,
 }
 
 local LootMode = {}
@@ -81,6 +84,7 @@ local function IsNativeAutoLootSettingExpected(situation)
 end
 
 LootTracker:RegisterOnModuleInitialize(function(self)
+    charDB = self.db.char
     profileDB = self.db.profile
     SaveNativeAutoLootSetting()
 end)
@@ -93,6 +97,7 @@ LootTracker:RegisterOnModuleRegisterEvents(function(self)
     self:RegisterEvent("CVAR_UPDATE", "CVAR_UPDATE")
     self:RegisterEvent("LOOT_READY", "LOOT_READY")
     self:RegisterEvent("LOOT_CLOSED", "LOOT_CLOSED")
+    self:RegisterEvent("LOOT_SLOT_CLEARED", "LOOT_SLOT_CLEARED")
     Addon:RegisterMessage("FISHING_SESSION_STARTED", function(...) self:OnFishingSessionStarted(...) end)
     Addon:RegisterMessage("FISHING_SESSION_ENDED",   function(...) self:OnFishingSessionEnded(...) end)
 end)
@@ -101,6 +106,7 @@ LootTracker:RegisterOnModuleUnregisterEvents(function(self)
     self:UnregisterEvent("CVAR_UPDATE")
     self:UnregisterEvent("LOOT_READY")
     self:UnregisterEvent("LOOT_CLOSED")
+    self:UnregisterEvent("LOOT_SLOT_CLEARED")
     Addon:UnregisterMessage("FISHING_SESSION_STARTED")
     Addon:UnregisterMessage("FISHING_SESSION_ENDED")
 end)
@@ -321,6 +327,16 @@ function LootTracker:LOOT_READY(...)
         return
     end
     state.lootWindowOpen = true
+    state.lootSlotItems = {}
+    state.fishingCastCounted = false
+    local lootCount = type(GetNumLootItems) == "function" and (tonumber(GetNumLootItems()) or 0) or 0
+    for slot = 1, lootCount do
+        local lootItemInfo = GetLootItemInfo(slot)
+        state.lootSlotItems[slot] = lootItemInfo and {
+            itemID = lootItemInfo.itemID,
+            quantity = lootItemInfo.quantity,
+        } or false
+    end
 
     local situation = GetLootSituation()
     if situation.lootMode ~= LootMode.MANAGED then
@@ -337,11 +353,34 @@ function LootTracker:LOOT_READY(...)
     end
 end
 
+function LootTracker:LOOT_SLOT_CLEARED(_, slot)
+    slot = tonumber(slot)
+    if not slot then
+        return
+    end
+
+    local lootItemInfo = state.lootSlotItems[slot]
+    if type(lootItemInfo) == "table" then
+        if lootItemInfo.itemID and type(LootTracker.RecordLootedItem) == "function" then
+            LootTracker:RecordLootedItem(lootItemInfo.itemID, lootItemInfo.quantity)
+        end
+        if state.isFishing and not state.fishingCastCounted then
+            state.fishingCastCounted = true
+            if type(LootTracker.RecordSuccessfulCast) == "function" then
+                LootTracker:RecordSuccessfulCast()
+            end
+        end
+    end
+    state.lootSlotItems[slot] = nil
+end
+
 function LootTracker:LOOT_CLOSED(...)
     if not state.lootWindowOpen then
         --Trace("LOOT_CLOSED: ignoring duplicate event; the loot window is not open")
         return
     end
     state.lootWindowOpen = false
+    state.lootSlotItems = {}
+    state.fishingCastCounted = false
     --Trace("Loot window closed")
 end

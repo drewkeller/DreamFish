@@ -3,7 +3,7 @@ local Addon = ns.Addon
 local AceGUI = LibStub("AceGUI-3.0")
 
 local WIDGET_NAME = "DreamFishLootTrackerPanel"
-local WIDGET_VERSION = 1
+local WIDGET_VERSION = 2
 local PANEL_HEIGHT = 320
 
 local function CreateLootTrackerPanelWidget()
@@ -24,12 +24,13 @@ local function CreateLootTrackerPanelWidget()
     scrollFrame:Show()
 
     local resetButton = AceGUI:Create("Button")
-    resetButton:SetText("Reset LootTracker")
+    resetButton:SetText("Clear")
     resetButton:SetWidth(240)
     resetButton:SetCallback("OnClick", function()
         local LootTracker = ns.LootTracker
         LootTracker.db.char.lootedItems = {}
         LootTracker.db.char.lootedCurrencies = {}
+        LootTracker.db.char.castsLooted = 0
         LootTracker:UpdateTrackerDisplay()
         print("|cFF00FF00[LootTracker]|r History track cleared.")
     end)

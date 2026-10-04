@@ -13,15 +13,34 @@ local resetButton
 local panelScrollContainer
 
 -- these are non-prototype variables
-local itemCache = {}
 local currencyCache = {}
-local skipNextBagUpdate = false
 local skipNextCurrencyUpdate = false
+local showCatchRate = false
 
 LootTracker:RegisterTraceSource("LootTracker")
 
 local function Trace(msg, ...)
     LootTracker:Trace("LootTracker", msg, ...)
+end
+
+local function CountLootDataRows(charData)
+    local count = 0
+    for _ in pairs(type(charData.lootedItems) == "table" and charData.lootedItems or {}) do
+        count = count + 1
+    end
+    for _ in pairs(type(charData.lootedCurrencies) == "table" and charData.lootedCurrencies or {}) do
+        count = count + 1
+    end
+    return count
+end
+
+local function CanAddLootDataRow(self, rows, key)
+    if rows[key] ~= nil then
+        return true
+    end
+
+    local limit = tonumber(self.db.profile.limitLootDataRows)
+    return not limit or CountLootDataRows(self.db.char) < limit
 end
 
 function LootTracker:OnModuleInitialize()
@@ -35,9 +54,7 @@ function LootTracker:OnModuleEnable()
         self:CreateLootTrackerWindow()
     end
 
-    self:ScanAndCacheInventory()
     self:ScanAndCacheCurrencies()
-    skipNextBagUpdate = true
     skipNextCurrencyUpdate = true
     self:UpdateTrackerDisplay()
 end
@@ -60,45 +77,37 @@ end
 
 function LootTracker:BAG_UPDATE_DELAYED(...)
     self:Alerts_BAG_UPDATE_DELAYED(...)
+end
 
-    if skipNextBagUpdate then
-        skipNextBagUpdate = false
-        self:ScanAndCacheInventory()
+function LootTracker:RecordLootedItem(itemID, quantity)
+    itemID = tonumber(itemID)
+    quantity = math.floor(tonumber(quantity) or 1)
+    if not itemID or itemID <= 0 or quantity <= 0 then
         return
     end
 
-    for slotID = 0, 5 do
-        local numSlots = C_Container.GetContainerNumSlots(slotID)
-        for slotIndex = 1, numSlots do
-            local itemId = C_Container.GetContainerItemID(slotID, slotIndex)
-
-            if itemId then
-                local slotInfo = C_Container.GetContainerItemInfo(slotID, slotIndex)
-                if slotInfo then
-                    local currentQuantity = slotInfo.stackCount
-                    local itemKey = slotID .. "_" .. slotIndex
-                    local lastQuantity = itemCache[itemKey] or 0
-
-                    if currentQuantity > lastQuantity then
-                        local amountGained = currentQuantity - lastQuantity
-
-                        -- Increase the count for the item
-                        if not self.db.char.lootedItems then
-                            self.db.char.lootedItems = {}
-                        end
-                        self.db.char.lootedItems[itemId] = (self.db.char.lootedItems[itemId] or 0) + amountGained
-
-                        -- Redraw scrolling labels
-                        self:UpdateTrackerDisplay()
-                        if lootTrackerWindow and self.db.profile.windowVisible then
-                            lootTrackerWindow:Show()
-                        end
-                    end
-                end
-            end
-        end
+    local lootedItems = self.db.char.lootedItems
+    if type(lootedItems) ~= "table" then
+        lootedItems = {}
+        self.db.char.lootedItems = lootedItems
     end
-    self:ScanAndCacheInventory()
+    if not CanAddLootDataRow(self, lootedItems, itemID) then
+        Trace("Loot data limit reached; ignoring new item " .. tostring(itemID))
+        return
+    end
+    lootedItems[itemID] = (tonumber(lootedItems[itemID]) or 0) + quantity
+    self:UpdateTrackerDisplay()
+    if lootTrackerWindow and self.db.profile.windowVisible then
+        lootTrackerWindow:Show()
+    end
+end
+
+function LootTracker:RecordSuccessfulCast()
+    self.db.char.castsLooted = (tonumber(self.db.char.castsLooted) or 0) + 1
+    self:UpdateTrackerDisplay()
+    if lootTrackerWindow and self.db.profile.windowVisible then
+        lootTrackerWindow:Show()
+    end
 end
 
 function LootTracker:CURRENCY_DISPLAY_UPDATE(event, currencyType, quantityChanged, quantityGained, changeReason)
@@ -123,35 +132,24 @@ function LootTracker:CURRENCY_DISPLAY_UPDATE(event, currencyType, quantityChange
     if currentQuantity > lastQuantity then
         local amountGained = currentQuantity - lastQuantity
 
-        if not self.db.char.lootedCurrencies then
+        if type(self.db.char.lootedCurrencies) ~= "table" then
             self.db.char.lootedCurrencies = {}
         end
 
-        self.db.char.lootedCurrencies[currencyType] = (self.db.char.lootedCurrencies[currencyType] or 0) + amountGained
+        local lootedCurrencies = self.db.char.lootedCurrencies
+        if CanAddLootDataRow(self, lootedCurrencies, currencyType) then
+            lootedCurrencies[currencyType] = (tonumber(lootedCurrencies[currencyType]) or 0) + amountGained
 
-        self:UpdateTrackerDisplay()
-        if lootTrackerWindow and self.db.profile.windowVisible then
-            lootTrackerWindow:Show()
+            self:UpdateTrackerDisplay()
+            if lootTrackerWindow and self.db.profile.windowVisible then
+                lootTrackerWindow:Show()
+            end
+        else
+            Trace("Loot data limit reached; ignoring new currency " .. tostring(currencyType))
         end
     end
 
     self:ScanAndCacheCurrencies()
-end
-
-function LootTracker:ScanAndCacheInventory()
-    itemCache = {}
-    for slotID = 0, 5 do
-        local numSlots = C_Container.GetContainerNumSlots(slotID)
-        for slotIndex = 1, numSlots do
-            local itemId = C_Container.GetContainerItemID(slotID, slotIndex)
-            if itemId then
-                local slotInfo = C_Container.GetContainerItemInfo(slotID, slotIndex)
-                if slotInfo then
-                    itemCache[slotID .. "_" .. slotIndex] = slotInfo.stackCount
-                end
-            end
-        end
-    end
 end
 
 function LootTracker:ScanAndCacheCurrencies()
@@ -197,11 +195,12 @@ function LootTracker:CreateLootTrackerWindow()
     scrollFrame:Show()
 
     resetButton = AceGUI:Create("Button")
-    resetButton:SetText("Reset LootTracker")
+    resetButton:SetText("Clear")
     resetButton:SetWidth(240)
     resetButton:SetCallback("OnClick", function()
         self.db.char.lootedItems = {}
         self.db.char.lootedCurrencies = {}
+        self.db.char.castsLooted = 0
         self:UpdateTrackerDisplay()
         print("|cFF00FF00[LootTracker]|r History track cleared.")
     end)
@@ -215,7 +214,7 @@ function LootTracker:CreateLootTrackerWindow()
     resetButtonFrame:SetPoint("BOTTOMRIGHT", nativeFrame, "BOTTOMRIGHT", -15, 15)
     resetButtonFrame:Show()
 
-    -- Anchor scroll region to the reset button so resize never lets content overlap it.
+    -- Anchor scroll region above the action buttons so resize never lets content overlap them.
     scrollFrame:ClearAllPoints()
     scrollFrame:SetPoint("TOPLEFT", nativeFrame, "TOPLEFT", 15, -30)
     scrollFrame:SetPoint("TOPRIGHT", nativeFrame, "TOPRIGHT", -15, -30)
@@ -277,9 +276,17 @@ function LootTracker:UnregisterPanelScrollContainer(container)
     end
 end
 
-function CreateItemRow(itemLink, count)
+function CreateItemRow(itemLink, count, showCatchRate)
     local itemRow = AceGUI:Create("InteractiveLabel")
-    itemRow:SetText(itemLink .. " x" .. count)
+    local catchRateText = ""
+    local numberCatches = tonumber(LootTracker.db.char.castsLooted) or 0
+
+    if showCatchRate and numberCatches > 0 then
+        local catchRateForItem = (count / numberCatches) * 100 or 0
+        catchRateText = string.format(" (%.2f%%)", catchRateForItem)
+    end
+
+    itemRow:SetText(itemLink .. " x" .. count .. catchRateText)
     itemRow:SetFontObject(GameFontHighlight)
     itemRow:SetFullWidth(true)
 
@@ -302,6 +309,17 @@ function LootTracker:PopulateScrollContainer(container)
 
     -- COMPLETELY CLEAR SCROLL SUB-WIDGETS
     container:ReleaseChildren()
+
+    local successfulCasts = tonumber(self.db.char.castsLooted) or 0
+    local totalLabel = AceGUI:Create("Label")
+    totalLabel:SetText("Successful fishing casts: |cFF00FF00" .. successfulCasts .. "|r")
+    totalLabel:SetFontObject(GameFontNormalLarge)
+    totalLabel:SetFullWidth(true)
+    container:AddChild(totalLabel)
+
+    local separator = AceGUI:Create("Heading")
+    separator:SetFullWidth(true)
+    container:AddChild(separator)
 
     if not self.db.char.lootedItems then self.db.char.lootedItems = {} end
     if not self.db.char.lootedCurrencies then self.db.char.lootedCurrencies = {} end
@@ -369,7 +387,8 @@ function LootTracker:PopulateScrollContainer(container)
     end)
 
     for _, entry in ipairs(displayEntries) do
-        local itemRow = CreateItemRow(entry.itemLink, entry.count)
+        local showCatchRate = LootTracker.db.profile.showCatchRate or true
+        local itemRow = CreateItemRow(entry.itemLink, entry.count, showCatchRate)
         container:AddChild(itemRow)
     end
 
