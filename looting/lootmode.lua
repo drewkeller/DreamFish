@@ -314,14 +314,6 @@ local function HandleLootWindow(situation)
 end
 
 function LootTracker:LOOT_READY(...)
-    if not profileDB.trackFishingLoot and state.isFishing then
-        Trace("Tracking of fishing loot is disabled; ignoring loot while fishing")
-        return
-    end
-    if not profileDB.trackNonFishingLoot and not state.isFishing then
-        Trace("Tracking of non-fishing loot is disabled; ignoring loot while not fishing")
-        return
-    end
     if state.lootWindowOpen then
         --Trace("LOOT_READY: ignoring duplicate event; the loot window is already open")
         return
@@ -329,7 +321,19 @@ function LootTracker:LOOT_READY(...)
     state.lootWindowOpen = true
     state.lootSlotItems = {}
     state.fishingCastCounted = false
-    local lootCount = type(GetNumLootItems) == "function" and (tonumber(GetNumLootItems()) or 0) or 0
+
+    -- Tracking settings only control recording; looting itself proceeds regardless
+    local shouldTrack
+    if state.isFishing then
+        shouldTrack = profileDB.trackFishingLoot
+    else
+        shouldTrack = profileDB.trackNonFishingLoot
+    end
+    if not shouldTrack then
+        Trace("Loot tracking is disabled for " .. (state.isFishing and "fishing" or "non-fishing") .. " loot; not recording")
+    end
+
+    local lootCount = (shouldTrack and type(GetNumLootItems) == "function") and (tonumber(GetNumLootItems()) or 0) or 0
     for slot = 1, lootCount do
         local lootItemInfo = GetLootItemInfo(slot)
         state.lootSlotItems[slot] = lootItemInfo and {
