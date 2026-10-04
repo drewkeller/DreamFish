@@ -18,6 +18,9 @@ ns.moduleDefaults["LootTracker"] = {
             stayOpenForJunk = true,
         },
         lootDelay = 150,
+        trackFishingLoot = true,
+        trackNonFishingLoot = false,
+        showCatchRate = true,
         -- alerts
         patientTreasureAlert = true,
         normalBagAlertEnabled = true,

@@ -355,11 +355,49 @@ function LootTracker:GetModuleOptions()
                     desc = "Automatically displays the tracker frame canvas when you log into the character.",
                     width = "full",
                 }),
+                spacerTrackWhen = AddOption({
+                    type = "description", name = " ", width = "full",
+                }),
+                trackFishingLoot = AddOption({
+                    type = "toggle",
+                    name = "Track Fishing Loot",
+                    desc = "Enable or disable tracking of loot when fishing.",
+                    width = "full",
+                }),
+                trackNonFishingLoot = AddOption({
+                    type = "toggle",
+                    name = "Track Non-Fishing Loot",
+                    desc = "Enable or disable tracking of loot when not fishing.",
+                    width = "full",
+                }),
+                spacerLimitLootDataRows = AddOption({
+                    type = "description", name = " ", width = "full",
+                }),
+                limitLootDataRows = AddOption({
+                    get = function() return LootTracker.db.profile.limitLootDataRows end,
+                    set = function(_, value)
+                        LootTracker.db.profile.limitLootDataRows = value
+                    end,
+                    type = "range",
+                    name = "Loot Data Limit",
+                    desc = "The amount of loot tracking data to keep (number of rows). Once this limit is reached, new items are ignored.",
+                    width = "full",
+                    min = 1,
+                    max = 500,
+                    step = 1,
+                }),
+                spacerQuality = AddOption({
+                    type = "description", name = " ", width = "full",
+                }),
                 minQualityFilter = AddOption({
+                    get = function() return LootTracker.db.profile.minQualityFilter end,
+                    set = function(_, value)
+                        LootTracker.db.profile.minQualityFilter = value
+                    end,
                     type = "select",
                     name = "Minimum quality filter",
                     desc = "Filters your text layout view logs based on item rarity rankings.",
-                    width = 3,
+                    width = "full",
                     values = {
                         [0] = "|cFF9d9d9dPoor (Gray)|r",
                         [1] = "|cFFFFFFFFCommon (White)|r",
@@ -368,10 +406,13 @@ function LootTracker:GetModuleOptions()
                         [4] = "|cFFa335eeEpic (Purple)|r",
                     },
                 }),
+                spacerButton = AddOption({
+                    type = "description", name = " ", width = "full",
+                }),
                 toggleUiButton = AddOption({
                     type = "execute",
                     name = "Show Tracker",
-                    width = 2,
+                    width = "full",
                     func = function()
                         ns.Addon:GetModule("LootTracker"):ShowTracker()
                     end,
