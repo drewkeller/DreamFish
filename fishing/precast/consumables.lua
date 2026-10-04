@@ -346,6 +346,7 @@ local function IsFishingLureApplied()
 end
 
 local function IsDue(itemID, category, now)
+    local lureRefreshDue = false
     if category == "lure" then
         local poleID = type(ns.precast.GetEquippedProfessionItemID) == "function" and ns.precast.GetEquippedProfessionItemID() or "nil"
         Trace(string.format("[PROBE: LURE_DUE_CHECK] itemID=%s | State=%s | EquippedPoleID=%s | isEquippingPrimaryPole=%s",
@@ -354,15 +355,19 @@ local function IsDue(itemID, category, now)
         if Fishing.state and Fishing.state.isEquippingPrimaryPole then
             Trace("Skipping lure due check: fishing pole weapon swap is actively in progress.")
             return false, "fishing_lure_pole_not_ready"
-        elseif IsFishingLureApplied() then
-            Trace("Lure is not due: lure is already applied to the active pole.")
-            return false, "fishing_lure_already_applied"
         end
 
         local lureAppliedUntil = tonumber(state.lureAppliedUntil)
-        if lureAppliedUntil and now < lureAppliedUntil then
-            Trace("Lure is not due: confirmed application remains within its known duration.")
-            return false, "confirmed_lure_duration (" .. string.format("%.1f seconds remaining", lureAppliedUntil - now) .. ")"
+        if lureAppliedUntil then
+            local remaining = lureAppliedUntil - now
+            if remaining > (tonumber(state.lureRefreshLeadSeconds) or 0) then
+                Trace("Lure is not due: confirmed application remains within its known duration.")
+                return false, "confirmed_lure_duration (" .. string.format("%.1f seconds remaining", remaining) .. ")"
+            end
+            lureRefreshDue = true
+        elseif IsFishingLureApplied() then
+            Trace("Lure is not due: lure is already applied to the active pole.")
+            return false, "fishing_lure_already_applied"
         end
     end
 
@@ -396,6 +401,10 @@ local function IsDue(itemID, category, now)
         else
             return false, "zone_failure_suppressed_active" -- unknown or zone failure
         end
+    end
+
+    if lureRefreshDue then
+        return true, "lure_refresh_due"
     end
 
     local remaining, auraDuration = nil, nil
@@ -469,6 +478,22 @@ QueueBuffUse = function(itemID, category)
 end
 
 function Fishing:CheckEnabledBuffItemsDepleted()
+    local pendingChecks = state.pendingBuffDepletionChecks
+    if type(pendingChecks) == "table" then
+        local now = GetNow()
+        for pendingItemID, expiresAt in pairs(pendingChecks) do
+            local itemID = tonumber(pendingItemID)
+            if not itemID or (type(expiresAt) == "number" and now > expiresAt) then
+                pendingChecks[pendingItemID] = nil
+            elseif ns.Utils.CountItemInBags(itemID) == 0 then
+                pendingChecks[pendingItemID] = nil
+                state.buffDepletionAlerted = true
+                Addon:AlertWithSound(ns.SystemColor.YELLOW,
+                    ns.Utils.ItemLink(itemID) .. " has been depleted.")
+            end
+        end
+    end
+
     if not self:IsInFishingSession() or state.buffDepletionAlerted then
         return
     end
@@ -485,7 +510,7 @@ function Fishing:CheckEnabledBuffItemsDepleted()
                 if itemID and itemID > 0 and entry.enabled ~= false
                     and ns.Utils.CountItemInBags(itemID) == 0 then
                     state.buffDepletionAlerted = true
-                    Addon:Alert(ns.SystemColor.YELLOW, "Buff item depleted: " .. ns.Utils.ItemLink(itemID))
+                    Addon:Alert(ns.SystemColor.YELLOW, ns.Utils.ItemLink(itemID) .. " is depleted.")
                     return
                 end
             end
@@ -518,6 +543,9 @@ function Fishing:ConfirmPendingBuffUse(successSpellID)
         local spellID, trackedDuration = GetKnownSpellAndDuration(itemID)
         if use.category == "lure" then
             self.state.lureAppliedUntil = now + math.max(5, trackedDuration or 0)
+            local castTime = type(known) == "table" and tonumber(known.castTime) or 0
+            self.state.lureRefreshLeadSeconds = (castTime or 0) / 1000
+                + ns.Fishing.const.maxFishingCastSeconds + ns.Fishing.const.buffPreRefreshSafetySeconds
         end
         -- Built-in metadata is authoritative; only unknown items use learned fallback data.
         if globalDB and type(globalDB.buffAuraByItem) == "table"
@@ -554,9 +582,22 @@ function Fishing:ConfirmPendingBuffUse(successSpellID)
             Fishing:AnnounceBuffUse(itemID, spellID)
         end
 
-        --self:CheckEnabledBuffItemsDepleted()
-        if ns.Utils.CountItemInBags(itemID) == 0 then
-            Addon:Alert(ns.SystemColor.YELLOW, ns.Utils.GetDebugItemLabel(itemID) .. " has been depleted.")
+        Trace("Confirmed item count after use: " .. ns.Utils.ItemLink(itemID)
+            .. " count=" .. tostring(countAfter))
+
+        if (tonumber(use.countBefore) or 0) > 0 then
+            if countAfter == 0 then
+                state.buffDepletionAlerted = true
+                Addon:AlertWithSound(ns.SystemColor.YELLOW,
+                    ns.Utils.ItemLink(itemID) .. " has been depleted.")
+            else
+                local pendingChecks = state.pendingBuffDepletionChecks
+                if type(pendingChecks) ~= "table" then
+                    pendingChecks = {}
+                    state.pendingBuffDepletionChecks = pendingChecks
+                end
+                rawset(pendingChecks, itemID, now + 2)
+            end
         end
 
         if type(self.PrepareFishingClickAction) == "function" then
@@ -578,7 +619,8 @@ function Fishing:ConfirmPendingBuffUse(successSpellID)
                 self.state.buffUnknownDurationSuppressed = self.state.buffUnknownDurationSuppressed or {}
                 self.state.buffUnknownDurationSuppressed[itemID] = now + 10
                 Addon:Alert(ns.SystemColor.YELLOW, "Consumable use failed: " .. ns.Utils.ItemName(itemID))
-                ns.Utils.PrintNoLog("Consumable use failed: " .. ns.Utils.ItemLink(itemID))
+                ns.Utils.PrintNoLog(nil, nil,
+                    "Consumable use failed: " .. ns.Utils.ItemLink(itemID))
             end
         end
     end
@@ -592,7 +634,6 @@ local function GetConsumableUseDecision(self, instantOnly)
     if type(Fishing.ConfirmPendingBuffUse) == "function" then
         Fishing:ConfirmPendingBuffUse()
     end
-    --Fishing:CheckEnabledBuffItemsDepleted()
     if type(Fishing.UpdatePendingBuffObservation) == "function" then
         Fishing:UpdatePendingBuffObservation()
     end

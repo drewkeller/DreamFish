@@ -69,6 +69,15 @@ local function HasConfiguredBuffItems()
 end
 
 local function FinalizeSecureFishingAction(fishingFrame, macroLines, raftExclusiveWhileSwimming, hasConsumableAction)
+    local armedItemIDs = {}
+    for _, line in ipairs(macroLines) do
+        local itemID = line:match("^/use item:(%d+)$")
+        if itemID then
+            table.insert(armedItemIDs, tonumber(itemID))
+        end
+    end
+    Fishing.state.precastArmedItemIDs = armedItemIDs
+
     if #macroLines > 0 then
         -- Use [nochanneling] to dynamically block the fishing cast if casting a buff item
         if not raftExclusiveWhileSwimming then
@@ -94,6 +103,7 @@ local function FinalizeSecureFishingAction(fishingFrame, macroLines, raftExclusi
 end
 
 local function FinalizeNoopPrecastAction(fishingFrame, reason)
+    Fishing.state.precastArmedItemIDs = {}
     fishingFrame:SetAttribute("type", "macro")
     fishingFrame:SetAttribute("macrotext", "")
     fishingFrame:SetAttribute("spell", nil)

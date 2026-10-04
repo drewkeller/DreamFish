@@ -101,6 +101,8 @@ function Fishing:SetFishingState(state, reason)
     end
 
     if oldState == FISHING_STATES.PRECASTING and state ~= FISHING_STATES.PRECASTING then
+        self.state.precastArmedItemIDs = nil
+        self.state.precastItemSpellStarted = nil
         if type(self.ClearPrecastConsumableSnapshot) == "function" then
             self:ClearPrecastConsumableSnapshot("leaving PRECAST")
         else
