@@ -3,7 +3,7 @@ local Addon = ns.Addon
 
 local AceGUI = LibStub("AceGUI-3.0")
 local WIDGET_NAME = "DreamFishEquipmentPreview"
-local WIDGET_VERSION = 2
+local WIDGET_VERSION = 3
 local WIDGET_WIDTH = 100
 local WIDGET_HEIGHT = 80
 local BOX_SIZE = 48
@@ -30,12 +30,20 @@ local function CreateEquipmentDropBox()
     labelString:SetPoint("TOPLEFT", frame, "TOPLEFT", 2, 0)
 
     -- Item Slot Button
-    local boxFrame = CreateFrame("Button", nil, frame, "BackdropTemplate")
+    local boxFrame = CreateFrame("Button", nil, frame, "SecureActionButtonTemplate,SecureHandlerStateTemplate,BackdropTemplate")
     boxFrame:SetSize(BOX_SIZE, BOX_SIZE)
     boxFrame:SetPoint("TOPLEFT", frame, "TOPLEFT", 5, -20)
     boxFrame:EnableMouse(true)
     boxFrame:RegisterForClicks("AnyUp")
     boxFrame:RegisterForDrag("LeftButton")
+    boxFrame:SetAttribute("useOnKeyDown", false)
+    boxFrame:SetAttribute("_onstate-combat", [[
+        if newstate == "combat" then
+            self:SetAttribute("*target-bag1", nil)
+            self:SetAttribute("*target-slot1", nil)
+        end
+    ]])
+    RegisterStateDriver(boxFrame, "combat", "[combat] combat; nocombat")
 
     -- Visual Border and Background Layers for the slot
     local border = boxFrame:CreateTexture(nil, "BORDER")
@@ -65,6 +73,8 @@ local function CreateEquipmentDropBox()
     local eventFrame = CreateFrame("Frame", nil, frame)
     eventFrame:RegisterEvent("PLAYER_EQUIPMENT_CHANGED")
     eventFrame:RegisterEvent("PROFESSION_EQUIPMENT_CHANGED") -- Modern retail profession slot swaps
+    eventFrame:RegisterEvent("BAG_UPDATE_DELAYED")
+    eventFrame:RegisterEvent("PLAYER_REGEN_ENABLED")
 
     -- State Keepers attached cleanly to the widget instance wrapper
     local widget = {
@@ -89,7 +99,22 @@ local function CreateEquipmentDropBox()
         end
     end
 
+    local function UpdateTargetLocation()
+        if InCombatLockdown() then return end
+        local targetBag, targetSlot
+        if widget.itemID and widget.itemID > 0 then
+            if widget.itemID == GetEquippedProfessionItemID(widget.slotID) then
+                targetSlot = widget.slotID
+            else
+                targetBag, targetSlot = ns.Utils.FindItemInBags(widget.itemID)
+            end
+        end
+        boxFrame:SetAttribute("*target-bag1", targetBag)
+        boxFrame:SetAttribute("*target-slot1", targetSlot)
+    end
+
     local function UpdateVisuals()
+        UpdateTargetLocation()
         -- 1. Manage Textures
         if widget.itemID and widget.itemID > 0 then
             local iconPath = C_Item.GetItemIconByID(widget.itemID)
@@ -153,6 +178,7 @@ local function CreateEquipmentDropBox()
     end
 
     local function AssignFromCursor()
+        if SpellIsTargeting() then return false end
         local cursorType, id = GetCursorInfo()
         if cursorType == "item" and id then
             CommitChanges(tonumber(id), widget.isChecked)
@@ -239,7 +265,8 @@ local function CreateEquipmentDropBox()
     -- FRAME EVENT HANDLERS
     eventFrame:SetScript("OnEvent", function(self, event, slot, hasCurrent)
         -- If slot is nil (some fallback states), trigger anyway just to be completely safe
-        if not slot or slot == widget.slotID then
+        if event == "BAG_UPDATE_DELAYED" or event == "PLAYER_REGEN_ENABLED"
+            or not slot or slot == widget.slotID then
             UpdateVisuals()
         end
     end)
@@ -348,7 +375,12 @@ local function CreateEquipmentDropBox()
     end
 
     -- SCRIPT ASSIGNMENTS
+    boxFrame:SetScript("PreClick", function()
+        UpdateTargetLocation()
+    end)
+
     boxFrame:SetScript("OnMouseUp", function(self, button)
+        if SpellIsTargeting() then return end
         if button == "LeftButton" then
             -- Check if the user is holding an item on their cursor to drop in.
             if AssignFromCursor() then return end
@@ -369,6 +401,7 @@ local function CreateEquipmentDropBox()
     end)
 
     boxFrame:SetScript("OnDragStart", function()
+        if SpellIsTargeting() then return end
         if widget.itemID and widget.itemID > 0 and widget.canRemoveItem then
             C_Item.PickupItem(widget.itemID)
             CommitChanges(nil, widget.isChecked)
@@ -427,7 +460,10 @@ local function CreateEquipmentDropBox()
         if eventFrame then
             eventFrame:RegisterEvent("PLAYER_EQUIPMENT_CHANGED")
             eventFrame:RegisterEvent("PROFESSION_EQUIPMENT_CHANGED")
+            eventFrame:RegisterEvent("BAG_UPDATE_DELAYED")
+            eventFrame:RegisterEvent("PLAYER_REGEN_ENABLED")
         end
+        UpdateTargetLocation()
         self.frame:Show()
     end
 
@@ -436,6 +472,8 @@ local function CreateEquipmentDropBox()
         if eventFrame then
             eventFrame:UnregisterEvent("PLAYER_EQUIPMENT_CHANGED")
             eventFrame:UnregisterEvent("PROFESSION_EQUIPMENT_CHANGED")
+            eventFrame:UnregisterEvent("BAG_UPDATE_DELAYED")
+            eventFrame:UnregisterEvent("PLAYER_REGEN_ENABLED")
         end
 
         self.frame:Hide()
@@ -443,6 +481,7 @@ local function CreateEquipmentDropBox()
         self.slotID = 28
         self.isChecked = false
         self.currentLabel = nil
+        UpdateTargetLocation()
         if self.callbacks then table.wipe(self.callbacks) end
     end
 
@@ -507,6 +546,7 @@ local function CreateEquipmentDropBox()
         end
         self.slotID = data and data.slotID or 28
         self.canRemoveItem = data and data.canRemoveItem ~= false or true
+        UpdateTargetLocation()
     end
 
     widget.SetFontObject = function(self, font) if self.label and font then self.label:SetFontObject(font) end end
