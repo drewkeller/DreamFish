@@ -13,6 +13,7 @@ local releaseClickCaptureCount = 0
 local notifiedConfigTables = {}
 local rightClickStrikeBinding
 local nativeRightClickStrikeBinding
+local modifiedRightClickBindings = {}
 
 local DreamFish = {
     db = {
@@ -248,6 +249,11 @@ function SetOverrideBinding(owner, priority, key, command)
             key = key,
             command = command,
         }
+    elseif key and key:find("BUTTON2", 1, true) then
+        modifiedRightClickBindings[key] = {
+            owner = owner,
+            command = command,
+        }
     end
 end
 
@@ -296,6 +302,11 @@ end
 function ClearOverrideBindings(owner)
     if nativeRightClickStrikeBinding and nativeRightClickStrikeBinding.owner == owner then
         nativeRightClickStrikeBinding = nil
+    end
+    for key, binding in pairs(modifiedRightClickBindings) do
+        if binding.owner == owner then
+            modifiedRightClickBindings[key] = nil
+        end
     end
     if rightClickStrikeBinding and rightClickStrikeBinding.owner == owner then
         rightClickStrikeBinding = nil
@@ -367,6 +378,11 @@ Fishing.db.profile.strikeByRightClick = true
 Fishing:ArmRightClickStrike()
 assert(nativeRightClickStrikeBinding and nativeRightClickStrikeBinding.command == "INTERACTTARGET",
     "single-right-click strike must use the native INTERACTTARGET binding")
+for _, key in ipairs({ "SHIFT-BUTTON2", "CTRL-BUTTON2", "ALT-BUTTON2", "CTRL-SHIFT-BUTTON2",
+    "CTRL-ALT-BUTTON2", "SHIFT-ALT-BUTTON2", "CTRL-SHIFT-ALT-BUTTON2" }) do
+    assert(modifiedRightClickBindings[key] and modifiedRightClickBindings[key].command == "TURNORACTION",
+        key .. " must pass through to the native turn/action behavior")
+end
 Fishing.db.profile.strikeByRightClick = false
 Fishing:ArmRightClickStrike()
 assert(not nativeRightClickStrikeBinding,

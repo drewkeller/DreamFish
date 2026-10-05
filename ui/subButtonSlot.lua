@@ -158,11 +158,20 @@ local function CreateSubButtonSlot(parentCanvas, slotIndex)
                     box:SetAttribute("item2", "item:" .. slot.itemID)
                 end
             end
+            -- Modified right-clicks fall back to type2 unless overridden, which would consume the item.
+            for _, modifier in ipairs({ "shift", "ctrl" }) do
+                box:SetAttribute(modifier .. "-type2", "macro")
+                box:SetAttribute(modifier .. "-macrotext2", "")
+            end
         else
             box.icon:SetTexture(nil)
             box:SetAttribute("type2", nil)
             box:SetAttribute("item2", nil)
             box:SetAttribute("macrotext2", nil)
+            for _, modifier in ipairs({ "shift", "ctrl" }) do
+                box:SetAttribute(modifier .. "-type2", nil)
+                box:SetAttribute(modifier .. "-macrotext2", nil)
+            end
         end
         checkbox:SetChecked(slot.isChecked)
         local category = parentCanvas.arg and parentCanvas.arg.category

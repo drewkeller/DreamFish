@@ -220,12 +220,9 @@ local function BuildModesTab(order)
                             }),
                             strikeByRightClickNote = AutoOrder({
                                 type = "description",
-                                name = "      |c80999999Since single click replaces the normal \"turn or action\"|r\n"
-                                    .. "      |c80999999on the right mouse button, it may be a bit awkward if you|r\n"
-                                    .. "      |c80999999are used to using RMB to turn or start movement by|r\n"
-                                    .. "      |c80999999pressing RMB first.|r\n"
-                                    .. "      |c80999999However, you can still mouse-look using LMB and initiate|r\n"
-                                    .. "      |c80999999movement by holding down LMB first and then RMB.|r",
+                                name = "      |c80999999Single-RMB-strike replaces the normal \"Turn/look\".|r\n"
+                                    .. "      |c80999999Turn/look using RMB + Shift, Ctrl or Alt works.|r\n"
+                                    .. "      |c80999999Mouse-look and other LMB actions work like normal.|r",
                             }),
                             strikeByHotkey = AutoOrder({
                                 type = "toggle",

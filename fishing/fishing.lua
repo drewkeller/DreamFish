@@ -35,6 +35,15 @@ local function CallRegisteredOnModuleEnable(self)
 end
 
 local rightClickStrikeOwner
+local rightClickTurnModifiers = {
+    "SHIFT-",
+    "CTRL-",
+    "ALT-",
+    "CTRL-SHIFT-",
+    "CTRL-ALT-",
+    "SHIFT-ALT-",
+    "CTRL-SHIFT-ALT-",
+}
 
 Fishing:RegisterTraceSource("EasyStrike")
 Fishing:RegisterTraceSource("auraevent")
@@ -605,6 +614,9 @@ function Fishing:UseNativeRightClickStrike()
         rightClickStrikeOwner = CreateFrame("Frame")
     end
     SetOverrideBinding(rightClickStrikeOwner, true, "BUTTON2", "INTERACTTARGET")
+    for _, modifier in ipairs(rightClickTurnModifiers) do
+        SetOverrideBinding(rightClickStrikeOwner, true, modifier .. "BUTTON2", "TURNORACTION")
+    end
 end
 
 -- Overriding BUTTON2 costs the native TURNORACTION binding, so give it back while the player steers.
