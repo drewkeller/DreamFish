@@ -415,6 +415,23 @@ local function CreateSubButtonSlot(parentCanvas, slotIndex)
         if slot.itemID and slot.itemID > 0 then
             GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
             GameTooltip:SetItemByID(slot.itemID)
+            local info = Fishing:GetLearnedBuffInfo(slot.itemID)
+            GameTooltip:AddLine(" ")
+            if info.source == "builtin" then
+                GameTooltip:AddLine("DreamFish: built-in buff data", 0.6, 0.8, 1)
+            elseif info.source == "learned" then
+                local castType = info.isInstant == true and "instant" or (info.isInstant == false and "cast" or "unknown cast type")
+                if info.spellID then
+                    GameTooltip:AddLine("DreamFish learned: " .. tostring(info.auraName or "?")
+                        .. " (" .. tostring(info.spellID) .. ")", 0.1, 1, 0.1)
+                    GameTooltip:AddLine(ns.Utils.FormatDuration(info.duration or 0) .. ", " .. castType, 0.1, 1, 0.1)
+                else
+                    GameTooltip:AddLine("DreamFish: partially learned (" .. castType .. ")", 1, 0.82, 0)
+                end
+                GameTooltip:AddLine("Ctrl+Right-click: forget learned data", 0.7, 0.7, 0.7)
+            else
+                GameTooltip:AddLine("DreamFish: not learned yet", 1, 0.82, 0)
+            end
             GameTooltip:Show()
         end
     end)
@@ -424,8 +441,14 @@ local function CreateSubButtonSlot(parentCanvas, slotIndex)
         GameTooltip:Hide()
     end)
 
-    box:HookScript("OnClick", function(_, button)
+    box:HookScript("OnClick", function(_, button, down)
         if button ~= "RightButton" or not slot.itemID or slot.itemID <= 0 then return end
+        if IsControlKeyDown() then
+            if not down then
+                Fishing:ForgetLearnedBuffItem(slot.itemID)
+            end
+            return
+        end
         if IsShiftKeyDown() then
             Fishing.state.buffItemLastUseAt[slot.itemID] = nil
             CommitChanges(nil, slot.isChecked)

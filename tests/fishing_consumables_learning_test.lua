@@ -122,7 +122,7 @@ Fishing.state.pendingBuffUse = {
         {
             itemID = 274588,
             countBefore = 1,
-            auraBefore = {},
+            auraBefore = { [397827] = { duration = 3600, expirationTime = 3700 } },
             expiresAt = now + 5,
         },
     },

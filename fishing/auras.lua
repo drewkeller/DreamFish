@@ -60,6 +60,29 @@ function Fishing:BuildHelpfulAuraSnapshot()
     return snapshot
 end
 
+-- Auras from addon-driven sources (not buff items) that must never be learned as an item's buff.
+local function GetLearningIgnoredSpellIDs(category)
+    local ignored = {}
+    local const = ns.Fishing.const
+    ignored[const.surfaceTensionSpellID] = true
+    if category ~= "bobber" then
+        for _, known in pairs(const.knownBuffItems or {}) do
+            if known.category == "bobber" and known.spellID then
+                ignored[known.spellID] = true
+            end
+        end
+    end
+    if C_Item and C_Item.GetItemSpell then
+        for _, raft in ipairs(const.raftToyItemIDs or {}) do
+            local _, spellID = C_Item.GetItemSpell(raft.id)
+            if spellID then
+                ignored[spellID] = true
+            end
+        end
+    end
+    return ignored
+end
+
 function Fishing:UpdatePendingBuffObservation()
     if not self.state.pendingBuffObservation or not self.db then
         return
@@ -146,17 +169,32 @@ function Fishing:UpdatePendingBuffObservation()
     end
 
     if not bestSpellID then
+        local learningCandidate = self.state.pendingBuffObservation.learningCandidate
+        local ignoredSpellIDs = learningCandidate and GetLearningIgnoredSpellIDs(learningCandidate.category) or {}
+        local itemSpellID = nil
+        if learningCandidate and pendingItemID and C_Item and C_Item.GetItemSpell then
+            local _, spellID = C_Item.GetItemSpell(pendingItemID)
+            itemSpellID = tonumber(spellID)
+        end
+        local matchedItemSpell = false
         for spellID, aura in pairs(current) do
             local previous = before[spellID]
             local isNewAura = previous == nil
             local refreshedAura = previous and aura.expirationTime and previous.expirationTime and aura.expirationTime > previous.expirationTime + 0.5
             local candidateDuration = nil
-            if isNewAura and aura.duration then
+            if ignoredSpellIDs[spellID] then
+                candidateDuration = nil
+            elseif isNewAura and aura.duration then
                 candidateDuration = aura.duration
             elseif refreshedAura then
                 candidateDuration = aura.expirationTime - previous.expirationTime
             end
-            if candidateDuration and candidateDuration > bestDuration then
+            if candidateDuration and itemSpellID and spellID == itemSpellID then
+                matchedItemSpell = true
+                bestSpellID = spellID
+                bestDuration = candidateDuration
+                bestExpirationTime = aura.expirationTime
+            elseif candidateDuration and not matchedItemSpell and candidateDuration > bestDuration then
                 bestSpellID = spellID
                 bestDuration = candidateDuration
                 bestExpirationTime = aura.expirationTime
@@ -274,6 +312,9 @@ function Fishing:UpdatePendingBuffObservation()
         self.state.pendingBuffObservation = nil
         if self.state.buffLearning and tonumber(self.state.buffLearning.itemID) == itemID then
             self.state.buffLearning = nil
+            if type(self.AnnounceBuffLearningComplete) == "function" then
+                self:AnnounceBuffLearningComplete(itemID)
+            end
             if type(ns.RefreshBuffItemSlots) == "function" then
                 ns.RefreshBuffItemSlots()
             end

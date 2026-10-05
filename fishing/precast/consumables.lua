@@ -221,6 +221,75 @@ function Fishing:GetBuffLearningStatus()
     return nil
 end
 
+function Fishing:IsBuffLearningActive()
+    return type(self.state.buffLearning) == "table"
+end
+
+function Fishing:AnnounceBuffLearningComplete(itemID)
+    local remaining = self:GetBuffLearningCandidateCount()
+    local nextStep = remaining > 0
+        and ("Click Learn for the next item (" .. tostring(remaining) .. " left).")
+        or "All buff items learned."
+    Addon:Alert(ns.SystemColor.GREEN, "Learned " .. ns.Utils.ItemLink(itemID), "-", nextStep)
+end
+
+function Fishing:GetLearnedBuffInfo(itemID)
+    local known = GetKnownBuff(itemID)
+    local tracked = GetTrackedBuff(itemID)
+    local source = type(known) == "table" and "builtin" or (type(tracked) == "table" and "learned" or "none")
+    local data = type(known) == "table" and known or tracked
+    local spellID = type(data) == "table" and tonumber(data.spellID) or nil
+    local auraName = nil
+    if spellID and C_Spell and C_Spell.GetSpellInfo then
+        local spellInfo = C_Spell.GetSpellInfo(spellID)
+        auraName = spellInfo and spellInfo.name or nil
+    end
+    local isInstant = nil
+    if type(known) == "table" then
+        isInstant = (tonumber(known.castTime) or 0) == 0
+    elseif type(tracked) == "table" then
+        isInstant = tracked.isInstant
+    end
+    return {
+        source = source,
+        spellID = spellID,
+        auraName = auraName,
+        duration = type(data) == "table" and tonumber(data.duration) or nil,
+        isInstant = isInstant,
+    }
+end
+
+function Fishing:ForgetLearnedBuffItem(itemID)
+    itemID = tonumber(itemID)
+    if not itemID or itemID <= 0 then
+        return false
+    end
+    if GetKnownBuff(itemID) then
+        Addon:Alert(ns.SystemColor.YELLOW, "Cannot forget " .. ns.Utils.ItemLink(itemID), "- it uses built-in data.")
+        return false
+    end
+    if self:IsBuffLearningActive() then
+        Addon:Alert(ns.SystemColor.YELLOW, "Learning in progress", "- wait for the current item to finish learning first.")
+        return false
+    end
+    if not GetTrackedBuff(itemID) then
+        Addon:Alert(ns.SystemColor.YELLOW, "Nothing to forget", "-", ns.Utils.ItemLink(itemID), "has no learned data.")
+        return false
+    end
+    globalDB.buffAuraByItem[tostring(itemID)] = nil
+    for _, key in ipairs({ "buffUnknownDurationSuppressed", "buffItemTransientUntil", "learningBuffItems" }) do
+        if type(state[key]) == "table" then
+            state[key][itemID] = nil
+        end
+    end
+    Addon:Alert(ns.SystemColor.GREEN, "Forgot " .. ns.Utils.ItemLink(itemID), "- click Learn to relearn it.")
+    if type(ns.RefreshBuffItemSlots) == "function" then
+        ns.RefreshBuffItemSlots()
+    end
+    self:NotifyBuffLearningChanged()
+    return true
+end
+
 function Fishing:NotifyBuffLearningChanged()
     if type(ns.RefreshBuffLearningWidgets) == "function" then
         ns.RefreshBuffLearningWidgets()
@@ -253,6 +322,10 @@ function Fishing:BeginBuffLearning(candidate)
     }
     Trace("Beginning buff learning for itemID=" .. tostring(candidate.itemID))
     QueueBuffUse(candidate.itemID, candidate.category)
+    local waitHint = candidate.category == "fooddrink"
+        and "Stand still until you finish eating or drinking."
+        or "Don't use other items until it's learned."
+    Addon:Alert(ns.SystemColor.GREEN, "Learning " .. ns.Utils.ItemLink(candidate.itemID), "-", waitHint)
     return true
 end
 
@@ -288,8 +361,8 @@ function Fishing:FailBuffLearning(candidate, reason)
     self.state.buffLearning = nil
     self.state.pendingBuffUse = nil
     self.state.pendingBuffObservation = nil
-    Addon:Alert(ns.SystemColor.YELLOW, "Could not learn buff item: " .. Item(candidate.itemID)
-        .. ". It has been disabled.")
+    Addon:Alert(ns.SystemColor.YELLOW, "Could not learn " .. ns.Utils.ItemLink(candidate.itemID),
+        "- it has been disabled. Reason:", tostring(reason))
     self:Trace("buffs", "Buff learning failed: " .. tostring(reason))
     if type(ns.RefreshBuffItemSlots) == "function" then
         ns.RefreshBuffItemSlots()
@@ -561,21 +634,33 @@ function Fishing:ConfirmPendingBuffUse(successSpellID)
         end
         local isKnownDuration = spellID and trackedDuration
         if not isKnownDuration then
-            self.state.pendingBuffObservation = {
-                itemID = itemID,
+            -- Confirmation lags the use, so the item's own aura may already be in a fresh snapshot.
+            local before = type(use.auraBefore) == "table" and use.auraBefore or nil
+            if not before then
                 before = type(Fishing.BuildHelpfulAuraSnapshot) == "function"
                     and Fishing:BuildHelpfulAuraSnapshot()
-                    or {},
+                    or {}
+            end
+            self.state.pendingBuffObservation = {
+                itemID = itemID,
+                before = before,
                 expiresAt = now + 20,
             }
             if type(self.state.buffLearning) == "table"
                 and tonumber(self.state.buffLearning.itemID) == itemID then
                 self.state.pendingBuffObservation.learningCandidate = self.state.buffLearning
                 self.state.buffLearning.phase = "observing"
+                Addon:Alert(ns.SystemColor.GREEN, "Watching for buff...",
+                    "- up to 20s for", ns.Utils.ItemLink(itemID) .. ". You can fish; bobbers, rafts and other buff items are paused.")
             end
         else
+            local wasLearning = type(self.state.buffLearning) == "table"
+                and tonumber(self.state.buffLearning.itemID) == itemID
             self.state.pendingBuffObservation = nil
             self.state.buffLearning = nil
+            if wasLearning then
+                self:AnnounceBuffLearningComplete(itemID)
+            end
             self:NotifyBuffLearningChanged()
         end
         if type(Fishing.AnnounceBuffUse) == "function" then

@@ -144,6 +144,18 @@ local function ConfigureFishingClickAction(self, options)
     local raftExclusive = false
     local castTimeActionArmed = false
 
+    -- Any other aura source during learning can be mistaken for the learned item's buff.
+    if type(self.IsBuffLearningActive) == "function" and self:IsBuffLearningActive() then
+        if ns.Utils.IsSwimmingOrSubmerged() == true then
+            if options.showSwimmingGuidance and type(self.ShowPrecastSwimmingGuidance) == "function" then
+                self:ShowPrecastSwimmingGuidance({ allowClimb = true })
+            end
+            return FinalizeNoopPrecastAction(Fishing.clickFrame, "Buff learning active while swimming; raft paused")
+        end
+        Trace("Buff learning active; arming plain Fishing only")
+        return FinalizeSecureFishingAction(Fishing.clickFrame, macroLines, false, false)
+    end
+
     -- Raft
     local raftDecision = ns.precast.GetRaftUseDecision(self)
     if raftDecision.shouldApply then
