@@ -518,6 +518,11 @@ local function IsDue(itemID, category, now)
     return true, "unknown_duration_no_aura " .. LastUseString(lastUse, knownDuration)
 end
 
+function Fishing:IsReusableBuffItem(itemID)
+    local known = GetKnownBuff(itemID)
+    return type(known) == "table" and known.reusable == true
+end
+
 QueueBuffUse = function(itemID, category)
     local itemSpellID = nil
     if C_Item and type(C_Item.GetItemSpell) == "function" then
@@ -540,7 +545,7 @@ QueueBuffUse = function(itemID, category)
         itemSpellID = itemSpellID or knownSpellID,
         knownSpellID = knownSpellID,
         castStarted = false,
-        countBefore = ns.Utils.CountItemInBags(itemID),
+        countBefore = not Fishing:IsReusableBuffItem(itemID) and ns.Utils.CountItemInBags(itemID) or nil,
         auraBefore = type(Fishing.BuildHelpfulAuraSnapshot) == "function"
             and Fishing:BuildHelpfulAuraSnapshot()
             or {},
@@ -556,7 +561,8 @@ function Fishing:CheckEnabledBuffItemsDepleted()
         local now = GetNow()
         for pendingItemID, expiresAt in pairs(pendingChecks) do
             local itemID = tonumber(pendingItemID)
-            if not itemID or (type(expiresAt) == "number" and now > expiresAt) then
+            if not itemID or self:IsReusableBuffItem(itemID)
+                or (type(expiresAt) == "number" and now > expiresAt) then
                 pendingChecks[pendingItemID] = nil
             elseif ns.Utils.CountItemInBags(itemID) == 0 then
                 pendingChecks[pendingItemID] = nil
@@ -581,6 +587,7 @@ function Fishing:CheckEnabledBuffItemsDepleted()
             for _, entry in ipairs(items) do
                 local itemID = type(entry) == "table" and tonumber(entry.itemID) or nil
                 if itemID and itemID > 0 and entry.enabled ~= false
+                    and not self:IsReusableBuffItem(itemID)
                     and ns.Utils.CountItemInBags(itemID) == 0 then
                     state.buffDepletionAlerted = true
                     Addon:Alert(ns.SystemColor.YELLOW, ns.Utils.ItemLink(itemID) .. " is depleted.")
@@ -601,7 +608,8 @@ function Fishing:ConfirmPendingBuffUse(successSpellID)
     for index = #pending.uses, 1, -1 do
         local use = pending.uses[index]
         local itemID = tonumber(use.itemID)
-        local countAfter = itemID and ns.Utils.CountItemInBags(itemID) or nil
+        local reusable = self:IsReusableBuffItem(itemID)
+        local countAfter = not reusable and itemID and ns.Utils.CountItemInBags(itemID) or nil
         local confirmedBySpell = tonumber(successSpellID)
             and (tonumber(use.itemSpellID) == tonumber(successSpellID)
                 or tonumber(use.knownSpellID) == tonumber(successSpellID))
@@ -670,7 +678,7 @@ function Fishing:ConfirmPendingBuffUse(successSpellID)
         Trace("Confirmed item count after use: " .. ns.Utils.ItemLink(itemID)
             .. " count=" .. tostring(countAfter))
 
-        if (tonumber(use.countBefore) or 0) > 0 then
+        if not reusable and (tonumber(use.countBefore) or 0) > 0 then
             if countAfter == 0 then
                 state.buffDepletionAlerted = true
                 Addon:AlertWithSound(ns.SystemColor.YELLOW,
@@ -767,8 +775,10 @@ local function GetConsumableUseDecision(self, instantOnly)
                         local isDue, reason = IsDue(itemID, category, GetNow())
                         if not isDue then
                             Trace("Skipping due consumable: not due " .. Item(itemID, category) .. " (" .. tostring(reason) .. ")")
-                        elseif ns.Utils.FindItemInBags(itemID) == nil then
-                            Trace("Skipping due consumable: not found in bags " .. Item(itemID, category))
+                        elseif not (self:IsReusableBuffItem(itemID)
+                            and ns.Utils.IsItemAvailableForEquip(itemID))
+                            and ns.Utils.FindItemInBags(itemID) == nil then
+                            Trace("Skipping due consumable: item not available " .. Item(itemID, category))
                         elseif NeedsLearning(itemID) then
                             Trace("Skipping unlearned consumable outside Buff Items learning mode: " .. Item(itemID, category))
                         elseif effectSpellID and queuedEffectSpellIDs[effectSpellID] then

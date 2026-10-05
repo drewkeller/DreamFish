@@ -15,6 +15,7 @@ local function Trace(msg)
     Fishing:Trace("precast", msg)
 end
 
+local HEAD_SLOT = 1
 local RAFT_SHAPESHIFT_ERROR = "Raft-like items cannot be cast on a shape-shifted target"
 local lastRaftShapeshiftAlertAt
 
@@ -114,6 +115,12 @@ end
 
 local function InsertUseItemMacroLine(macroLines, itemID)
     local line = "/use item:" .. tostring(itemID)
+    local known = ns.Fishing.const.knownBuffItems and ns.Fishing.const.knownBuffItems[tonumber(itemID)]
+    if type(known) == "table" and known.reusable == true
+        -- currently only hats are reusable
+        and GetInventoryItemID("player", HEAD_SLOT) == tonumber(itemID) then
+        line = "/use " .. tostring(HEAD_SLOT)
+    end
     -- Guard against the same item being queued twice in one macro (e.g. misconfigured across categories)
     for _, existing in ipairs(macroLines) do
         if existing == line then

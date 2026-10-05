@@ -113,6 +113,13 @@ local function CreateSubButtonSlot(parentCanvas, slotIndex)
 
     local function UpdateCountDisplay()
         if slot.itemID and slot.itemID > 0 then
+            if Fishing:IsReusableBuffItem(slot.itemID) then
+                box.countText:SetText("")
+                local available = ns.Utils.IsItemAvailableForEquip(slot.itemID)
+                local brightness = available and 1 or 0.45
+                box.icon:SetVertexColor(brightness, brightness, brightness, 1)
+                return
+            end
             local count = C_Item.GetItemCount(slot.itemID, false, false, false, false) or 0
             count = math.max(0, count)
             box.countText:SetText(tostring(count))
@@ -144,7 +151,10 @@ local function CreateSubButtonSlot(parentCanvas, slotIndex)
                 -- Lures require structured sequencing; setting it to a secure macro ensures
                 -- it uses the item and applies it onto the fishing equipment weapon slot securely.
                 box:SetAttribute("type2", "macro")
-                if bag and slotLoc then
+                if Fishing:IsReusableBuffItem(slot.itemID)
+                    and GetInventoryItemID("player", 1) == slot.itemID then
+                    box:SetAttribute("macrotext2", "/use 1\n/use 28")
+                elseif bag and slotLoc then
                     box:SetAttribute("macrotext2", string.format("/use %d %d\n/use 28", bag, slotLoc))
                 else
                     box:SetAttribute("macrotext2", string.format("/use item:%d\n/use 28", slot.itemID))
@@ -198,9 +208,12 @@ local function CreateSubButtonSlot(parentCanvas, slotIndex)
 
     local eventFrame = CreateFrame("Frame", nil, frame)
     eventFrame:RegisterEvent("BAG_UPDATE_DELAYED")
+    eventFrame:RegisterEvent("PLAYER_EQUIPMENT_CHANGED")
     eventFrame:SetScript("OnEvent", function(self, event, ...)
         if event == "BAG_UPDATE_DELAYED" then
             UpdateCountDisplay()
+        elseif event == "PLAYER_EQUIPMENT_CHANGED" and not InCombatLockdown() then
+            SyncVisuals()
         end
     end)
 
@@ -319,7 +332,16 @@ local function CreateSubButtonSlot(parentCanvas, slotIndex)
         -- FIX: Query the game database directly using your options table callback logic
         -- to construct menu values on-the-fly, completely bypassing cross-file caching issues
         if type(parentCanvas.arg.dropdownMenuData) == "function" then
-            local menuData = parentCanvas.arg.dropdownMenuData()
+            local menuData = {}
+            for itemID, label in pairs(parentCanvas.arg.dropdownMenuData()) do
+                menuData[itemID] = label
+            end
+            local headItemID = GetInventoryItemID("player", 1)
+            if catKey == "lure" and headItemID and Fishing:IsReusableBuffItem(headItemID) then
+                if menuData[headItemID] == nil and menuData[tostring(headItemID)] == nil then
+                    menuData[tostring(headItemID)] = ns.Utils.ItemName(headItemID)
+                end
+            end
             local sortedKeys = {}
             for k in pairs(menuData) do table.insert(sortedKeys, k) end
             table.sort(sortedKeys, function(a, b)

@@ -124,5 +124,8 @@ ns.moduleConstants["Fishing"] = {
         [6804]   = { spellID = 95244,   duration = 900,  castTime = 1500,  category = "lure", }, -- Heat-Treated Spinning Lure
         [124674] = { spellID = 185587,  duration = 600,  castTime = 1500,  category = "lure", }, -- Day-Old Darkmoon Doughnut
         [118391] = { spellID = 174471,  duration = 600,  castTime = 1500,  category = "lure", }, -- Worm Supreme
+        [33820]  = { spellID = 43699,   duration = 600,  castTime = 2000,  category = "lure", reusable = true, }, -- Weather-Beaten Fishing Hat
+        [88710]  = { spellID = 43699,   duration = 600,  castTime = 2000,  category = "lure", reusable = true, }, -- Nat's Hat
+        [117405] = { spellID = 128587,  duration = 600,  castTime = 2000,  category = "lure", reusable = true, }, -- Nat's Drinking Hat
     },
 }

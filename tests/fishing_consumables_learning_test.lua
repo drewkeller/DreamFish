@@ -1,5 +1,6 @@
 local now = 100
 local bagCount = 1
+local bagAvailable = true
 local alertCount = 0
 local soundAlertCount = 0
 local infoMessages = {}
@@ -67,6 +68,12 @@ local namespace = {
     },
     Fishing = Fishing,
     Utils = {
+        FindItemInBags = function()
+            return bagAvailable and true or nil
+        end,
+        IsCooldownReady = function()
+            return true
+        end,
         CountItemInBags = function()
             return bagCount
         end,
@@ -89,7 +96,11 @@ local namespace = {
             return true
         end,
     },
-    precast = {},
+    precast = {
+        GetEquippedProfessionItemID = function()
+            return 244790
+        end,
+    },
 }
 namespace.Fishing.const = { knownBuffItems = {} }
 
@@ -228,17 +239,52 @@ namespace.Fishing.const.knownBuffItems = {
 }
 namespace.Fishing.const.maxFishingCastSeconds = 30
 namespace.Fishing.const.buffPreRefreshSafetySeconds = 5
+namespace.moduleConstants = {}
+assert(loadfile("fishing/_constants.lua"))("DreamFish", namespace)
+C_TooltipInfo = {
+    GetInventoryItem = function()
+        return { lines = { { leftText = "Fishing Pole" } } }
+    end,
+}
+for _, hatID in ipairs({ 33820, 88710, 117405 }) do
+    namespace.Fishing.const.knownBuffItems[hatID] = namespace.moduleConstants.Fishing.knownBuffItems[hatID]
+    Fishing.db.char.buffs = { lure = { { itemID = hatID, enabled = true } } }
+    Fishing.state.pendingBuffUse = nil
+    Fishing.state.pendingBuffObservation = nil
+    Fishing.state.buffItemLastUseAt = {}
+    Fishing.state.buffDepletionAlerted = nil
+    Fishing.state.pendingBuffDepletionChecks = { [hatID] = now + 2 }
+    Fishing.state.lureAppliedUntil = nil
+    bagAvailable = false
+    bagCount = 0
+    local alertsBeforeHat = alertCount
+    Fishing:CheckEnabledBuffItemsDepleted()
+    assert(alertCount == alertsBeforeHat, "equipped hats must not trigger depletion alerts")
+    assert(Fishing.state.pendingBuffDepletionChecks[hatID] == nil,
+        "stale depletion checks for reusable hats must be removed")
+    local hatDecision = namespace.precast.GetConsumableUseDecision(Fishing, false)
+    assert(hatDecision.shouldApply and hatDecision.items[1].itemID == hatID,
+        "a reusable hat equipped outside bags should be queued")
+    assert(Fishing.state.pendingBuffUse.uses[1].countBefore == nil,
+        "reusable hats must not track inventory depletion")
+    Fishing:ConfirmPendingBuffUse()
+    assert(Fishing.state.pendingBuffUse, "hats must wait for spell confirmation, not inventory depletion")
+    Fishing:ConfirmPendingBuffUse(namespace.Fishing.const.knownBuffItems[hatID].spellID)
+    assert(Fishing.state.pendingBuffUse == nil and Fishing.state.lureAppliedUntil == now + 600,
+        "hat spell confirmation should start lure duration tracking")
+    assert(alertCount == alertsBeforeHat, "confirmed hat use must not alert depletion")
+end
+Fishing.db.char.buffs = { other_consumable = { { itemID = 274588, enabled = true } } }
+Fishing.state.lureAppliedUntil = nil
+Fishing.state.pendingBuffUse = nil
+Fishing.state.buffItemLastUseAt = {}
+bagCount = 1
+bagAvailable = true
 local rootCrabTiming = Fishing:GetBuffTimingText(238367)
 assert(not rootCrabTiming:find("learning", 1, true),
     "Root Crab has built-in spell metadata and must not be marked as learning")
 assert(rootCrabTiming:find("item=30", 1, true),
     "Root Crab timing should use its built-in duration")
-namespace.Utils.IsCooldownReady = function()
-    return true
-end
-namespace.Utils.FindItemInBags = function()
-    return true
-end
 Fishing.state.pendingBuffUse = nil
 Fishing.state.pendingBuffObservation = nil
 Fishing.state.buffItemLastUseAt = {}
@@ -403,9 +449,6 @@ namespace.Fishing.const.knownBuffItems[262651] = {
 namespace.Fishing.const.knownBuffItems[262650] = {
     spellID = 1285000, duration = 600, castTime = 1500, category = "lure",
 }
-namespace.precast.GetEquippedProfessionItemID = function()
-    return 244790
-end
 local poleTooltipHasLure = false
 C_TooltipInfo = {
     GetInventoryItem = function()
