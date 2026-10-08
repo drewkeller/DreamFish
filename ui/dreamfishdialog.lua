@@ -335,7 +335,7 @@ local options = {
                     type = "header",
                     name = "-----",
                 }),
-                raftSection = AutoOrder({
+                raftBobberAndToolsSection = AutoOrder({
                     type = "group",
                     name = "  ",
                     desc = "Settings for auto-casting a raft when fishing.",
@@ -359,14 +359,6 @@ local options = {
                             end,
                             width = "full",
                         }),
-                    },
-                }),
-                bobberSection = AutoOrder({
-                    type = "group",
-                    name = "  ",
-                    desc = "Settings for auto-casting a bobber when fishing.",
-                    inline = true,
-                    args = {
                         selectedBobberToy = AutoOrder({
                             type = "select",
                             name = "Bobber",
@@ -394,6 +386,30 @@ local options = {
                             end,
                             set = function(_, value)
                                 Fishing.db.profile.useOversizedBobber = value
+                            end,
+                            width = "full",
+                        }),
+                        useTrawlerTotem = AutoOrder({
+                            type = "toggle",
+                            name = "Use Trawler Totem",
+                            desc = "Automatically use the Trawler Totem when fishing.",
+                            get = function()
+                                return Fishing.db.profile.useTrawlerTotem
+                            end,
+                            set = function(_, value)
+                                Fishing.db.profile.useTrawlerTotem = value
+                            end,
+                            width = "full",
+                        }),
+                        useTuskarrSpear = AutoOrder({
+                            type = "toggle",
+                            name = "Use Sharpened Tuskarr Spear",
+                            desc = "Automatically use the Sharpened Tuskarr Spear when fishing.",
+                            get = function()
+                                return Fishing.db.profile.useTuskarrSpear
+                            end,
+                            set = function(_, value)
+                                Fishing.db.profile.useTuskarrSpear = value
                             end,
                             width = "full",
                         }),

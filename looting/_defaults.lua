@@ -8,7 +8,7 @@ ns.moduleDefaults["LootTracker"] = {
         debug = false,
         -- loot mode situations
         lootModeWhenFishing = {
-            lootMode = "none",
+            lootMode = "managed",
             ignoreJunk = false,
             stayOpenForJunk = true,
         },

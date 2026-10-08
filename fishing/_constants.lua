@@ -21,6 +21,7 @@ ns.moduleConstants["Fishing"] = {
         { id = 85500,  name = "Angler's Fishing Raft" },
         { id = 198428, name = "Tuskarr Dinghy" },
         { id = 235801, name = "Personal Fishing Barge" },
+        { id = 107950, name = "Bipsi's Bobbing Berg" }, -- Mages only
     },
     underlightAnglerItemID = 133755,
     oversizedBobberItemID = 202207,
@@ -33,6 +34,8 @@ ns.moduleConstants["Fishing"] = {
     -- These are items that provide fishing-related buffs (auras) that we can track
     -- Exception: "lure" category items are not auras and can't be tracked directly
     knownBuffItems = {
+        [152556] = { spellID = 128357,  duration = 600, castTime = 0, category = "toy", },  -- Trawler Totem
+        [88535]  = { spellID = 125359,  duration = 120, castTime = 0, category = "weapon", }, -- Sharpened Tuskarr Spear
         -- Boobber toys
         [202207] = { spellID = 397827,  duration = 3600, castTime = 1500,  category = "bobber", }, -- Reusable Oversized Bobber (Bobber toy aura)
         [180993] = { spellID = 335484,  duration = 3600, castTime = 1500,  category = "bobber", }, -- Bat Visage (Bobber toy aura)

@@ -29,6 +29,39 @@ local function ShowRaftShapeshiftError()
 end
 
 local DUE_BUFF_CATEGORY_ORDER = { "fooddrink", "lure", "bait", "bobber", "other_consumable" }
+local BUFF_ITEMS = {
+    { itemID = 152556, option = "useTrawlerTotem" },
+    { itemID = 88535, option = "useTuskarrSpear", equipmentSlot = 16 },
+}
+
+local function ShouldApplyBuffItem(item)
+    if not profileDB[item.option] then
+        return false
+    end
+    if item.equipmentSlot then
+        if GetInventoryItemID("player", item.equipmentSlot) ~= item.itemID then
+            return false
+        end
+    elseif not ns.Utils.IsToyOwned(item.itemID) then
+        return false
+    end
+    if not ns.Utils.IsCooldownReady(item.itemID)
+        or IsMounted()
+        or ns.Utils.IsSwimmingOrSubmerged() == true then
+        return false
+    end
+
+    local known = ns.Fishing.const.knownBuffItems[item.itemID]
+    local aura = ns.GetAuraBySpellID(known.spellID)
+    if not aura then
+        return true
+    end
+    if not aura.expirationTime or aura.expirationTime <= 0 then
+        return false
+    end
+    local castLead = ns.Fishing.const.maxFishingCastSeconds + ns.Fishing.const.buffPreRefreshSafetySeconds
+    return aura.expirationTime - GetTime() <= castLead
+end
 
 function Fishing:ResolveBobberApplyAction()
     local selectedToyID = profileDB.bobberSelector and tonumber(Addon.addon.bobberSelector:GetText()) or nil
@@ -73,6 +106,9 @@ local function FinalizeSecureFishingAction(fishingFrame, macroLines, raftExclusi
     local armedItemIDs = {}
     for _, line in ipairs(macroLines) do
         local itemID = line:match("^/use item:(%d+)$")
+        if line == "/use 16" then
+            itemID = GetInventoryItemID("player", 16)
+        end
         if itemID then
             table.insert(armedItemIDs, tonumber(itemID))
         end
@@ -223,6 +259,18 @@ local function ConfigureFishingClickAction(self, options)
             end
             local configured = FinalizeSecureFishingAction(Fishing.clickFrame, macroLines, raftExclusive, hasItemUseAction)
             return configured
+        end
+
+        for _, item in ipairs(BUFF_ITEMS) do
+            if ShouldApplyBuffItem(item) then
+                if item.equipmentSlot then
+                    table.insert(macroLines, "/use " .. tostring(item.equipmentSlot))
+                else
+                    InsertUseItemMacroLine(macroLines, item.itemID)
+                end
+                hasItemUseAction = true
+                Trace("Armed buff item: " .. ns.Utils.GetDebugItemLabel(item.itemID))
+            end
         end
 
         if options.skipConsumableDecision then
