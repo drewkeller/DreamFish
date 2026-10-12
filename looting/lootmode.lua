@@ -1,6 +1,7 @@
 local addonName, ns = ...
 local Addon = ns.Addon
 local LootTracker = ns.LootTracker
+local MessageSink = ns.MessageSink:new(LootTracker)
 
 local charDB
 local profileDB
@@ -98,8 +99,8 @@ LootTracker:RegisterOnModuleRegisterEvents(function(self)
     self:RegisterEvent("LOOT_READY", "LOOT_READY")
     self:RegisterEvent("LOOT_CLOSED", "LOOT_CLOSED")
     self:RegisterEvent("LOOT_SLOT_CLEARED", "LOOT_SLOT_CLEARED")
-    Addon:RegisterMessage("FISHING_SESSION_STARTED", function(...) self:OnFishingSessionStarted(...) end)
-    Addon:RegisterMessage("FISHING_SESSION_ENDED",   function(...) self:OnFishingSessionEnded(...) end)
+    MessageSink:RegisterMessage("FISHING_SESSION_STARTED", function(...) self:OnFishingSessionStarted(...) end)
+    MessageSink:RegisterMessage("FISHING_SESSION_ENDED",   function(...) self:OnFishingSessionEnded(...) end)
 end)
 
 LootTracker:RegisterOnModuleUnregisterEvents(function(self)
@@ -107,8 +108,8 @@ LootTracker:RegisterOnModuleUnregisterEvents(function(self)
     self:UnregisterEvent("LOOT_READY")
     self:UnregisterEvent("LOOT_CLOSED")
     self:UnregisterEvent("LOOT_SLOT_CLEARED")
-    Addon:UnregisterMessage("FISHING_SESSION_STARTED")
-    Addon:UnregisterMessage("FISHING_SESSION_ENDED")
+    MessageSink:UnregisterMessage("FISHING_SESSION_STARTED")
+    MessageSink:UnregisterMessage("FISHING_SESSION_ENDED")
 end)
 
 LootTracker:RegisterOnModuleDisable(function(self)
@@ -151,6 +152,7 @@ end
 
 function LootTracker:OnFishingSessionStarted()
     if not state.isFishing then
+        Trace("Fishing session started, isFishing=true")
         local previousSituation = GetLootSituation()
         state.isFishing = true
         local currentSituation = GetLootSituation()

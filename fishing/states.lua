@@ -19,6 +19,8 @@ for name, value in pairs(FISHING_STATES) do
     FISHING_STATE_NAMES[value] = name
 end
 
+local sessionStarted = false
+
 local FISHING_STATE_FLAGS = {
     [FISHING_STATES.IDLE]                    = { isFishing = false, isCastInProgress = false, isBobberActive = false, isCastActive = false, lootActive = false },
     [FISHING_STATES.PRECASTING]              = { isFishing = true,  isCastInProgress = true,  isBobberActive = false, isCastActive = false, lootActive = false },
@@ -83,9 +85,10 @@ function Fishing:SetFishingState(state, reason)
         local isCastActive = FISHING_STATE_FLAGS[state].isCastActive
         if not wasCastActive and isCastActive then
             -- Only start session if cast is successful, prevent misclick from fading out UI, etc.
-            if not wasFishing and isFishing then
+            if not sessionStarted then
                 Trace(state, "Fishing session started: " .. (reason or "unknown reason"))
                 self:SendMessage("FISHING_SESSION_STARTED", oldState, state)
+                sessionStarted = true
             end
             Trace(state, "Fishing cast started: " .. (reason or "unknown reason"))
             self:SendMessage("FISHING_CAST_STARTED", oldState, state)
@@ -97,6 +100,7 @@ function Fishing:SetFishingState(state, reason)
 
         if wasFishing and not isFishing then
             Trace(state, "Fishing session ended: " .. (reason or "unknown reason"))
+            sessionStarted = false
             self:SendMessage("FISHING_SESSION_ENDED", oldState, state)
         end
     end

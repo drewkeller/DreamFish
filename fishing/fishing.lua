@@ -813,7 +813,7 @@ function Fishing:OnSpellcastChannelEnded(event, unit, ...)
             .. " state=" .. self:CurrentStateName()
             .. " channelDuration=" .. (startedAt and string.format("%.2fs", GetTime() - startedAt) or "n/a"))
 
-        -- Currently, looting happens in CASTING state and if we cancel fishing here, we don't get the loot.
+        -- Currently, looting happens in WAITING_FOR_BITE state and if we cancel fishing here, we don't get the loot.
         if (self.state.current == ns.Fishing.states.WAITING_FOR_BITE) then
             -- A right-click strike stops the channel before LOOT_READY arrives, so give the loot window a chance.
             local castAttempt = self.state.castAttempt
