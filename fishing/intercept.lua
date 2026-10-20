@@ -124,8 +124,17 @@ end
 function Fishing:HandleMouseDown(_, button)
     if button ~= "RightButton" then return end
     if not self.clickFrame or InCombatLockdown() then return end
-    local isAutoLoot = IsModifiedClick("AUTOLOOTTOGGLE")
-    if not isAutoLoot and not self:IsSoloPhysicalRightClick() then
+
+    local foci = GetMouseFoci()
+    local isOverUIFrame = foci and foci[1] and foci[1] ~= WorldFrame
+    local isOverUnit = UnitExists("mouseover")
+    local isDefaultCursor = GetCursorInfo() or true -- True if the cursor is in its default state (not over an interactive object)
+    if isOverUnit or isOverUIFrame or not isDefaultCursor then
+        return
+    end
+
+    local isAutoLoot = IsModifiedClick("AUTOLOOTTOGGLE") and self:IsFishingState(ns.Fishing.states.WAITING_FOR_BITE)
+    if isAutoLoot or not self:IsSoloPhysicalRightClick() then
         lastClickTime = 0
         self:Trace("mouse", "Ignoring right click: not solo")
         return
@@ -202,8 +211,13 @@ function Fishing:HandleMouseDown(_, button)
             return
         end
 
-        local isDoubleClick = self:IsDoubleClick()
-        if isDoubleClick and self.db.profile.castByDoubleRightClick then
+        if self:IsDoubleClick() and self.db.profile.castByDoubleRightClick then
+            if GameTooltip:IsOwned(WorldFrame) then
+                local tooltipText = GameTooltipTextLeft1:GetText()
+                if tooltipText and tooltipText ~= "" then
+                    self:Trace("mouse", "Mouse is over: " .. tooltipText)
+                end
+            end
             self:Trace("mouse", "Double right click detected")
             self:OnCastStarted("Double right click")
         else
