@@ -258,12 +258,14 @@ function Fishing:HookPreClickWithHandler()
                 -- leave the frame empty so the release casts nothing and the confirmation guard
                 -- cancels with "fishing cast did not start". Modified/mixed PRESSES (down=true)
                 -- must still clear the captured action so we don't hijack a modified click.
-                if not down and button == "RightButton" and Fishing:IsFishingState(ns.Fishing.states.PRECASTING) then
+                if not down and button == "RightButton"
+                    and (self.state.initialFishingCast or Fishing:IsFishingState(ns.Fishing.states.PRECASTING)) then
                     return
                 end
                 self.clickFrame:SetAttribute("type", nil)
                 self.clickFrame:SetAttribute("spell", nil)
                 self.clickFrame:SetAttribute("macrotext", nil)
+                self.state.initialFishingCast = nil
                 self:ReleaseClickCapture()
                 return
             end
@@ -307,6 +309,13 @@ function Fishing:HookPostClickWithHandler()
     if not self:IsHooked(self.clickFrame, "PostClick") then
         self.clickFrame:SetScript("PostClick", function(frame, button, down)
             if InCombatLockdown() or button ~= "RightButton" or down == true then
+                return
+            end
+
+            if self.state.initialFishingCast then
+                self:AwaitFishingCastStart()
+                self:ReleaseClickCapture()
+                self:Trace("mouse", "Trial fishing cast released; mouse capture cleared; waiting for spellcast confirmation")
                 return
             end
 
@@ -443,6 +452,10 @@ function Fishing:CaptureClickFrameForRelease()
 end
 
 function Fishing:HideClickFrame()
+    if self.state.initialFishingCast then
+        hideTimerHandle = nil
+        return
+    end
     if not InCombatLockdown() then
         if suppressCapturedClick then
             self.clickFrame:SetPropagateMouseClicks(true)
@@ -481,6 +494,7 @@ function Fishing:ReleaseClickCapture()
 end
 
 function Fishing:RemoveClickFrame()
+    self.state.initialFishingCast = nil
     self:Unhook(WorldFrame, "OnMouseDown")
 
     if not self.clickFrame then return end

@@ -123,6 +123,9 @@ function Fishing:OnModuleDisable()
 end
 
 function Fishing:UI_ERROR_MESSAGE(event, messageType, message)
+    if self.state.initialFishingCast then
+        self.state.initialFishingCast.errorMessage = message
+    end
     if ns.Utils.Log then
         ns.Utils.Log(string.format("[UI_ERROR_MESSAGE] [%s] %s", tostring(messageType), tostring(message)))
     end
@@ -237,7 +240,7 @@ function Fishing:SetKeybindings(primaryKey, secondaryKey)
 end
 
 function Fishing:PrepareFishingClickAction(options)
-    if not self.clickFrame or InCombatLockdown() then
+    if not self.clickFrame or InCombatLockdown() or self.state.initialFishingCast then
         return
     end
     options = type(options) == "table" and options or {}
@@ -525,6 +528,7 @@ end
 
 -- End the fishing session normally, after linger period
 function Fishing:EndFishingSession(reason)
+    self.state.initialFishingCast = nil
     self.state.fishingSessionGeneration = (self.state.fishingSessionGeneration or 0) + 1
     self.state.suppressPendingBuffFailure = true
     self:CancelLingerTimer()
@@ -776,7 +780,20 @@ function Fishing:OnSpellcastChannelStarted(event, unit, ...)
         return
     end
 
-    self.state.fishingChannelStartedAt = GetTime()
+    local initialCast = self.state.initialFishingCast
+    if initialCast then
+        initialCast.spellSucceeded = true
+        initialCast.startedAt = GetTime()
+        self:AwaitFishingCastStart()
+        return
+    end
+
+    self:ConfirmFishingCast(GetTime())
+end
+
+function Fishing:ConfirmFishingCast(startedAt)
+    self.state.initialFishingCast = nil
+    self.state.fishingChannelStartedAt = startedAt
     self.state.castStartConfirmationAttempt = nil
     self:SetFishingState(ns.Fishing.states.CASTING, "spellcast")
     self:StartMouseButtonWatch()
@@ -835,6 +852,33 @@ function Fishing:OnSpellcastChannelEnded(event, unit, ...)
 end
 
 function Fishing:AwaitFishingCastStart()
+    local initialCast = self.state.initialFishingCast
+    if initialCast then
+        if initialCast.awaitingConfirmation then return end
+        initialCast.awaitingConfirmation = true
+        self:ScheduleTimer(function()
+            if self.state.initialFishingCast ~= initialCast then return end
+            local channelName, _, _, _, _, _, _, channelSpellID = UnitChannelInfo("player")
+            local fishingSpellName = C_Spell.GetSpellName(ns.Fishing.const.fishingSpellID)
+            local isFishingChannel = channelSpellID == ns.Fishing.const.fishingSpellID
+                or (channelName ~= nil and channelName == fishingSpellName)
+            self:Trace("mouse", string.format("Trial channel check: name=%s spellID=%s expectedSpellID=%s succeeded=%s error=%s",
+                tostring(channelName), tostring(channelSpellID), tostring(ns.Fishing.const.fishingSpellID),
+                tostring(initialCast.spellSucceeded), tostring(initialCast.errorMessage)))
+            if initialCast.spellSucceeded and not initialCast.errorMessage
+                and isFishingChannel then
+                self:Trace("mouse", "Trial fishing cast confirmed: fishing channel active")
+                self:ConfirmFishingCast(initialCast.startedAt)
+                return
+            end
+            self.state.initialFishingCast = nil
+            self:ReleaseClickCapture()
+            self:Trace("mouse", "Trial fishing cast rejected: "
+                .. tostring(initialCast.errorMessage or "no active fishing channel"))
+        end, 0.5)
+        return
+    end
+
     local castAttempt = self.state.castAttempt
     if self.state.castStartConfirmationAttempt == castAttempt then
         return
@@ -862,6 +906,20 @@ function Fishing:AwaitFishingCastStart()
 end
 
 function Fishing:OnCastStarted(reason)
+    self.state.initialFishingCast = nil
+    if reason == "Double right click" and not self:IsInFishingSession()
+        and not (IsSwimming() and not IsSubmerged()) then
+        self.state.initialFishingCast = {}
+        self.clickFrame:SetAttribute("type", "spell")
+        self.clickFrame:SetAttribute("spell", "Fishing")
+        self.clickFrame:SetAttribute("macrotext", nil)
+        self.clickFrame:SetAttribute("dreamfish_precast_action", nil)
+        SetOverrideBindingClick(self.clickFrame, true, "BUTTON2", self.clickFrame:GetName(), "RightButton")
+        self.clickFrame:Show()
+        self:Trace("mouse", "Trial fishing cast armed; waiting for right-button release")
+        return
+    end
+
     self:SetFishingState(ns.Fishing.states.PRECASTING, reason)
     self.state.precastItemSpellStarted = {}
     if type(self.StartPrecastConsumableSnapshot) == "function" then
