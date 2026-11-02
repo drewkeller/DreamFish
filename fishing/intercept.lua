@@ -126,10 +126,27 @@ function Fishing:HandleMouseDown(_, button)
     if not self.clickFrame or InCombatLockdown() then return end
 
     local foci = GetMouseFoci()
-    local isOverUIFrame = foci and foci[1] and foci[1] ~= WorldFrame
+    local focus = foci and foci[1]
+    local isOverUIFrame = focus and focus ~= WorldFrame and focus ~= UIParent
+        and focus ~= self.clickFrame
+        and focus:IsVisible() and focus:GetEffectiveAlpha() > 0
+        and focus:IsMouseClickEnabled()
     local isOverUnit = UnitExists("mouseover")
     local isDefaultCursor = GetCursorInfo() or true -- True if the cursor is in its default state (not over an interactive object)
-    if isOverUnit or isOverUIFrame or not isDefaultCursor then
+    if isOverUnit then
+        self:Trace("mouse", "Ignoring right click: over unit")
+        return
+    end
+    if isOverUIFrame then
+        local parent = focus:GetParent()
+        local parentName = parent and (parent:GetName() or tostring(parent)) or "none"
+        self:Trace("mouse", string.format("Ignoring right click: over UI frame %s (effectiveAlpha=%s, clickEnabled=%s, parent=%s)",
+            focus:GetName() or tostring(focus), tostring(focus:GetEffectiveAlpha()),
+            tostring(focus:IsMouseClickEnabled()), parentName))
+        return
+    end
+    if not isDefaultCursor then
+        self:Trace("mouse", "Ignoring right click: non-default cursor")
         return
     end
 

@@ -3,6 +3,7 @@ local preClickCallback
 local clickCallback
 local postClickCallback
 local messages = {}
+local traceMessages = {}
 local bindingsCleared = false
 local clickEnabled = true
 local motionEnabled = true
@@ -140,7 +141,8 @@ end
 function Fishing:RegisterTraceSource()
 end
 
-function Fishing:Trace()
+function Fishing:Trace(source, message)
+    table.insert(traceMessages, message)
 end
 
 function Fishing:ArmRightClickStrike()
@@ -196,6 +198,23 @@ end
 
 UIParent = {}
 WorldFrame = {}
+local mouseFoci = { WorldFrame }
+
+function GetMouseFoci()
+    return mouseFoci
+end
+
+function UnitExists()
+    return false
+end
+
+function GetCursorInfo()
+    return nil
+end
+
+GameTooltip = {
+    IsOwned = function() return false end,
+}
 
 function CreateFrame(frameType)
     assert(frameType == "Frame")
@@ -475,6 +494,57 @@ currentTime = 14.3
 mouseDownCallback(WorldFrame, "RightButton")
 assert(castStartedCount == castCountBeforeDoubleClick + 1,
     "two right clicks 300 ms apart should start a cast")
+Fishing:SetFishingState(ns.Fishing.states.IDLE)
+
+profile.castBySingleRightClickWhenFishing = true
+local focusCases = {
+    { name = "world", focus = WorldFrame, shouldCast = true },
+    { name = "UI root", focus = UIParent, shouldCast = true },
+    { name = "fishing capture frame", focus = Fishing.clickFrame, shouldCast = true },
+    { name = "no focus", shouldCast = true },
+    { name = "hidden frame", visible = false, alpha = 1, shouldCast = true },
+    { name = "transparent frame", visible = true, alpha = 0, shouldCast = true },
+    { name = "transparent parent", visible = true, alpha = 1, effectiveAlpha = 0, shouldCast = true },
+    { name = "motion-only frame", visible = true, alpha = 1, clickEnabled = false, shouldCast = true },
+    { name = "visible frame", visible = true, alpha = 1, shouldCast = false },
+    { name = "unnamed frame", unnamed = true, visible = true, alpha = 1, shouldCast = false },
+    { name = "partially transparent frame", visible = true, alpha = 0.5, shouldCast = false },
+}
+for _, case in ipairs(focusCases) do
+    local focus = case.focus
+    if case.visible ~= nil then
+        focus = {
+            IsVisible = function() return case.visible end,
+            GetAlpha = function() return case.alpha end,
+            GetEffectiveAlpha = function() return case.effectiveAlpha or case.alpha end,
+            GetName = function()
+                if not case.unnamed then return case.name end
+            end,
+            IsMouseClickEnabled = function() return case.clickEnabled ~= false end,
+            GetParent = function()
+                return { GetName = function() return "TestParent" end }
+            end,
+        }
+    end
+    mouseFoci = { focus }
+    Fishing:SetFishingState(ns.Fishing.states.PRECASTING)
+    currentTime = currentTime + 1
+    local castsBeforeClick = castStartedCount
+    mouseDownCallback(WorldFrame, "RightButton")
+    assert(castStartedCount == castsBeforeClick + (case.shouldCast and 1 or 0),
+        "unexpected fishing click handling over " .. case.name)
+    if not case.shouldCast then
+        local expectedName = case.unnamed and tostring(focus) or case.name
+        assert(traceMessages[#traceMessages]:find(expectedName, 1, true),
+            "blocked click trace must identify the focused frame")
+        assert(traceMessages[#traceMessages]:find("effectiveAlpha=", 1, true),
+            "blocked click trace must include effective alpha")
+        assert(traceMessages[#traceMessages]:find("parent=TestParent", 1, true),
+            "blocked click trace must identify the parent frame")
+    end
+end
+mouseFoci = { WorldFrame }
+profile.castBySingleRightClickWhenFishing = false
 Fishing:SetFishingState(ns.Fishing.states.IDLE)
 
 bindingsCleared = false
