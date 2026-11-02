@@ -34,7 +34,7 @@ ns.moduleConstants["Fishing"] = {
     -- These are items that provide fishing-related buffs (auras) that we can track
     -- Exception: "lure" category items are not auras and can't be tracked directly
     knownBuffItems = {
-        [152556] = { spellID = 128357,  duration = 600, castTime = 0, category = "toy", },  -- Trawler Totem
+        [152556] = { spellID = 128357,  duration = 600, castTime = 1, category = "toy", },  -- Trawler Totem: castTime is >0 because the game prevents fishing cast in the same macro
         [88535]  = { spellID = 125359,  duration = 120, castTime = 0, category = "weapon", }, -- Sharpened Tuskarr Spear
         -- Boobber toys
         [202207] = { spellID = 397827,  duration = 3600, castTime = 1500,  category = "bobber", }, -- Reusable Oversized Bobber (Bobber toy aura)

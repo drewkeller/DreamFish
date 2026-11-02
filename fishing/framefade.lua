@@ -53,7 +53,8 @@ Fishing:RegisterOnModuleUnregisterEvents(function(self)
 end)
 
 Fishing:RegisterOnModuleDisable(function(self)
-    self:FadeinUI()
+    state.isFishing = false
+    self:RefreshFade()
 end)
 
 -- Validator for ElvUI frames

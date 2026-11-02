@@ -4,7 +4,7 @@ local Fishing = ns.Fishing
 
 ns.precast = {}
 
-ns.Fishing.ConfigureFishingClickAction = ns.Fishing.ConfigureFishingClickAction or function(self) end
+ns.Fishing.ConfigureFishingClickAction = ns.Fishing.ConfigureFishingClickAction or function(self, options) end
 
 function Fishing:RegisterOnModuleInitialize(func)
     if type(func) == "function" then

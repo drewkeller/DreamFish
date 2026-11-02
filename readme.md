@@ -1,13 +1,13 @@
 # DreamFish
 
-This addon offers quality of life enhancements to the fishing experience.
+This addon offers quality of life enhancements to the fishing experience. With fast looting, reduced clicking and management of tackle, fishing is also smoother and faster.
 
 ## Features
 
 **Casting...**
 
 * Double right click to cast
-* Single right click to cast (when the DreamFish window is open)
+* Single right click to cast (while in fishing session)
 * Hotkey (keybinding)
 
 **Landing...**
@@ -18,22 +18,28 @@ This addon offers quality of life enhancements to the fishing experience.
 
 * Reduce non-fishing sounds while fishing
 * Fade out UI while fishing
+
+**SmartLoot...**
+
 * Native auto-loot while fishing or extra fast managed looting
 * Smart looting: keep junk out of your bags
+* Loot tracker window
 
 **SmartTackle...**
 
 Automatically apply tackle when needed (monitors buff timers and cooldowns).
 * Auto-swap between main fishing pole and Underlight Angler
-* Raft
-* Bobber
+* Raft (can randomize)
+* Bobber (can randomize)
 * Lure
 * Bait
 * Special items for buffs (+skill, perception, etc)
+* Learning mode for new items
 
-**Outfits...**
+**Other stuff...*
 
-I have no plans to implement an outfit manager. Use the game's built-in outfitter.
+* Supports profiles
+* Skin matches your UI (Blizzard, ElvUI)
 
 
 ## Availalbe from
