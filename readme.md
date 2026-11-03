@@ -2,6 +2,10 @@
 
 This addon offers quality of life enhancements to the fishing experience. With fast looting, reduced clicking and management of tackle, fishing is also smoother and faster.
 
+Slash commands
+* `/df` or `/dreamfish` in the chat window to configure
+* `/df tackle` to open tackle box / loot window
+
 ## Features
 
 **Casting...**
@@ -21,7 +25,7 @@ This addon offers quality of life enhancements to the fishing experience. With f
 
 **SmartLoot...**
 
-* Native auto-loot while fishing or extra fast managed looting
+* Native auto-loot while fishing for extra fast managed looting
 * Smart looting: keep junk out of your bags
 * Loot tracker window
 
@@ -36,7 +40,7 @@ Automatically apply tackle when needed (monitors buff timers and cooldowns).
 * Special items for buffs (+skill, perception, etc)
 * Learning mode for new items
 
-**Other stuff...*
+**Other stuff...**
 
 * Supports profiles
 * Skin matches your UI (Blizzard, ElvUI)
