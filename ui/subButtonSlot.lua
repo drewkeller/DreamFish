@@ -146,18 +146,19 @@ local function CreateSubButtonSlot(parentCanvas, slotIndex)
             local bag, slotLoc = ns.Utils.FindItemInBags(slot.itemID)
             local isLureCategory = parentCanvas.arg and parentCanvas.arg.category == "lure"
 
-            -- UPDATE: Secure Application to Slot 28 via dynamic macro attributes
+            -- Secure application to the client's fishing-pole slot via dynamic macro attributes
             if isLureCategory then
                 -- Lures require structured sequencing; setting it to a secure macro ensures
                 -- it uses the item and applies it onto the fishing equipment weapon slot securely.
+                local poleSlot = Fishing.const and Fishing.const.fishingPoleSlot or 28
                 box:SetAttribute("type2", "macro")
                 if Fishing:IsReusableBuffItem(slot.itemID)
                     and GetInventoryItemID("player", 1) == slot.itemID then
-                    box:SetAttribute("macrotext2", "/use 1\n/use 28")
+                    box:SetAttribute("macrotext2", string.format("/use 1\n/use %d", poleSlot))
                 elseif bag and slotLoc then
-                    box:SetAttribute("macrotext2", string.format("/use %d %d\n/use 28", bag, slotLoc))
+                    box:SetAttribute("macrotext2", string.format("/use %d %d\n/use %d", bag, slotLoc, poleSlot))
                 else
-                    box:SetAttribute("macrotext2", string.format("/use item:%d\n/use 28", slot.itemID))
+                    box:SetAttribute("macrotext2", string.format("/use item:%d\n/use %d", slot.itemID, poleSlot))
                 end
             else
                 -- Generic items (Food, Drinks, Buffs) activate natively off standard item targets

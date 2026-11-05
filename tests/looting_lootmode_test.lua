@@ -11,6 +11,7 @@ local registeredEvents = {}
 local unregisteredEvents = {}
 local frameEventHandler
 local messageHandlers = {}
+local messageOwners = {}
 local unregisteredMessages = {}
 local initializeCallback
 local enableCallback
@@ -116,11 +117,14 @@ function Addon:PrintLootMessage(message)
     table.insert(warnings, message)
 end
 
-function Addon:RegisterMessage(message, handler)
+function LootTracker:RegisterMessage(message, handler)
+    assert(self.module == LootTracker, "fishing messages must be registered by the loot-mode MessageSink")
     messageHandlers[message] = handler
+    messageOwners[message] = self
 end
 
-function Addon:UnregisterMessage(message)
+function LootTracker:UnregisterMessage(message)
+    assertEquals(self, messageOwners[message], "messages must be unregistered by their original owner")
     unregisteredMessages[message] = true
 end
 
@@ -207,6 +211,7 @@ namespace.LootTracker.const = {
     },
 }
 
+assert(loadfile("module/messagesink.lua"))("DreamFish", namespace)
 assert(loadfile("looting/lootmode.lua"))("DreamFish", namespace)
 assert(initializeCallback, "loot mode initializer was not registered")
 assert(enableCallback, "loot mode enable callback was not registered")
@@ -224,7 +229,7 @@ assert(registeredEvents.CVAR_UPDATE, "CVAR_UPDATE was not registered")
 
 local function sendFishingMessage(message)
     local handler = assert(messageHandlers[message], "missing message handler for " .. message)
-    handler(LootTracker)
+    handler(messageOwners[message], message)
 end
 
 local function fireLootReady()

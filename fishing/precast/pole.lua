@@ -11,7 +11,9 @@ end)
 
 Fishing:RegisterTraceSource("pole")
 
-local FISHING_POLE_SLOT = 28
+local function GetFishingPoleSlot()
+    return ns.Fishing.const.fishingPoleSlot or 28
+end
 
 local function Trace(msg)
     Fishing:Trace("pole", msg)
@@ -21,7 +23,7 @@ local function GetEquippedProfessionItemID()
     if type(GetInventoryItemID) ~= "function" then
         return nil
     end
-    local ok, rawItemID = pcall(GetInventoryItemID, "player", FISHING_POLE_SLOT)
+    local ok, rawItemID = pcall(GetInventoryItemID, "player", GetFishingPoleSlot())
     if not ok then
         return nil
     end
@@ -132,7 +134,7 @@ local function ApplySelectedFishingPole()
         return
     end
 
-    if(ns.Utils.TryEquipItemToProfessionSlot(itemToEquip, FISHING_POLE_SLOT)) then
+    if(ns.Utils.TryEquipItemToProfessionSlot(itemToEquip, GetFishingPoleSlot())) then
         Trace("Successfully equipped selected pole: " .. ns.Utils.GetDebugItemLabel(itemToEquip))
     else
         Trace("Failed to equip selected pole: " .. ns.Utils.GetDebugItemLabel(itemToEquip))

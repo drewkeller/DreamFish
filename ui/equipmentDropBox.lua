@@ -8,6 +8,10 @@ local WIDGET_WIDTH = 100
 local WIDGET_HEIGHT = 80
 local BOX_SIZE = 48
 
+local function GetDefaultFishingPoleSlot()
+    return ns.Fishing and ns.Fishing.const and ns.Fishing.const.fishingPoleSlot or 28
+end
+
 local function GetEquippedProfessionItemID(slotID)
     if type(GetInventoryItemID) ~= "function" then return nil end
     local ok, rawItemID = pcall(GetInventoryItemID, "player", slotID)
@@ -83,7 +87,7 @@ local function CreateEquipmentDropBox()
         label       = labelString,
         itemID      = nil,
         isChecked   = false,
-        slotID      = 28,
+        slotID      = GetDefaultFishingPoleSlot(),
         canRemoveItem = true,
     }
 
@@ -478,7 +482,7 @@ local function CreateEquipmentDropBox()
 
         self.frame:Hide()
         self.itemID = nil
-        self.slotID = 28
+        self.slotID = GetDefaultFishingPoleSlot()
         self.isChecked = false
         self.currentLabel = nil
         UpdateTargetLocation()
@@ -544,7 +548,7 @@ local function CreateEquipmentDropBox()
         for key, value in pairs(data or {}) do
             user[key] = value
         end
-        self.slotID = data and data.slotID or 28
+        self.slotID = data and data.slotID or GetDefaultFishingPoleSlot()
         self.canRemoveItem = data and data.canRemoveItem ~= false or true
         UpdateTargetLocation()
     end

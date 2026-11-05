@@ -380,7 +380,7 @@ local function IsFishingLureApplied()
     -- Force the game client to refresh its internal server data cache instantly
     local hiddenScanner = EnsureCategoryTooltipFrame and EnsureCategoryTooltipFrame()
     if hiddenScanner and type(hiddenScanner.SetInventoryItem) == "function" then
-        pcall(hiddenScanner.SetInventoryItem, hiddenScanner, "player", 28)
+        pcall(hiddenScanner.SetInventoryItem, hiddenScanner, "player", Fishing.const.fishingPoleSlot or 28)
     end
 
     local function TooltipHasLure(tooltipData)
@@ -409,7 +409,7 @@ local function IsFishingLureApplied()
     end
 
     -- Query the live character journal profession tool slot directly
-    local ok, tooltipData = pcall(C_TooltipInfo.GetInventoryItem, "player", 28)
+    local ok, tooltipData = pcall(C_TooltipInfo.GetInventoryItem, "player", Fishing.const.fishingPoleSlot or 28)
     if ok and tooltipData then
         return TooltipHasLure(tooltipData)
     end

@@ -3,7 +3,9 @@ local Addon = ns.Addon
 local Fishing = ns.Fishing
 local state = ns.Fishing.state
 
-local FISHING_POLE_SLOT = 28
+local function GetFishingPoleSlot()
+    return ns.Fishing.const.fishingPoleSlot or 28
+end
 local AURA_WAIT_DURATION = 3.0 -- SurfaceTension takes approx 2.5s to appear after request to equip Underlight
 local EXIT_DEBOUNCE_DELAY = 5.0 -- Prevent pole swap immediately after fish transformation and jumping out of water
 
@@ -51,7 +53,7 @@ local ExecuteStabilizedGearChanges
 -- CORE ACTIONS PROCESSING PIPELINE
 local function EquipUnderlightAngler(info)
     isProcessingSwap = true
-    ns.Utils.TryEquipItemToProfessionSlot(info.underlightItemID, FISHING_POLE_SLOT)
+    ns.Utils.TryEquipItemToProfessionSlot(info.underlightItemID, GetFishingPoleSlot())
     isProcessingSwap = false
 
     -- Start timer to give the server time to apply the buff and prevent trying to swap again
@@ -110,7 +112,7 @@ ExecuteStabilizedGearChanges = function(reason, targetSwimmingState)
 
     -- STEP 2: ITEM SWAP HANDSHAKE (Triggered via BAG_UPDATE_DELAYED)
     if awaitingPrimaryClearHandshake then
-        if info.isPrimaryEquipped or not GetInventoryItemID("player", FISHING_POLE_SLOT) then
+        if info.isPrimaryEquipped or not GetInventoryItemID("player", GetFishingPoleSlot()) then
             Trace("Action-Pass ["..reason.."]: Primary swap confirmed. Equipping Underlight Angler.")
             awaitingPrimaryClearHandshake = false
             EquipUnderlightAngler(info)
@@ -124,7 +126,7 @@ ExecuteStabilizedGearChanges = function(reason, targetSwimmingState)
         if info.canEquipPrimary then
             Trace("Action-Pass ["..reason.."]: Missing SurfaceTension. Equipping primary pole.")
             isProcessingSwap = true
-            ns.Utils.TryEquipItemToProfessionSlot(info.primaryItemID, FISHING_POLE_SLOT)
+            ns.Utils.TryEquipItemToProfessionSlot(info.primaryItemID, GetFishingPoleSlot())
             isProcessingSwap = false
 
             -- Set handshake flag. BAG_UPDATE_DELAYED will trigger Step 2 when it arrives.
@@ -132,7 +134,7 @@ ExecuteStabilizedGearChanges = function(reason, targetSwimmingState)
         else
             Trace("Action-Pass ["..reason.."]: Missing SurfaceTension. Unequipping Underlight (No fallback).")
             isProcessingSwap = true
-            ns.Utils.TryUnequipProfessionSlot(FISHING_POLE_SLOT)
+            ns.Utils.TryUnequipProfessionSlot(GetFishingPoleSlot())
             isProcessingSwap = false
             awaitingPrimaryClearHandshake = true
         end

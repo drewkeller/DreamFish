@@ -16,6 +16,10 @@ local function IsUnderlightAnglerItemID(itemID)
     return tonumber(itemID) == tonumber(ns.Fishing.const.underlightAnglerItemID)
 end
 
+local function GetFishingPoleSlot()
+    return ns.Fishing.const.fishingPoleSlot or 28
+end
+
 local layoutCounter = 0
 local function AutoOrder(nodeTable)
     layoutCounter = layoutCounter + 1
@@ -196,7 +200,7 @@ local function AutoSelectPrimaryPole()
         return false
     end
 
-    local topPole = GetEquipmentAvailableForSlot(28, IsFishingPoleItemIDAndNotUnderlightAngler)[1]
+    local topPole = GetEquipmentAvailableForSlot(GetFishingPoleSlot(), IsFishingPoleItemIDAndNotUnderlightAngler)[1]
     if not topPole then
         return false
     end
@@ -206,7 +210,7 @@ local function AutoSelectPrimaryPole()
 end
 
 local function GetPoleSelectorOptionsForDropDown()
-    local availablePoles = GetEquipmentAvailableForSlot(28, IsFishingPoleItemIDAndNotUnderlightAngler)
+    local availablePoles = GetEquipmentAvailableForSlot(GetFishingPoleSlot(), IsFishingPoleItemIDAndNotUnderlightAngler)
     local listData = {}
     local hasItems = false
 
@@ -288,7 +292,7 @@ local options = {
                     end,
                     arg = {
                         desc = "The pole used for fishing. Click to select from your available fishing poles.",
-                        slotID = 28,
+                        slotID = GetFishingPoleSlot(),
                         validateItemIDFunc = function(itemID) return IsFishingPoleItemIDAndNotUnderlightAngler(itemID) end,
                         getIsChecked = function() return GetIsChecked("primaryPole") end,
                         setIsChecked = function(value) SetIsChecked("primaryPole", value) end,
@@ -314,7 +318,7 @@ local options = {
                     disabled = function() return IsUnderlightAnglerAvailable() == false end,
                     arg = {
                         desc = "Always shown here if it is available in your bags or equipped.",
-                        slotID = 28,
+                        slotID = GetFishingPoleSlot(),
                         canRemoveItem = false,
                         validateItemIDFunc = function(itemID) return IsUnderlightAnglerItemID(itemID) end,
                         getIsChecked = function()

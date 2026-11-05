@@ -606,4 +606,18 @@ Fishing:ShowPrecastSwimmingGuidance({ allowClimb = true })
 assert(alertMessages[3] == "Jump to board the raft and continue fishing.",
     "player attempts while still swimming should repeat climb guidance")
 
+for _, spellID in ipairs({ 7620, 7731, 7732, 18248 }) do
+    assert(Fishing:IsFishingSpellID(spellID), "Forever Fishing rank must be recognized: " .. spellID)
+end
+assert(namespace.Fishing.const.fishingPoleSlot == 28, "Retail fishing poles must use the profession slot")
+
+function GetBuildInfo()
+    return "1.60.1", "707900", "Nov 3 2026", 16001
+end
+local foreverNamespace = { moduleConstants = {} }
+assert(loadfile("fishing/_constants.lua"))("DreamFish", foreverNamespace)
+assert(foreverNamespace.moduleConstants.Fishing.fishingPoleSlot == 16,
+    "WoW Forever fishing poles must use the main-hand slot")
+GetBuildInfo = nil
+
 print("fishing_module_test: passed")

@@ -16,6 +16,10 @@ local function Trace(msg)
 end
 
 local HEAD_SLOT = 1
+
+local function GetUseFishingPoleMacroLine()
+    return "/use " .. tostring(Fishing.const.fishingPoleSlot or 28)
+end
 local RAFT_SHAPESHIFT_ERROR = "Raft-like items cannot be cast on a shape-shifted target"
 local lastRaftShapeshiftAlertAt
 
@@ -286,7 +290,7 @@ local function ConfigureFishingClickAction(self, options)
                     end
                     hasItemUseAction = true
                     if consumable.category == "lure" then
-                        table.insert(macroLines, "/use 28")
+                        table.insert(macroLines, GetUseFishingPoleMacroLine())
                     end
                 end
             end
@@ -305,7 +309,7 @@ local function ConfigureFishingClickAction(self, options)
                 end
                 hasItemUseAction = true
                 if consumable.category == "lure" then
-                    table.insert(macroLines, "/use 28")
+                    table.insert(macroLines, GetUseFishingPoleMacroLine())
                 end
             end
         else
