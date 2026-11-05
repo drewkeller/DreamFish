@@ -1,6 +1,9 @@
 local addonName, ns = ...
 local Addon = ns.Addon
 
+local interfaceVersion = type(GetBuildInfo) == "function" and tonumber((select(4, GetBuildInfo()))) or 0
+local isForeverClient = interfaceVersion >= 16000 and interfaceVersion < 20000
+
 ns.moduleConstants["Fishing"] = {
     bobberToyItemIDs = {
         { id = 180993, name = "Bat Visage" },
@@ -26,6 +29,17 @@ ns.moduleConstants["Fishing"] = {
     underlightAnglerItemID = 133755,
     oversizedBobberItemID = 202207,
     fishingSpellID = 131474,
+    fishingSpellIDs = {
+        [131474] = true,
+        [131476] = true,
+        -- WoW Forever Fishing ranks
+        [7620] = true,
+        [7731] = true,
+        [7732] = true,
+        [18248] = true,
+    },
+    isForeverClient = isForeverClient,
+    fishingPoleSlot = isForeverClient and 16 or 28,
     surfaceTensionSpellID = 216441,
     maxFishingCastSeconds = 20,
     buffPreRefreshSafetySeconds = 2,

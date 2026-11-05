@@ -759,6 +759,11 @@ function Fishing:RefreshPrecastItemLingerTimer(spellID)
     end
 end
 
+function Fishing:IsFishingSpellID(spellID)
+    local const = ns.Fishing.const
+    return (const.fishingSpellIDs and const.fishingSpellIDs[spellID]) or spellID == const.fishingSpellID
+end
+
 function Fishing:OnSpellcastChannelStarted(event, unit, ...)
     if unit ~= "player" then return end
 
@@ -776,7 +781,7 @@ function Fishing:OnSpellcastChannelStarted(event, unit, ...)
         self:ConfirmPendingBuffUse(spellID)
     end
 
-    if spellID ~= ns.Fishing.const.fishingSpellID then
+    if not self:IsFishingSpellID(spellID) then
         return
     end
 
@@ -817,7 +822,7 @@ function Fishing:OnSpellcastChannelEnded(event, unit, ...)
         return
     end
 
-    local isFishingSpell = spellID == ns.Fishing.const.fishingSpellID or spellID == 131476
+    local isFishingSpell = self:IsFishingSpellID(spellID)
 
     if isFishingSpell then
         if current == ns.Fishing.states.PRECASTING then
@@ -860,10 +865,10 @@ function Fishing:AwaitFishingCastStart()
             if self.state.initialFishingCast ~= initialCast then return end
             local channelName, _, _, _, _, _, _, channelSpellID = UnitChannelInfo("player")
             local fishingSpellName = C_Spell.GetSpellName(ns.Fishing.const.fishingSpellID)
-            local isFishingChannel = channelSpellID == ns.Fishing.const.fishingSpellID
+            local isFishingChannel = self:IsFishingSpellID(channelSpellID)
                 or (channelName ~= nil and channelName == fishingSpellName)
-            self:Trace("mouse", string.format("Trial channel check: name=%s spellID=%s expectedSpellID=%s succeeded=%s error=%s",
-                tostring(channelName), tostring(channelSpellID), tostring(ns.Fishing.const.fishingSpellID),
+            self:Trace("mouse", string.format("Trial channel check: name=%s spellID=%s fishingSpell=%s succeeded=%s error=%s",
+                tostring(channelName), tostring(channelSpellID), tostring(isFishingChannel),
                 tostring(initialCast.spellSucceeded), tostring(initialCast.errorMessage)))
             if initialCast.spellSucceeded and not initialCast.errorMessage
                 and isFishingChannel then
