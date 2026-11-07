@@ -41,7 +41,7 @@ ns.moduleConstants["Fishing"] = {
     isForeverClient = isForeverClient,
     fishingPoleSlot = isForeverClient and 16 or 28,
     surfaceTensionSpellID = 216441,
-    maxFishingCastSeconds = 20,
+    maxFishingCastSeconds = isForeverClient and 30 or 20,
     buffPreRefreshSafetySeconds = 2,
     precastExpirationSeconds = 3,
 

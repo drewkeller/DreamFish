@@ -880,7 +880,7 @@ function Fishing:AwaitFishingCastStart()
             self:ReleaseClickCapture()
             self:Trace("mouse", "Trial fishing cast rejected: "
                 .. tostring(initialCast.errorMessage or "no active fishing channel"))
-        end, 0.5)
+        end, initialCast.equipsPole and 1.0 or 0.5)
         return
     end
 
@@ -912,16 +912,28 @@ end
 
 function Fishing:OnCastStarted(reason)
     self.state.initialFishingCast = nil
+    local trialPoleDecision = reason == "Double right click"
+        and ns.precast.GetSelectedFishingPoleDecision and ns.precast.GetSelectedFishingPoleDecision()
+    local needsPoleSwap = trialPoleDecision and trialPoleDecision.shouldApply and trialPoleDecision.itemID
     if reason == "Double right click" and not self:IsInFishingSession()
         and not (IsSwimming() and not IsSubmerged()) then
-        self.state.initialFishingCast = {}
-        self.clickFrame:SetAttribute("type", "spell")
-        self.clickFrame:SetAttribute("spell", "Fishing")
-        self.clickFrame:SetAttribute("macrotext", nil)
+        self.state.initialFishingCast = { equipsPole = needsPoleSwap and true or false }
+        if needsPoleSwap then
+            -- Equip and cast from the same secure click so the trial cast still gates PRECASTING.
+            self.clickFrame:SetAttribute("type", "macro")
+            self.clickFrame:SetAttribute("spell", nil)
+            self.clickFrame:SetAttribute("macrotext",
+                "/equip item:" .. tostring(trialPoleDecision.itemID) .. "\n/cast Fishing")
+        else
+            self.clickFrame:SetAttribute("type", "spell")
+            self.clickFrame:SetAttribute("spell", "Fishing")
+            self.clickFrame:SetAttribute("macrotext", nil)
+        end
         self.clickFrame:SetAttribute("dreamfish_precast_action", nil)
         SetOverrideBindingClick(self.clickFrame, true, "BUTTON2", self.clickFrame:GetName(), "RightButton")
         self.clickFrame:Show()
-        self:Trace("mouse", "Trial fishing cast armed; waiting for right-button release")
+        self:Trace("mouse", "Trial fishing cast armed; equipsPole=" .. tostring(needsPoleSwap or false)
+            .. "; waiting for right-button release")
         return
     end
 

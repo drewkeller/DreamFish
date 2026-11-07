@@ -618,6 +618,32 @@ local foreverNamespace = { moduleConstants = {} }
 assert(loadfile("fishing/_constants.lua"))("DreamFish", foreverNamespace)
 assert(foreverNamespace.moduleConstants.Fishing.fishingPoleSlot == 16,
     "WoW Forever fishing poles must use the main-hand slot")
+assert(foreverNamespace.moduleConstants.Fishing.maxFishingCastSeconds == 30,
+    "WoW Forever fishing casts last 30 seconds")
+assert(namespace.Fishing.const.maxFishingCastSeconds == 20, "Retail fishing casts last 20 seconds")
 GetBuildInfo = nil
+
+local originalPoleDecision = namespace.precast.GetSelectedFishingPoleDecision
+local originalCItem = C_Item
+local equippedPoleItemID
+namespace.precast.GetSelectedFishingPoleDecision = function()
+    return { itemID = 6256, shouldApply = true }
+end
+C_Item = { EquipItemByName = function(itemID) equippedPoleItemID = itemID end }
+IsSwimming = function() return false end
+IsSubmerged = function() return false end
+Fishing:CancelFishingSession("reset before bagged pole double click")
+Fishing:OnCastStarted("Double right click")
+assert(Fishing.state.initialFishingCast and Fishing.state.initialFishingCast.equipsPole,
+    "double click with a bagged pole must still arm a trial cast")
+assert(Fishing.state.current ~= namespace.Fishing.states.PRECASTING,
+    "double click must not enter PRECASTING before the trial cast is confirmed")
+assert(equippedPoleItemID == nil, "the trial cast must equip the pole from the secure click")
+assert(Fishing.clickFrame:GetAttribute("type") == "macro"
+    and Fishing.clickFrame:GetAttribute("macrotext") == "/equip item:6256\n/cast Fishing",
+    "the trial cast must equip the bagged pole before casting Fishing")
+Fishing.state.initialFishingCast = nil
+namespace.precast.GetSelectedFishingPoleDecision = originalPoleDecision
+C_Item = originalCItem
 
 print("fishing_module_test: passed")

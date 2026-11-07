@@ -652,14 +652,15 @@ function Fishing:ConfirmPendingBuffUse(successSpellID)
             self.state.pendingBuffObservation = {
                 itemID = itemID,
                 before = before,
-                expiresAt = now + 20,
+                expiresAt = now + self.const.maxFishingCastSeconds,
             }
             if type(self.state.buffLearning) == "table"
                 and tonumber(self.state.buffLearning.itemID) == itemID then
                 self.state.pendingBuffObservation.learningCandidate = self.state.buffLearning
                 self.state.buffLearning.phase = "observing"
                 Addon:Alert(ns.SystemColor.GREEN, "Watching for buff...",
-                    "- up to 20s for", ns.Utils.ItemLink(itemID) .. ". You can fish; bobbers, rafts and other buff items are paused.")
+                    "- up to " .. tostring(self.const.maxFishingCastSeconds) .. "s for",
+                    ns.Utils.ItemLink(itemID) .. ". You can fish; bobbers, rafts and other buff items are paused.")
             end
         else
             local wasLearning = type(self.state.buffLearning) == "table"

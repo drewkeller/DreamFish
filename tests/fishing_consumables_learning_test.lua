@@ -339,7 +339,7 @@ Fishing.db.global.buffAuraByItem = {
 }
 Fishing.state.buffItemLastUseAt = {}
 Fishing.state.buffUnknownDurationSuppressed = {}
-Fishing.state.pendingBuffObservation = { itemID = 274588, before = {}, expiresAt = now + 20 }
+Fishing.state.pendingBuffObservation = { itemID = 274588, before = {}, expiresAt = now + Fishing.const.maxFishingCastSeconds }
 Fishing.db.char.buffs.other_consumable = { { itemID = 274588, enabled = true } }
 local learnedFallbackDecision = namespace.precast.GetConsumableUseDecision(Fishing, false)
 assert(learnedFallbackDecision.shouldApply == true,
